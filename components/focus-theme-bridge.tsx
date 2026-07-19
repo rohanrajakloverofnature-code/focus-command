@@ -6,13 +6,14 @@ import { useThemeContext } from "@/lib/theme-provider";
 
 export function FocusThemeBridge() {
   const { state, ready } = useFocusCommand();
-  const { setColorScheme } = useThemeContext();
+  const { setColorScheme, setPalette } = useThemeContext();
 
   useEffect(() => {
     if (!ready) return;
     const selected = state.profile.theme === "system" ? Appearance.getColorScheme() ?? "light" : state.profile.theme;
     setColorScheme(selected);
-  }, [ready, setColorScheme, state.profile.theme]);
+    setPalette(state.profile.palette);
+  }, [ready, setColorScheme, setPalette, state.profile.palette, state.profile.theme]);
 
   return null;
 }

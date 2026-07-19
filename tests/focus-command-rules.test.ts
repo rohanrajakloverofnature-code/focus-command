@@ -104,6 +104,13 @@ describe("Focus Command deterministic gameplay rules", () => {
     expect(getSubjectCapture(state)).toEqual([{ subject: "Physics", completed: 1, total: 3, capture: 1 / 3 }]);
   });
 
+  it("starts with four configurable behavioral lenses and independent reminder categories", () => {
+    const state = stateWithToday();
+    expect(state.profile.emotionalCharts.map((chart) => chart.id)).toEqual(["energy_shift", "focus_friction", "stress_clarity", "motivation_distraction"]);
+    expect(state.profile.emotionalCharts.every((chart) => chart.enabled)).toBe(true);
+    expect(state.profile.notificationRules).toMatchObject({ dailyMissionEnabled: false, revisionEnabled: true, multiplierEnabled: true, achievementEnabled: true });
+  });
+
   it("computes boss completion and seven-day dashboard recognition from actual mission and reflection records", () => {
     const state = stateWithToday();
     const mission = completedMission({ id: "boss_mission", bossId: "boss_1" });

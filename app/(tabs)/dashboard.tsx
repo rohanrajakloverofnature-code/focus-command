@@ -22,7 +22,7 @@ const feelingScore = { drained: 1, restless: 2, steady: 3, charged: 4, great: 5 
 
 export default function DashboardScreen() {
   const colors = useColors();
-  const { state, ready, addLifelinePoint } = useFocusCommand();
+  const { state, ready, addLifelinePoint, removeLifelinePoint } = useFocusCommand();
   const [showLifelineEditor, setShowLifelineEditor] = useState(false);
   const [birthYear, setBirthYear] = useState(String(new Date().getFullYear() - 20));
   const [lifePerformance, setLifePerformance] = useState("5");
@@ -76,7 +76,25 @@ export default function DashboardScreen() {
     })),
   }));
 
+  const recentEmotionReflections = state.reflections.slice(-12);
+  const emotionLabels = (index: number, reflection: typeof recentEmotionReflections[number]) => {
+    const source = reflection.createdAt ? toLocalDate(reflection.createdAt, state.profile.timezone).slice(5) : String(index + 1);
+    return index === 0 || index === recentEmotionReflections.length - 1 || index === Math.floor(recentEmotionReflections.length / 2) ? source : "";
+  };
+  const behavioralCharts = state.profile.emotionalCharts.map((chart) => {
+    const pointsFor = (key: "energyBefore" | "energyAfter" | "focusQuality" | "frictionRating" | "stressLevel" | "clarityLevel" | "motivationLevel" | "distractionLevel") => recentEmotionReflections.map((reflection, index) => ({ label: emotionLabels(index, reflection), value: reflection[key] ?? 0 }));
+    const definition = chart.id === "energy_shift"
+      ? { detail: "Energy before and after your focused sessions", series: [{ id: "before", label: "Before", color: chart.color, points: pointsFor("energyBefore") }, { id: "after", label: "After", color: "#49D17D", points: pointsFor("energyAfter") }] }
+      : chart.id === "focus_friction"
+        ? { detail: "Focus quality compared with resistance", series: [{ id: "focus", label: "Focus", color: chart.color, points: pointsFor("focusQuality") }, { id: "friction", label: "Friction", color: "#FFAA4C", points: pointsFor("frictionRating") }] }
+        : chart.id === "stress_clarity"
+          ? { detail: "Stress load compared with mental clarity", series: [{ id: "stress", label: "Stress", color: chart.color, points: pointsFor("stressLevel") }, { id: "clarity", label: "Clarity", color: "#39C6E8", points: pointsFor("clarityLevel") }] }
+          : { detail: "Motivation compared with environmental distraction", series: [{ id: "motivation", label: "Motivation", color: chart.color, points: pointsFor("motivationLevel") }, { id: "distraction", label: "Distraction", color: "#FF6B6B", points: pointsFor("distractionLevel") }] };
+    return { chart, ...definition };
+  });
+
   const sortedLifeline = [...state.lifeline].sort((a, b) => a.localDate.localeCompare(b.localDate));
+  const manualLifeline = sortedLifeline.filter((point) => point.source === "manual");
   let runningLife = 0;
   let runningExperience = 0;
   const lifelinePower: ChartPoint[] = sortedLifeline.map((point) => {
@@ -162,6 +180,16 @@ export default function DashboardScreen() {
           {skillPoints.length ? <RadarChart points={skillPoints} color={colors.primary} accessibilityLabel="Skill radar based on learned skills" /> : <NoData label="Add skills to a long-mission debrief to map your growth." icon="target" />}
         </InteractiveChartCard>
 
+        <SectionHeader title="Behavioral tendency lenses" action="Customize" onAction={() => router.push("/customize" as never)} />
+        <Text style={[styles.behavioralIntro, { color: colors.muted }]}>These visualizations reveal patterns in your own reported context. They are reflective trend tools, not clinical predictions.</Text>
+        <View style={styles.behavioralStack}>
+          {behavioralCharts.filter(({ chart }) => chart.enabled).map(({ chart, detail, series }) => (
+            <InteractiveChartCard key={chart.id} title={chart.title} detail={detail} tag="PATTERN" onPress={() => router.push("/analytics?metric=emotion" as never)}>
+              {recentEmotionReflections.length ? <MultiLineTrendChart series={series} accessibilityLabel={`${chart.title} behavioral trend chart`} /> : <NoData label="Complete a long-mission debrief to reveal this perspective." icon="chart.xyaxis.line" />}
+            </InteractiveChartCard>
+          ))}
+        </View>
+
         <SectionHeader title="Lifeline graph" action="Add baseline" onAction={() => setShowLifelineEditor((value) => !value)} />
         {showLifelineEditor ? (
           <CommandCard accent={colors.success} style={styles.lifelineEditor}>
@@ -179,6 +207,17 @@ export default function DashboardScreen() {
         <InteractiveChartCard title="Life Performance vs Experience" detail="Cyan is cumulative Life Performance; green is cumulative Experience." tag="LIFELINE" onPress={() => router.push("/analytics?metric=lifeline" as never)}>
           {lifelinePower.length ? <LineTrendChart points={lifelinePower} secondaryPoints={lifelineExperience} color={colors.primary} secondaryColor={colors.success} accessibilityLabel="Dual-line Lifeline graph for life performance and experience" /> : <NoData label="Add a historical baseline or journal entry to begin your Lifeline graph." icon="chart.xyaxis.line" />}
         </InteractiveChartCard>
+        {manualLifeline.length ? <View style={styles.manualLifelineStack}>
+          <SectionHeader title="Manual Lifeline baselines" />
+          <Text style={[styles.behavioralIntro, { color: colors.muted }]}>You can remove only the baseline records you entered yourself. Journal-derived contributions stay linked to their journal entry.</Text>
+          {manualLifeline.map((point) => <CommandCard key={point.id} accent={colors.primary} style={styles.manualLifelineCard}>
+            <View style={styles.manualLifelineCopy}>
+              <Text style={[styles.manualLifelineTitle, { color: colors.foreground }]}>{point.year} baseline</Text>
+              <Text style={[styles.manualLifelineDetail, { color: colors.muted }]}>Life {point.lifePerformance} · Experience {point.experience}{point.note ? ` · ${point.note}` : ""}</Text>
+            </View>
+            <CommandButton label="Delete" variant="danger" onPress={() => Alert.alert("Delete Lifeline baseline?", "This removes only this manual record. Your journal contributions remain unchanged.", [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => removeLifelinePoint(point.id) }])} />
+          </CommandCard>)}
+        </View> : null}
 
         <SectionHeader title="Custom graph slots" action="Configure" onAction={() => router.push("/customize")} />
         <View style={styles.customGraphStack}>
@@ -254,6 +293,13 @@ function Legend({ points, formatter }: { points: ChartPoint[]; formatter: (value
 const styles = StyleSheet.create({
   content: { gap: 16, paddingTop: 12, paddingBottom: 28 },
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  behavioralIntro: { fontSize: 12, lineHeight: 17, fontWeight: "600", marginTop: -7 },
+  behavioralStack: { gap: 10 },
+  manualLifelineStack: { gap: 9 },
+  manualLifelineCard: { padding: 12, flexDirection: "row", alignItems: "center", gap: 10 },
+  manualLifelineCopy: { flex: 1, gap: 2 },
+  manualLifelineTitle: { fontSize: 13, lineHeight: 18, fontWeight: "900" },
+  manualLifelineDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600" },
   recognitionGrid: { flexDirection: "row", gap: 10 },
   recognitionCard: { flex: 1, minHeight: 180, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, padding: 13, gap: 7 },
   recognitionIcon: { width: 39, height: 39, borderRadius: 13, alignItems: "center", justifyContent: "center" },

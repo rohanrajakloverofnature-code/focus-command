@@ -73,6 +73,10 @@ export default function CustomizeScreen() {
     ]);
   };
 
+  const updateEmotionalChart = (chartId: string, patch: Partial<typeof state.profile.emotionalCharts[number]>) => {
+    updateProfile({ emotionalCharts: state.profile.emotionalCharts.map((chart) => chart.id === chartId ? { ...chart, ...patch } : chart) });
+  };
+
   const toggleMetric = (graphId: string, metric: GraphSeries["metric"], label: string, color: string) => {
     const graph = state.customGraphs.find((candidate) => candidate.id === graphId);
     if (!graph) return;
@@ -140,6 +144,26 @@ export default function CustomizeScreen() {
               onRemove={() => confirmQuestionRemoval(question.id)}
             />
           )) : <Text style={[styles.emptyText, { color: colors.muted }]}>No additional questions yet.</Text>}
+        </CommandCard>
+
+        <SectionHeader title="Behavioral tendency lenses" />
+        <CommandCard accent={colors.warning} style={styles.cardStack}>
+          <Text style={[styles.helpText, { color: colors.muted }]}>Choose the name, visibility, and accent for the four emotional-pattern views. The values come only from your own long-mission debriefs.</Text>
+          {state.profile.emotionalCharts.map((chart) => (
+            <View key={chart.id} style={[styles.emotionChartEditor, { borderColor: colors.border, backgroundColor: colors.background }]}>
+              <View style={styles.questionHeader}>
+                <StatusPill label={chart.enabled ? "VISIBLE" : "HIDDEN"} tone={chart.enabled ? "success" : "neutral"} />
+                <CommandButton label={chart.enabled ? "Hide" : "Show"} variant="ghost" onPress={() => updateEmotionalChart(chart.id, { enabled: !chart.enabled })} />
+              </View>
+              <TextInput value={chart.title} onChangeText={(title) => updateEmotionalChart(chart.id, { title })} placeholder="Lens title" placeholderTextColor={colors.muted} style={[styles.questionInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+              <View style={styles.metricChoices}>
+                {["#F4C95D", "#39C6E8", "#49D17D", "#C092FF", "#FFAA4C"].map((color) => {
+                  const selected = chart.color === color;
+                  return <Pressable key={color} onPress={() => updateEmotionalChart(chart.id, { color })} style={({ pressed }) => [styles.colorChoice, { borderColor: selected ? color : colors.border, backgroundColor: selected ? `${color}1D` : colors.surface, opacity: pressed ? 0.72 : 1 }]}><View style={[styles.metricDot, { backgroundColor: color }]} /><Text style={[styles.metricChoiceText, { color: selected ? color : colors.muted }]}>ACCENT</Text></Pressable>;
+                })}
+              </View>
+            </View>
+          ))}
         </CommandCard>
 
         <SectionHeader title="Three custom graph slots" />
@@ -240,6 +264,8 @@ const styles = StyleSheet.create({
   typeChoice: { minHeight: 32, paddingHorizontal: 9, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, justifyContent: "center" },
   typeChoiceText: { fontSize: 10, lineHeight: 13, fontWeight: "900" },
   questionEditor: { gap: 9, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 10 },
+  emotionChartEditor: { gap: 9, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 10 },
+  colorChoice: { minHeight: 32, paddingHorizontal: 8, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", gap: 5 },
   questionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   questionHeaderActions: { flexDirection: "row", alignItems: "center", gap: 4 },
   emptyText: { fontSize: 12, lineHeight: 17, fontWeight: "600" },

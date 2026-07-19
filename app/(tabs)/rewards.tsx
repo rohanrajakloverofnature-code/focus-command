@@ -65,7 +65,7 @@ export default function RewardsScreen() {
     const result = purchaseReward(rewardId);
     if (result.ok) await playFocusSuccessCue(state.profile.soundEnabled);
     if (result.ok && reward?.goldMultiplier && state.profile.notificationsEnabled) {
-      await scheduleMultiplierReminder(reward.title);
+      await scheduleMultiplierReminder(reward.title, state.profile.notificationRules);
     }
     Alert.alert(result.ok ? "Reward secured" : "Not enough gold", result.message);
   };

@@ -13,6 +13,24 @@ export type MissionStatus = "planned" | "active" | "paused" | "completed";
 export type Feeling = "charged" | "steady" | "restless" | "drained" | "great";
 export type RewardCategory = "life" | "gear" | "power" | "multiplier";
 export type SyncPhase = "local" | "ready" | "authorized" | "syncing" | "synced" | "needs_setup" | "error";
+export type PaletteToken = "primary" | "background" | "surface" | "foreground" | "muted" | "border" | "success" | "warning" | "error";
+export type EmotionalChartId = "energy_shift" | "focus_friction" | "stress_clarity" | "motivation_distraction";
+
+export interface EmotionalChartConfig {
+  id: EmotionalChartId;
+  title: string;
+  enabled: boolean;
+  color: string;
+}
+
+export interface NotificationRules {
+  dailyMissionEnabled: boolean;
+  dailyMissionTime: string;
+  revisionEnabled: boolean;
+  revisionTime: string;
+  multiplierEnabled: boolean;
+  achievementEnabled: boolean;
+}
 
 export interface ComboTier {
   id: string;
@@ -38,6 +56,9 @@ export interface PlayerProfile {
   reduceMotion: boolean;
   highContrast: boolean;
   theme: "system" | "dark" | "light";
+  palette: Partial<Record<PaletteToken, string>>;
+  notificationRules: NotificationRules;
+  emotionalCharts: EmotionalChartConfig[];
 }
 
 export interface ComboState {
@@ -83,6 +104,13 @@ export interface Reflection {
   miniAchievement: string;
   miniAchievementRating: number | null;
   customAnswers: Record<string, string | number | boolean | string[]>;
+  energyBefore?: number | null;
+  energyAfter?: number | null;
+  focusQuality?: number | null;
+  stressLevel?: number | null;
+  clarityLevel?: number | null;
+  motivationLevel?: number | null;
+  distractionLevel?: number | null;
 }
 
 export interface SrsTopic {
@@ -247,6 +275,13 @@ export interface ReflectionDraft {
   miniAchievement?: string;
   miniAchievementRating?: number | null;
   customAnswers?: Record<string, string | number | boolean | string[]>;
+  energyBefore?: number | null;
+  energyAfter?: number | null;
+  focusQuality?: number | null;
+  stressLevel?: number | null;
+  clarityLevel?: number | null;
+  motivationLevel?: number | null;
+  distractionLevel?: number | null;
 }
 
 export interface JournalDraft {
@@ -384,6 +419,21 @@ function defaultProfile(): PlayerProfile {
     reduceMotion: false,
     highContrast: false,
     theme: "dark",
+    palette: {},
+    notificationRules: {
+      dailyMissionEnabled: false,
+      dailyMissionTime: "09:00",
+      revisionEnabled: true,
+      revisionTime: "09:00",
+      multiplierEnabled: true,
+      achievementEnabled: true,
+    },
+    emotionalCharts: [
+      { id: "energy_shift", title: "Energy shift", enabled: true, color: "#F4C95D" },
+      { id: "focus_friction", title: "Focus vs friction", enabled: true, color: "#39C6E8" },
+      { id: "stress_clarity", title: "Stress & clarity", enabled: true, color: "#C092FF" },
+      { id: "motivation_distraction", title: "Motivation & distraction", enabled: true, color: "#49D17D" },
+    ],
   };
 }
 
@@ -694,6 +744,7 @@ interface FocusCommandContextValue {
   createBoss: (input: Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold">) => string;
   addJournal: (draft: JournalDraft) => void;
   addLifelinePoint: (draft: { year: number; lifePerformance: number; experience: number; note: string }) => void;
+  removeLifelinePoint: (pointId: string) => void;
   createReward: (draft: RewardDraft) => void;
   purchaseReward: (rewardId: string) => { ok: boolean; message: string };
   updateProfile: (patch: Partial<PlayerProfile>) => void;
@@ -716,7 +767,13 @@ function normalizeHydratedState(input: FocusState): FocusState {
     ...defaults,
     ...input,
     hydrated: true,
-    profile: { ...defaults.profile, ...(input.profile ?? {}) },
+    profile: {
+      ...defaults.profile,
+      ...(input.profile ?? {}),
+      palette: { ...defaults.profile.palette, ...(input.profile?.palette ?? {}) },
+      notificationRules: { ...defaults.profile.notificationRules, ...(input.profile?.notificationRules ?? {}) },
+      emotionalCharts: input.profile?.emotionalCharts?.length ? input.profile.emotionalCharts : defaults.profile.emotionalCharts,
+    },
     combo: { ...defaults.combo, ...(input.combo ?? {}) },
     googleSheet: { ...defaults.googleSheet, ...(input.googleSheet ?? {}) },
     rewards: input.rewards?.length ? input.rewards : defaults.rewards,
@@ -897,6 +954,13 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         miniAchievement: reflectionDraft.miniAchievement?.trim() ?? "",
         miniAchievementRating: reflectionDraft.miniAchievementRating ?? null,
         customAnswers: reflectionDraft.customAnswers ?? {},
+        energyBefore: reflectionDraft.energyBefore ?? null,
+        energyAfter: reflectionDraft.energyAfter ?? null,
+        focusQuality: reflectionDraft.focusQuality ?? null,
+        stressLevel: reflectionDraft.stressLevel ?? null,
+        clarityLevel: reflectionDraft.clarityLevel ?? null,
+        motivationLevel: reflectionDraft.motivationLevel ?? null,
+        distractionLevel: reflectionDraft.distractionLevel ?? null,
       };
       const updatedCombo = resolveCurrentComboAfterActivity(current, completionDate);
       const updatedMission = { ...completedMission, progressionEventId: progressionId };
@@ -1080,6 +1144,14 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     }));
   }, [commit]);
 
+  const removeLifelinePoint = useCallback((pointId: string) => {
+    commit((current) => {
+      const target = current.lifeline.find((point) => point.id === pointId);
+      if (!target || target.source !== "manual") return current;
+      return withQueuedOperation({ ...current, lifeline: current.lifeline.filter((point) => point.id !== pointId) });
+    });
+  }, [commit]);
+
   const createReward = useCallback((draft: RewardDraft) => {
     commit((current) => withQueuedOperation({
       ...current,
@@ -1239,6 +1311,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     createBoss,
     addJournal,
     addLifelinePoint,
+    removeLifelinePoint,
     createReward,
     purchaseReward,
     updateProfile,
@@ -1263,6 +1336,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     createBoss,
     addJournal,
     addLifelinePoint,
+    removeLifelinePoint,
     createReward,
     purchaseReward,
     updateProfile,

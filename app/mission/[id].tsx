@@ -8,6 +8,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { CustomQuestion, Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getMissionInvestedMilliseconds, ReflectionDraft, useFocusCommand } from "@/lib/focus-command";
 import { playFocusSuccessCue } from "@/lib/focus-audio";
+import { scheduleAchievementRecap } from "@/lib/focus-reminders";
 
 const feelings: { value: Feeling; label: string; color: string }[] = [
   { value: "charged", label: "Charged", color: "#49D17D" },
@@ -56,6 +57,7 @@ export default function MissionDetailScreen() {
       return;
     }
     await playFocusSuccessCue(state.profile.soundEnabled);
+    if (state.profile.notificationsEnabled) await scheduleAchievementRecap(mission.title, state.profile.notificationRules);
     router.replace({ pathname: "/mission-result/[id]" as never, params: { id: mission.id } });
   };
 
@@ -127,6 +129,17 @@ export default function MissionDetailScreen() {
               <>
                 <FeelingSelector label="Before you began" value={reflection.feelingBefore ?? null} onChange={(feelingBefore) => setReflection((current) => ({ ...current, feelingBefore }))} />
                 <FeelingSelector label="After you finished" value={reflection.feelingAfter ?? null} onChange={(feelingAfter) => setReflection((current) => ({ ...current, feelingAfter }))} />
+                <View style={[styles.emotionTelemetry, { borderColor: `${colors.primary}55`, backgroundColor: `${colors.primary}0B` }]}>
+                  <Text style={[styles.telemetryTitle, { color: colors.primary }]}>BEHAVIORAL TELEMETRY</Text>
+                  <Text style={[styles.telemetryDetail, { color: colors.muted }]}>These private ratings create your energy, focus, stress, clarity, motivation, and distraction patterns on the dashboard.</Text>
+                  <RatingSelector label="Energy before the mission" value={reflection.energyBefore ?? 0} onChange={(energyBefore) => setReflection((current) => ({ ...current, energyBefore }))} />
+                  <RatingSelector label="Energy after the mission" value={reflection.energyAfter ?? 0} onChange={(energyAfter) => setReflection((current) => ({ ...current, energyAfter }))} />
+                  <RatingSelector label="How focused were you?" value={reflection.focusQuality ?? 0} onChange={(focusQuality) => setReflection((current) => ({ ...current, focusQuality }))} />
+                  <RatingSelector label="How stressed did you feel?" value={reflection.stressLevel ?? 0} onChange={(stressLevel) => setReflection((current) => ({ ...current, stressLevel }))} />
+                  <RatingSelector label="How clear did your thinking feel?" value={reflection.clarityLevel ?? 0} onChange={(clarityLevel) => setReflection((current) => ({ ...current, clarityLevel }))} />
+                  <RatingSelector label="How motivated did you feel?" value={reflection.motivationLevel ?? 0} onChange={(motivationLevel) => setReflection((current) => ({ ...current, motivationLevel }))} />
+                  <RatingSelector label="How distracting was the environment?" value={reflection.distractionLevel ?? 0} onChange={(distractionLevel) => setReflection((current) => ({ ...current, distractionLevel }))} />
+                </View>
                 <TextInput value={reflection.frictionName ?? ""} onChangeText={(frictionName) => setReflection((current) => ({ ...current, frictionName }))} placeholder="What feeling or thought was resisting the task?" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
                 <RatingSelector label="How strong was that resistance?" value={reflection.frictionRating ?? 0} onChange={(frictionRating) => setReflection((current) => ({ ...current, frictionRating }))} />
                 <TextInput value={reflection.provokingThought ?? ""} onChangeText={(provokingThought) => setReflection((current) => ({ ...current, provokingThought }))} placeholder="What thought got you moving?" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
@@ -230,7 +243,10 @@ const styles = StyleSheet.create({
   loggedTopicText: { fontSize: 11, lineHeight: 15, fontWeight: "700" },
   reflectionCard: { gap: 13 },
   reflectionTitle: { fontSize: 19, lineHeight: 24, fontWeight: "900" },
-  reflectionDetail: { fontSize: 12, lineHeight: 18, fontWeight: "500", marginTop: 3 },
+  reflectionDetail: { fontSize: 12, lineHeight: 17, fontWeight: "500", marginTop: 2 },
+  emotionTelemetry: { gap: 12, borderWidth: StyleSheet.hairlineWidth, borderRadius: 15, padding: 12 },
+  telemetryTitle: { fontSize: 10, lineHeight: 13, fontWeight: "900", letterSpacing: 0.9 },
+  telemetryDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600", marginTop: -5 },
   reflectionInput: { minHeight: 47, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 12, fontSize: 13, lineHeight: 18, fontWeight: "600" },
   selectorBlock: { gap: 7 },
   selectorLabel: { fontSize: 10, lineHeight: 13, letterSpacing: 0.8, fontWeight: "800" },

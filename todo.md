@@ -46,3 +46,12 @@
 - [x] Make high-contrast presentation a functional visual mode rather than a stored preference only.
 - [x] Fix and test the rank-title customization editor’s collapsed-list behavior.
 - [ ] Activate live Google Sheets sign-in in a native development build after Android and iOS OAuth client IDs are supplied.
+- [x] Add boss creation directly from the Mission Board and link selected missions to the new boss.
+- [x] Add a visible title-driven player character presentation that evolves with rank and level.
+- [x] Extend post-mission emotional data capture with four customizable behavioral perspectives.
+- [x] Add four new customizable dashboard visualizations for behavioral tendencies and emotional patterns.
+- [x] Add concise per-click game feedback sounds and interaction animations, retaining longer reward sounds for achievements.
+- [x] Add full app palette customization with accessible contrast safeguards.
+- [x] Add granular local notification rules for timing, categories, and reminder types.
+- [x] Add deletion controls for manually entered Lifeline data with confirmation.
+- [x] Repair Home metric layout so every key stat remains readable at mobile portrait widths.

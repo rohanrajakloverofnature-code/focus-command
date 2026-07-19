@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import * as Haptics from "expo-haptics";
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from "react-native-reanimated";
 import {
   ActivityIndicator,
   Platform,
@@ -14,6 +15,7 @@ import {
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useFocusCommand } from "@/lib/focus-command";
+import { playFocusTap } from "@/lib/focus-audio";
 
 export type FocusIconName =
   | "house.fill"
@@ -108,12 +110,16 @@ export function IconAction({
 }) {
   const colors = useColors();
   const { state } = useFocusCommand();
+  const impact = useSharedValue(1);
+  const impactStyle = useAnimatedStyle(() => ({ transform: [{ scale: impact.value }, { rotate: `${(impact.value - 1) * 4}deg` }] }));
   const handlePress = () => {
+    impact.value = withSequence(withTiming(0.91, { duration: 55 }), withTiming(1.03, { duration: 100 }), withTiming(1, { duration: 110 }));
+    playFocusTap(state.profile.soundEnabled);
     if (state.profile.hapticsEnabled && Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     onPress();
   };
   return (
-    <Pressable
+    <Animated.View style={impactStyle}><Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={disabled}
@@ -124,7 +130,7 @@ export function IconAction({
       ]}
     >
       <IconSymbol name={icon} size={19} color={color ?? colors.foreground} />
-    </Pressable>
+    </Pressable></Animated.View>
   );
 }
 
@@ -145,7 +151,11 @@ export function CommandButton({
 }) {
   const colors = useColors();
   const { state } = useFocusCommand();
+  const impact = useSharedValue(1);
+  const impactStyle = useAnimatedStyle(() => ({ transform: [{ scale: impact.value }] }));
   const handlePress = () => {
+    impact.value = withSequence(withTiming(0.955, { duration: 45 }), withTiming(1.02, { duration: 90 }), withTiming(1, { duration: 120 }));
+    playFocusTap(state.profile.soundEnabled);
     if (state.profile.hapticsEnabled && Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     onPress();
   };
@@ -156,7 +166,7 @@ export function CommandButton({
     danger: { background: colors.error, foreground: "#FFFFFF", border: colors.error },
   }[variant];
   return (
-    <Pressable
+    <Animated.View style={[impactStyle, style]}><Pressable
       accessibilityRole="button"
       disabled={disabled}
       onPress={handlePress}
@@ -168,12 +178,11 @@ export function CommandButton({
           opacity: disabled ? 0.45 : pressed ? 0.82 : 1,
           transform: [{ scale: pressed && !disabled ? 0.975 : 1 }],
         },
-        style,
       ]}
     >
       {icon ? <IconSymbol name={icon} size={17} color={palette.foreground} /> : null}
       <Text style={[styles.commandButtonLabel, { color: palette.foreground }]}>{label}</Text>
-    </Pressable>
+    </Pressable></Animated.View>
   );
 }
 
@@ -195,31 +204,40 @@ export function MetricTile({
   style?: StyleProp<ViewStyle>;
 }) {
   const colors = useColors();
+  const { state } = useFocusCommand();
+  const impact = useSharedValue(1);
+  const impactStyle = useAnimatedStyle(() => ({ transform: [{ scale: impact.value }] }));
+  const handleMetricPress = () => {
+    if (!onPress) return;
+    impact.value = withSequence(withTiming(0.97, { duration: 45 }), withTiming(1.01, { duration: 100 }), withTiming(1, { duration: 110 }));
+    playFocusTap(state.profile.soundEnabled);
+    if (state.profile.hapticsEnabled && Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    onPress();
+  };
   const body = (
     <>
       <View style={styles.metricTopline}>
         <Text style={[styles.metricLabel, { color: colors.muted }]}>{label.toUpperCase()}</Text>
         {icon ? <IconSymbol name={icon} size={16} color={accent} /> : null}
       </View>
-      <Text numberOfLines={1} style={[styles.metricValue, { color: colors.foreground }]}>{value}</Text>
-      {detail ? <Text numberOfLines={1} style={[styles.metricDetail, { color: colors.muted }]}>{detail}</Text> : <View style={styles.metricSpacer} />}
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={[styles.metricValue, { color: colors.foreground }]}>{value}</Text>
+      {detail ? <Text numberOfLines={2} style={[styles.metricDetail, { color: colors.muted }]}>{detail}</Text> : <View style={styles.metricSpacer} />}
     </>
   );
   if (!onPress) {
     return <View style={[styles.metricTile, { backgroundColor: colors.surface, borderColor: `${accent}55` }, style]}>{body}</View>;
   }
   return (
-    <Pressable
+    <Animated.View style={[impactStyle, style]}><Pressable
       accessibilityRole="button"
-      onPress={onPress}
+      onPress={handleMetricPress}
       style={({ pressed }) => [
         styles.metricTile,
         { backgroundColor: colors.surface, borderColor: `${accent}55`, opacity: pressed ? 0.8 : 1 },
-        style,
       ]}
     >
       {body}
-    </Pressable>
+    </Pressable></Animated.View>
   );
 }
 
@@ -362,12 +380,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   commandButtonLabel: { fontSize: 14, lineHeight: 18, fontWeight: "800" },
-  metricTile: { minHeight: 108, flex: 1, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, padding: 13, gap: 4 },
+  metricTile: { minHeight: 120, flex: 1, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, padding: 13, gap: 5 },
   metricTopline: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 6 },
-  metricLabel: { fontSize: 9, lineHeight: 12, letterSpacing: 0.85, fontWeight: "800" },
-  metricValue: { fontSize: 23, lineHeight: 29, fontWeight: "800", letterSpacing: -0.4 },
+  metricLabel: { flex: 1, fontSize: 9, lineHeight: 12, letterSpacing: 0.75, fontWeight: "800" },
+  metricValue: { fontSize: 22, lineHeight: 27, fontWeight: "800", letterSpacing: -0.35 },
   metricDetail: { fontSize: 11, lineHeight: 14, fontWeight: "600" },
-  metricSpacer: { height: 14 },
+  metricSpacer: { height: 28 },
   progressLabel: { fontSize: 11, lineHeight: 15, marginBottom: 6, fontWeight: "600" },
   progressTrack: { borderRadius: 99, overflow: "hidden", width: "100%" },
   progressFill: { borderRadius: 99 },

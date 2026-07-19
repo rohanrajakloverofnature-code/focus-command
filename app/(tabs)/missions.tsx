@@ -15,7 +15,7 @@ const difficultyOptions: Difficulty[] = ["easy", "medium", "hard"];
 export default function MissionsScreen() {
   const colors = useColors();
   const { compose, filter: requestedFilter } = useLocalSearchParams<{ compose?: string; filter?: MissionFilter }>();
-  const { state, ready, createMission, startMission } = useFocusCommand();
+  const { state, ready, createMission, createBoss, startMission } = useFocusCommand();
   const [showComposer, setShowComposer] = useState(compose === "1");
   const [filter, setFilter] = useState<MissionFilter>(requestedFilter === "active" || requestedFilter === "completed" ? requestedFilter : "open");
   const [title, setTitle] = useState("");
@@ -26,6 +26,9 @@ export default function MissionsScreen() {
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [revisionEnabled, setRevisionEnabled] = useState(true);
   const [bossId, setBossId] = useState<string | null>(null);
+  const [showBossDraft, setShowBossDraft] = useState(false);
+  const [bossTitle, setBossTitle] = useState("");
+  const [bossObjective, setBossObjective] = useState("");
 
   const missions = useMemo(() => {
     if (filter === "active") return state.missions.filter((mission) => mission.status === "active" || mission.status === "paused");
@@ -34,6 +37,25 @@ export default function MissionsScreen() {
   }, [filter, state.missions]);
 
   if (!ready) return <LoadingScreen label="Loading mission board…" />;
+
+  const createBossFromMission = () => {
+    const cleanTitle = bossTitle.trim();
+    if (!cleanTitle) {
+      Alert.alert("Name the boss", "Give the campaign a clear name before linking it to this mission.");
+      return;
+    }
+    const createdBossId = createBoss({
+      title: cleanTitle,
+      objective: bossObjective.trim() || `Advance ${cleanTitle} through linked missions.`,
+      deadlineAt: null,
+      rewardXp: 0,
+      rewardGold: 0,
+    });
+    setBossId(createdBossId);
+    setBossTitle("");
+    setBossObjective("");
+    setShowBossDraft(false);
+  };
 
   const submitMission = () => {
     if (!title.trim()) {
@@ -116,12 +138,13 @@ export default function MissionsScreen() {
                 <Text style={[styles.revisionDetail, { color: colors.muted }]}>Schedule a 1–7–30 day review when you complete this mission.</Text>
               </View>
             </Pressable>
-            {state.bosses.filter((boss) => boss.status === "active").length ? (
-              <View>
-                <Text style={[styles.inputLabel, { color: colors.muted }]}>LINKED BOSS (OPTIONAL)</Text>
+            <View style={styles.bossSection}>
+              <Text style={[styles.inputLabel, { color: colors.muted }]}>MISSION CAMPAIGN</Text>
+              <Text style={[styles.bossSectionDetail, { color: colors.muted }]}>Link this task to an existing campaign, or create a boss here before you deploy the mission.</Text>
+              {state.bosses.filter((boss) => boss.status === "active").length ? (
                 <View style={styles.bossChoices}>
                   <Pressable onPress={() => setBossId(null)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: bossId === null ? `${colors.primary}18` : colors.background, borderColor: bossId === null ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1 }]}>
-                    <Text style={[styles.bossChoiceText, { color: bossId === null ? colors.primary : colors.muted }]}>None</Text>
+                    <Text style={[styles.bossChoiceText, { color: bossId === null ? colors.primary : colors.muted }]}>No boss</Text>
                   </Pressable>
                   {state.bosses.filter((boss) => boss.status === "active").map((boss) => (
                     <Pressable key={boss.id} onPress={() => setBossId(boss.id)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: bossId === boss.id ? "#F4C95D1D" : colors.background, borderColor: bossId === boss.id ? "#F4C95D" : colors.border, opacity: pressed ? 0.75 : 1 }]}>
@@ -129,9 +152,15 @@ export default function MissionsScreen() {
                     </Pressable>
                   ))}
                 </View>
-              </View>
-            ) : null}
-            <CommandButton label="Deploy mission" icon="play.fill" onPress={submitMission} />
+              ) : null}
+              <CommandButton label={showBossDraft ? "Cancel boss draft" : "Create boss for this mission"} icon={showBossDraft ? "xmark" : "trophy.fill"} variant="secondary" onPress={() => setShowBossDraft((value) => !value)} />
+              {showBossDraft ? <View style={[styles.bossDraft, { borderColor: `${colors.warning}70`, backgroundColor: `${colors.warning}0E` }]}>
+                <TextInput value={bossTitle} onChangeText={setBossTitle} placeholder="Boss campaign name" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+                <TextInput value={bossObjective} onChangeText={setBossObjective} placeholder="What will victory look like?" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.bossObjectiveInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+                <CommandButton label="Activate & link boss" icon="trophy.fill" onPress={createBossFromMission} />
+              </View> : null}
+            </View>
+            <CommandButton label={bossId ? "Deploy linked mission" : "Deploy mission"} icon="play.fill" onPress={submitMission} />
           </CommandCard>
         ) : null}
 
@@ -213,9 +242,13 @@ const styles = StyleSheet.create({
   revisionCopy: { flex: 1 },
   revisionTitle: { fontSize: 13, lineHeight: 18, fontWeight: "800" },
   revisionDetail: { fontSize: 11, lineHeight: 15, marginTop: 1, fontWeight: "500" },
+  bossSection: { gap: 8 },
+  bossSectionDetail: { fontSize: 11, lineHeight: 16, fontWeight: "500", marginTop: -3 },
   bossChoices: { flexDirection: "row", gap: 7, flexWrap: "wrap" },
   bossChoice: { maxWidth: 150, minHeight: 34, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, justifyContent: "center", paddingHorizontal: 10 },
   bossChoiceText: { fontSize: 11, lineHeight: 15, fontWeight: "800" },
+  bossDraft: { gap: 9, borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, padding: 10 },
+  bossObjectiveInput: { minHeight: 74, paddingTop: 10, textAlignVertical: "top" },
   filterRow: { flexDirection: "row", gap: 8 },
   filter: { flex: 1, minHeight: 38, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center" },
   filterLabel: { fontSize: 12, lineHeight: 16, fontWeight: "800" },

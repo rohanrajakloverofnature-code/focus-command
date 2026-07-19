@@ -7,9 +7,9 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useGoogleSheetsAuth } from "@/hooks/use-google-sheets-auth";
-import { ComboTier, getComboTiers, useFocusCommand } from "@/lib/focus-command";
+import { ComboTier, getComboTiers, PaletteToken, useFocusCommand } from "@/lib/focus-command";
 import { createFocusWorkbook, getFocusWorkbookMetadata, getGoogleAccessToken, getSpreadsheet, readFocusWorkbook, writeFocusWorkbook } from "@/lib/google-sheets";
-import { enableFocusReminders } from "@/lib/focus-reminders";
+import { configureDailyMissionReminder, enableFocusReminders } from "@/lib/focus-reminders";
 import { useThemeContext } from "@/lib/theme-provider";
 
 export default function SettingsScreen() {
@@ -63,6 +63,33 @@ export default function SettingsScreen() {
       .map((tier) => ({ ...tier, days: Math.max(1, Math.round(tier.days)), multiplier: Math.max(1, tier.multiplier) }))
       .sort((left, right) => left.days - right.days);
     updateComboTiers(next);
+  };
+
+  const paletteTokens: { token: PaletteToken; label: string }[] = [
+    { token: "primary", label: "Command accent" },
+    { token: "background", label: "Screen background" },
+    { token: "surface", label: "Card surface" },
+    { token: "foreground", label: "Primary text" },
+    { token: "muted", label: "Secondary text" },
+    { token: "border", label: "Borders" },
+    { token: "success", label: "Success" },
+    { token: "warning", label: "Warning" },
+    { token: "error", label: "Error" },
+  ];
+  const updatePaletteToken = (token: PaletteToken, value: string) => {
+    const next = { ...state.profile.palette };
+    const normalized = value.trim();
+    if (normalized) next[token] = normalized;
+    else delete next[token];
+    updateProfile({ palette: next });
+  };
+
+  const patchNotificationRules = async (patch: Partial<typeof state.profile.notificationRules>) => {
+    const notificationRules = { ...state.profile.notificationRules, ...patch };
+    updateProfile({ notificationRules });
+    if (state.profile.notificationsEnabled && ("dailyMissionEnabled" in patch || "dailyMissionTime" in patch)) {
+      await configureDailyMissionReminder(notificationRules.dailyMissionEnabled, notificationRules.dailyMissionTime);
+    }
   };
 
   const reset = () => {
@@ -217,7 +244,7 @@ export default function SettingsScreen() {
           <Divider />
           <SwitchRow label="Haptic feedback" detail="Use subtle tactile confirmation for key actions." value={state.profile.hapticsEnabled} onValueChange={(hapticsEnabled) => updateProfile({ hapticsEnabled })} />
           <Divider />
-          <SwitchRow label="Local reminders" detail="Schedule revision and next-day multiplier reminders on this device." value={state.profile.notificationsEnabled} onValueChange={async (notificationsEnabled) => {
+          <SwitchRow label="Local reminders" detail="Allow the notification categories and times configured below." value={state.profile.notificationsEnabled} onValueChange={async (notificationsEnabled) => {
             if (notificationsEnabled) {
               const allowed = await enableFocusReminders();
               if (!allowed) {
@@ -226,6 +253,7 @@ export default function SettingsScreen() {
               }
             }
             updateProfile({ notificationsEnabled });
+            await configureDailyMissionReminder(notificationsEnabled && state.profile.notificationRules.dailyMissionEnabled, state.profile.notificationRules.dailyMissionTime);
           }} />
           <Divider />
           <SwitchRow label="Reduce motion" detail="Prefer still, immediate state changes over animation." value={state.profile.reduceMotion} onValueChange={(reduceMotion) => updateProfile({ reduceMotion })} />
@@ -243,6 +271,45 @@ export default function SettingsScreen() {
                 return <Pressable key={theme} onPress={() => { updateProfile({ theme }); setColorScheme(theme === "system" ? Appearance.getColorScheme() ?? "light" : theme); }} style={({ pressed }) => [styles.themeChoice, { backgroundColor: active ? `${colors.primary}1C` : colors.background, borderColor: active ? colors.primary : colors.border, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.themeChoiceText, { color: active ? colors.primary : colors.muted }]}>{theme.toUpperCase()}</Text></Pressable>;
               })}
             </View>
+          </View>
+        </CommandCard>
+
+        <SectionHeader title="Notification rules" />
+        <CommandCard accent={colors.success} style={styles.cardStack}>
+          <Text style={[styles.settingDetail, { color: colors.muted }]}>Choose which command events can alert you. Scheduled alerts stay on this device and can be changed whenever you want.</Text>
+          <SwitchRow label="Daily mission briefing" detail="A recurring reminder to deploy one clear mission." value={state.profile.notificationRules.dailyMissionEnabled} onValueChange={(dailyMissionEnabled) => { void patchNotificationRules({ dailyMissionEnabled }); }} />
+          {state.profile.notificationRules.dailyMissionEnabled ? <View style={styles.notificationTimeRow}>
+            <View style={styles.settingCopy}><Text style={[styles.settingTitle, { color: colors.foreground }]}>Daily briefing time</Text><Text style={[styles.settingDetail, { color: colors.muted }]}>Use 24-hour HH:MM format.</Text></View>
+            <TextInput value={state.profile.notificationRules.dailyMissionTime} onChangeText={(dailyMissionTime) => { void patchNotificationRules({ dailyMissionTime }); }} placeholder="09:00" placeholderTextColor={colors.muted} style={[styles.timeInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+          </View> : null}
+          <Divider />
+          <SwitchRow label="Revision reminders" detail="Alert when a Day 1, Day 7, or Day 30 review is due." value={state.profile.notificationRules.revisionEnabled} onValueChange={(revisionEnabled) => { void patchNotificationRules({ revisionEnabled }); }} />
+          {state.profile.notificationRules.revisionEnabled ? <View style={styles.notificationTimeRow}>
+            <View style={styles.settingCopy}><Text style={[styles.settingTitle, { color: colors.foreground }]}>Revision alert time</Text><Text style={[styles.settingDetail, { color: colors.muted }]}>Used on the scheduled review day.</Text></View>
+            <TextInput value={state.profile.notificationRules.revisionTime} onChangeText={(revisionTime) => { void patchNotificationRules({ revisionTime }); }} placeholder="09:00" placeholderTextColor={colors.muted} style={[styles.timeInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+          </View> : null}
+          <Divider />
+          <SwitchRow label="Multiplier activation" detail="Confirm that a next-day gold multiplier is now live." value={state.profile.notificationRules.multiplierEnabled} onValueChange={(multiplierEnabled) => { void patchNotificationRules({ multiplierEnabled }); }} />
+          <Divider />
+          <SwitchRow label="Achievement recap" detail="Show a brief command notification after a completed mission." value={state.profile.notificationRules.achievementEnabled} onValueChange={(achievementEnabled) => { void patchNotificationRules({ achievementEnabled }); }} />
+        </CommandCard>
+
+        <SectionHeader title="Color system" />
+        <CommandCard accent={colors.primary} style={styles.cardStack}>
+          <Text style={[styles.settingDetail, { color: colors.muted }]}>Customize every command color with six-digit hex values. Invalid or low-contrast text combinations automatically fall back to a readable theme token.</Text>
+          <View style={styles.paletteGrid}>
+            {paletteTokens.map(({ token, label }) => {
+              const custom = state.profile.palette[token] ?? "";
+              const preview = /^#[0-9a-fA-F]{6}$/.test(custom) ? custom : colors[token];
+              return <View key={token} style={[styles.paletteEditor, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <View style={styles.paletteLabelRow}>
+                  <View style={[styles.paletteSwatch, { backgroundColor: preview }]} />
+                  <Text style={[styles.paletteLabel, { color: colors.foreground }]}>{label}</Text>
+                </View>
+                <TextInput value={custom} onChangeText={(value) => updatePaletteToken(token, value)} autoCapitalize="characters" placeholder={colors[token]} placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+                <CommandButton label="Reset" variant="ghost" onPress={() => updatePaletteToken(token, "")} />
+              </View>;
+            })}
           </View>
         </CommandCard>
 
@@ -392,4 +459,12 @@ const styles = StyleSheet.create({
   themeChoices: { flexDirection: "row", gap: 7 },
   themeChoice: { flex: 1, minHeight: 34, alignItems: "center", justifyContent: "center", borderRadius: 11, borderWidth: StyleSheet.hairlineWidth },
   themeChoiceText: { fontSize: 10, lineHeight: 13, fontWeight: "900", letterSpacing: 0.6 },
+  paletteGrid: { gap: 9 },
+  paletteEditor: { gap: 7, borderWidth: StyleSheet.hairlineWidth, borderRadius: 13, padding: 10 },
+  paletteLabelRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  paletteSwatch: { width: 18, height: 18, borderRadius: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "#FFFFFF55" },
+  paletteLabel: { fontSize: 12, lineHeight: 16, fontWeight: "800" },
+  paletteInput: { minHeight: 40, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 10, fontSize: 12, lineHeight: 16, fontWeight: "800", fontVariant: ["tabular-nums"] },
+  notificationTimeRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  timeInput: { width: 78, minHeight: 42, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, textAlign: "center", fontSize: 13, lineHeight: 17, fontWeight: "900", fontVariant: ["tabular-nums"] },
 });

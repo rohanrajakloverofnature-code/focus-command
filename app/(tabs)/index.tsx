@@ -1,7 +1,5 @@
 import { router } from "expo-router";
-import { useEffect } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import {
   CommandButton,
@@ -16,6 +14,7 @@ import {
   StatusPill,
 } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { RankCharacter } from "@/components/rank-character";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import {
@@ -49,18 +48,8 @@ function syncLabel(phase: string, pending: number): string {
 
 export default function HomeScreen() {
   const colors = useColors();
+  const { width } = useWindowDimensions();
   const { state, ready } = useFocusCommand();
-  const commandPulse = useSharedValue(1);
-  const commandPulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: commandPulse.value }], opacity: 0.86 + (commandPulse.value - 1) * 4 }));
-
-  useEffect(() => {
-    if (state.profile.reduceMotion) {
-      commandPulse.value = 1;
-      return;
-    }
-    commandPulse.value = withRepeat(withSequence(withTiming(1.045, { duration: 1_200 }), withTiming(1, { duration: 1_200 })), -1, false);
-  }, [commandPulse, state.profile.reduceMotion]);
-
   if (!ready) return <LoadingScreen />;
 
   const level = getLevelInfo(state);
@@ -86,6 +75,8 @@ export default function HomeScreen() {
     return { localDate, points: journalByDate.get(localDate) ?? 0 };
   });
   const maxJournalPoints = Math.max(1, ...journalBars.map((bar) => bar.points));
+  const metricColumns = width < 600 ? 2 : 3;
+  const metricTileStyle = { width: (width - 32 - (metricColumns - 1) * 10) / metricColumns, flexGrow: 0, flexBasis: "auto" as const };
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background">
@@ -113,13 +104,9 @@ export default function HomeScreen() {
             <StatusPill label={`${Math.round(energy.remaining)}% ENERGY`} tone={energy.remaining > 50 ? "success" : energy.remaining > 20 ? "warning" : "danger"} icon="bolt.fill" />
           </View>
           <View style={styles.heroContent}>
-            <View style={styles.operatorColumn}>
-              <View style={[styles.operatorCore, { borderColor: colors.primary, shadowColor: colors.primary, transform: [{ scale: operatorScale }] }]}>
-                <Animated.View style={[styles.operatorInner, { backgroundColor: `${colors.primary}1C` }, commandPulseStyle]}>
-                  <IconSymbol name="circle.grid.cross.fill" size={43} color={colors.primary} />
-                </Animated.View>
-              </View>
-              <Text style={styles.operatorName}>OPERATIVE</Text>
+            <View style={[styles.operatorColumn, { transform: [{ scale: operatorScale }] }]}>
+              <RankCharacter title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} compact />
+              <Text style={styles.operatorName}>{title.title.toUpperCase()}</Text>
             </View>
             <View style={styles.heroCopy}>
               <Text style={[styles.heroHeadline, { color: "#F5F9FF" }]}>Secure your next block.</Text>
@@ -156,12 +143,12 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.metricsGrid}>
-          <MetricTile label="Total XP" value={formatCompactNumber(totalXp)} detail={combo.multiplier > 1 ? "Combo amplified" : "Base experience"} icon="bolt.fill" accent={colors.primary} />
-          <MetricTile label="Gold Balance" value={formatCompactNumber(goldBalance)} detail={`${formatCompactNumber(lifetimeGold)} earned`} icon="star.fill" accent="#F4C95D" onPress={() => router.push("/rewards" as never)} />
-          <MetricTile label="Mission Target" value={`${daily.earned}/${daily.target}`} detail={`${Math.round(daily.progress * 100)}% deployed`} icon="target" accent={colors.success} onPress={() => router.push("/missions")} />
-          <MetricTile label="Invested Today" value={formatHours(getTodayInvestedMilliseconds(state))} detail={goldMultiplier > 1 ? `${goldMultiplier}× gold cache active` : "Exact active time"} icon="timer" accent={colors.warning} />
-          <MetricTile label="Next combo tier" value={combo.daysToNext ? `${combo.daysToNext}d` : "MAX"} detail={`${combo.multiplier.toFixed(2)}× is live`} icon="flame.fill" accent="#F4C95D" />
-          <MetricTile label="XP to level" value={formatCompactNumber(level.powerForNextLevel)} detail={`${formatCompactNumber(level.currentLevelPower)} at current level`} icon="shield.fill" accent={colors.primary} />
+          <MetricTile style={metricTileStyle} label="Total XP" value={formatCompactNumber(totalXp)} detail={combo.multiplier > 1 ? "Combo amplified" : "Base experience"} icon="bolt.fill" accent={colors.primary} />
+          <MetricTile style={metricTileStyle} label="Gold Balance" value={formatCompactNumber(goldBalance)} detail={`${formatCompactNumber(lifetimeGold)} earned`} icon="star.fill" accent="#F4C95D" onPress={() => router.push("/rewards" as never)} />
+          <MetricTile style={metricTileStyle} label="Mission Target" value={`${daily.earned}/${daily.target}`} detail={`${Math.round(daily.progress * 100)}% deployed`} icon="target" accent={colors.success} onPress={() => router.push("/missions")} />
+          <MetricTile style={metricTileStyle} label="Invested Today" value={formatHours(getTodayInvestedMilliseconds(state))} detail={goldMultiplier > 1 ? `${goldMultiplier}× gold cache active` : "Exact active time"} icon="timer" accent={colors.warning} />
+          <MetricTile style={metricTileStyle} label="Next combo tier" value={combo.daysToNext ? `${combo.daysToNext}d` : "MAX"} detail={`${combo.multiplier.toFixed(2)}× is live`} icon="flame.fill" accent="#F4C95D" />
+          <MetricTile style={metricTileStyle} label="XP to level" value={formatCompactNumber(level.powerForNextLevel)} detail={`${formatCompactNumber(level.currentLevelPower)} at current level`} icon="shield.fill" accent={colors.primary} />
         </View>
 
         <CommandCard accent="#F4C95D" style={styles.lootCard}>

@@ -4,74 +4,67 @@ import { colorScheme as nativewindColorScheme, vars } from "nativewind";
 
 import { SchemeColors, type ColorScheme } from "@/constants/theme";
 
+type ThemeTokenPalette = typeof SchemeColors.light;
+
 type ThemeContextValue = {
   colorScheme: ColorScheme;
   setColorScheme: (scheme: ColorScheme) => void;
+  setPalette: (palette: Partial<ThemeTokenPalette>) => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+function isHex(value: unknown): value is string {
+  return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value);
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useSystemColorScheme() ?? "light";
   const [colorScheme, setColorSchemeState] = useState<ColorScheme>(systemScheme);
+  const [paletteOverrides, setPaletteOverrides] = useState<Partial<ThemeTokenPalette>>({});
+  const palette = useMemo(() => ({ ...SchemeColors[colorScheme], ...paletteOverrides }), [colorScheme, paletteOverrides]);
 
-  const applyScheme = useCallback((scheme: ColorScheme) => {
+  const applyTheme = useCallback((scheme: ColorScheme, nextPalette: ThemeTokenPalette) => {
     nativewindColorScheme.set(scheme);
     Appearance.setColorScheme?.(scheme);
     if (typeof document !== "undefined") {
       const root = document.documentElement;
       root.dataset.theme = scheme;
       root.classList.toggle("dark", scheme === "dark");
-      const palette = SchemeColors[scheme];
-      Object.entries(palette).forEach(([token, value]) => {
-        root.style.setProperty(`--color-${token}`, value);
-      });
+      Object.entries(nextPalette).forEach(([token, value]) => root.style.setProperty(`--color-${token}`, value));
     }
   }, []);
 
-  const setColorScheme = useCallback((scheme: ColorScheme) => {
-    setColorSchemeState(scheme);
-    applyScheme(scheme);
-  }, [applyScheme]);
+  const setColorScheme = useCallback((scheme: ColorScheme) => setColorSchemeState(scheme), []);
+  const setPalette = useCallback((nextPalette: Partial<ThemeTokenPalette>) => {
+    setPaletteOverrides(Object.fromEntries(Object.entries(nextPalette).filter(([, value]) => isHex(value))) as Partial<ThemeTokenPalette>);
+  }, []);
 
   useEffect(() => {
-    applyScheme(colorScheme);
-  }, [applyScheme, colorScheme]);
+    applyTheme(colorScheme, palette);
+  }, [applyTheme, colorScheme, palette]);
 
   const themeVariables = useMemo(
-    () =>
-      vars({
-        "color-primary": SchemeColors[colorScheme].primary,
-        "color-background": SchemeColors[colorScheme].background,
-        "color-surface": SchemeColors[colorScheme].surface,
-        "color-foreground": SchemeColors[colorScheme].foreground,
-        "color-muted": SchemeColors[colorScheme].muted,
-        "color-border": SchemeColors[colorScheme].border,
-        "color-success": SchemeColors[colorScheme].success,
-        "color-warning": SchemeColors[colorScheme].warning,
-        "color-error": SchemeColors[colorScheme].error,
-      }),
-    [colorScheme],
+    () => vars({
+      "color-primary": palette.primary,
+      "color-background": palette.background,
+      "color-surface": palette.surface,
+      "color-foreground": palette.foreground,
+      "color-muted": palette.muted,
+      "color-border": palette.border,
+      "color-success": palette.success,
+      "color-warning": palette.warning,
+      "color-error": palette.error,
+    }),
+    [palette],
   );
 
-  const value = useMemo(
-    () => ({
-      colorScheme,
-      setColorScheme,
-    }),
-    [colorScheme, setColorScheme],
-  );
-  return (
-    <ThemeContext.Provider value={value}>
-      <View style={[{ flex: 1 }, themeVariables]}>{children}</View>
-    </ThemeContext.Provider>
-  );
+  const value = useMemo(() => ({ colorScheme, setColorScheme, setPalette }), [colorScheme, setColorScheme, setPalette]);
+  return <ThemeContext.Provider value={value}><View style={[{ flex: 1 }, themeVariables]}>{children}</View></ThemeContext.Provider>;
 }
 
 export function useThemeContext(): ThemeContextValue {
   const ctx = useContext(ThemeContext);
-  if (!ctx) {
-    throw new Error("useThemeContext must be used within ThemeProvider");
-  }
+  if (!ctx) throw new Error("useThemeContext must be used within ThemeProvider");
   return ctx;
 }
