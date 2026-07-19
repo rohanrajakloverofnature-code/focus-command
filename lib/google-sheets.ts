@@ -1,0 +1,204 @@
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
+
+import type { FocusState } from "@/lib/focus-command";
+
+const ACCESS_TOKEN_KEY = "focus-command.google.access-token";
+const REFRESH_TOKEN_KEY = "focus-command.google.refresh-token";
+const EXPIRY_KEY = "focus-command.google.token-expiry";
+const SHEETS_API = "https://sheets.googleapis.com/v4";
+
+export const FOCUS_SHEET_TABS = [
+  "App_State",
+  "Missions",
+  "Reflections",
+  "Revisions",
+  "Bosses",
+  "Journal",
+  "Rewards",
+  "Transactions",
+  "Inventory",
+  "Progression",
+  "Lifeline",
+  "Settings",
+] as const;
+
+export interface GoogleTokenBundle {
+  accessToken: string;
+  refreshToken?: string | null;
+  expiresIn?: number | null;
+}
+
+export interface GoogleWorkbook {
+  spreadsheetId: string;
+  spreadsheetName: string;
+}
+
+interface SheetsErrorResponse {
+  error?: { message?: string; status?: string };
+}
+
+function tokenStorageKey(key: string) {
+  return key.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+async function setSensitiveValue(key: string, value: string) {
+  if (Platform.OS === "web") {
+    if (typeof sessionStorage !== "undefined") sessionStorage.setItem(key, value);
+    return;
+  }
+  await SecureStore.setItemAsync(tokenStorageKey(key), value);
+}
+
+async function getSensitiveValue(key: string): Promise<string | null> {
+  if (Platform.OS === "web") {
+    return typeof sessionStorage === "undefined" ? null : sessionStorage.getItem(key);
+  }
+  return SecureStore.getItemAsync(tokenStorageKey(key));
+}
+
+async function removeSensitiveValue(key: string) {
+  if (Platform.OS === "web") {
+    if (typeof sessionStorage !== "undefined") sessionStorage.removeItem(key);
+    return;
+  }
+  await SecureStore.deleteItemAsync(tokenStorageKey(key));
+}
+
+export async function saveGoogleTokens(tokens: GoogleTokenBundle) {
+  await setSensitiveValue(ACCESS_TOKEN_KEY, tokens.accessToken);
+  if (tokens.refreshToken) await setSensitiveValue(REFRESH_TOKEN_KEY, tokens.refreshToken);
+  if (tokens.expiresIn) await setSensitiveValue(EXPIRY_KEY, String(Date.now() + tokens.expiresIn * 1_000));
+}
+
+export async function getGoogleAccessToken(): Promise<string | null> {
+  const token = await getSensitiveValue(ACCESS_TOKEN_KEY);
+  const expiry = Number(await getSensitiveValue(EXPIRY_KEY) ?? 0);
+  if (expiry && expiry < Date.now() + 30_000) return null;
+  return token;
+}
+
+export async function clearGoogleTokens() {
+  await Promise.all([removeSensitiveValue(ACCESS_TOKEN_KEY), removeSensitiveValue(REFRESH_TOKEN_KEY), removeSensitiveValue(EXPIRY_KEY)]);
+}
+
+async function sheetsRequest<T>(accessToken: string, path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${SHEETS_API}${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({})) as SheetsErrorResponse;
+    throw new Error(error.error?.message ?? `Google Sheets request failed with ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+function stringifyCell(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
+}
+
+function objectRows(items: unknown[]) {
+  const records = items.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item));
+  const columns = Array.from(new Set(records.flatMap((record) => Object.keys(record))));
+  if (!columns.length) return [["No records"]];
+  return [columns, ...records.map((record) => columns.map((column) => stringifyCell(record[column])))];
+}
+
+function makeValueRanges(state: FocusState) {
+  const exported = { ...state, hydrated: true };
+  return [
+    { range: "App_State!A1", values: [["key", "value"], ["schemaVersion", String(state.schemaVersion)], ["updatedAt", new Date().toISOString()], ["payload", JSON.stringify(exported)]] },
+    { range: "Missions!A1", values: objectRows(state.missions) },
+    { range: "Reflections!A1", values: objectRows(state.reflections) },
+    { range: "Revisions!A1", values: objectRows(state.srsTopics) },
+    { range: "Bosses!A1", values: objectRows(state.bosses) },
+    { range: "Journal!A1", values: objectRows(state.journals) },
+    { range: "Rewards!A1", values: objectRows(state.rewards) },
+    { range: "Transactions!A1", values: objectRows(state.transactions) },
+    { range: "Inventory!A1", values: objectRows(state.inventory) },
+    { range: "Progression!A1", values: objectRows(state.progression) },
+    { range: "Lifeline!A1", values: objectRows(state.lifeline) },
+    {
+      range: "Settings!A1",
+      values: [
+        ["key", "value"],
+        ["profile", JSON.stringify(state.profile)],
+        ["combo", JSON.stringify(state.combo)],
+        ["customQuestions", JSON.stringify(state.customQuestions)],
+        ["customGraphs", JSON.stringify(state.customGraphs)],
+      ],
+    },
+  ];
+}
+
+export async function getSpreadsheet(accessToken: string, spreadsheetId: string): Promise<GoogleWorkbook> {
+  const result = await sheetsRequest<{ spreadsheetId: string; properties: { title: string } }>(
+    accessToken,
+    `/spreadsheets/${encodeURIComponent(spreadsheetId)}?fields=spreadsheetId,properties.title`,
+  );
+  return { spreadsheetId: result.spreadsheetId, spreadsheetName: result.properties.title };
+}
+
+export async function createFocusWorkbook(accessToken: string, title = "Focus Command Data") : Promise<GoogleWorkbook> {
+  const result = await sheetsRequest<{ spreadsheetId: string; properties: { title: string } }>(accessToken, "/spreadsheets", {
+    method: "POST",
+    body: JSON.stringify({
+      properties: { title },
+      sheets: FOCUS_SHEET_TABS.map((sheetTitle) => ({ properties: { title: sheetTitle } })),
+    }),
+  });
+  return { spreadsheetId: result.spreadsheetId, spreadsheetName: result.properties.title };
+}
+
+export async function ensureFocusTabs(accessToken: string, spreadsheetId: string) {
+  const metadata = await sheetsRequest<{ sheets?: Array<{ properties?: { title?: string } }> }>(
+    accessToken,
+    `/spreadsheets/${encodeURIComponent(spreadsheetId)}?fields=sheets.properties.title`,
+  );
+  const existing = new Set(metadata.sheets?.map((sheet) => sheet.properties?.title).filter(Boolean) as string[]);
+  const missing = FOCUS_SHEET_TABS.filter((title) => !existing.has(title));
+  if (!missing.length) return;
+  await sheetsRequest(accessToken, `/spreadsheets/${encodeURIComponent(spreadsheetId)}:batchUpdate`, {
+    method: "POST",
+    body: JSON.stringify({ requests: missing.map((title) => ({ addSheet: { properties: { title } } })) }),
+  });
+}
+
+export async function writeFocusWorkbook(accessToken: string, workbook: GoogleWorkbook, state: FocusState) {
+  await ensureFocusTabs(accessToken, workbook.spreadsheetId);
+  await sheetsRequest(accessToken, `/spreadsheets/${encodeURIComponent(workbook.spreadsheetId)}/values:batchClear`, {
+    method: "POST",
+    body: JSON.stringify({ ranges: FOCUS_SHEET_TABS.map((tab) => `'${tab}'`) }),
+  });
+  await sheetsRequest(accessToken, `/spreadsheets/${encodeURIComponent(workbook.spreadsheetId)}/values:batchUpdate`, {
+    method: "POST",
+    body: JSON.stringify({ valueInputOption: "RAW", data: makeValueRanges(state) }),
+  });
+}
+
+export async function readFocusWorkbook(accessToken: string, spreadsheetId: string): Promise<FocusState> {
+  const response = await sheetsRequest<{ values?: string[][] }>(
+    accessToken,
+    `/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent("App_State!A:B")}`,
+  );
+  const payloadRow = response.values?.find((row) => row[0] === "payload");
+  if (!payloadRow?.[1]) throw new Error("This spreadsheet does not contain a Focus Command App_State payload yet.");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(payloadRow[1]);
+  } catch {
+    throw new Error("The Focus Command App_State payload could not be read.");
+  }
+  if (!parsed || typeof parsed !== "object" || !("profile" in parsed) || !("missions" in parsed)) {
+    throw new Error("The selected spreadsheet does not contain a valid Focus Command data snapshot.");
+  }
+  return parsed as FocusState;
+}

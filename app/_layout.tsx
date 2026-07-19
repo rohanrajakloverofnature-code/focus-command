@@ -1,13 +1,16 @@
 import "@/global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { Platform } from "react-native";
+import * as Notifications from "expo-notifications";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
+import { FocusCommandProvider } from "@/lib/focus-command";
+import { FocusThemeBridge } from "@/components/focus-theme-bridge";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -49,6 +52,18 @@ export default function RootLayout() {
     return () => unsubscribe();
   }, [handleSafeAreaUpdate]);
 
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const openReminderTarget = (notification: Notifications.Notification) => {
+      const url = notification.request.content.data?.url;
+      if (typeof url === "string" && url.startsWith("/")) router.push(url as never);
+    };
+    const previous = Notifications.getLastNotificationResponse();
+    if (previous?.notification) openReminderTarget(previous.notification);
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => openReminderTarget(response.notification));
+    return () => subscription.remove();
+  }, []);
+
   // Create clients once and reuse them
   const [queryClient] = useState(
     () =>
@@ -82,6 +97,8 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
+          <FocusCommandProvider>
+          <FocusThemeBridge />
           {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
           {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
           {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
@@ -90,6 +107,7 @@ export default function RootLayout() {
             <Stack.Screen name="oauth/callback" />
           </Stack>
           <StatusBar style="auto" />
+          </FocusCommandProvider>
         </QueryClientProvider>
       </trpc.Provider>
     </GestureHandlerRootView>

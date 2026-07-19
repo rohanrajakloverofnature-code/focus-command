@@ -1,0 +1,40 @@
+# Project TODO
+
+- [x] Define shared domain types, validation rules, and calculation engine for XP, power, gold, energy, levels, combo tiers, and SRS.
+- [x] Implement local-first persistent state with an offline synchronization queue.
+- [x] Design the Google Sheets workbook schema and create/import required worksheet tabs in one user-selected spreadsheet.
+- [ ] Add Google OAuth connection, spreadsheet selection, import, sync status, conflict handling, and retry flows.
+- [x] Add the Focus Command visual theme, portrait-safe layout, accessibility controls, and semantic color tokens.
+- [x] Create the custom Focus Command app icon and apply it to launcher, splash, favicon, and adaptive icon settings.
+- [x] Build the five-tab bottom navigation: Home, Missions, Journal, Rewards, and Dashboard.
+- [x] Build the Home command HUD with player identity, rank title, energy battery, XP, Total Power, gold, and invested-time metrics.
+- [x] Support 40-plus customizable titles, a maximum level of 500, title changes every ten levels, and editable level thresholds.
+- [x] Implement customizable streak/combo tiers, day-miss fallback rules, current multiplier, and next-tier countdown.
+- [x] Implement daily mission progress, next-title progress, current-level XP, and XP-to-next-level progress indicators.
+- [x] Implement configurable loot-box probability, custom rewards, opening feedback, and loot history.
+- [x] Implement active bosses with deadlines, linked missions, sub-missions, progress, and rewards.
+- [x] Implement the spaced-repetition queue with Day 1, Day 7, and Day 30 intervals, overdue behavior, and completion feedback.
+- [x] Implement the animated player/character presentation and subject-capture map visualization.
+- [x] Implement the Mission Board with filters, status groups, mission creation, editing, and detailed task views.
+- [x] Implement mission start, pause, resume, end, revision-topic logging, and precise invested-time calculation.
+- [x] Implement adaptive post-mission reflections, including the under-45-minute mini-achievement path.
+- [x] Implement completed mission history and configurable reflection-question templates.
+- [x] Implement daily journal creation, better-than-yesterday input, self-rating points, optional reflection, and historical timeline.
+- [x] Link journal points to lifeline growth using the specified five-percent contribution rule.
+- [x] Implement the Rewards shop, custom reward editor, gold affordability validation, purchase records, inventory, and armory items.
+- [x] Implement gold multiplier purchases that activate the following day and create a reminder.
+- [x] Implement the Dashboard Wall of Fame and Achievement Radar with seven-day visibility windows.
+- [x] Implement Total Power, XP growth, daily time, time-average, subject distribution, and category skill-tree analytics.
+- [x] Implement emotional analytics, skills radar, drill-down source records, and accessible chart summaries.
+- [x] Implement the editable dual-line Lifeline graph from birth year and its journal-derived increments.
+- [x] Implement three configurable dashboards with up to five post-mission data series each.
+- [x] Implement hamburger-menu customization for player profile, titles, levels, combo rules, energy, loot, rewards, questions, themes, sounds, and accessibility.
+- [x] Implement data import/export and sync diagnostics inside the hamburger menu.
+- [x] Add appropriate feedback using animations, haptics, configurable sounds, and accessible reduce-motion behavior.
+- [x] Add local notification preferences and local scheduling for next-day multiplier and revision reminders.
+- [x] Add deterministic unit tests for progression, currency, timers, SRS, journal/lifeline, rewards, and analytics.
+- [x] Validate all core flows on native-compatible code paths, check TypeScript/linting, and inspect development logs.
+- [ ] Create the first complete project checkpoint after all checklist items are accurately marked complete.
+- [ ] Configure the Google Sheets test connection for Expo Go with only the Web OAuth Client ID and document the later native-client requirement.
+- [x] Confirm and document the generated Android package identifier for the user.
+- [x] Optimize generated icon variants and the optional audio cue below the checkpoint media-size limit while preserving the app branding and feedback behavior.
