@@ -65,10 +65,10 @@ export function useGoogleSheetsAuth(onAuthorized?: (accessToken: string, email: 
     selectAccount: true,
     shouldAutoExchangeCode: true,
     extraParams: { access_type: "offline", prompt: "consent" },
-  }, {
+  }, Platform.OS === "web" ? {
     scheme: appScheme,
     path: "oauth/callback",
-  });
+  } : {});
 
   useEffect(() => {
     if (expoGo && Platform.OS !== "web") return;

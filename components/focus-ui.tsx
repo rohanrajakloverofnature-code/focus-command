@@ -114,7 +114,7 @@ export function IconAction({
   const impactStyle = useAnimatedStyle(() => ({ transform: [{ scale: impact.value }, { rotate: `${(impact.value - 1) * 4}deg` }] }));
   const handlePress = () => {
     impact.value = withSequence(withTiming(0.91, { duration: 55 }), withTiming(1.03, { duration: 100 }), withTiming(1, { duration: 110 }));
-    playFocusTap(state.profile.soundEnabled);
+    playFocusTap(state.profile.soundEnabled, state.profile.soundRoles.tap);
     if (state.profile.hapticsEnabled && Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     onPress();
   };
@@ -155,7 +155,7 @@ export function CommandButton({
   const impactStyle = useAnimatedStyle(() => ({ transform: [{ scale: impact.value }] }));
   const handlePress = () => {
     impact.value = withSequence(withTiming(0.955, { duration: 45 }), withTiming(1.02, { duration: 90 }), withTiming(1, { duration: 120 }));
-    playFocusTap(state.profile.soundEnabled);
+    playFocusTap(state.profile.soundEnabled, state.profile.soundRoles.tap);
     if (state.profile.hapticsEnabled && Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     onPress();
   };
@@ -210,7 +210,7 @@ export function MetricTile({
   const handleMetricPress = () => {
     if (!onPress) return;
     impact.value = withSequence(withTiming(0.97, { duration: 45 }), withTiming(1.01, { duration: 100 }), withTiming(1, { duration: 110 }));
-    playFocusTap(state.profile.soundEnabled);
+    playFocusTap(state.profile.soundEnabled, state.profile.soundRoles.tap);
     if (state.profile.hapticsEnabled && Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     onPress();
   };

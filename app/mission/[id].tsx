@@ -21,13 +21,21 @@ const feelings: { value: Feeling; label: string; color: string }[] = [
 export default function MissionDetailScreen() {
   const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { state, ready, startMission, toggleMissionPause, finishMission, logRevisionTopic } = useFocusCommand();
+  const { state, ready, startMission, toggleMissionPause, finishMission, logRevisionTopic, updateMission, removeMission } = useFocusCommand();
   const mission = state.missions.find((candidate) => candidate.id === id);
   const [clock, setClock] = useState(Date.now());
   const [revisionTopic, setRevisionTopic] = useState("");
   const [showReflection, setShowReflection] = useState(false);
   const [reflection, setReflection] = useState<ReflectionDraft>({ miniAchievementRating: 3, skills: [] });
   const [skillsText, setSkillsText] = useState("");
+  const [showEditor, setShowEditor] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editSubject, setEditSubject] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editTopic, setEditTopic] = useState("");
+  const [editXp, setEditXp] = useState("");
+  const [editDueAt, setEditDueAt] = useState("");
+  const [editBossId, setEditBossId] = useState<string | null>(null);
 
   useEffect(() => {
     if (mission?.status !== "active") return;
@@ -56,8 +64,8 @@ export default function MissionDetailScreen() {
       Alert.alert("Mission cannot be finalized", "Start the mission before ending it.");
       return;
     }
-    await playFocusSuccessCue(state.profile.soundEnabled);
-    if (state.profile.notificationsEnabled) await scheduleAchievementRecap(mission.title, state.profile.notificationRules);
+    await playFocusSuccessCue(state.profile.soundEnabled, state.profile.soundRoles.missionWin);
+    if (state.profile.notificationsEnabled) await scheduleAchievementRecap(mission.title, state.profile.notificationRules, state.profile.soundRoles.notification.enabled);
     router.replace({ pathname: "/mission-result/[id]" as never, params: { id: mission.id } });
   };
 
@@ -65,6 +73,47 @@ export default function MissionDetailScreen() {
     if (!revisionTopic.trim()) return;
     logRevisionTopic(mission.id, revisionTopic, mission.subject);
     setRevisionTopic("");
+  };
+
+  const openEditor = () => {
+    setEditTitle(mission.title);
+    setEditSubject(mission.subject);
+    setEditCategory(mission.category);
+    setEditTopic(mission.specificTopic);
+    setEditXp(String(mission.baseXp));
+    setEditDueAt(mission.dueAt?.slice(0, 10) ?? "");
+    setEditBossId(mission.bossId);
+    setShowEditor(true);
+  };
+
+  const saveEditor = () => {
+    const title = editTitle.trim();
+    const dueAt = editDueAt.trim();
+    if (!title) {
+      Alert.alert("Mission needs a title", "Enter a concise action title before saving.");
+      return;
+    }
+    if (dueAt && !/^\d{4}-\d{2}-\d{2}$/.test(dueAt)) {
+      Alert.alert("Use a valid deadline", "Use YYYY-MM-DD, or leave the deadline blank.");
+      return;
+    }
+    updateMission(mission.id, {
+      title,
+      subject: editSubject.trim() || "General",
+      category: editCategory.trim() || "Focus",
+      specificTopic: editTopic.trim(),
+      baseXp: Math.max(1, Math.round(Number(editXp) || mission.baseXp)),
+      dueAt: dueAt ? new Date(`${dueAt}T12:00:00`).toISOString() : null,
+      bossId: editBossId,
+    });
+    setShowEditor(false);
+  };
+
+  const confirmDelete = () => {
+    Alert.alert("Delete this mission?", mission.status === "completed" ? "This also removes its linked progression, reflection, revision, and gold records. This cannot be undone." : "This removes the mission from your board. This cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete mission", style: "destructive", onPress: () => { removeMission(mission.id); router.replace("/missions" as never); } },
+    ]);
   };
 
   return (
@@ -76,6 +125,37 @@ export default function MissionDetailScreen() {
           detail={`${mission.subject} · ${mission.category}`}
           right={<IconAction icon="xmark" label="Close mission" onPress={() => router.back()} />}
         />
+
+        <CommandCard accent={colors.primary} style={styles.managementCard}>
+          <View style={styles.managementCopy}>
+            <Text style={[styles.managementTitle, { color: colors.foreground }]}>Mission management</Text>
+            <Text style={[styles.managementDetail, { color: colors.muted }]}>Edit the objective, reward, deadline, topic, or campaign link. Deletion permanently clears linked mission records.</Text>
+          </View>
+          <View style={styles.managementActions}>
+            <CommandButton label={showEditor ? "Close editor" : "Edit mission"} variant="secondary" onPress={() => showEditor ? setShowEditor(false) : openEditor()} style={styles.managementAction} />
+            <CommandButton label="Delete" variant="danger" onPress={confirmDelete} style={styles.managementAction} />
+          </View>
+        </CommandCard>
+
+        {showEditor ? <CommandCard accent={colors.primary} style={styles.editorCard}>
+          <Text style={[styles.editorTitle, { color: colors.foreground }]}>Edit mission</Text>
+          <TextInput value={editTitle} onChangeText={setEditTitle} placeholder="Mission title" placeholderTextColor={colors.muted} style={[styles.editorInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+          <View style={styles.editorRow}>
+            <TextInput value={editSubject} onChangeText={setEditSubject} placeholder="Subject" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            <TextInput value={editCategory} onChangeText={setEditCategory} placeholder="Category" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+          </View>
+          <TextInput value={editTopic} onChangeText={setEditTopic} placeholder="Specific topic" placeholderTextColor={colors.muted} style={[styles.editorInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+          <View style={styles.editorRow}>
+            <TextInput value={editXp} onChangeText={setEditXp} keyboardType="number-pad" placeholder="Base XP" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            <TextInput value={editDueAt} onChangeText={setEditDueAt} autoCapitalize="none" placeholder="Deadline YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+          </View>
+          <Text style={[styles.editorLabel, { color: colors.muted }]}>CAMPAIGN LINK</Text>
+          <View style={styles.bossPicker}>
+            <Pressable onPress={() => setEditBossId(null)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: editBossId === null ? `${colors.primary}18` : colors.background, borderColor: editBossId === null ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1 }]}><Text style={[styles.bossChoiceText, { color: editBossId === null ? colors.primary : colors.muted }]}>No boss</Text></Pressable>
+            {state.bosses.filter((boss) => boss.status === "active").map((boss) => <Pressable key={boss.id} onPress={() => setEditBossId(boss.id)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: editBossId === boss.id ? "#F4C95D1D" : colors.background, borderColor: editBossId === boss.id ? "#F4C95D" : colors.border, opacity: pressed ? 0.75 : 1 }]}><Text numberOfLines={1} style={[styles.bossChoiceText, { color: editBossId === boss.id ? "#F4C95D" : colors.muted }]}>{boss.title}</Text></Pressable>)}
+          </View>
+          <CommandButton label="Save mission changes" icon="checklist" onPress={saveEditor} />
+        </CommandCard> : null}
 
         <CommandCard accent={getDifficultyColor(mission.difficulty)} style={styles.statusCard}>
           <View style={styles.statusTopline}>
@@ -225,7 +305,22 @@ const styles = StyleSheet.create({
   content: { gap: 16, paddingTop: 10, paddingBottom: 26 },
   missing: { flex: 1, justifyContent: "center", gap: 14 },
   missingTitle: { fontSize: 20, lineHeight: 26, fontWeight: "900" },
-  statusCard: { gap: 13 },
+  managementCard: { gap: 10 },
+  managementCopy: { gap: 3 },
+  managementTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },
+  managementDetail: { fontSize: 12, lineHeight: 17, fontWeight: "600" },
+  managementActions: { flexDirection: "row", gap: 8 },
+  managementAction: { flex: 1 },
+  editorCard: { gap: 10 },
+  editorTitle: { fontSize: 16, lineHeight: 21, fontWeight: "900" },
+  editorInput: { minHeight: 45, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 11, fontSize: 13, lineHeight: 17, fontWeight: "600" },
+  editorRow: { flexDirection: "row", gap: 8 },
+  editorHalf: { flex: 1 },
+  editorLabel: { fontSize: 10, lineHeight: 13, letterSpacing: 0.8, fontWeight: "900" },
+  bossPicker: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  bossChoice: { minHeight: 33, maxWidth: "100%", paddingHorizontal: 10, borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, justifyContent: "center" },
+  bossChoiceText: { fontSize: 11, lineHeight: 14, fontWeight: "800" },
+  statusCard: { gap: 12 },
   statusTopline: { flexDirection: "row", justifyContent: "space-between", gap: 9 },
   timerValue: { fontSize: 43, lineHeight: 50, letterSpacing: -1.2, fontWeight: "900", fontVariant: ["tabular-nums"] },
   timerDetail: { fontSize: 13, lineHeight: 19, fontWeight: "500", marginTop: -8 },

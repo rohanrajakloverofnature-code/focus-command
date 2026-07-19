@@ -55,3 +55,9 @@
 - [x] Add granular local notification rules for timing, categories, and reminder types.
 - [x] Add deletion controls for manually entered Lifeline data with confirmation.
 - [x] Repair Home metric layout so every key stat remains readable at mobile portrait widths.
+- [x] Add edit and delete controls for missions, including safe handling of active mission state.
+- [x] Add edit and delete controls for bosses, including deadline editing and linked-mission management.
+- [x] Add a required deadline field to the Mission Board boss creator and validate the selected date.
+- [x] Add four separately configurable sound roles: mission win, tap/click, notification, and extended feedback.
+- [x] Repair the native metric grid flex behavior shown in the supplied portrait screenshot.
+- [x] Confirm and document the Android package, iOS bundle identifier, development-build signing SHA-1 retrieval path, and Google OAuth redirect configuration.

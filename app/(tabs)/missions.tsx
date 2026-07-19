@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
@@ -14,7 +14,7 @@ const difficultyOptions: Difficulty[] = ["easy", "medium", "hard"];
 
 export default function MissionsScreen() {
   const colors = useColors();
-  const { compose, filter: requestedFilter } = useLocalSearchParams<{ compose?: string; filter?: MissionFilter }>();
+  const { compose, filter: requestedFilter, bossId: requestedBossId } = useLocalSearchParams<{ compose?: string; filter?: MissionFilter; bossId?: string }>();
   const { state, ready, createMission, createBoss, startMission } = useFocusCommand();
   const [showComposer, setShowComposer] = useState(compose === "1");
   const [filter, setFilter] = useState<MissionFilter>(requestedFilter === "active" || requestedFilter === "completed" ? requestedFilter : "open");
@@ -25,10 +25,18 @@ export default function MissionsScreen() {
   const [xp, setXp] = useState("25");
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [revisionEnabled, setRevisionEnabled] = useState(true);
-  const [bossId, setBossId] = useState<string | null>(null);
+  const [bossId, setBossId] = useState<string | null>(requestedBossId ?? null);
   const [showBossDraft, setShowBossDraft] = useState(false);
   const [bossTitle, setBossTitle] = useState("");
   const [bossObjective, setBossObjective] = useState("");
+  const [bossDeadline, setBossDeadline] = useState("");
+
+  useEffect(() => {
+    if (requestedBossId && state.bosses.some((boss) => boss.id === requestedBossId && boss.status === "active")) {
+      setBossId(requestedBossId);
+      setShowComposer(true);
+    }
+  }, [requestedBossId, state.bosses]);
 
   const missions = useMemo(() => {
     if (filter === "active") return state.missions.filter((mission) => mission.status === "active" || mission.status === "paused");
@@ -44,16 +52,21 @@ export default function MissionsScreen() {
       Alert.alert("Name the boss", "Give the campaign a clear name before linking it to this mission.");
       return;
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bossDeadline.trim()) || Number.isNaN(Date.parse(`${bossDeadline.trim()}T12:00:00`))) {
+      Alert.alert("Set a valid boss deadline", "Use YYYY-MM-DD to set the deadline before activating this campaign.");
+      return;
+    }
     const createdBossId = createBoss({
       title: cleanTitle,
       objective: bossObjective.trim() || `Advance ${cleanTitle} through linked missions.`,
-      deadlineAt: null,
+      deadlineAt: new Date(`${bossDeadline.trim()}T12:00:00`).toISOString(),
       rewardXp: 0,
       rewardGold: 0,
     });
     setBossId(createdBossId);
     setBossTitle("");
     setBossObjective("");
+    setBossDeadline("");
     setShowBossDraft(false);
   };
 
@@ -157,6 +170,8 @@ export default function MissionsScreen() {
               {showBossDraft ? <View style={[styles.bossDraft, { borderColor: `${colors.warning}70`, backgroundColor: `${colors.warning}0E` }]}>
                 <TextInput value={bossTitle} onChangeText={setBossTitle} placeholder="Boss campaign name" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
                 <TextInput value={bossObjective} onChangeText={setBossObjective} placeholder="What will victory look like?" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.bossObjectiveInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+                <Text style={[styles.inputLabel, { color: colors.muted }]}>REQUIRED DEADLINE · YYYY-MM-DD</Text>
+                <TextInput value={bossDeadline} onChangeText={setBossDeadline} placeholder="2026-12-31" autoCapitalize="none" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
                 <CommandButton label="Activate & link boss" icon="trophy.fill" onPress={createBossFromMission} />
               </View> : null}
             </View>

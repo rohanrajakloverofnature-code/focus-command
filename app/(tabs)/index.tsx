@@ -76,7 +76,15 @@ export default function HomeScreen() {
   });
   const maxJournalPoints = Math.max(1, ...journalBars.map((bar) => bar.points));
   const metricColumns = width < 600 ? 2 : 3;
-  const metricTileStyle = { width: (width - 32 - (metricColumns - 1) * 10) / metricColumns, flexGrow: 0, flexBasis: "auto" as const };
+  const metrics = [
+    { id: "xp", label: "Total XP", value: formatCompactNumber(totalXp), detail: combo.multiplier > 1 ? "Combo amplified" : "Base experience", icon: "bolt.fill" as const, accent: colors.primary },
+    { id: "gold", label: "Gold Balance", value: formatCompactNumber(goldBalance), detail: `${formatCompactNumber(lifetimeGold)} earned`, icon: "star.fill" as const, accent: "#F4C95D", onPress: () => router.push("/rewards" as never) },
+    { id: "target", label: "Mission Target", value: `${daily.earned}/${daily.target}`, detail: `${Math.round(daily.progress * 100)}% deployed`, icon: "target" as const, accent: colors.success, onPress: () => router.push("/missions" as never) },
+    { id: "time", label: "Invested Today", value: formatHours(getTodayInvestedMilliseconds(state)), detail: goldMultiplier > 1 ? `${goldMultiplier}× gold cache active` : "Exact active time", icon: "timer" as const, accent: colors.warning },
+    { id: "combo", label: "Next combo tier", value: combo.daysToNext ? `${combo.daysToNext}d` : "MAX", detail: `${combo.multiplier.toFixed(2)}× is live`, icon: "flame.fill" as const, accent: "#F4C95D" },
+    { id: "level", label: "XP to level", value: formatCompactNumber(level.powerForNextLevel), detail: `${formatCompactNumber(level.currentLevelPower)} at current level`, icon: "shield.fill" as const, accent: colors.primary },
+  ];
+  const metricRows = Array.from({ length: Math.ceil(metrics.length / metricColumns) }, (_, rowIndex) => metrics.slice(rowIndex * metricColumns, (rowIndex + 1) * metricColumns));
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background">
@@ -143,12 +151,9 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.metricsGrid}>
-          <MetricTile style={metricTileStyle} label="Total XP" value={formatCompactNumber(totalXp)} detail={combo.multiplier > 1 ? "Combo amplified" : "Base experience"} icon="bolt.fill" accent={colors.primary} />
-          <MetricTile style={metricTileStyle} label="Gold Balance" value={formatCompactNumber(goldBalance)} detail={`${formatCompactNumber(lifetimeGold)} earned`} icon="star.fill" accent="#F4C95D" onPress={() => router.push("/rewards" as never)} />
-          <MetricTile style={metricTileStyle} label="Mission Target" value={`${daily.earned}/${daily.target}`} detail={`${Math.round(daily.progress * 100)}% deployed`} icon="target" accent={colors.success} onPress={() => router.push("/missions")} />
-          <MetricTile style={metricTileStyle} label="Invested Today" value={formatHours(getTodayInvestedMilliseconds(state))} detail={goldMultiplier > 1 ? `${goldMultiplier}× gold cache active` : "Exact active time"} icon="timer" accent={colors.warning} />
-          <MetricTile style={metricTileStyle} label="Next combo tier" value={combo.daysToNext ? `${combo.daysToNext}d` : "MAX"} detail={`${combo.multiplier.toFixed(2)}× is live`} icon="flame.fill" accent="#F4C95D" />
-          <MetricTile style={metricTileStyle} label="XP to level" value={formatCompactNumber(level.powerForNextLevel)} detail={`${formatCompactNumber(level.currentLevelPower)} at current level`} icon="shield.fill" accent={colors.primary} />
+          {metricRows.map((row, rowIndex) => <View key={`metric-row-${rowIndex}`} style={styles.metricsRow}>
+            {row.map((metric) => <MetricTile key={metric.id} style={styles.metricCell} label={metric.label} value={metric.value} detail={metric.detail} icon={metric.icon} accent={metric.accent} onPress={metric.onPress} />)}
+          </View>)}
         </View>
 
         <CommandCard accent="#F4C95D" style={styles.lootCard}>
@@ -303,7 +308,9 @@ const styles = StyleSheet.create({
   primaryActions: { flexDirection: "row", gap: 10 },
   deployButton: { flex: 1.25 },
   journalButton: { flex: 1 },
-  metricsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  metricsGrid: { gap: 10, width: "100%" },
+  metricsRow: { flexDirection: "row", gap: 10, width: "100%" },
+  metricCell: { flex: 1, minWidth: 0, alignSelf: "stretch" },
   lootCard: { padding: 13, flexDirection: "row", alignItems: "center", gap: 10 },
   lootIconFrame: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: "#F4C95D1C" },
   lootCopy: { flex: 1 },

@@ -15,6 +15,13 @@ export type RewardCategory = "life" | "gear" | "power" | "multiplier";
 export type SyncPhase = "local" | "ready" | "authorized" | "syncing" | "synced" | "needs_setup" | "error";
 export type PaletteToken = "primary" | "background" | "surface" | "foreground" | "muted" | "border" | "success" | "warning" | "error";
 export type EmotionalChartId = "energy_shift" | "focus_friction" | "stress_clarity" | "motivation_distraction";
+export type SoundRoleId = "missionWin" | "tap" | "notification" | "extended";
+export type SoundStyle = "crisp" | "soft" | "ceremonial";
+
+export interface SoundRoleSettings {
+  enabled: boolean;
+  style: SoundStyle;
+}
 
 export interface EmotionalChartConfig {
   id: EmotionalChartId;
@@ -51,6 +58,7 @@ export interface PlayerProfile {
   titleChangeInterval: number;
   titles: string[];
   soundEnabled: boolean;
+  soundRoles: Record<SoundRoleId, SoundRoleSettings>;
   hapticsEnabled: boolean;
   notificationsEnabled: boolean;
   reduceMotion: boolean;
@@ -414,6 +422,12 @@ function defaultProfile(): PlayerProfile {
     titleChangeInterval: 10,
     titles: DEFAULT_TITLES,
     soundEnabled: true,
+    soundRoles: {
+      missionWin: { enabled: true, style: "ceremonial" },
+      tap: { enabled: true, style: "crisp" },
+      notification: { enabled: true, style: "soft" },
+      extended: { enabled: true, style: "soft" },
+    },
     hapticsEnabled: true,
     notificationsEnabled: true,
     reduceMotion: false,
@@ -736,12 +750,15 @@ interface FocusCommandContextValue {
   ready: boolean;
   createMission: (draft: MissionDraft) => string;
   updateMission: (missionId: string, patch: Partial<Mission>) => void;
+  removeMission: (missionId: string) => void;
   startMission: (missionId: string) => void;
   toggleMissionPause: (missionId: string) => void;
   finishMission: (missionId: string, reflection: ReflectionDraft) => { durationMs: number; lootReward: Reward | null } | null;
   logRevisionTopic: (missionId: string, topic: string, subject?: string) => void;
   completeRevision: (topicId: string) => void;
   createBoss: (input: Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold">) => string;
+  updateBoss: (bossId: string, patch: Partial<Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold" | "status">>) => void;
+  removeBoss: (bossId: string) => void;
   addJournal: (draft: JournalDraft) => void;
   addLifelinePoint: (draft: { year: number; lifePerformance: number; experience: number; note: string }) => void;
   removeLifelinePoint: (pointId: string) => void;
@@ -772,6 +789,7 @@ function normalizeHydratedState(input: FocusState): FocusState {
       ...(input.profile ?? {}),
       palette: { ...defaults.profile.palette, ...(input.profile?.palette ?? {}) },
       notificationRules: { ...defaults.profile.notificationRules, ...(input.profile?.notificationRules ?? {}) },
+      soundRoles: { ...defaults.profile.soundRoles, ...(input.profile?.soundRoles ?? {}) },
       emotionalCharts: input.profile?.emotionalCharts?.length ? input.profile.emotionalCharts : defaults.profile.emotionalCharts,
     },
     combo: { ...defaults.combo, ...(input.combo ?? {}) },
@@ -854,6 +872,22 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       ...current,
       missions: current.missions.map((mission) => mission.id === missionId ? { ...mission, ...patch } : mission),
     }));
+  }, [commit]);
+
+  const removeMission = useCallback((missionId: string) => {
+    commit((current) => {
+      const mission = current.missions.find((candidate) => candidate.id === missionId);
+      if (!mission) return current;
+      const progressionIds = current.progression.filter((event) => event.missionId === missionId).map((event) => event.id);
+      return withQueuedOperation({
+        ...current,
+        missions: current.missions.filter((candidate) => candidate.id !== missionId),
+        reflections: current.reflections.filter((reflection) => reflection.missionId !== missionId),
+        srsTopics: current.srsTopics.filter((topic) => topic.missionId !== missionId),
+        progression: current.progression.filter((event) => event.missionId !== missionId),
+        transactions: current.transactions.filter((transaction) => !progressionIds.includes(transaction.sourceId ?? "")),
+      });
+    });
   }, [commit]);
 
   const startMission = useCallback((missionId: string) => {
@@ -1095,6 +1129,21 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     return id;
   }, [commit]);
 
+  const updateBoss = useCallback((bossId: string, patch: Partial<Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold" | "status">>) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      bosses: current.bosses.map((boss) => boss.id === bossId ? { ...boss, ...patch } : boss),
+    }));
+  }, [commit]);
+
+  const removeBoss = useCallback((bossId: string) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      bosses: current.bosses.filter((boss) => boss.id !== bossId),
+      missions: current.missions.map((mission) => mission.bossId === bossId ? { ...mission, bossId: null } : mission),
+    }));
+  }, [commit]);
+
   const addJournal = useCallback((draft: JournalDraft) => {
     commit((current) => {
       const localDate = toLocalDate(nowIso(), current.profile.timezone);
@@ -1303,12 +1352,15 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     ready: state.hydrated,
     createMission,
     updateMission,
+    removeMission,
     startMission,
     toggleMissionPause,
     finishMission,
     logRevisionTopic,
     completeRevision,
     createBoss,
+    updateBoss,
+    removeBoss,
     addJournal,
     addLifelinePoint,
     removeLifelinePoint,
@@ -1328,12 +1380,15 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     state,
     createMission,
     updateMission,
+    removeMission,
     startMission,
     toggleMissionPause,
     finishMission,
     logRevisionTopic,
     completeRevision,
     createBoss,
+    updateBoss,
+    removeBoss,
     addJournal,
     addLifelinePoint,
     removeLifelinePoint,

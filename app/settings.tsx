@@ -7,10 +7,11 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useGoogleSheetsAuth } from "@/hooks/use-google-sheets-auth";
-import { ComboTier, getComboTiers, PaletteToken, useFocusCommand } from "@/lib/focus-command";
+import { ComboTier, getComboTiers, PaletteToken, SoundRoleId, SoundStyle, useFocusCommand } from "@/lib/focus-command";
 import { createFocusWorkbook, getFocusWorkbookMetadata, getGoogleAccessToken, getSpreadsheet, readFocusWorkbook, writeFocusWorkbook } from "@/lib/google-sheets";
 import { configureDailyMissionReminder, enableFocusReminders } from "@/lib/focus-reminders";
 import { useThemeContext } from "@/lib/theme-provider";
+import { playFocusRole } from "@/lib/focus-audio";
 
 export default function SettingsScreen() {
   const colors = useColors();
@@ -88,8 +89,23 @@ export default function SettingsScreen() {
     const notificationRules = { ...state.profile.notificationRules, ...patch };
     updateProfile({ notificationRules });
     if (state.profile.notificationsEnabled && ("dailyMissionEnabled" in patch || "dailyMissionTime" in patch)) {
-      await configureDailyMissionReminder(notificationRules.dailyMissionEnabled, notificationRules.dailyMissionTime);
+      await configureDailyMissionReminder(notificationRules.dailyMissionEnabled, notificationRules.dailyMissionTime, state.profile.soundRoles.notification.enabled);
     }
+  };
+
+  const soundRoles: { id: SoundRoleId; title: string; detail: string }[] = [
+    { id: "missionWin", title: "Mission win", detail: "Plays when a mission is completed." },
+    { id: "tap", title: "Tap / click", detail: "Short feedback for command buttons and controls." },
+    { id: "notification", title: "Notification", detail: "Preview cue for reminder and alert style." },
+    { id: "extended", title: "Extended feedback", detail: "Longer confirmation for vault and special actions." },
+  ];
+  const soundStyles: { value: SoundStyle; label: string }[] = [
+    { value: "crisp", label: "Crisp" },
+    { value: "soft", label: "Soft" },
+    { value: "ceremonial", label: "Ceremonial" },
+  ];
+  const patchSoundRole = (role: SoundRoleId, patch: Partial<typeof state.profile.soundRoles[SoundRoleId]>) => {
+    updateProfile({ soundRoles: { ...state.profile.soundRoles, [role]: { ...state.profile.soundRoles[role], ...patch } } });
   };
 
   const reset = () => {
@@ -240,7 +256,23 @@ export default function SettingsScreen() {
 
         <SectionHeader title="Feedback & accessibility" />
         <CommandCard style={styles.cardStack}>
-          <SwitchRow label="Game sound" detail="Enable sound feedback for major command events." value={state.profile.soundEnabled} onValueChange={(soundEnabled) => updateProfile({ soundEnabled })} />
+          <SwitchRow label="Game sound" detail="Master switch for every command sound role below." value={state.profile.soundEnabled} onValueChange={(soundEnabled) => updateProfile({ soundEnabled })} />
+          {state.profile.soundEnabled ? <View style={styles.soundRoleList}>
+            {soundRoles.map((role, index) => {
+              const setting = state.profile.soundRoles[role.id];
+              return <View key={role.id} style={[styles.soundRole, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <View style={styles.settingRow}>
+                  <View style={styles.settingCopy}><Text style={[styles.settingTitle, { color: colors.foreground }]}>{role.title}</Text><Text style={[styles.settingDetail, { color: colors.muted }]}>{role.detail}</Text></View>
+                  <Switch value={setting.enabled} onValueChange={(enabled) => patchSoundRole(role.id, { enabled })} trackColor={{ false: colors.border, true: `${colors.primary}88` }} thumbColor={setting.enabled ? colors.primary : colors.surface} />
+                </View>
+                <View style={styles.soundRoleActions}>
+                  <View style={styles.soundStyleChoices}>{soundStyles.map((option) => <Pressable key={option.value} onPress={() => patchSoundRole(role.id, { style: option.value })} style={({ pressed }) => [styles.soundStyleChoice, { backgroundColor: setting.style === option.value ? `${colors.primary}1B` : colors.surface, borderColor: setting.style === option.value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1 }]}><Text style={[styles.soundStyleText, { color: setting.style === option.value ? colors.primary : colors.muted }]}>{option.label}</Text></Pressable>)}</View>
+                  <Pressable accessibilityRole="button" onPress={() => { void playFocusRole(role.id, state.profile.soundEnabled, setting); }} style={({ pressed }) => [styles.soundPreview, { backgroundColor: `${colors.primary}18`, borderColor: colors.primary, opacity: pressed ? 0.72 : 1 }]}><IconSymbol name="play.fill" size={14} color={colors.primary} /><Text style={[styles.soundPreviewText, { color: colors.primary }]}>Preview</Text></Pressable>
+                </View>
+                {index < soundRoles.length - 1 ? <View style={[styles.soundRoleDivider, { backgroundColor: colors.border }]} /> : null}
+              </View>;
+            })}
+          </View> : null}
           <Divider />
           <SwitchRow label="Haptic feedback" detail="Use subtle tactile confirmation for key actions." value={state.profile.hapticsEnabled} onValueChange={(hapticsEnabled) => updateProfile({ hapticsEnabled })} />
           <Divider />
@@ -253,7 +285,7 @@ export default function SettingsScreen() {
               }
             }
             updateProfile({ notificationsEnabled });
-            await configureDailyMissionReminder(notificationsEnabled && state.profile.notificationRules.dailyMissionEnabled, state.profile.notificationRules.dailyMissionTime);
+            await configureDailyMissionReminder(notificationsEnabled && state.profile.notificationRules.dailyMissionEnabled, state.profile.notificationRules.dailyMissionTime, state.profile.soundRoles.notification.enabled);
           }} />
           <Divider />
           <SwitchRow label="Reduce motion" detail="Prefer still, immediate state changes over animation." value={state.profile.reduceMotion} onValueChange={(reduceMotion) => updateProfile({ reduceMotion })} />
@@ -465,6 +497,15 @@ const styles = StyleSheet.create({
   paletteSwatch: { width: 18, height: 18, borderRadius: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "#FFFFFF55" },
   paletteLabel: { fontSize: 12, lineHeight: 16, fontWeight: "800" },
   paletteInput: { minHeight: 40, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 10, fontSize: 12, lineHeight: 16, fontWeight: "800", fontVariant: ["tabular-nums"] },
+  soundRoleList: { gap: 9 },
+  soundRole: { gap: 8, borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, padding: 10 },
+  soundRoleActions: { gap: 8 },
+  soundStyleChoices: { flexDirection: "row", gap: 6 },
+  soundStyleChoice: { flex: 1, minHeight: 31, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 },
+  soundStyleText: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.35 },
+  soundPreview: { minHeight: 34, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  soundPreviewText: { fontSize: 11, lineHeight: 14, fontWeight: "900" },
+  soundRoleDivider: { height: StyleSheet.hairlineWidth, width: "100%", marginTop: 1 },
   notificationTimeRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   timeInput: { width: 78, minHeight: 42, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, textAlign: "center", fontSize: 13, lineHeight: 17, fontWeight: "900", fontVariant: ["tabular-nums"] },
 });

@@ -30,6 +30,7 @@ async function prepareNotifications(): Promise<boolean> {
       importance: Notifications.AndroidImportance.DEFAULT,
       vibrationPattern: [0, 150, 80, 150],
       lightColor: "#39C6E8",
+      sound: "default",
     });
   }
   const current = await Notifications.getPermissionsAsync();
@@ -58,14 +59,14 @@ export async function enableFocusReminders(): Promise<boolean> {
   }
 }
 
-export async function configureDailyMissionReminder(enabled: boolean, time: string): Promise<string | null> {
+export async function configureDailyMissionReminder(enabled: boolean, time: string, notificationSoundEnabled = true): Promise<string | null> {
   try {
     await cancelKind("daily_mission");
     if (!enabled || !await prepareNotifications()) return null;
     const { hour, minute } = timeParts(time);
     const content = message("daily_mission", "");
     return Notifications.scheduleNotificationAsync({
-      content: { ...content, data: { ...content, kind: "daily_mission" } },
+      content: { ...content, sound: notificationSoundEnabled ? "default" : undefined, data: { ...content, kind: "daily_mission" } },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour, minute, channelId: CHANNEL_ID },
     });
   } catch {
@@ -73,7 +74,7 @@ export async function configureDailyMissionReminder(enabled: boolean, time: stri
   }
 }
 
-export async function scheduleRevisionReminder(title: string, dueAt: string, rules: NotificationRules): Promise<string | null> {
+export async function scheduleRevisionReminder(title: string, dueAt: string, rules: NotificationRules, notificationSoundEnabled = true): Promise<string | null> {
   if (!rules.revisionEnabled) return null;
   try {
     const allowed = await prepareNotifications();
@@ -84,7 +85,7 @@ export async function scheduleRevisionReminder(title: string, dueAt: string, rul
     if (Number.isNaN(date.getTime()) || date.getTime() <= Date.now()) return null;
     const content = message("revision", title);
     return Notifications.scheduleNotificationAsync({
-      content: { ...content, data: { ...content, kind: "revision" } },
+      content: { ...content, sound: notificationSoundEnabled ? "default" : undefined, data: { ...content, kind: "revision" } },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId: CHANNEL_ID },
     });
   } catch {
@@ -92,7 +93,7 @@ export async function scheduleRevisionReminder(title: string, dueAt: string, rul
   }
 }
 
-export async function scheduleMultiplierReminder(rewardTitle: string, rules: NotificationRules): Promise<string | null> {
+export async function scheduleMultiplierReminder(rewardTitle: string, rules: NotificationRules, notificationSoundEnabled = true): Promise<string | null> {
   if (!rules.multiplierEnabled) return null;
   try {
     const allowed = await prepareNotifications();
@@ -103,7 +104,7 @@ export async function scheduleMultiplierReminder(rewardTitle: string, rules: Not
     tomorrow.setHours(hour, minute, 0, 0);
     const content = message("multiplier", rewardTitle);
     return Notifications.scheduleNotificationAsync({
-      content: { ...content, data: { ...content, kind: "multiplier" } },
+      content: { ...content, sound: notificationSoundEnabled ? "default" : undefined, data: { ...content, kind: "multiplier" } },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: tomorrow, channelId: CHANNEL_ID },
     });
   } catch {
@@ -111,14 +112,14 @@ export async function scheduleMultiplierReminder(rewardTitle: string, rules: Not
   }
 }
 
-export async function scheduleAchievementRecap(title: string, rules: NotificationRules): Promise<string | null> {
+export async function scheduleAchievementRecap(title: string, rules: NotificationRules, notificationSoundEnabled = true): Promise<string | null> {
   if (!rules.achievementEnabled) return null;
   try {
     const allowed = await prepareNotifications();
     if (!allowed) return null;
     const content = message("achievement", title);
     return Notifications.scheduleNotificationAsync({
-      content: { ...content, data: { ...content, kind: "achievement" } },
+      content: { ...content, sound: notificationSoundEnabled ? "default" : undefined, data: { ...content, kind: "achievement" } },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 3, repeats: false, channelId: CHANNEL_ID },
     });
   } catch {

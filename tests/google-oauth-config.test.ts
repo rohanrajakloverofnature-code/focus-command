@@ -15,8 +15,8 @@ describe("Google Sheets OAuth configuration", () => {
     expect(discovery.token_endpoint).toContain("googleapis.com");
   });
 
-  it("documents the custom scheme used by a future native development build", () => {
-    const redirectUri = "manusrpgfocuscommand://oauth/callback";
+  it("documents the native application-identifier redirect used by a development build", () => {
+    const redirectUri = "com.app.rpgfocuscommand:/oauthredirect";
     const request = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     request.searchParams.set("redirect_uri", redirectUri);
     request.searchParams.set("response_type", "code");

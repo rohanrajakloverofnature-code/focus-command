@@ -1,12 +1,22 @@
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 
-type CueName = "tap" | "confirm" | "achievement";
+import type { SoundRoleId, SoundRoleSettings, SoundStyle } from "@/lib/focus-command";
+
+type CueName = "tap" | "confirm" | "notification" | "achievement";
 
 const sources = {
   tap: require("../assets/sounds/focus-command-tap.mp3"),
   confirm: require("../assets/sounds/focus-command-confirm.mp3"),
+  notification: require("../assets/sounds/focus-command-notification.mp3"),
   achievement: require("../assets/sounds/focus-command-cue.mp3"),
 } as const;
+
+const cueByRoleAndStyle: Record<SoundRoleId, Record<SoundStyle, CueName>> = {
+  missionWin: { crisp: "confirm", soft: "notification", ceremonial: "achievement" },
+  tap: { crisp: "tap", soft: "confirm", ceremonial: "achievement" },
+  notification: { crisp: "tap", soft: "notification", ceremonial: "confirm" },
+  extended: { crisp: "confirm", soft: "notification", ceremonial: "achievement" },
+};
 
 const players: Partial<Record<CueName, ReturnType<typeof createAudioPlayer>>> = {};
 let audioModePrepared = false;
@@ -34,14 +44,22 @@ export async function playFocusCue(name: CueName, enabled: boolean) {
   }
 }
 
-export function playFocusTap(enabled: boolean) {
-  return playFocusCue("tap", enabled);
+export function playFocusRole(role: SoundRoleId, masterEnabled: boolean, settings: SoundRoleSettings) {
+  return playFocusCue(cueByRoleAndStyle[role][settings.style], masterEnabled && settings.enabled);
 }
 
-export function playFocusConfirmCue(enabled: boolean) {
-  return playFocusCue("confirm", enabled);
+export function playFocusTap(masterEnabled: boolean, settings?: SoundRoleSettings) {
+  return playFocusRole("tap", masterEnabled, settings ?? { enabled: true, style: "crisp" });
 }
 
-export function playFocusSuccessCue(enabled: boolean) {
-  return playFocusCue("achievement", enabled);
+export function playFocusConfirmCue(masterEnabled: boolean, settings?: SoundRoleSettings) {
+  return playFocusRole("extended", masterEnabled, settings ?? { enabled: true, style: "soft" });
+}
+
+export function playFocusSuccessCue(masterEnabled: boolean, settings?: SoundRoleSettings) {
+  return playFocusRole("missionWin", masterEnabled, settings ?? { enabled: true, style: "ceremonial" });
+}
+
+export function playFocusNotificationCue(masterEnabled: boolean, settings?: SoundRoleSettings) {
+  return playFocusRole("notification", masterEnabled, settings ?? { enabled: true, style: "soft" });
 }

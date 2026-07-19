@@ -1,37 +1,58 @@
 # Google Sheets OAuth Setup for Focus Command
 
-Focus Command includes a prepared Google Sheets OAuth and synchronization flow. The currently configured **Web OAuth Client ID** has passed the project configuration test. However, current Expo guidance confirms that **Expo Go is not a supported environment for OAuth/OpenID Connect redirect testing** because the app cannot define its own native redirect scheme there.
+Focus Command now uses Expo's Google AuthSession provider with the supported **native application-identifier redirect** on Android and iOS. OAuth cannot complete in Expo Go because a native development build is needed to own the callback scheme.
 
-## Current Project Identifiers
+## Values to Use in Google Cloud Console
 
-| Setting | Value |
+| Google Cloud field | Exact Focus Command value |
 |---|---|
+| App display / build name | `Focus Command` |
+| Expo project slug | `rpg-focus-command` |
 | Android package name | `com.app.rpgfocuscommand` |
-| Development-build callback scheme | `manusrpgfocuscommand://oauth/callback` |
-| Required Android OAuth setup | Google OAuth Android client using the package name and the development/build signing SHA-1 |
-| Required iOS OAuth setup | Google OAuth iOS client using the final bundle identifier |
-| Configured development value | Google Web OAuth Client ID, used for Web configuration validation |
+| iOS bundle identifier | `com.app.rpgfocuscommand` |
+| Android native callback used by AuthSession | `com.app.rpgfocuscommand:/oauthredirect` |
+| Android OAuth client environment variable | `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` |
+| iOS OAuth client environment variable | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` |
+| Existing web client environment variable | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` |
 
-## Current Integration Readiness
+## Android SHA-1 Fingerprint
 
-| Capability | Current state |
+The exact SHA-1 cannot be truthfully supplied until the **same signing certificate used for the native development build** exists. No Android keystore is stored in this project, so a local placeholder or debug SHA-1 would not authorize the real build.
+
+After creating or obtaining the signed Android development build, retrieve the SHA-1 from the exact signing artifact using one of these supported paths:
+
+| Build ownership | Where to obtain the correct SHA-1 |
 |---|---|
-| Local-first offline queue | Implemented and persisted on-device. |
-| Google authorization UI | Implemented with PKCE, secure token storage, account identity display, and explicit Expo Go guidance. |
-| Token recovery | Implemented: a secure refresh token is used to recover an expired access token when Google returns one. |
-| Workbook operations | Implemented: create a workbook, create missing Focus Command tabs, import a snapshot, and sync the active state. |
-| Conflict protection | Implemented: a newer remote snapshot plus unsynced local changes triggers a choice between using the sheet copy or keeping the local copy. |
-| Live device sign-in | Pending the Android and iOS OAuth client identifiers described below. |
+| EAS or hosted build credentials | Use the build credential view or the signing certificate exported by the build service. |
+| A signed APK or AAB | Run `keytool -printcert -jarfile app.apk` or `keytool -printcert -jarfile app.aab`. |
+| Play App Signing | Google Play Console → **Release** → **Setup** → **App Integrity** → the appropriate upload or app-signing certificate. |
+
+> Use the SHA-1 belonging to the build that will actually run on the phone. The upload-key and Play app-signing-key SHA-1 values can differ.
 
 ## Google Cloud Console Steps
 
-Create an Android OAuth client once the SHA-1 fingerprint is available, using the Android package name above. Create an iOS OAuth client when the iOS bundle identifier is available. Save the resulting values as `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` and `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`. Then run the app in a native development build—not Expo Go—and choose **Authorize Google** in Command settings.
+First enable the **Google Sheets API** and **Google Drive API** for the chosen Google Cloud project. Create an **Android** OAuth client using the package name and exact development-build SHA-1 above. Create an **iOS** OAuth client using the iOS bundle identifier. Retain the existing Web OAuth client for web validation.
 
-The app requests only the scopes needed to identify the account and create/read/write the selected Google Sheet: `openid`, `profile`, `email`, `https://www.googleapis.com/auth/spreadsheets`, and `https://www.googleapis.com/auth/drive.file`. Tokens are stored in native secure storage and a refresh token is used only to restore a previously approved session. The selected workbook uses the `App_State`, `Missions`, `Reflections`, `Revisions`, `Bosses`, `Journal`, `Rewards`, `Transactions`, `Inventory`, `Progression`, `Lifeline`, and `Settings` tabs. Sync manages columns `A:AZ` in those tabs so unrelated manual columns beyond that range remain untouched.
+When the Android and iOS client IDs are ready, provide only their client-ID strings. They will be stored as `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` and `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, and then the app can be tested in a native development build from **Command Settings → Google Sheets → Authorize Google**.
 
-## Authoritative References
+## Integration Readiness
+
+| Capability | Current state |
+|---|---|
+| Offline queue and local persistence | Implemented on-device. |
+| Google authorization UI | Implemented with PKCE, secure token storage, account identity display, and clear native-build guidance. |
+| Native redirect behavior | Uses `com.app.rpgfocuscommand:/oauthredirect` for the Android/iOS Google provider. |
+| Token recovery | Implemented with secure refresh-token recovery when Google returns a refresh token. |
+| Workbook operations | Implemented: create workbook, create missing Focus Command tabs, import a snapshot, and sync active state. |
+| Conflict handling | Implemented: newer remote data plus unsynced local data presents an explicit local-versus-sheet choice. |
+| Live native sign-in | Pending Android and iOS OAuth client IDs, plus the Android build's actual signing SHA-1. |
+
+The app requests only the scopes needed to identify the account and create, read, and write the selected Google Sheet: `openid`, `profile`, `email`, `https://www.googleapis.com/auth/spreadsheets`, and `https://www.googleapis.com/auth/drive.file`. Tokens are stored in native secure storage. The selected workbook uses the `App_State`, `Missions`, `Reflections`, `Revisions`, `Bosses`, `Journal`, `Rewards`, `Transactions`, `Inventory`, `Progression`, `Lifeline`, and `Settings` tabs; Focus Command manages columns `A:AZ`, preserving unrelated manual columns beyond that range.
+
+## References
 
 - [Expo: Authentication with OAuth or OpenID providers](https://docs.expo.dev/guides/authentication/)
 - [Expo: Using Google authentication](https://docs.expo.dev/guides/google-authentication/)
-- [Expo AuthSession reference](https://docs.expo.dev/versions/latest/sdk/auth-session/)
-- [Google: OAuth 2.0 for native apps](https://developers.google.com/identity/protocols/oauth2/native-app)
+- [Expo AuthSession provider implementation](https://docs.expo.dev/versions/latest/sdk/auth-session/)
+- [Google: Client authentication and SHA-1 certificate fingerprints](https://developers.google.com/android/guides/client-auth)
+- [Google: OAuth 2.0 for installed applications](https://developers.google.com/identity/protocols/oauth2/native-app)
