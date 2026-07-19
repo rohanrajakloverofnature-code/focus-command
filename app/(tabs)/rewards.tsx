@@ -27,6 +27,8 @@ export default function RewardsScreen() {
   const [cost, setCost] = useState("30");
   const [draftCategory, setDraftCategory] = useState<RewardCategory>("life");
   const [lootEnabled, setLootEnabled] = useState(true);
+  const [lootWeight, setLootWeight] = useState("1");
+  const [goldMultiplier, setGoldMultiplier] = useState("2");
 
   if (!ready) return <LoadingScreen label="Opening reward vault…" />;
 
@@ -45,14 +47,16 @@ export default function RewardsScreen() {
       category: draftCategory,
       goldCost: Math.max(0, Math.round(Number(cost) || 0)),
       lootEnabled,
-      lootWeight: lootEnabled ? 1 : 0,
-      goldMultiplier: null,
+      lootWeight: lootEnabled ? Math.max(1, Math.round(Number(lootWeight) || 1)) : 0,
+      goldMultiplier: draftCategory === "multiplier" ? Math.max(1.1, Number(goldMultiplier) || 2) : null,
     });
     setTitle("");
     setDescription("");
     setCost("30");
     setDraftCategory("life");
     setLootEnabled(true);
+    setLootWeight("1");
+    setGoldMultiplier("2");
     setShowComposer(false);
   };
 
@@ -118,7 +122,7 @@ export default function RewardsScreen() {
             <View>
               <Text style={[styles.inputLabel, { color: colors.muted }]}>CATEGORY</Text>
               <View style={styles.categoryChoices}>
-                {(["life", "gear", "power"] as RewardCategory[]).map((value) => (
+                {(["life", "gear", "power", "multiplier"] as RewardCategory[]).map((value) => (
                   <Pressable key={value} onPress={() => setDraftCategory(value)} style={({ pressed }) => [styles.categoryChoice, { backgroundColor: draftCategory === value ? `${colors.primary}1B` : colors.background, borderColor: draftCategory === value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1 }]}>
                     <Text style={[styles.categoryChoiceText, { color: draftCategory === value ? colors.primary : colors.muted }]}>{value.toUpperCase()}</Text>
                   </Pressable>
@@ -132,6 +136,8 @@ export default function RewardsScreen() {
                 <Text style={[styles.lootToggleDetail, { color: colors.muted }]}>Add this reward to your random post-mission loot pool.</Text>
               </View>
             </Pressable>
+            {lootEnabled ? <View style={styles.composerCostRow}><View style={styles.costCopy}><Text style={[styles.inputLabel, { color: colors.muted }]}>LOOT WEIGHT</Text><Text style={[styles.costDetail, { color: colors.muted }]}>Higher values make this reward more likely within a successful draw.</Text></View><TextInput value={lootWeight} onChangeText={setLootWeight} keyboardType="number-pad" style={[styles.costInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
+            {draftCategory === "multiplier" ? <View style={styles.composerCostRow}><View style={styles.costCopy}><Text style={[styles.inputLabel, { color: colors.muted }]}>NEXT-DAY GOLD MULTIPLIER</Text><Text style={[styles.costDetail, { color: colors.muted }]}>Applied only to missions completed tomorrow, then archived in inventory.</Text></View><TextInput value={goldMultiplier} onChangeText={setGoldMultiplier} keyboardType="decimal-pad" style={[styles.costInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
             <CommandButton label="Add to vault" icon="gift.fill" onPress={submit} />
           </CommandCard>
         ) : null}

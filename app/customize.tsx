@@ -5,7 +5,7 @@ import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, Vi
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { GraphSeries, useFocusCommand } from "@/lib/focus-command";
+import { CustomQuestion, GraphSeries, useFocusCommand } from "@/lib/focus-command";
 
 const graphMetrics: { metric: GraphSeries["metric"]; label: string; color: string }[] = [
   { metric: "miniAchievementRating", label: "Mini achievement", color: "#F4C95D" },
@@ -15,11 +15,24 @@ const graphMetrics: { metric: GraphSeries["metric"]; label: string; color: strin
   { metric: "durationHours", label: "Duration", color: "#C092FF" },
 ];
 
+const questionTypes: { type: CustomQuestion["type"]; label: string }[] = [
+  { type: "rating", label: "Rating" },
+  { type: "text", label: "Text" },
+  { type: "single_choice", label: "One choice" },
+  { type: "multiple_choice", label: "Many choices" },
+];
+
+function parseOptions(value: string) {
+  return value.split(",").map((option) => option.trim()).filter(Boolean);
+}
+
 export default function CustomizeScreen() {
   const colors = useColors();
-  const { state, ready, updateProfile, addCustomQuestion, updateCustomGraph } = useFocusCommand();
+  const { state, ready, updateProfile, addCustomQuestion, updateCustomQuestion, removeCustomQuestion, updateCustomGraph } = useFocusCommand();
   const [titleDrafts, setTitleDrafts] = useState(state.profile.titles);
   const [questionLabel, setQuestionLabel] = useState("");
+  const [questionType, setQuestionType] = useState<CustomQuestion["type"]>("rating");
+  const [questionOptions, setQuestionOptions] = useState("");
   const [showAllTitles, setShowAllTitles] = useState(false);
 
   const editableTitles = useMemo(() => showAllTitles ? titleDrafts : titleDrafts.slice(0, 12), [showAllTitles, titleDrafts]);
@@ -38,12 +51,26 @@ export default function CustomizeScreen() {
 
   const addQuestion = () => {
     const label = questionLabel.trim();
+    const options = parseOptions(questionOptions);
     if (!label) {
       Alert.alert("Write the question first", "Add the prompt you want to answer after a long mission.");
       return;
     }
-    addCustomQuestion({ label, type: "rating", options: [], enabled: true });
+    if ((questionType === "single_choice" || questionType === "multiple_choice") && options.length < 2) {
+      Alert.alert("Add choices", "Choice prompts need at least two comma-separated options.");
+      return;
+    }
+    addCustomQuestion({ label, type: questionType, options, enabled: true });
     setQuestionLabel("");
+    setQuestionOptions("");
+    setQuestionType("rating");
+  };
+
+  const confirmQuestionRemoval = (questionId: string) => {
+    Alert.alert("Remove reflection question?", "Existing answers remain in mission history, but future mission debriefs will no longer show this prompt.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Remove", style: "destructive", onPress: () => removeCustomQuestion(questionId) },
+    ]);
   };
 
   const toggleMetric = (graphId: string, metric: GraphSeries["metric"], label: string, color: string) => {
@@ -82,15 +109,12 @@ export default function CustomizeScreen() {
             data={editableTitles}
             scrollEnabled={false}
             keyExtractor={(_, index) => String(index)}
-            renderItem={({ item, index }) => {
-              const realIndex = showAllTitles ? index : index;
-              return (
-                <View style={styles.titleRow}>
-                  <StatusPill label={`LV ${realIndex * state.profile.titleChangeInterval + 1}`} tone="primary" />
-                  <TextInput value={item} onChangeText={(value) => updateTitle(realIndex, value)} onBlur={saveTitles} style={[styles.titleInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-                </View>
-              );
-            }}
+            renderItem={({ item, index }) => (
+              <View style={styles.titleRow}>
+                <StatusPill label={`LV ${index * state.profile.titleChangeInterval + 1}`} tone="primary" />
+                <TextInput value={item} onChangeText={(value) => updateTitle(index, value)} onBlur={saveTitles} style={[styles.titleInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+              </View>
+            )}
             ItemSeparatorComponent={() => <View style={[styles.titleDivider, { backgroundColor: colors.border }]} />}
           />
           <CommandButton label="Save title changes" icon="checklist" onPress={saveTitles} />
@@ -98,19 +122,23 @@ export default function CustomizeScreen() {
 
         <SectionHeader title="Reflection questions" />
         <CommandCard accent={colors.success} style={styles.cardStack}>
-          <Text style={[styles.helpText, { color: colors.muted }]}>The built-in long-mission debrief covers feelings, friction, thought, skills, and mini achievements. Add your own rating prompt below.</Text>
-          <View style={styles.questionInputRow}>
-            <TextInput value={questionLabel} onChangeText={setQuestionLabel} placeholder="e.g., Did I protect my focus?" placeholderTextColor={colors.muted} style={[styles.questionInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} returnKeyType="done" onSubmitEditing={addQuestion} />
-            <CommandButton label="Add" icon="plus" onPress={addQuestion} />
+          <Text style={[styles.helpText, { color: colors.muted }]}>Built-in long-mission debriefs cover feelings, friction, thoughts, skills, and mini achievements. Add flexible prompts that appear after future long missions.</Text>
+          <TextInput value={questionLabel} onChangeText={setQuestionLabel} placeholder="e.g., Did I protect my focus?" placeholderTextColor={colors.muted} style={[styles.questionInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} returnKeyType="done" />
+          <View style={styles.typeChoices}>
+            {questionTypes.map((choice) => {
+              const active = questionType === choice.type;
+              return <Pressable key={choice.type} onPress={() => setQuestionType(choice.type)} style={({ pressed }) => [styles.typeChoice, { backgroundColor: active ? `${colors.success}1D` : colors.background, borderColor: active ? colors.success : colors.border, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.typeChoiceText, { color: active ? colors.success : colors.muted }]}>{choice.label}</Text></Pressable>;
+            })}
           </View>
+          {questionType === "single_choice" || questionType === "multiple_choice" ? <TextInput value={questionOptions} onChangeText={setQuestionOptions} placeholder="Choices, separated by commas" placeholderTextColor={colors.muted} style={[styles.questionInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /> : null}
+          <CommandButton label="Add question" icon="plus" onPress={addQuestion} />
           {state.customQuestions.length ? state.customQuestions.map((question) => (
-            <View key={question.id} style={styles.questionRow}>
-              <View style={styles.questionCopy}>
-                <Text style={[styles.questionTitle, { color: colors.foreground }]}>{question.label}</Text>
-                <Text style={[styles.questionDetail, { color: colors.muted }]}>{question.type.replace("_", " ")} · {question.enabled ? "Visible" : "Hidden"}</Text>
-              </View>
-              <StatusPill label={question.enabled ? "ON" : "OFF"} tone={question.enabled ? "success" : "neutral"} />
-            </View>
+            <QuestionEditor
+              key={question.id}
+              question={question}
+              onUpdate={(patch) => updateCustomQuestion(question.id, patch)}
+              onRemove={() => confirmQuestionRemoval(question.id)}
+            />
           )) : <Text style={[styles.emptyText, { color: colors.muted }]}>No additional questions yet.</Text>}
         </CommandCard>
 
@@ -144,6 +172,30 @@ export default function CustomizeScreen() {
         </View>
       </ScrollView>
     </ScreenContainer>
+  );
+}
+
+function QuestionEditor({ question, onUpdate, onRemove }: { question: CustomQuestion; onUpdate: (patch: Partial<Omit<CustomQuestion, "id">>) => void; onRemove: () => void }) {
+  const colors = useColors();
+  const isChoice = question.type === "single_choice" || question.type === "multiple_choice";
+  return (
+    <View style={[styles.questionEditor, { borderColor: colors.border, backgroundColor: colors.background }]}>
+      <View style={styles.questionHeader}>
+        <StatusPill label={question.enabled ? "VISIBLE" : "HIDDEN"} tone={question.enabled ? "success" : "neutral"} />
+        <View style={styles.questionHeaderActions}>
+          <CommandButton label={question.enabled ? "Hide" : "Show"} variant="ghost" onPress={() => onUpdate({ enabled: !question.enabled })} />
+          <CommandButton label="Remove" variant="ghost" onPress={onRemove} />
+        </View>
+      </View>
+      <TextInput value={question.label} onChangeText={(label) => onUpdate({ label })} placeholder="Question prompt" placeholderTextColor={colors.muted} style={[styles.questionInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+      <View style={styles.typeChoices}>
+        {questionTypes.map((choice) => {
+          const active = question.type === choice.type;
+          return <Pressable key={choice.type} onPress={() => onUpdate({ type: choice.type, options: choice.type === "single_choice" || choice.type === "multiple_choice" ? question.options : [] })} style={({ pressed }) => [styles.typeChoice, { backgroundColor: active ? `${colors.success}1D` : colors.surface, borderColor: active ? colors.success : colors.border, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.typeChoiceText, { color: active ? colors.success : colors.muted }]}>{choice.label}</Text></Pressable>;
+        })}
+      </View>
+      {isChoice ? <TextInput value={question.options.join(", ")} onChangeText={(value) => onUpdate({ options: parseOptions(value) })} placeholder="Choices, separated by commas" placeholderTextColor={colors.muted} style={[styles.questionInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} /> : null}
+    </View>
   );
 }
 
@@ -183,12 +235,13 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: "row", alignItems: "center", gap: 9, paddingVertical: 6 },
   titleInput: { flex: 1, minHeight: 42, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 11, fontSize: 13, lineHeight: 17, fontWeight: "700" },
   titleDivider: { height: StyleSheet.hairlineWidth, marginVertical: 2 },
-  questionInputRow: { flexDirection: "row", gap: 8 },
-  questionInput: { flex: 1, minHeight: 44, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 11, fontSize: 12, lineHeight: 17, fontWeight: "600" },
-  questionRow: { flexDirection: "row", alignItems: "center", gap: 10, justifyContent: "space-between" },
-  questionCopy: { flex: 1 },
-  questionTitle: { fontSize: 13, lineHeight: 18, fontWeight: "800" },
-  questionDetail: { fontSize: 11, lineHeight: 15, marginTop: 1, fontWeight: "500" },
+  questionInput: { minHeight: 44, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 11, fontSize: 12, lineHeight: 17, fontWeight: "600" },
+  typeChoices: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  typeChoice: { minHeight: 32, paddingHorizontal: 9, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, justifyContent: "center" },
+  typeChoiceText: { fontSize: 10, lineHeight: 13, fontWeight: "900" },
+  questionEditor: { gap: 9, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 10 },
+  questionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  questionHeaderActions: { flexDirection: "row", alignItems: "center", gap: 4 },
   emptyText: { fontSize: 12, lineHeight: 17, fontWeight: "600" },
   graphStack: { gap: 10 },
   graphHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },

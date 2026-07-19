@@ -34,6 +34,12 @@ export interface GoogleWorkbook {
   spreadsheetName: string;
 }
 
+export interface FocusWorkbookMetadata {
+  updatedAt: string | null;
+  schemaVersion: number | null;
+  payload: FocusState | null;
+}
+
 interface SheetsErrorResponse {
   error?: { message?: string; status?: string };
 }
@@ -76,6 +82,33 @@ export async function getGoogleAccessToken(): Promise<string | null> {
   const expiry = Number(await getSensitiveValue(EXPIRY_KEY) ?? 0);
   if (expiry && expiry < Date.now() + 30_000) return null;
   return token;
+}
+
+export async function refreshGoogleAccessToken(clientId: string): Promise<string | null> {
+  const refreshToken = await getSensitiveValue(REFRESH_TOKEN_KEY);
+  if (!clientId || !refreshToken) return null;
+  try {
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }).toString(),
+    });
+    if (!response.ok) return null;
+    const token = await response.json() as { access_token?: string; refresh_token?: string; expires_in?: number };
+    if (!token.access_token) return null;
+    await saveGoogleTokens({
+      accessToken: token.access_token,
+      refreshToken: token.refresh_token ?? refreshToken,
+      expiresIn: token.expires_in ?? null,
+    });
+    return token.access_token;
+  } catch {
+    return null;
+  }
 }
 
 export async function clearGoogleTokens() {
@@ -176,7 +209,7 @@ export async function writeFocusWorkbook(accessToken: string, workbook: GoogleWo
   await ensureFocusTabs(accessToken, workbook.spreadsheetId);
   await sheetsRequest(accessToken, `/spreadsheets/${encodeURIComponent(workbook.spreadsheetId)}/values:batchClear`, {
     method: "POST",
-    body: JSON.stringify({ ranges: FOCUS_SHEET_TABS.map((tab) => `'${tab}'`) }),
+    body: JSON.stringify({ ranges: FOCUS_SHEET_TABS.map((tab) => `'${tab}'!A:AZ`) }),
   });
   await sheetsRequest(accessToken, `/spreadsheets/${encodeURIComponent(workbook.spreadsheetId)}/values:batchUpdate`, {
     method: "POST",
@@ -184,21 +217,32 @@ export async function writeFocusWorkbook(accessToken: string, workbook: GoogleWo
   });
 }
 
-export async function readFocusWorkbook(accessToken: string, spreadsheetId: string): Promise<FocusState> {
+export async function getFocusWorkbookMetadata(accessToken: string, spreadsheetId: string): Promise<FocusWorkbookMetadata> {
   const response = await sheetsRequest<{ values?: string[][] }>(
     accessToken,
     `/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent("App_State!A:B")}`,
   );
-  const payloadRow = response.values?.find((row) => row[0] === "payload");
-  if (!payloadRow?.[1]) throw new Error("This spreadsheet does not contain a Focus Command App_State payload yet.");
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(payloadRow[1]);
-  } catch {
-    throw new Error("The Focus Command App_State payload could not be read.");
+  const records = new Map(response.values?.map((row) => [row[0], row[1]]) ?? []);
+  const rawPayload = records.get("payload");
+  let payload: FocusState | null = null;
+  if (rawPayload) {
+    try {
+      const parsed: unknown = JSON.parse(rawPayload);
+      if (parsed && typeof parsed === "object" && "profile" in parsed && "missions" in parsed) payload = parsed as FocusState;
+    } catch {
+      payload = null;
+    }
   }
-  if (!parsed || typeof parsed !== "object" || !("profile" in parsed) || !("missions" in parsed)) {
-    throw new Error("The selected spreadsheet does not contain a valid Focus Command data snapshot.");
-  }
-  return parsed as FocusState;
+  const rawSchemaVersion = Number(records.get("schemaVersion"));
+  return {
+    updatedAt: records.get("updatedAt") ?? null,
+    schemaVersion: Number.isFinite(rawSchemaVersion) ? rawSchemaVersion : null,
+    payload,
+  };
+}
+
+export async function readFocusWorkbook(accessToken: string, spreadsheetId: string): Promise<FocusState> {
+  const metadata = await getFocusWorkbookMetadata(accessToken, spreadsheetId);
+  if (!metadata.payload) throw new Error("This spreadsheet does not contain a valid Focus Command data snapshot.");
+  return metadata.payload;
 }

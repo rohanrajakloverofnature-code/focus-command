@@ -3,7 +3,7 @@
 - [x] Define shared domain types, validation rules, and calculation engine for XP, power, gold, energy, levels, combo tiers, and SRS.
 - [x] Implement local-first persistent state with an offline synchronization queue.
 - [x] Design the Google Sheets workbook schema and create/import required worksheet tabs in one user-selected spreadsheet.
-- [ ] Add Google OAuth connection, spreadsheet selection, import, sync status, conflict handling, and retry flows.
+- [x] Add Google OAuth connection, spreadsheet selection, import, sync status, conflict handling, and retry flows.
 - [x] Add the Focus Command visual theme, portrait-safe layout, accessibility controls, and semantic color tokens.
 - [x] Create the custom Focus Command app icon and apply it to launcher, splash, favicon, and adaptive icon settings.
 - [x] Build the five-tab bottom navigation: Home, Missions, Journal, Rewards, and Dashboard.
@@ -35,6 +35,14 @@
 - [x] Add deterministic unit tests for progression, currency, timers, SRS, journal/lifeline, rewards, and analytics.
 - [x] Validate all core flows on native-compatible code paths, check TypeScript/linting, and inspect development logs.
 - [ ] Create the first complete project checkpoint after all checklist items are accurately marked complete.
-- [ ] Configure the Google Sheets test connection for Expo Go with only the Web OAuth Client ID and document the later native-client requirement.
+- [x] Verify that Expo Go cannot complete the native OAuth redirect with only a Web Client ID, and document the native-client requirement.
 - [x] Confirm and document the generated Android package identifier for the user.
 - [x] Optimize generated icon variants and the optional audio cue below the checkpoint media-size limit while preserving the app branding and feedback behavior.
+- [x] Audit remaining implementation gaps against the supplied specification and resolve every autonomous item before the next checkpoint.
+- [x] Re-verify the native Google OAuth readiness path and document the exact external client-ID prerequisite.
+- [x] Replace destructive whole-workbook sync writes with a safer merge-aware export flow and visible conflict choice.
+- [x] Complete custom reflection-question management with editable prompt types, enable/disable controls, and removal.
+- [x] Complete custom reward creation with configurable loot weights and next-day gold multipliers.
+- [x] Make high-contrast presentation a functional visual mode rather than a stored preference only.
+- [x] Fix and test the rank-title customization editor’s collapsed-list behavior.
+- [ ] Activate live Google Sheets sign-in in a native development build after Android and iOS OAuth client IDs are supplied.

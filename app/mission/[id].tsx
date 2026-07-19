@@ -6,7 +6,7 @@ import { CommandButton, CommandCard, IconAction, LoadingScreen, ProgressBar, Scr
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getMissionInvestedMilliseconds, ReflectionDraft, useFocusCommand } from "@/lib/focus-command";
+import { CustomQuestion, Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getMissionInvestedMilliseconds, ReflectionDraft, useFocusCommand } from "@/lib/focus-command";
 import { playFocusSuccessCue } from "@/lib/focus-audio";
 
 const feelings: { value: Feeling; label: string; color: string }[] = [
@@ -132,12 +132,12 @@ export default function MissionDetailScreen() {
                 <TextInput value={reflection.provokingThought ?? ""} onChangeText={(provokingThought) => setReflection((current) => ({ ...current, provokingThought }))} placeholder="What thought got you moving?" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
                 <RatingSelector label="How powerful was that thought?" value={reflection.provokingThoughtRating ?? 0} onChange={(provokingThoughtRating) => setReflection((current) => ({ ...current, provokingThoughtRating }))} />
                 <TextInput value={skillsText} onChangeText={setSkillsText} placeholder="Skills gained, separated by commas" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
-                {state.customQuestions.filter((question) => question.enabled && question.type === "rating").map((question) => (
-                  <RatingSelector
+                {state.customQuestions.filter((question) => question.enabled).map((question) => (
+                  <CustomQuestionInput
                     key={question.id}
-                    label={question.label}
-                    value={typeof reflection.customAnswers?.[question.id] === "number" ? reflection.customAnswers[question.id] as number : 0}
-                    onChange={(rating) => setReflection((current) => ({ ...current, customAnswers: { ...current.customAnswers, [question.id]: rating } }))}
+                    question={question}
+                    answer={reflection.customAnswers?.[question.id]}
+                    onChange={(answer) => setReflection((current) => ({ ...current, customAnswers: { ...current.customAnswers, [question.id]: answer } }))}
                   />
                 ))}
               </>
@@ -164,6 +164,29 @@ function FeelingSelector({ label, value, onChange }: { label: string; value: Fee
             <Text style={[styles.feelingText, { color: value === feeling.value ? feeling.color : colors.muted }]}>{feeling.label}</Text>
           </Pressable>
         ))}
+      </View>
+    </View>
+  );
+}
+
+function CustomQuestionInput({ question, answer, onChange }: { question: CustomQuestion; answer: string | number | boolean | string[] | undefined; onChange: (value: string | number | boolean | string[]) => void }) {
+  const colors = useColors();
+  if (question.type === "rating") return <RatingSelector label={question.label} value={typeof answer === "number" ? answer : 0} onChange={onChange} />;
+  if (question.type === "text") return (
+    <View style={styles.selectorBlock}>
+      <Text style={[styles.selectorLabel, { color: colors.muted }]}>{question.label.toUpperCase()}</Text>
+      <TextInput value={typeof answer === "string" ? answer : ""} onChangeText={onChange} placeholder="Write your answer" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+    </View>
+  );
+  const selected = question.type === "multiple_choice" && Array.isArray(answer) ? answer : [];
+  return (
+    <View style={styles.selectorBlock}>
+      <Text style={[styles.selectorLabel, { color: colors.muted }]}>{question.label.toUpperCase()}</Text>
+      <View style={styles.choiceAnswerGrid}>
+        {question.options.map((option) => {
+          const active = question.type === "single_choice" ? answer === option : selected.includes(option);
+          return <Pressable key={option} onPress={() => onChange(question.type === "single_choice" ? option : active ? selected.filter((value) => value !== option) : [...selected, option])} style={({ pressed }) => [styles.answerChoice, { backgroundColor: active ? `${colors.primary}1D` : colors.background, borderColor: active ? colors.primary : colors.border, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.answerChoiceText, { color: active ? colors.primary : colors.muted }]}>{option}</Text></Pressable>;
+        })}
       </View>
     </View>
   );
@@ -216,5 +239,8 @@ const styles = StyleSheet.create({
   feelingText: { fontSize: 11, lineHeight: 15, fontWeight: "800" },
   ratingRow: { flexDirection: "row", gap: 7 },
   ratingChip: { flex: 1, minHeight: 37, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center" },
-  ratingText: { fontSize: 13, lineHeight: 17, fontWeight: "900" },
+  ratingText: { fontSize: 11, lineHeight: 14, fontWeight: "900" },
+  choiceAnswerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  answerChoice: { minHeight: 34, paddingHorizontal: 10, justifyContent: "center", borderRadius: 11, borderWidth: StyleSheet.hairlineWidth },
+  answerChoiceText: { fontSize: 11, lineHeight: 14, fontWeight: "800" },
 });

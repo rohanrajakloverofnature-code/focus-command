@@ -4,7 +4,7 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { clearGoogleTokens, saveGoogleTokens } from "@/lib/google-sheets";
+import { clearGoogleTokens, getGoogleAccessToken, refreshGoogleAccessToken, saveGoogleTokens } from "@/lib/google-sheets";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -69,6 +69,20 @@ export function useGoogleSheetsAuth(onAuthorized?: (accessToken: string, email: 
     scheme: appScheme,
     path: "oauth/callback",
   });
+
+  useEffect(() => {
+    if (expoGo && Platform.OS !== "web") return;
+    let active = true;
+    void (async () => {
+      const restored = await getGoogleAccessToken() ?? await refreshGoogleAccessToken(clientId);
+      if (!active || !restored) return;
+      setAccessToken(restored);
+      setStatus("authorized");
+      setMessage(null);
+      onAuthorized?.(restored, null);
+    })();
+    return () => { active = false; };
+  }, [clientId, expoGo, onAuthorized]);
 
   useEffect(() => {
     if (!response) return;

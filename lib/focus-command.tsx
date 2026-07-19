@@ -702,6 +702,8 @@ interface FocusCommandContextValue {
   importFromGoogleSheet: (remote: FocusState, connection: Partial<GoogleSheetConnection>) => void;
   markSynced: () => void;
   addCustomQuestion: (question: Omit<CustomQuestion, "id">) => void;
+  updateCustomQuestion: (questionId: string, patch: Partial<Omit<CustomQuestion, "id">>) => void;
+  removeCustomQuestion: (questionId: string) => void;
   updateCustomGraph: (graphId: string, patch: Partial<CustomGraph>) => void;
   resetLocalData: () => Promise<void>;
 }
@@ -1198,6 +1200,20 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     commit((current) => withQueuedOperation({ ...current, customQuestions: [...current.customQuestions, { ...question, id: createId("question") }] }));
   }, [commit]);
 
+  const updateCustomQuestion = useCallback((questionId: string, patch: Partial<Omit<CustomQuestion, "id">>) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      customQuestions: current.customQuestions.map((question) => question.id === questionId ? { ...question, ...patch } : question),
+    }));
+  }, [commit]);
+
+  const removeCustomQuestion = useCallback((questionId: string) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      customQuestions: current.customQuestions.filter((question) => question.id !== questionId),
+    }));
+  }, [commit]);
+
   const updateCustomGraph = useCallback((graphId: string, patch: Partial<CustomGraph>) => {
     commit((current) => withQueuedOperation({
       ...current,
@@ -1231,6 +1247,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     importFromGoogleSheet,
     markSynced,
     addCustomQuestion,
+    updateCustomQuestion,
+    removeCustomQuestion,
     updateCustomGraph,
     resetLocalData,
   }), [
@@ -1253,6 +1271,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     importFromGoogleSheet,
     markSynced,
     addCustomQuestion,
+    updateCustomQuestion,
+    removeCustomQuestion,
     updateCustomGraph,
     resetLocalData,
   ]);

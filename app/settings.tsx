@@ -8,7 +8,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useGoogleSheetsAuth } from "@/hooks/use-google-sheets-auth";
 import { ComboTier, getComboTiers, useFocusCommand } from "@/lib/focus-command";
-import { createFocusWorkbook, getGoogleAccessToken, getSpreadsheet, readFocusWorkbook, writeFocusWorkbook } from "@/lib/google-sheets";
+import { createFocusWorkbook, getFocusWorkbookMetadata, getGoogleAccessToken, getSpreadsheet, readFocusWorkbook, writeFocusWorkbook } from "@/lib/google-sheets";
 import { enableFocusReminders } from "@/lib/focus-reminders";
 import { useThemeContext } from "@/lib/theme-provider";
 
@@ -58,6 +58,13 @@ export default function SettingsScreen() {
     setNewTierMultiplier("");
   };
 
+  const patchTier = (tierId: string, patch: Partial<ComboTier>) => {
+    const next = tiers.map((tier) => tier.id === tierId ? { ...tier, ...patch } : tier)
+      .map((tier) => ({ ...tier, days: Math.max(1, Math.round(tier.days)), multiplier: Math.max(1, tier.multiplier) }))
+      .sort((left, right) => left.days - right.days);
+    updateComboTiers(next);
+  };
+
   const reset = () => {
     Alert.alert("Reset local command data?", "This clears local missions, history, and settings from this device. Your connected Google Sheet will not be deleted.", [
       { text: "Cancel", style: "cancel" },
@@ -93,7 +100,7 @@ export default function SettingsScreen() {
     }
   };
 
-  const syncSpreadsheet = async () => {
+  const syncSpreadsheet = async (forceLocal = false) => {
     const token = await requireGoogleToken();
     const cleanId = sheetId.trim() || state.googleSheet.spreadsheetId;
     if (!token || !cleanId) {
@@ -103,6 +110,23 @@ export default function SettingsScreen() {
     try {
       setGoogleSheetConnection({ phase: "syncing", errorMessage: null });
       const workbook = await getSpreadsheet(token, cleanId);
+      const remoteMetadata = await getFocusWorkbookMetadata(token, cleanId);
+      const remoteChangedAfterLastSync = Boolean(
+        remoteMetadata.payload && (
+          !state.googleSheet.lastSyncedAt ||
+          (remoteMetadata.updatedAt && Date.parse(remoteMetadata.updatedAt) > Date.parse(state.googleSheet.lastSyncedAt))
+        ),
+      );
+      if (!forceLocal && state.googleSheet.pendingOperations > 0 && remoteChangedAfterLastSync) {
+        const message = "This sheet has a newer Focus Command snapshot while this device has unsynced local changes. Choose which copy should win before continuing.";
+        setGoogleSheetConnection({ phase: "error", errorMessage: message });
+        Alert.alert("Sheet conflict detected", message, [
+          { text: "Cancel", style: "cancel" },
+          { text: "Use sheet copy", style: "destructive", onPress: () => { void importSpreadsheet(); } },
+          { text: "Keep local copy", onPress: () => { void syncSpreadsheet(true); } },
+        ]);
+        return;
+      }
       await writeFocusWorkbook(token, workbook, state);
       setSheetId(workbook.spreadsheetId);
       setSheetName(workbook.spreadsheetName);
@@ -241,13 +265,20 @@ export default function SettingsScreen() {
         <CommandCard accent={colors.primary} style={styles.cardStack}>
           <Text style={[styles.settingDetail, { color: colors.muted }]}>A missed day drops one tier; three consecutive missed days reset your combo to 1.00×.</Text>
           {tiers.map((tier) => (
-            <View key={tier.id} style={styles.tierRow}>
-              <View style={styles.tierCopy}>
-                <Text style={[styles.tierTitle, { color: colors.foreground }]}>{tier.days} qualifying {tier.days === 1 ? "day" : "days"}</Text>
-                <Text style={[styles.tierDetail, { color: colors.muted }]}>{tier.enabled ? "Active tier" : "Disabled tier"}</Text>
+            <View key={tier.id} style={styles.tierEditor}>
+              <View style={styles.tierHeading}>
+                <View style={styles.tierCopy}>
+                  <Text style={[styles.tierTitle, { color: colors.foreground }]}>{tier.id === "combo_base" ? "Base combo tier" : "Custom combo tier"}</Text>
+                  <Text style={[styles.tierDetail, { color: colors.muted }]}>{tier.enabled ? "Active after its required qualifying days." : "Disabled until you re-enable it."}</Text>
+                </View>
+                <StatusPill label={`${tier.multiplier.toFixed(2)}×`} tone={tier.enabled ? "primary" : "neutral"} icon="flame.fill" />
+              </View>
+              <View style={styles.tierInputs}>
+                <TextInput value={String(tier.days)} onChangeText={(value) => patchTier(tier.id, { days: Number(value) || 1 })} keyboardType="number-pad" placeholder="Days" placeholderTextColor={colors.muted} style={[styles.smallInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+                <TextInput value={String(tier.multiplier)} onChangeText={(value) => patchTier(tier.id, { multiplier: Number(value) || 1 })} keyboardType="decimal-pad" placeholder="Multiplier" placeholderTextColor={colors.muted} style={[styles.smallInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
               </View>
               <View style={styles.tierActions}>
-                <StatusPill label={`${tier.multiplier.toFixed(2)}×`} tone="primary" icon="flame.fill" />
+                <CommandButton label={tier.enabled ? "Disable" : "Enable"} variant="secondary" onPress={() => patchTier(tier.id, { enabled: !tier.enabled })} />
                 {tier.id !== "combo_base" ? <CommandButton label="Remove" variant="ghost" onPress={() => updateComboTiers(tiers.filter((candidate) => candidate.id !== tier.id))} /> : null}
               </View>
             </View>
@@ -339,7 +370,9 @@ const styles = StyleSheet.create({
   stepperRow: { flexDirection: "row", gap: 7 },
   stepperButton: { minWidth: 40, paddingHorizontal: 0 },
   divider: { height: StyleSheet.hairlineWidth, width: "100%" },
-  tierRow: { flexDirection: "row", gap: 10, alignItems: "center", justifyContent: "space-between" },
+  tierEditor: { gap: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "transparent", paddingBottom: 10 },
+  tierHeading: { flexDirection: "row", gap: 10, alignItems: "center", justifyContent: "space-between" },
+  tierInputs: { flexDirection: "row", gap: 8 },
   tierCopy: { flex: 1 },
   tierTitle: { fontSize: 14, lineHeight: 19, fontWeight: "800" },
   tierDetail: { fontSize: 11, lineHeight: 15, marginTop: 1, fontWeight: "600" },
