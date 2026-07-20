@@ -29,7 +29,7 @@ async function prepareNotifications(): Promise<boolean> {
       name: "Focus Command reminders",
       importance: Notifications.AndroidImportance.DEFAULT,
       vibrationPattern: [0, 150, 80, 150],
-      lightColor: "#39C6E8",
+      lightColor: "#A78BFA",
       sound: "default",
     });
   }

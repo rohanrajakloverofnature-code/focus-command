@@ -72,7 +72,7 @@ The core palette evokes an operations console at night, while ensuring legibilit
 | --- | --- | --- | --- |
 | **Background / Obsidian** | `#08111D` | `#F5F7FB` | Full-screen background and map field |
 | **Surface / Steel** | `#122033` | `#FFFFFF` | Cards, sheets, tab bar |
-| **Primary / Signal Cyan** | `#39C6E8` | `#087D9F` | Navigation, progress, primary actions |
+| **Primary / Signal Cyan** | `#A78BFA` | `#6D28D9` | Navigation, progress, primary actions |
 | **Power / Command Gold** | `#F4C95D` | `#A66E00` | Total Power, gold, ranked rewards |
 | **Success / Field Green** | `#49D17D` | `#147A46` | Completed missions, healthy streaks |
 | **Warning / Ember** | `#FFAA4C` | `#B65600` | Due revisions, energy caution |

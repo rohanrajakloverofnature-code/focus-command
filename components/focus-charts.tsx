@@ -123,7 +123,7 @@ export function DonutChart({ points, size = 146, centerLabel, centerValue, acces
   const total = points.reduce((sum, point) => sum + Math.max(0, point.value), 0);
   const radius = size / 2 - 8;
   const center = size / 2;
-  const defaultColors = ["#39C6E8", "#49D17D", "#F4C95D", "#FFAA4C", "#C092FF", "#FF6B6B"];
+  const defaultColors = ["#A78BFA", "#49D17D", "#F4C95D", "#FFAA4C", "#C092FF", "#FF6B6B"];
   const [selectedIndex, setSelectedIndex] = useState(0);
   const selected = points[Math.min(selectedIndex, Math.max(0, points.length - 1))];
   let cursor = 0;

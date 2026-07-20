@@ -32,7 +32,7 @@ const env = {
   appSlug: "rpg-focus-command",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
-  logoUrl: "/manus-storage/focus-command-icon_ea5b1db2.png",
+  logoUrl: "/manus-storage/focus-command-violet-command-crest_1eb6783c.png",
   scheme: schemeFromBundleId,
   oauthCallbackScheme: bundleId,
   iosBundleId: bundleId,
@@ -42,7 +42,7 @@ const env = {
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
-  version: "1.0.7",
+  version: "1.0.8",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: [env.scheme, env.oauthCallbackScheme],
@@ -57,9 +57,8 @@ const config: ExpoConfig = {
   },
   android: {
     adaptiveIcon: {
-      backgroundColor: "#E6F4FE",
+      backgroundColor: "#24123B",
       foregroundImage: "./assets/images/android-icon-foreground.png",
-      backgroundImage: "./assets/images/android-icon-background.png",
       monochromeImage: "./assets/images/android-icon-monochrome.png",
     },
     edgeToEdgeEnabled: true,

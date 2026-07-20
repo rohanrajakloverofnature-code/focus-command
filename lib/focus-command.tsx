@@ -46,6 +46,60 @@ export interface EmotionalPatternForecast {
   signals: Array<{ label: string; value: number; direction: "up" | "down" | "flat" }>;
 }
 
+export type WellbeingSignalRole = "supportive" | "load";
+export type WellbeingTrendDirection = "rising" | "easing" | "steady";
+
+export interface WellbeingInsight {
+  available: boolean;
+  sampleSize: number;
+  confidence: "early" | "emerging" | "grounded";
+  balanceScore: number;
+  headline: string;
+  summary: string;
+  method: string;
+  disclaimer: string;
+  trend: { direction: WellbeingTrendDirection; change: number; summary: string; recentWindow: number; earlierWindow: number };
+  signals: Array<{ id: string; label: string; role: WellbeingSignalRole; average: number; observations: number; trend: WellbeingTrendDirection; detail: string }>;
+  records: Array<{ id: string; localDate: string; missionTitle: string; subject: string; feelingAfter: Feeling | null; focus: number | null; stress: number | null; motivation: number | null; energy: number | null; clarity: number | null; distraction: number | null; friction: number | null }>;
+}
+
+export type DashboardMetricId =
+  | "power"
+  | "xp"
+  | "time"
+  | "gold"
+  | "missions"
+  | "focus"
+  | "stress"
+  | "clarity"
+  | "motivation"
+  | "distraction"
+  | "energy"
+  | "friction"
+  | "achievement"
+  | "skills"
+  | "feeling"
+  | "journal";
+export type DashboardChartType = "line" | "bar" | "donut" | "radar" | "number";
+export type DashboardDateRange = "7d" | "30d" | "90d" | "custom" | "all";
+export type DashboardFeatureFilter = "all" | "missions" | "reflections" | "journal" | "revisions" | "rewards";
+export type DashboardMissionFrequencyFilter = "all" | MissionFrequency;
+
+/** A user-owned widget in the separate Custom Analytics workspace. */
+export interface DashboardWidgetConfig {
+  id: string;
+  title: string;
+  metric: DashboardMetricId;
+  chartType: DashboardChartType;
+  dateRange: DashboardDateRange;
+  feature: DashboardFeatureFilter;
+  subject: string;
+  category: string;
+  missionFrequency: DashboardMissionFrequencyFilter;
+  customStartDate: string;
+  customEndDate: string;
+}
+
 export interface NotificationRules {
   dailyMissionEnabled: boolean;
   dailyMissionTime: string;
@@ -85,6 +139,7 @@ export interface PlayerProfile {
   emotionalCharts: EmotionalChartConfig[];
   forecastEnabled: boolean;
   forecastShowSignals: boolean;
+  dashboardWidgets: DashboardWidgetConfig[];
 }
 
 export interface ComboState {
@@ -441,6 +496,37 @@ export function getLevelPowerThreshold(level: number, basePower: number): number
   return Math.round(Math.max(1, basePower) * completedLevels * growthMultiplier);
 }
 
+function defaultDashboardWidgets(): DashboardWidgetConfig[] {
+  return [
+    {
+      id: "workspace_power",
+      title: "Power cadence",
+      metric: "power",
+      chartType: "line",
+      dateRange: "30d",
+      feature: "missions",
+      subject: "all",
+      category: "all",
+      missionFrequency: "all",
+      customStartDate: "",
+      customEndDate: "",
+    },
+    {
+      id: "workspace_focus",
+      title: "Focus signal",
+      metric: "focus",
+      chartType: "bar",
+      dateRange: "30d",
+      feature: "reflections",
+      subject: "all",
+      category: "all",
+      missionFrequency: "all",
+      customStartDate: "",
+      customEndDate: "",
+    },
+  ];
+}
+
 function defaultProfile(): PlayerProfile {
   return {
     firstName: "Commander",
@@ -476,12 +562,13 @@ function defaultProfile(): PlayerProfile {
     },
     emotionalCharts: [
       { id: "energy_shift", title: "Energy shift", enabled: true, color: "#F4C95D" },
-      { id: "focus_friction", title: "Focus vs friction", enabled: true, color: "#39C6E8" },
+      { id: "focus_friction", title: "Focus vs friction", enabled: true, color: "#A78BFA" },
       { id: "stress_clarity", title: "Stress & clarity", enabled: true, color: "#C092FF" },
       { id: "motivation_distraction", title: "Motivation & distraction", enabled: true, color: "#49D17D" },
     ],
     forecastEnabled: true,
     forecastShowSignals: true,
+    dashboardWidgets: defaultDashboardWidgets(),
   };
 }
 
@@ -785,6 +872,109 @@ export function getEmotionalPatternForecast(state: FocusState): EmotionalPattern
       { label: "Stress load", value: Math.round(stress * 20), direction: stress > 3 ? "down" : "up" },
       { label: "Distraction", value: Math.round(distraction * 20), direction: distraction > 3 ? "down" : "up" },
     ],
+  };
+}
+
+export function getWellbeingInsight(state: FocusState): WellbeingInsight {
+  const recent = state.reflections.slice(-12);
+  const missionById = new Map(state.missions.map((mission) => [mission.id, mission]));
+  const metricDefinitions: Array<{ id: string; label: string; role: WellbeingSignalRole; key: keyof Pick<Reflection, "energyAfter" | "focusQuality" | "stressLevel" | "clarityLevel" | "motivationLevel" | "distractionLevel" | "frictionRating">; detail: string }> = [
+    { id: "focus", label: "Focus quality", role: "supportive", key: "focusQuality", detail: "How well you reported staying with the task." },
+    { id: "motivation", label: "Motivation", role: "supportive", key: "motivationLevel", detail: "Your stated willingness to begin or continue." },
+    { id: "clarity", label: "Clarity", role: "supportive", key: "clarityLevel", detail: "How clear the next thought or action felt." },
+    { id: "energy", label: "Energy after work", role: "supportive", key: "energyAfter", detail: "Your self-reported energy after the session." },
+    { id: "stress", label: "Stress load", role: "load", key: "stressLevel", detail: "Your self-reported stress during the reflection." },
+    { id: "distraction", label: "Distraction load", role: "load", key: "distractionLevel", detail: "How much attention was pulled away from the task." },
+    { id: "friction", label: "Task friction", role: "load", key: "frictionRating", detail: "How much resistance you reported before or during the work." },
+  ];
+  const valueFor = (reflection: Reflection, key: WellbeingInsight["signals"][number]["id"]) => {
+    const definition = metricDefinitions.find((item) => item.id === key);
+    return definition ? Number(reflection[definition.key] ?? 0) : 0;
+  };
+  const average = (items: Reflection[], key: WellbeingInsight["signals"][number]["id"]) => {
+    const values = items.map((reflection) => valueFor(reflection, key)).filter((value) => value > 0);
+    return { value: values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0, observations: values.length };
+  };
+  const balanceFor = (items: Reflection[]) => {
+    const supportive = metricDefinitions.filter((item) => item.role === "supportive").map((item) => average(items, item.id)).filter((item) => item.observations);
+    const load = metricDefinitions.filter((item) => item.role === "load").map((item) => average(items, item.id)).filter((item) => item.observations);
+    const supportiveAverage = supportive.length ? supportive.reduce((sum, item) => sum + item.value, 0) / supportive.length : 0;
+    const loadAverage = load.length ? load.reduce((sum, item) => sum + item.value, 0) / load.length : 0;
+    return { supportiveAverage, loadAverage, score: supportive.length || load.length ? Math.max(0, Math.min(100, Math.round(((supportiveAverage - loadAverage + 5) / 10) * 100))) : 0 };
+  };
+
+  const blankTrend = { direction: "steady" as const, change: 0, summary: "Add more complete debriefs to compare reflection windows.", recentWindow: 0, earlierWindow: 0 };
+  const recordedSignalCount = metricDefinitions.reduce((count, definition) => count + recent.filter((reflection) => Number(reflection[definition.key] ?? 0) > 0).length, 0);
+  if (!recent.length || !recordedSignalCount) {
+    return {
+      available: false,
+      sampleSize: recent.length,
+      confidence: "early",
+      balanceScore: 0,
+      headline: recent.length ? "Wellbeing insight needs optional ratings" : "Wellbeing insight begins with your first debrief",
+      summary: recent.length ? "Your recent debriefs do not yet include the optional emotional or behavioral ratings used by this view. Complete only the ratings you are comfortable logging; nothing is inferred." : "Complete a mission reflection with the optional emotional and behavioral ratings to see a private, transparent overview of your own reported patterns.",
+      method: "No data is inferred. This view uses only ratings you explicitly log after missions.",
+      disclaimer: "This is a non-clinical reflection aid, not a medical or mental-health assessment. If you feel distressed, unsafe, or persistently unwell, contact a qualified healthcare professional or local support service.",
+      trend: blankTrend,
+      signals: [],
+      records: [],
+    };
+  }
+
+  const splitAt = Math.max(1, Math.floor(recent.length / 2));
+  const earlier = recent.slice(0, splitAt);
+  const recentHalf = recent.slice(splitAt);
+  const balance = balanceFor(recent);
+  const earlierBalance = balanceFor(earlier);
+  const recentBalance = balanceFor(recentHalf);
+  const change = recentBalance.score - earlierBalance.score;
+  const direction: WellbeingTrendDirection = change > 8 ? "rising" : change < -8 ? "easing" : "steady";
+  const trend = {
+    direction,
+    change,
+    recentWindow: recentHalf.length,
+    earlierWindow: earlier.length,
+    summary: direction === "rising" ? "Your most recent reflection window has a higher supportive-to-load balance than the earlier window." : direction === "easing" ? "Your most recent reflection window has a lower supportive-to-load balance than the earlier window." : "Your two most recent reflection windows are broadly similar.",
+  };
+  const signals = metricDefinitions.map((definition) => {
+    const current = average(recent, definition.id);
+    const earlierValue = average(earlier, definition.id).value;
+    const recentValue = average(recentHalf, definition.id).value;
+    const delta = recentValue - earlierValue;
+    const signalTrend: WellbeingTrendDirection = delta > 0.35 ? "rising" : delta < -0.35 ? "easing" : "steady";
+    return { ...definition, average: Math.round(current.value * 10) / 10, observations: current.observations, trend: signalTrend };
+  });
+  const records = [...recent].reverse().map((reflection) => {
+    const mission = missionById.get(reflection.missionId);
+    return {
+      id: reflection.id,
+      localDate: toLocalDate(reflection.createdAt, state.profile.timezone),
+      missionTitle: mission?.title || "Unlinked reflection",
+      subject: mission?.subject || "Reflection",
+      feelingAfter: reflection.feelingAfter,
+      focus: reflection.focusQuality ?? null,
+      stress: reflection.stressLevel ?? null,
+      motivation: reflection.motivationLevel ?? null,
+      energy: reflection.energyAfter ?? null,
+      clarity: reflection.clarityLevel ?? null,
+      distraction: reflection.distractionLevel ?? null,
+      friction: reflection.frictionRating ?? null,
+    };
+  });
+  const headline = balance.score >= 68 ? "Your recent reflections contain more supportive than load signals" : balance.score >= 45 ? "Your recent reflection balance looks mixed" : "Your recent reflections contain more load than supportive signals";
+  const summary = `Across ${recent.length} recent debrief${recent.length === 1 ? "" : "s"}, your reported supportive signals average ${balance.supportiveAverage.toFixed(1)}/5 and your reported load signals average ${balance.loadAverage.toFixed(1)}/5. This is a summary of what you logged, not a diagnosis or prediction.`;
+  return {
+    available: true,
+    sampleSize: recent.length,
+    confidence: recent.length >= 8 ? "grounded" : recent.length >= 4 ? "emerging" : "early",
+    balanceScore: balance.score,
+    headline,
+    summary,
+    method: "Balance signal = the simple average of reported focus, motivation, clarity, and energy after work, compared with the simple average of reported stress, distraction, and task friction. Missing ratings are excluded rather than estimated.",
+    disclaimer: "This is a non-clinical reflection aid, not a medical or mental-health assessment. It cannot diagnose a condition or determine what you should do. If you feel distressed, unsafe, or persistently unwell, contact a qualified healthcare professional or local support service.",
+    trend,
+    signals,
+    records,
   };
 }
 

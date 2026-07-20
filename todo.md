@@ -82,3 +82,10 @@
 - [x] Replace the subject map with an India-inspired adaptive territory view, subject labels, capture percentages, and auto-created subject territories from mission logs.
 - [x] Persist the selected Google spreadsheet ID and name across app visits until the user explicitly removes or replaces it.
 - [x] Add a user-controlled action to disconnect or replace the saved spreadsheet selection without resetting unrelated app data.
+- [x] Add a configurable dashboard builder that selects metrics, chart styles, feature filters, and date ranges from available Focus Command data.
+- [x] Replace the cyan brand emphasis with an attractive non-cyan default logo and visual accent system.
+- [x] Add a tappable title-sensitive anime character achievement view with an expansion animation and achievement sound.
+- [x] Add a detailed non-clinical wellbeing and behavioral insight view with transparent inputs, trends, and drill-down records.
+- [x] Replace the existing territory outline with a more geographically faithful India map that retains dynamic subject territories and capture labels.
+- [x] Preserve the existing Dashboard and add a distinct nested configurable analytics workspace with arbitrary metrics, feature filters, date filters, and selectable chart styles.
+- [x] Keep the existing free pattern forecast and add a detailed non-clinical wellbeing insight drill-down rather than a medical diagnosis.

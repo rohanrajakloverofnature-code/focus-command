@@ -7,7 +7,7 @@ import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, Scre
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, getDashboardStats, getEmotionalPatternForecast, getMissionInvestedMilliseconds, getTotalPower, toLocalDate, useFocusCommand } from "@/lib/focus-command";
+import { formatCompactNumber, getDashboardStats, getEmotionalPatternForecast, getMissionInvestedMilliseconds, getTotalPower, getWellbeingInsight, toLocalDate, useFocusCommand } from "@/lib/focus-command";
 
 function createDaySeries(days: number, profileTimezone: string) {
   return Array.from({ length: days }, (_, index) => {
@@ -33,6 +33,7 @@ export default function DashboardScreen() {
   const daySeries = useMemo(() => createDaySeries(14, state.profile.timezone), [state.profile.timezone]);
   const dashboard = useMemo(() => getDashboardStats(state), [state]);
   const forecast = useMemo(() => getEmotionalPatternForecast(state), [state]);
+  const wellbeing = useMemo(() => getWellbeingInsight(state), [state]);
 
   if (!ready) return <LoadingScreen label="Compiling command analytics…" />;
 
@@ -90,7 +91,7 @@ export default function DashboardScreen() {
       : chart.id === "focus_friction"
         ? { detail: "Focus quality compared with resistance", series: [{ id: "focus", label: "Focus", color: chart.color, points: pointsFor("focusQuality") }, { id: "friction", label: "Friction", color: "#FFAA4C", points: pointsFor("frictionRating") }] }
         : chart.id === "stress_clarity"
-          ? { detail: "Stress load compared with mental clarity", series: [{ id: "stress", label: "Stress", color: chart.color, points: pointsFor("stressLevel") }, { id: "clarity", label: "Clarity", color: "#39C6E8", points: pointsFor("clarityLevel") }] }
+          ? { detail: "Stress load compared with mental clarity", series: [{ id: "stress", label: "Stress", color: chart.color, points: pointsFor("stressLevel") }, { id: "clarity", label: "Clarity", color: "#A78BFA", points: pointsFor("clarityLevel") }] }
           : { detail: "Motivation compared with environmental distraction", series: [{ id: "motivation", label: "Motivation", color: chart.color, points: pointsFor("motivationLevel") }, { id: "distraction", label: "Distraction", color: "#FF6B6B", points: pointsFor("distractionLevel") }] };
     return { chart, ...definition };
   });
@@ -196,6 +197,27 @@ export default function DashboardScreen() {
         </CommandCard>
         </> : null}
 
+        <SectionHeader title="Wellbeing insight" />
+        <Pressable onPress={() => router.push("/wellbeing-insight" as never)} accessibilityRole="button" accessibilityLabel="Open non-clinical wellbeing insight" style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}>
+          <CommandCard accent={wellbeing.available ? wellbeing.balanceScore >= 68 ? colors.success : wellbeing.balanceScore >= 45 ? colors.warning : colors.error : colors.primary} style={styles.wellbeingCard}>
+            <View style={styles.wellbeingHeading}>
+              <View style={styles.wellbeingCopy}>
+                <Text style={[styles.wellbeingEyebrow, { color: colors.primary }]}>NON-CLINICAL · PRIVATE REFLECTION</Text>
+                <Text style={[styles.wellbeingTitle, { color: colors.foreground }]}>{wellbeing.headline}</Text>
+              </View>
+              <View style={[styles.wellbeingScore, { borderColor: `${colors.primary}55`, backgroundColor: `${colors.primary}14` }]}>
+                <Text style={[styles.wellbeingScoreValue, { color: colors.primary }]}>{wellbeing.available ? wellbeing.balanceScore : "—"}</Text>
+                <Text style={[styles.wellbeingScoreLabel, { color: colors.muted }]}>BALANCE</Text>
+              </View>
+            </View>
+            <Text style={[styles.wellbeingDetail, { color: colors.muted }]}>{wellbeing.available ? wellbeing.trend.summary : wellbeing.summary}</Text>
+            <View style={styles.wellbeingFooter}>
+              <StatusPill label={wellbeing.available ? `${wellbeing.confidence.toUpperCase()} · ${wellbeing.sampleSize} LOG${wellbeing.sampleSize === 1 ? "" : "S"}` : "AWAITING DEBRIEF"} tone={wellbeing.available ? "primary" : "neutral"} icon="shield.fill" />
+              <Text style={[styles.wellbeingOpen, { color: colors.primary }]}>VIEW DETAIL ›</Text>
+            </View>
+          </CommandCard>
+        </Pressable>
+
         <SectionHeader title="Emotional intelligence" />
         <InteractiveChartCard title="Emotional radar" detail="How you tend to feel after finishing work" tag="INSIGHT" onPress={() => router.push("/analytics?metric=emotion" as never)}>
           {state.reflections.length ? <RadarChart points={emotionalPoints} color={colors.warning} accessibilityLabel="Emotional radar based on post-mission feeling data" /> : <NoData label="Complete a mission debrief to reveal emotional patterns." icon="star.fill" />}
@@ -244,6 +266,15 @@ export default function DashboardScreen() {
             <CommandButton label="Delete" variant="danger" onPress={() => Alert.alert("Delete Lifeline baseline?", "This removes only this manual record. Your journal contributions remain unchanged.", [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => removeLifelinePoint(point.id) }])} />
           </CommandCard>) : <NoData label="No manual baselines yet. Use Add baseline above to create one." icon="chart.xyaxis.line" />}
         </CommandCard> : null}
+
+        <SectionHeader title="Custom analytics workspace" />
+        <CommandCard accent={colors.primary} style={styles.customAnalyticsCard}>
+          <View style={styles.customAnalyticsCopy}>
+            <Text style={[styles.customAnalyticsTitle, { color: colors.foreground }]}>Dashboard within Dashboard</Text>
+            <Text style={[styles.customAnalyticsDetail, { color: colors.muted }]}>Build up to six views with your own metric, chart style, exact date range, feature source, subject, category, and recurrence filters. Your existing Command Intelligence dashboard stays unchanged.</Text>
+          </View>
+          <CommandButton label="Open Custom Analytics" icon="chart.xyaxis.line" onPress={() => router.push("/custom-dashboard" as never)} />
+        </CommandCard>
 
         <SectionHeader title="Custom graph slots" action="Configure" onAction={() => router.push("/customize")} />
         <View style={styles.customGraphStack}>
@@ -320,6 +351,17 @@ const styles = StyleSheet.create({
   content: { gap: 16, paddingTop: 12, paddingBottom: 28 },
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   behavioralIntro: { fontSize: 12, lineHeight: 17, fontWeight: "600", marginTop: -7 },
+  wellbeingCard: { gap: 10 },
+  wellbeingHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  wellbeingCopy: { flex: 1, gap: 3 },
+  wellbeingEyebrow: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.85 },
+  wellbeingTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },
+  wellbeingScore: { width: 62, height: 62, borderRadius: 17, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center" },
+  wellbeingScoreValue: { fontSize: 21, lineHeight: 25, fontWeight: "900" },
+  wellbeingScoreLabel: { fontSize: 7, lineHeight: 10, fontWeight: "900", letterSpacing: 0.55 },
+  wellbeingDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600" },
+  wellbeingFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  wellbeingOpen: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.65 },
   behavioralStack: { gap: 12 },
   forecastCard: { gap: 12 },
   forecastHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
@@ -365,6 +407,10 @@ const styles = StyleSheet.create({
   editorInput: { flex: 1, minHeight: 44, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 9, textAlign: "center", fontSize: 12, lineHeight: 16, fontWeight: "700" },
   noteInput: { minHeight: 44, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 11, fontSize: 12, lineHeight: 17, fontWeight: "600" },
   customGraphStack: { gap: 10 },
+  customAnalyticsCard: { gap: 12 },
+  customAnalyticsCopy: { gap: 4 },
+  customAnalyticsTitle: { fontSize: 16, lineHeight: 21, fontWeight: "900" },
+  customAnalyticsDetail: { fontSize: 12, lineHeight: 18, fontWeight: "600" },
   customGraphCard: { gap: 11 },
   customGraphHeading: { flexDirection: "row", justifyContent: "space-between", gap: 10, alignItems: "flex-start" },
   customGraphTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },

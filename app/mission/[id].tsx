@@ -12,7 +12,7 @@ import { scheduleAchievementRecap } from "@/lib/focus-reminders";
 
 const feelings: { value: Feeling; label: string; color: string }[] = [
   { value: "charged", label: "Charged", color: "#49D17D" },
-  { value: "steady", label: "Steady", color: "#39C6E8" },
+  { value: "steady", label: "Steady", color: "#A78BFA" },
   { value: "restless", label: "Restless", color: "#FFAA4C" },
   { value: "drained", label: "Drained", color: "#FF6B6B" },
   { value: "great", label: "Great", color: "#F4C95D" },

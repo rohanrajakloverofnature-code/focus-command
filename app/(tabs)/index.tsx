@@ -18,10 +18,10 @@ import {
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { HomeFire } from "@/components/home-fire";
 import { IndiaSubjectMap } from "@/components/india-subject-map";
-import { RankCharacter } from "@/components/rank-character";
+import { RankCharacter, RankCharacterAchievement } from "@/components/rank-character";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { playFocusRole } from "@/lib/focus-audio";
+import { playFocusRole, playFocusSuccessCue } from "@/lib/focus-audio";
 import {
   formatCompactNumber,
   formatHours,
@@ -60,6 +60,7 @@ export default function HomeScreen() {
   const combo = getCurrentCombo(state);
   const milestones = useRef({ level: level.level, title: title.title, combo: combo.multiplier });
   const [homeCelebration, setHomeCelebration] = useState<CelebrationKind | null>(null);
+  const [showRankAchievement, setShowRankAchievement] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -73,6 +74,10 @@ export default function HomeScreen() {
   }, [combo.multiplier, level.level, ready, state.profile.soundEnabled, state.profile.soundRoles.extended, title.title]);
 
   if (!ready) return <LoadingScreen />;
+  const openRankAchievement = () => {
+    setShowRankAchievement(true);
+    void playFocusSuccessCue(state.profile.soundEnabled, state.profile.soundRoles.missionWin);
+  };
   const energy = getEnergy(state);
   const daily = getDailyProgress(state);
   const pendingRevisions = getPendingRevisions(state);
@@ -131,7 +136,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.heroContent}>
             <View style={[styles.operatorColumn, { transform: [{ scale: operatorScale }] }]}>
-              <RankCharacter title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} compact />
+              <RankCharacter title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} compact onPress={openRankAchievement} />
               <HomeFire reduceMotion={state.profile.reduceMotion} />
               <Text numberOfLines={1} style={styles.operatorPlayerName}>{state.profile.firstName.toUpperCase()}</Text>
               <Text numberOfLines={1} style={styles.operatorName}>{title.title.toUpperCase()}</Text>
@@ -292,6 +297,7 @@ export default function HomeScreen() {
         </CommandCard>
       </ScrollView>
       {homeCelebration ? <CelebrationOverlay kind={homeCelebration} reduceMotion={state.profile.reduceMotion} onDone={() => setHomeCelebration(null)} /> : null}
+      <RankCharacterAchievement title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} visible={showRankAchievement} onDismiss={() => setShowRankAchievement(false)} />
     </ScreenContainer>
   );
 }
@@ -346,7 +352,7 @@ const styles = StyleSheet.create({
   mapRingOne: { width: 190, height: 190, top: -96, right: -24 },
   mapRingTwo: { width: 132, height: 132, top: -72, left: -36 },
   mapNode: { borderRadius: 99, position: "absolute", shadowOpacity: 0.6, shadowRadius: 7, elevation: 4 },
-  mapNodeDynamic: { shadowColor: "#39C6E8", borderWidth: 2, borderColor: "#FFFFFF55" },
+  mapNodeDynamic: { shadowColor: "#A78BFA", borderWidth: 2, borderColor: "#FFFFFF55" },
   mapSubjects: { gap: 6 },
   mapSubjectPressable: { minHeight: 35, paddingVertical: 4, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
   mapSubjectCopy: { flex: 1, minWidth: 0 },

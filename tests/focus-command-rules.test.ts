@@ -7,6 +7,7 @@ import {
   getCurrentTitle,
   getDashboardStats,
   getEmotionalPatternForecast,
+  getWellbeingInsight,
   getEnergy,
   getGoldBalance,
   getLevelInfo,
@@ -127,6 +128,24 @@ describe("Focus Command deterministic gameplay rules", () => {
     expect(forecast.score).toBeGreaterThan(60);
     expect(forecast.sampleSize).toBe(2);
     expect(forecast.signals).toHaveLength(5);
+  });
+
+  it("builds a transparent non-clinical wellbeing insight from logged ratings without inferring missing data", () => {
+    const state = stateWithToday();
+    const mission = completedMission({ id: "wellbeing_mission" });
+    state.missions.push(mission);
+    state.reflections.push(
+      { id: "wellbeing_1", missionId: mission.id, createdAt: new Date(Date.now() - 86_400_000).toISOString(), feelingBefore: "steady", feelingAfter: "charged", frictionName: "", frictionRating: 2, provokingThought: "", provokingThoughtRating: 2, skills: [], miniAchievement: "", miniAchievementRating: 3, customAnswers: {}, energyAfter: 4, focusQuality: 4, stressLevel: 2, clarityLevel: 4, motivationLevel: 4, distractionLevel: 1 },
+      { id: "wellbeing_2", missionId: mission.id, createdAt: new Date().toISOString(), feelingBefore: "steady", feelingAfter: "great", frictionName: "", frictionRating: 1, provokingThought: "", provokingThoughtRating: 1, skills: [], miniAchievement: "", miniAchievementRating: 4, customAnswers: {}, energyAfter: 5, focusQuality: 5, stressLevel: 1, clarityLevel: 5, motivationLevel: 5, distractionLevel: 1 },
+    );
+
+    const insight = getWellbeingInsight(state);
+    expect(insight.available).toBe(true);
+    expect(insight.sampleSize).toBe(2);
+    expect(insight.records).toHaveLength(2);
+    expect(insight.signals.find((signal) => signal.id === "focus")).toMatchObject({ average: 4.5, observations: 2, role: "supportive" });
+    expect(insight.signals.find((signal) => signal.id === "stress")).toMatchObject({ average: 1.5, observations: 2, role: "load" });
+    expect(insight.disclaimer.toLowerCase()).toContain("not a medical");
   });
 
   it("computes boss completion and seven-day dashboard recognition from actual mission and reflection records", () => {

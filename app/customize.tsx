@@ -10,7 +10,7 @@ import { CustomQuestion, GraphSeries, useFocusCommand } from "@/lib/focus-comman
 const graphMetrics: { metric: GraphSeries["metric"]; label: string; color: string }[] = [
   { metric: "miniAchievementRating", label: "Mini achievement", color: "#F4C95D" },
   { metric: "frictionRating", label: "Friction", color: "#FFAA4C" },
-  { metric: "provokingThoughtRating", label: "Provoking thought", color: "#39C6E8" },
+  { metric: "provokingThoughtRating", label: "Provoking thought", color: "#A78BFA" },
   { metric: "feelingAfter", label: "After feeling", color: "#49D17D" },
   { metric: "durationHours", label: "Duration", color: "#C092FF" },
 ];
@@ -157,7 +157,7 @@ export default function CustomizeScreen() {
               </View>
               <TextInput value={chart.title} onChangeText={(title) => updateEmotionalChart(chart.id, { title })} placeholder="Lens title" placeholderTextColor={colors.muted} style={[styles.questionInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
               <View style={styles.metricChoices}>
-                {["#F4C95D", "#39C6E8", "#49D17D", "#C092FF", "#FFAA4C"].map((color) => {
+                {["#F4C95D", "#A78BFA", "#49D17D", "#C092FF", "#FFAA4C"].map((color) => {
                   const selected = chart.color === color;
                   return <Pressable key={color} onPress={() => updateEmotionalChart(chart.id, { color })} style={({ pressed }) => [styles.colorChoice, { borderColor: selected ? color : colors.border, backgroundColor: selected ? `${color}1D` : colors.surface, opacity: pressed ? 0.72 : 1 }]}><View style={[styles.metricDot, { backgroundColor: color }]} /><Text style={[styles.metricChoiceText, { color: selected ? color : colors.muted }]}>ACCENT</Text></Pressable>;
                 })}

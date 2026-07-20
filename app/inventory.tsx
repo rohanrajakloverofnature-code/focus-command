@@ -72,7 +72,7 @@ export default function InventoryScreen() {
 const styles = StyleSheet.create({
   content: { gap: 16, paddingTop: 12, paddingBottom: 28 },
   summaryCard: { flexDirection: "row", gap: 12, alignItems: "center" },
-  summaryIcon: { width: 48, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#39C6E81A" },
+  summaryIcon: { width: 48, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#A78BFA1A" },
   summaryCopy: { flex: 1, gap: 2 },
   summaryTitle: { fontSize: 17, lineHeight: 22, fontWeight: "900" },
   summaryDetail: { fontSize: 12, lineHeight: 17, fontWeight: "500" },
