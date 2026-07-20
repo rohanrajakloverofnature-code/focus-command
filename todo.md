@@ -73,3 +73,6 @@
 - [x] Update the Home character into title-sensitive anime character states, enlarge player typography, and add periodic fire animation.
 - [x] Make pie charts and all dashboard graphs interactive with segment/point focus, labels, and distinct color schemes.
 - [x] Correct the native OAuth callback scheme so Google consent returns to Focus Command instead of a browser page.
+- [x] Add an Expo Router OAuth callback route for `com.app.rpgfocuscommand:/oauthredirect` so Google’s authorization response is handled instead of displaying Unmatched Route.
+- [x] Return from the native OAuth callback route to the active AuthSession hook so it consumes the authorization response and completes the Google Sheets session reliably.
+- [ ] Rebuild and test the fixed native callback flow after the dedicated route is included.

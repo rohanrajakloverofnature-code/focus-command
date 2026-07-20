@@ -25,11 +25,16 @@ describe("Google Sheets OAuth configuration", () => {
     request.searchParams.set("scope", "openid https://www.googleapis.com/auth/spreadsheets");
     const appConfig = readFileSync(resolve(process.cwd(), "app.config.ts"), "utf8");
     const authHook = readFileSync(resolve(process.cwd(), "hooks/use-google-sheets-auth.ts"), "utf8");
+    const rootLayout = readFileSync(resolve(process.cwd(), "app/_layout.tsx"), "utf8");
+    const redirectRoute = readFileSync(resolve(process.cwd(), "app/oauthredirect.tsx"), "utf8");
 
     expect(request.searchParams.get("redirect_uri")).toBe(redirectUri);
     expect(request.searchParams.get("scope")).toContain("spreadsheets");
     expect(appConfig).toContain("oauthCallbackScheme: bundleId");
     expect(appConfig).toContain('pathPrefix: "/oauthredirect"');
     expect(authHook).toContain("const nativeRedirectUri = Platform.OS === \"android\"");
+    expect(rootLayout).toContain('<Stack.Screen name="oauthredirect" />');
+    expect(redirectRoute).toContain("Completing secure Google connection");
+    expect(redirectRoute).toContain("router.back()");
   });
 });
