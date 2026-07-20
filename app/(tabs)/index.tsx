@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { CelebrationKind, CelebrationOverlay } from "@/components/celebration-overlay";
 import {
@@ -17,6 +17,7 @@ import {
 } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { HomeFire } from "@/components/home-fire";
+import { IndiaSubjectMap } from "@/components/india-subject-map";
 import { RankCharacter } from "@/components/rank-character";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -206,26 +207,15 @@ export default function HomeScreen() {
             </View>
             <StatusPill label={`${subjectCapture.length} SUBJECT${subjectCapture.length === 1 ? "" : "S"}`} tone="primary" icon="circle.grid.cross.fill" />
           </View>
-          <View style={styles.mapTerrain}>
-            <View style={[styles.mapRing, styles.mapRingOne, { borderColor: `${colors.primary}55` }]} />
-            <View style={[styles.mapRing, styles.mapRingTwo, { borderColor: `${colors.primary}38` }]} />
-            {subjectCapture.slice(0, 5).map((subject, index) => {
-              const nodePositions = [{ top: 22, left: "19%" }, { top: 48, right: "18%" }, { bottom: 20, left: "55%" }, { bottom: 40, left: "31%" }, { top: 20, right: "38%" }] as const;
-              const accent = [colors.primary, colors.success, "#F4C95D", "#C092FF", "#FFAA4C"][index] ?? colors.primary;
-              return <View key={`${subject.subject}-node`} style={[styles.mapNode, styles.mapNodeDynamic, nodePositions[index], { backgroundColor: accent, width: 10 + Math.round(subject.capture * 14), height: 10 + Math.round(subject.capture * 14), borderRadius: 99 }]} />;
-            })}
-            <View style={styles.mapSubjects}>
-              {(subjectCapture.length ? subjectCapture.slice(0, 4) : [{ subject: "Scout a subject", capture: 0, completed: 0, total: 0, active: 0, planned: 0 }]).map((subject) => (
-                <Pressable key={subject.subject} onPress={() => router.push("/missions?filter=open" as never)} style={({ pressed }) => [styles.mapSubjectPressable, { opacity: pressed ? 0.72 : 1 }]}>
-                  <View style={styles.mapSubjectCopy}>
-                    <Text numberOfLines={1} style={[styles.mapSubjectName, { color: colors.foreground }]}>{subject.subject}</Text>
-                    <Text style={[styles.mapSubjectDetail, { color: colors.muted }]}>{subject.completed}/{subject.total} captured · {subject.active} live · {subject.planned} planned</Text>
-                  </View>
-                  <Text style={[styles.mapSubjectValue, { color: colors.primary }]}>{Math.round(subject.capture * 100)}%</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
+          <IndiaSubjectMap
+            subjects={subjectCapture}
+            accent={colors.primary}
+            foreground={colors.foreground}
+            muted={colors.muted}
+            surface={colors.background}
+            border={colors.border}
+            onOpenSubject={() => router.push("/missions?filter=open" as never)}
+          />
           <View style={styles.journalSignalHeader}>
             <Text style={[styles.mapDetail, { color: colors.muted }]}>JOURNAL SIGNAL · LAST 30 DAYS</Text>
             <Text style={[styles.mapSubjectValue, { color: colors.success }]}>{state.journals.length ? `${state.journals.length} logs` : "Awaiting log"}</Text>

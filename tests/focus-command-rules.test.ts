@@ -6,6 +6,7 @@ import {
   getBossProgress,
   getCurrentTitle,
   getDashboardStats,
+  getEmotionalPatternForecast,
   getEnergy,
   getGoldBalance,
   getLevelInfo,
@@ -111,6 +112,21 @@ describe("Focus Command deterministic gameplay rules", () => {
     expect(state.profile.emotionalCharts.map((chart) => chart.id)).toEqual(["energy_shift", "focus_friction", "stress_clarity", "motivation_distraction"]);
     expect(state.profile.emotionalCharts.every((chart) => chart.enabled)).toBe(true);
     expect(state.profile.notificationRules).toMatchObject({ dailyMissionEnabled: false, revisionEnabled: true, multiplierEnabled: true, achievementEnabled: true });
+  });
+
+  it("produces a transparent free on-device emotional-pattern forecast from reflection signals", () => {
+    const state = stateWithToday();
+    const mission = completedMission({ id: "forecast_mission" });
+    state.missions.push(mission);
+    state.reflections.push(
+      { id: "forecast_1", missionId: mission.id, createdAt: new Date(Date.now() - 86_400_000).toISOString(), feelingBefore: "steady", feelingAfter: "charged", frictionName: "", frictionRating: 1, provokingThought: "", provokingThoughtRating: 1, skills: [], miniAchievement: "", miniAchievementRating: 3, customAnswers: {}, energyAfter: 4, focusQuality: 5, stressLevel: 1, clarityLevel: 4, motivationLevel: 5, distractionLevel: 1 },
+      { id: "forecast_2", missionId: mission.id, createdAt: new Date().toISOString(), feelingBefore: "steady", feelingAfter: "great", frictionName: "", frictionRating: 1, provokingThought: "", provokingThoughtRating: 1, skills: [], miniAchievement: "", miniAchievementRating: 4, customAnswers: {}, energyAfter: 5, focusQuality: 5, stressLevel: 1, clarityLevel: 5, motivationLevel: 4, distractionLevel: 1 },
+    );
+    const forecast = getEmotionalPatternForecast(state);
+    expect(forecast.available).toBe(true);
+    expect(forecast.score).toBeGreaterThan(60);
+    expect(forecast.sampleSize).toBe(2);
+    expect(forecast.signals).toHaveLength(5);
   });
 
   it("computes boss completion and seven-day dashboard recognition from actual mission and reflection records", () => {

@@ -4,13 +4,14 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withSequ
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 
-export type CelebrationKind = "mission" | "combo" | "level" | "title";
+export type CelebrationKind = "mission" | "combo" | "level" | "title" | "journal";
 
-const details: Record<CelebrationKind, { icon: "trophy.fill" | "flame.fill" | "bolt.fill" | "star.fill"; accent: string; title: string; subtitle: string }> = {
+const details: Record<CelebrationKind, { icon: "trophy.fill" | "flame.fill" | "bolt.fill" | "star.fill" | "book.closed.fill"; accent: string; title: string; subtitle: string }> = {
   mission: { icon: "trophy.fill", accent: "#F4C95D", title: "OBJECTIVE SECURED", subtitle: "Mission rewards recorded" },
   combo: { icon: "flame.fill", accent: "#FFAA4C", title: "COMBO ASCENDED", subtitle: "Your multiplier is stronger" },
   level: { icon: "bolt.fill", accent: "#39C6E8", title: "LEVEL ASCENDED", subtitle: "New command power unlocked" },
   title: { icon: "star.fill", accent: "#C092FF", title: "TITLE UNLOCKED", subtitle: "Your operative has evolved" },
+  journal: { icon: "book.closed.fill", accent: "#49D17D", title: "DAILY SIGNAL LOGGED", subtitle: "Your Lifeline gained momentum" },
 };
 
 export function CelebrationOverlay({ kind, reduceMotion, onDone }: { kind: CelebrationKind; reduceMotion: boolean; onDone?: () => void }) {

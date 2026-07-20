@@ -2,10 +2,12 @@ import { useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { CelebrationOverlay } from "@/components/celebration-overlay";
 import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { playFocusRole } from "@/lib/focus-audio";
 import { formatCompactNumber, toLocalDate, useFocusCommand } from "@/lib/focus-command";
 
 export default function JournalScreen() {
@@ -18,6 +20,7 @@ export default function JournalScreen() {
   const [better, setBetter] = useState<boolean>(todayEntry?.betterThanYesterday ?? true);
   const [points, setPoints] = useState(String(todayEntry?.points ?? 6));
   const [note, setNote] = useState(todayEntry?.note ?? "");
+  const [journalCelebration, setJournalCelebration] = useState(false);
 
   const entries = useMemo(() => [...state.journals].sort((a, b) => b.localDate.localeCompare(a.localDate)), [state.journals]);
   const totalPoints = state.journals.reduce((total, entry) => total + entry.points, 0);
@@ -32,7 +35,9 @@ export default function JournalScreen() {
       return;
     }
     addJournal({ betterThanYesterday: better, points: amount, note });
+    void playFocusRole("extended", state.profile.soundEnabled, state.profile.soundRoles.extended);
     setShowComposer(false);
+    setJournalCelebration(true);
   };
 
   return (
@@ -114,6 +119,7 @@ export default function JournalScreen() {
           <EmptyCommandState icon="book.closed.fill" title="Your journal is waiting" detail="A short daily signal makes the Lifeline graph more meaningful over time." action="Log today" onAction={() => setShowComposer(true)} />
         )}
       </ScrollView>
+      {journalCelebration ? <CelebrationOverlay kind="journal" reduceMotion={state.profile.reduceMotion} onDone={() => setJournalCelebration(false)} /> : null}
     </ScreenContainer>
   );
 }

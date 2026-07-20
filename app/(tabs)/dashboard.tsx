@@ -7,7 +7,7 @@ import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, Scre
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, getDashboardStats, getMissionInvestedMilliseconds, getTotalPower, toLocalDate, useFocusCommand } from "@/lib/focus-command";
+import { formatCompactNumber, getDashboardStats, getEmotionalPatternForecast, getMissionInvestedMilliseconds, getTotalPower, toLocalDate, useFocusCommand } from "@/lib/focus-command";
 
 function createDaySeries(days: number, profileTimezone: string) {
   return Array.from({ length: days }, (_, index) => {
@@ -32,6 +32,7 @@ export default function DashboardScreen() {
 
   const daySeries = useMemo(() => createDaySeries(14, state.profile.timezone), [state.profile.timezone]);
   const dashboard = useMemo(() => getDashboardStats(state), [state]);
+  const forecast = useMemo(() => getEmotionalPatternForecast(state), [state]);
 
   if (!ready) return <LoadingScreen label="Compiling command analytics…" />;
 
@@ -173,6 +174,28 @@ export default function DashboardScreen() {
           </CommandCard>
         </View>
 
+        {state.profile.forecastEnabled ? <>
+        <SectionHeader title="Pattern forecast" />
+        <CommandCard accent={forecast.outlook === "momentum" ? colors.success : forecast.outlook === "fragile" ? colors.warning : colors.primary} style={styles.forecastCard}>
+          <View style={styles.forecastHeading}>
+            <View style={styles.forecastCopy}>
+              <Text style={[styles.forecastEyebrow, { color: colors.primary }]}>FREE ON-DEVICE FORECAST</Text>
+              <Text style={[styles.forecastTitle, { color: colors.foreground }]}>{forecast.headline}</Text>
+            </View>
+            <View style={[styles.forecastScore, { borderColor: `${colors.primary}66`, backgroundColor: `${colors.primary}15` }]}>
+              <Text style={[styles.forecastScoreValue, { color: colors.primary }]}>{forecast.available ? forecast.score : "—"}</Text>
+              <Text style={[styles.forecastScoreLabel, { color: colors.muted }]}>READINESS</Text>
+            </View>
+          </View>
+          <Text style={[styles.forecastDetail, { color: colors.muted }]}>{forecast.detail}</Text>
+          {state.profile.forecastShowSignals && forecast.signals.length ? <View style={styles.forecastSignals}>{forecast.signals.map((signal) => <View key={signal.label} style={[styles.forecastSignal, { borderColor: colors.border, backgroundColor: colors.background }]}>
+            <Text style={[styles.forecastSignalLabel, { color: colors.muted }]}>{signal.label}</Text>
+            <Text style={[styles.forecastSignalValue, { color: signal.direction === "down" ? colors.warning : signal.direction === "up" ? colors.success : colors.foreground }]}>{signal.value}%</Text>
+          </View>)}</View> : null}
+          <StatusPill label={`${forecast.confidence.toUpperCase()} · ${forecast.sampleSize} SIGNAL${forecast.sampleSize === 1 ? "" : "S"}`} tone={forecast.available ? "primary" : "neutral"} icon="chart.xyaxis.line" />
+        </CommandCard>
+        </> : null}
+
         <SectionHeader title="Emotional intelligence" />
         <InteractiveChartCard title="Emotional radar" detail="How you tend to feel after finishing work" tag="INSIGHT" onPress={() => router.push("/analytics?metric=emotion" as never)}>
           {state.reflections.length ? <RadarChart points={emotionalPoints} color={colors.warning} accessibilityLabel="Emotional radar based on post-mission feeling data" /> : <NoData label="Complete a mission debrief to reveal emotional patterns." icon="star.fill" />}
@@ -297,7 +320,20 @@ const styles = StyleSheet.create({
   content: { gap: 16, paddingTop: 12, paddingBottom: 28 },
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   behavioralIntro: { fontSize: 12, lineHeight: 17, fontWeight: "600", marginTop: -7 },
-  behavioralStack: { gap: 10 },
+  behavioralStack: { gap: 12 },
+  forecastCard: { gap: 12 },
+  forecastHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  forecastCopy: { flex: 1, gap: 3 },
+  forecastEyebrow: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.9 },
+  forecastTitle: { fontSize: 16, lineHeight: 21, fontWeight: "900" },
+  forecastScore: { width: 66, height: 66, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center" },
+  forecastScoreValue: { fontSize: 23, lineHeight: 27, fontWeight: "900" },
+  forecastScoreLabel: { fontSize: 7, lineHeight: 10, fontWeight: "900", letterSpacing: 0.7 },
+  forecastDetail: { fontSize: 12, lineHeight: 18, fontWeight: "500" },
+  forecastSignals: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  forecastSignal: { minWidth: "30%", flexGrow: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: 11, paddingHorizontal: 9, paddingVertical: 8, gap: 2 },
+  forecastSignalLabel: { fontSize: 9, lineHeight: 12, fontWeight: "800" },
+  forecastSignalValue: { fontSize: 14, lineHeight: 18, fontWeight: "900" },
   manualLifelineStack: { gap: 9 },
   lifelineDetailDrawer: { gap: 10 },
   lifelineDrawerHeading: { flexDirection: "row", justifyContent: "space-between", gap: 10, alignItems: "flex-start" },

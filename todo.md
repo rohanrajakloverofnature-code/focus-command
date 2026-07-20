@@ -34,7 +34,7 @@
 - [x] Add local notification preferences and local scheduling for next-day multiplier and revision reminders.
 - [x] Add deterministic unit tests for progression, currency, timers, SRS, journal/lifeline, rewards, and analytics.
 - [x] Validate all core flows on native-compatible code paths, check TypeScript/linting, and inspect development logs.
-- [ ] Create the first complete project checkpoint after all checklist items are accurately marked complete.
+- [x] Create the first complete project checkpoint after all checklist items are accurately marked complete.
 - [x] Verify that Expo Go cannot complete the native OAuth redirect with only a Web Client ID, and document the native-client requirement.
 - [x] Confirm and document the generated Android package identifier for the user.
 - [x] Optimize generated icon variants and the optional audio cue below the checkpoint media-size limit while preserving the app branding and feedback behavior.
@@ -45,7 +45,7 @@
 - [x] Complete custom reward creation with configurable loot weights and next-day gold multipliers.
 - [x] Make high-contrast presentation a functional visual mode rather than a stored preference only.
 - [x] Fix and test the rank-title customization editor’s collapsed-list behavior.
-- [ ] Activate live Google Sheets sign-in in a native development build after Android and iOS OAuth client IDs are supplied.
+- [x] Activate live Google Sheets sign-in in a native development build after Android and iOS OAuth client IDs are supplied.
 - [x] Add boss creation directly from the Mission Board and link selected missions to the new boss.
 - [x] Add a visible title-driven player character presentation that evolves with rank and level.
 - [x] Extend post-mission emotional data capture with four customizable behavioral perspectives.
@@ -75,4 +75,10 @@
 - [x] Correct the native OAuth callback scheme so Google consent returns to Focus Command instead of a browser page.
 - [x] Add an Expo Router OAuth callback route for `com.app.rpgfocuscommand:/oauthredirect` so Google’s authorization response is handled instead of displaying Unmatched Route.
 - [x] Return from the native OAuth callback route to the active AuthSession hook so it consumes the authorization response and completes the Google Sheets session reliably.
-- [ ] Rebuild and test the fixed native callback flow after the dedicated route is included.
+- [x] Rebuild and test the fixed native callback flow after the dedicated route is included.
+- [x] Add a free on-device emotional and behavioral pattern forecast with clear non-clinical wording and no external AI service requirement.
+- [x] Add a visible emotional-pattern forecast section with transparent signals and user-configurable presentation.
+- [x] Add journal completion celebration animation and contextual feedback for key in-app actions.
+- [x] Replace the subject map with an India-inspired adaptive territory view, subject labels, capture percentages, and auto-created subject territories from mission logs.
+- [x] Persist the selected Google spreadsheet ID and name across app visits until the user explicitly removes or replaces it.
+- [x] Add a user-controlled action to disconnect or replace the saved spreadsheet selection without resetting unrelated app data.

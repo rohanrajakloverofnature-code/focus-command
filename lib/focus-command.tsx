@@ -19,6 +19,7 @@ export type PaletteToken = "primary" | "background" | "surface" | "foreground" |
 export type EmotionalChartId = "energy_shift" | "focus_friction" | "stress_clarity" | "motivation_distraction";
 export type SoundRoleId = "missionWin" | "tap" | "notification" | "extended";
 export type SoundStyle = "crisp" | "soft" | "ceremonial";
+export type ForecastOutlook = "momentum" | "steady" | "recovery" | "fragile" | "warming_up";
 
 export interface SoundRoleSettings {
   enabled: boolean;
@@ -32,6 +33,17 @@ export interface EmotionalChartConfig {
   title: string;
   enabled: boolean;
   color: string;
+}
+
+export interface EmotionalPatternForecast {
+  available: boolean;
+  outlook: ForecastOutlook;
+  score: number;
+  confidence: "early" | "emerging" | "grounded";
+  sampleSize: number;
+  headline: string;
+  detail: string;
+  signals: Array<{ label: string; value: number; direction: "up" | "down" | "flat" }>;
 }
 
 export interface NotificationRules {
@@ -71,6 +83,8 @@ export interface PlayerProfile {
   palette: Partial<Record<PaletteToken, string>>;
   notificationRules: NotificationRules;
   emotionalCharts: EmotionalChartConfig[];
+  forecastEnabled: boolean;
+  forecastShowSignals: boolean;
 }
 
 export interface ComboState {
@@ -466,6 +480,8 @@ function defaultProfile(): PlayerProfile {
       { id: "stress_clarity", title: "Stress & clarity", enabled: true, color: "#C092FF" },
       { id: "motivation_distraction", title: "Motivation & distraction", enabled: true, color: "#49D17D" },
     ],
+    forecastEnabled: true,
+    forecastShowSignals: true,
   };
 }
 
@@ -715,6 +731,61 @@ export function getSubjectCapture(state: FocusState): Array<{ subject: string; c
     const planned = data.missions.filter((mission) => mission.status === "planned").length;
     return { subject, completed, total, active, planned, capture: total ? completed / total : 0 };
   }).sort((left, right) => right.capture - left.capture || right.total - left.total);
+}
+
+export function getEmotionalPatternForecast(state: FocusState): EmotionalPatternForecast {
+  const recent = state.reflections.slice(-14);
+  if (!recent.length) {
+    return {
+      available: false,
+      outlook: "warming_up",
+      score: 0,
+      confidence: "early",
+      sampleSize: 0,
+      headline: "Forecast begins after your first debrief",
+      detail: "Complete a mission reflection with energy, focus, stress, clarity, motivation, and distraction signals. This free on-device model will then summarize your own recent pattern; it is not a medical assessment.",
+      signals: [],
+    };
+  }
+
+  const average = (key: keyof Pick<Reflection, "energyAfter" | "focusQuality" | "stressLevel" | "clarityLevel" | "motivationLevel" | "distractionLevel" | "frictionRating">) => {
+    const values = recent.map((reflection) => Number(reflection[key] ?? 0)).filter((value) => value > 0);
+    return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+  };
+  const energy = average("energyAfter");
+  const focus = average("focusQuality");
+  const clarity = average("clarityLevel");
+  const motivation = average("motivationLevel");
+  const stress = average("stressLevel");
+  const distraction = average("distractionLevel");
+  const friction = average("frictionRating");
+  const raw = energy * 0.18 + focus * 0.24 + clarity * 0.2 + motivation * 0.18 - stress * 0.09 - distraction * 0.07 - friction * 0.04;
+  const score = Math.max(0, Math.min(100, Math.round((raw / 4.0) * 100)));
+  const recentHalf = recent.slice(Math.max(0, recent.length - Math.ceil(recent.length / 2)));
+  const earlierHalf = recent.slice(0, Math.max(1, recent.length - recentHalf.length));
+  const trendAverage = (items: Reflection[]) => items.length ? items.reduce((sum, reflection) => sum + (reflection.focusQuality ?? 0) + (reflection.motivationLevel ?? 0) - (reflection.stressLevel ?? 0), 0) / items.length : 0;
+  const trendDelta = trendAverage(recentHalf) - trendAverage(earlierHalf);
+  const outlook: ForecastOutlook = score >= 74 ? "momentum" : score >= 54 ? "steady" : score >= 38 ? "recovery" : score > 0 ? "fragile" : "warming_up";
+  const confidence = recent.length >= 8 ? "grounded" : recent.length >= 4 ? "emerging" : "early";
+  const direction = (value: number): "up" | "down" | "flat" => value > 3 ? "up" : value < -3 ? "down" : "flat";
+  const headline = outlook === "momentum" ? "Momentum forecast: protect your next focus block" : outlook === "steady" ? "Steady forecast: a consistent next session is likely" : outlook === "recovery" ? "Recovery forecast: choose a smaller, clearer next task" : outlook === "fragile" ? "Fragile forecast: reduce friction before your next session" : "Pattern forecast is warming up";
+  const detail = `Free on-device estimate from ${recent.length} recent reflection${recent.length === 1 ? "" : "s"}. Focus and motivation are weighted against stress, distraction, and friction. ${trendDelta > 3 ? "Your recent trend is improving." : trendDelta < -3 ? "Your recent trend is easing; plan a gentler block." : "Your recent pattern is relatively stable."} This is reflective feedback, not a diagnosis.`;
+  return {
+    available: true,
+    outlook,
+    score,
+    confidence,
+    sampleSize: recent.length,
+    headline,
+    detail,
+    signals: [
+      { label: "Focus", value: Math.round(focus * 20), direction: direction(trendDelta) },
+      { label: "Motivation", value: Math.round(motivation * 20), direction: direction(trendDelta) },
+      { label: "Clarity", value: Math.round(clarity * 20), direction: direction(trendDelta) },
+      { label: "Stress load", value: Math.round(stress * 20), direction: stress > 3 ? "down" : "up" },
+      { label: "Distraction", value: Math.round(distraction * 20), direction: distraction > 3 ? "down" : "up" },
+    ],
+  };
 }
 
 export function getDashboardStats(state: FocusState) {

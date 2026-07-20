@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, Appearance, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
@@ -9,7 +9,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useGoogleSheetsAuth } from "@/hooks/use-google-sheets-auth";
 import { ComboTier, getComboTiers, PaletteToken, SoundRoleId, SoundStyle, useFocusCommand } from "@/lib/focus-command";
-import { createFocusWorkbook, getFocusWorkbookMetadata, getGoogleAccessToken, getSpreadsheet, readFocusWorkbook, writeFocusWorkbook } from "@/lib/google-sheets";
+import { clearSelectedFocusWorkbook, createFocusWorkbook, getFocusWorkbookMetadata, getGoogleAccessToken, getSelectedFocusWorkbook, getSpreadsheet, readFocusWorkbook, saveSelectedFocusWorkbook, writeFocusWorkbook } from "@/lib/google-sheets";
 import { configureDailyMissionReminder, enableFocusReminders } from "@/lib/focus-reminders";
 import { useThemeContext } from "@/lib/theme-provider";
 import { playFocusRole } from "@/lib/focus-audio";
@@ -38,6 +38,25 @@ export default function SettingsScreen() {
     setGoogleSheetConnection({ phase: "authorized", connectedEmail: email ?? "", errorMessage: null });
   }, [setGoogleSheetConnection]);
   const googleAuth = useGoogleSheetsAuth(onGoogleAuthorized);
+
+  useEffect(() => {
+    if (!ready) return;
+    let active = true;
+    void (async () => {
+      const saved = await getSelectedFocusWorkbook();
+      if (!active) return;
+      if (saved) {
+        setSheetId(saved.spreadsheetId);
+        setSheetName(saved.spreadsheetName);
+        if (state.googleSheet.spreadsheetId !== saved.spreadsheetId || state.googleSheet.spreadsheetName !== saved.spreadsheetName) {
+          setGoogleSheetConnection({ ...saved, phase: state.googleSheet.connectedEmail ? "authorized" : state.googleSheet.phase, errorMessage: null });
+        }
+      } else if (state.googleSheet.spreadsheetId && state.googleSheet.spreadsheetName) {
+        await saveSelectedFocusWorkbook({ spreadsheetId: state.googleSheet.spreadsheetId, spreadsheetName: state.googleSheet.spreadsheetName });
+      }
+    })();
+    return () => { active = false; };
+  }, [ready, setGoogleSheetConnection, state.googleSheet.connectedEmail, state.googleSheet.phase, state.googleSheet.spreadsheetId, state.googleSheet.spreadsheetName]);
 
   if (!ready) return <LoadingScreen label="Opening command settings…" />;
 
@@ -144,6 +163,7 @@ export default function SettingsScreen() {
       await writeFocusWorkbook(token, workbook, state);
       setSheetId(workbook.spreadsheetId);
       setSheetName(workbook.spreadsheetName);
+      await saveSelectedFocusWorkbook(workbook);
       setGoogleSheetConnection({ ...workbook, phase: "synced", pendingOperations: 0, lastSyncedAt: new Date().toISOString(), errorMessage: null });
       markSynced();
       Alert.alert("Spreadsheet ready", "Focus Command created its data tabs and exported the current command log.");
@@ -184,6 +204,7 @@ export default function SettingsScreen() {
       await writeFocusWorkbook(token, workbook, state);
       setSheetId(workbook.spreadsheetId);
       setSheetName(workbook.spreadsheetName);
+      await saveSelectedFocusWorkbook(workbook);
       setGoogleSheetConnection({ ...workbook, phase: "synced", pendingOperations: 0, lastSyncedAt: new Date().toISOString(), errorMessage: null });
       markSynced();
       Alert.alert("Sync complete", "The selected Google Sheet now contains the latest Focus Command snapshot and data tabs.");
@@ -192,6 +213,31 @@ export default function SettingsScreen() {
       setGoogleSheetConnection({ phase: "error", errorMessage: message });
       Alert.alert("Sync failed", message);
     }
+  };
+
+  const removeSavedSpreadsheet = () => {
+    Alert.alert("Remove saved spreadsheet?", "This only disconnects the remembered workbook from this device. It does not delete the Google Sheet, Google account, or unrelated Focus Command data.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: () => {
+          void (async () => {
+            await clearSelectedFocusWorkbook();
+            setSheetId("");
+            setSheetName("Focus Command Data");
+            setGoogleSheetConnection({
+              spreadsheetId: "",
+              spreadsheetName: "",
+              phase: googleAuth.status === "authorized" ? "authorized" : "needs_setup",
+              pendingOperations: 0,
+              lastSyncedAt: null,
+              errorMessage: null,
+            });
+          })();
+        },
+      },
+    ]);
   };
 
   const importSpreadsheet = async () => {
@@ -208,6 +254,7 @@ export default function SettingsScreen() {
       importFromGoogleSheet(remote, { ...workbook });
       setSheetId(workbook.spreadsheetId);
       setSheetName(workbook.spreadsheetName);
+      await saveSelectedFocusWorkbook(workbook);
       Alert.alert("Import complete", "The local command system has been refreshed from the selected Google Sheet snapshot.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Google Sheets could not import this spreadsheet.";
@@ -308,6 +355,12 @@ export default function SettingsScreen() {
           <SwitchRow label="Reduce motion" detail="Prefer still, immediate state changes over animation." value={state.profile.reduceMotion} onValueChange={(reduceMotion) => updateProfile({ reduceMotion })} />
           <Divider />
           <SwitchRow label="High contrast" detail="Strengthen visual separation between command surfaces." value={state.profile.highContrast} onValueChange={(highContrast) => updateProfile({ highContrast })} />
+          <Divider />
+          <SwitchRow label="Pattern forecast" detail="Show a free, on-device summary of your recent self-reported focus and emotional signals. It is not a medical assessment." value={state.profile.forecastEnabled} onValueChange={(forecastEnabled) => updateProfile({ forecastEnabled })} />
+          {state.profile.forecastEnabled ? <>
+            <Divider />
+            <SwitchRow label="Forecast signal details" detail="Show the focus, motivation, clarity, stress, and distraction inputs behind the forecast." value={state.profile.forecastShowSignals} onValueChange={(forecastShowSignals) => updateProfile({ forecastShowSignals })} />
+          </> : null}
           <Divider />
           <View style={styles.themeSection}>
             <View style={styles.settingCopy}>
@@ -443,6 +496,7 @@ export default function SettingsScreen() {
             <CommandButton label="Import" icon="arrow.clockwise" variant="secondary" onPress={importSpreadsheet} style={styles.sheetActionButton} />
             <CommandButton label="Sync now" icon="cloud.fill" onPress={syncSpreadsheet} style={styles.sheetActionButton} />
           </View>
+          {state.googleSheet.spreadsheetId ? <CommandButton label="Remove saved spreadsheet" icon="xmark" variant="danger" onPress={removeSavedSpreadsheet} /> : null}
         </CommandCard>
 
         <SectionHeader title="Data controls" />

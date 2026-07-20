@@ -6,6 +6,7 @@ import type { FocusState } from "@/lib/focus-command";
 const ACCESS_TOKEN_KEY = "focus-command.google.access-token";
 const REFRESH_TOKEN_KEY = "focus-command.google.refresh-token";
 const EXPIRY_KEY = "focus-command.google.token-expiry";
+const SELECTED_WORKBOOK_KEY = "focus-command.google.selected-workbook";
 const SHEETS_API = "https://sheets.googleapis.com/v4";
 
 export const FOCUS_SHEET_TABS = [
@@ -75,6 +76,26 @@ export async function saveGoogleTokens(tokens: GoogleTokenBundle) {
   await setSensitiveValue(ACCESS_TOKEN_KEY, tokens.accessToken);
   if (tokens.refreshToken) await setSensitiveValue(REFRESH_TOKEN_KEY, tokens.refreshToken);
   if (tokens.expiresIn) await setSensitiveValue(EXPIRY_KEY, String(Date.now() + tokens.expiresIn * 1_000));
+}
+
+export async function saveSelectedFocusWorkbook(workbook: GoogleWorkbook) {
+  await setSensitiveValue(SELECTED_WORKBOOK_KEY, JSON.stringify(workbook));
+}
+
+export async function getSelectedFocusWorkbook(): Promise<GoogleWorkbook | null> {
+  try {
+    const raw = await getSensitiveValue(SELECTED_WORKBOOK_KEY);
+    if (!raw) return null;
+    const workbook = JSON.parse(raw) as Partial<GoogleWorkbook>;
+    if (!workbook.spreadsheetId || !workbook.spreadsheetName) return null;
+    return { spreadsheetId: workbook.spreadsheetId, spreadsheetName: workbook.spreadsheetName };
+  } catch {
+    return null;
+  }
+}
+
+export async function clearSelectedFocusWorkbook() {
+  await removeSensitiveValue(SELECTED_WORKBOOK_KEY);
 }
 
 export async function getGoogleAccessToken(): Promise<string | null> {
