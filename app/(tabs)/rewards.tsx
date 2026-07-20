@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -19,9 +20,10 @@ const categories: { value: RewardCategory | "all"; label: string; icon: "gift.fi
 
 export default function RewardsScreen() {
   const colors = useColors();
-  const { state, ready, createReward, purchaseReward } = useFocusCommand();
+  const { state, ready, createReward, updateReward, removeReward, purchaseReward } = useFocusCommand();
   const [category, setCategory] = useState<RewardCategory | "all">("all");
   const [showComposer, setShowComposer] = useState(false);
+  const [editingRewardId, setEditingRewardId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [cost, setCost] = useState("30");
@@ -41,7 +43,7 @@ export default function RewardsScreen() {
       Alert.alert("Name the reward", "A reward needs a clear name before it can enter the vault.");
       return;
     }
-    createReward({
+    const draft = {
       title,
       description,
       category: draftCategory,
@@ -49,7 +51,9 @@ export default function RewardsScreen() {
       lootEnabled,
       lootWeight: lootEnabled ? Math.max(1, Math.round(Number(lootWeight) || 1)) : 0,
       goldMultiplier: draftCategory === "multiplier" ? Math.max(1.1, Number(goldMultiplier) || 2) : null,
-    });
+    };
+    if (editingRewardId) updateReward(editingRewardId, draft);
+    else createReward(draft);
     setTitle("");
     setDescription("");
     setCost("30");
@@ -57,7 +61,32 @@ export default function RewardsScreen() {
     setLootEnabled(true);
     setLootWeight("1");
     setGoldMultiplier("2");
+    setEditingRewardId(null);
     setShowComposer(false);
+  };
+
+  const openEditor = (reward: typeof state.rewards[number]) => {
+    setEditingRewardId(reward.id);
+    setTitle(reward.title);
+    setDescription(reward.description);
+    setCost(String(reward.goldCost));
+    setDraftCategory(reward.category);
+    setLootEnabled(reward.lootEnabled);
+    setLootWeight(String(reward.lootWeight || 1));
+    setGoldMultiplier(String(reward.goldMultiplier ?? 2));
+    setShowComposer(true);
+  };
+
+  const confirmDelete = (rewardId: string, rewardTitle: string) => {
+    Alert.alert("Delete reward?", `Remove ${rewardTitle} from the vault? Items already acquired remain in inventory history.`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => removeReward(rewardId) },
+    ]);
+  };
+
+  const closeComposer = () => {
+    setShowComposer(false);
+    setEditingRewardId(null);
   };
 
   const buy = async (rewardId: string) => {
@@ -77,7 +106,7 @@ export default function RewardsScreen() {
           eyebrow="Reward vault"
           title="Spend with intent"
           detail="Trade earned gold for real-life resets, gear, and next-day power-ups."
-          right={<IconAction icon={showComposer ? "xmark" : "plus"} label={showComposer ? "Close reward creator" : "Create reward"} onPress={() => setShowComposer((value) => !value)} />}
+          right={<IconAction icon={showComposer ? "xmark" : "plus"} label={showComposer ? "Close reward creator" : "Create reward"} onPress={() => showComposer ? closeComposer() : setShowComposer(true)} />}
         />
 
         <CommandCard accent="#F4C95D" style={styles.walletCard}>
@@ -92,7 +121,7 @@ export default function RewardsScreen() {
         {inventory.length ? (
           <CommandCard accent={colors.primary} style={styles.inventoryCard}>
             <View style={styles.inventoryHeading}>
-              <Text style={[styles.inventoryTitle, { color: colors.foreground }]}>Active inventory</Text>
+              <Pressable onPress={() => router.push("/inventory" as never)} style={({ pressed }) => ({ opacity: pressed ? 0.68 : 1 })}><Text style={[styles.inventoryTitle, { color: colors.foreground }]}>Active inventory · Open armory</Text></Pressable>
               <StatusPill label={`${inventory.length} ACTIVE`} tone="primary" icon="shield.fill" />
             </View>
             {inventory.map(({ item, reward }) => reward ? (
@@ -109,7 +138,7 @@ export default function RewardsScreen() {
 
         {showComposer ? (
           <CommandCard accent={colors.primary} style={styles.composer}>
-            <Text style={[styles.composerTitle, { color: colors.foreground }]}>Create custom reward</Text>
+            <Text style={[styles.composerTitle, { color: colors.foreground }]}>{editingRewardId ? "Edit reward" : "Create custom reward"}</Text>
             <TextInput value={title} onChangeText={setTitle} placeholder="Reward name (e.g., 30 min YouTube)" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
             <TextInput value={description} onChangeText={setDescription} placeholder="Why this reward is worth it" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
             <View style={styles.composerCostRow}>
@@ -138,7 +167,7 @@ export default function RewardsScreen() {
             </Pressable>
             {lootEnabled ? <View style={styles.composerCostRow}><View style={styles.costCopy}><Text style={[styles.inputLabel, { color: colors.muted }]}>LOOT WEIGHT</Text><Text style={[styles.costDetail, { color: colors.muted }]}>Higher values make this reward more likely within a successful draw.</Text></View><TextInput value={lootWeight} onChangeText={setLootWeight} keyboardType="number-pad" style={[styles.costInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
             {draftCategory === "multiplier" ? <View style={styles.composerCostRow}><View style={styles.costCopy}><Text style={[styles.inputLabel, { color: colors.muted }]}>NEXT-DAY GOLD MULTIPLIER</Text><Text style={[styles.costDetail, { color: colors.muted }]}>Applied only to missions completed tomorrow, then archived in inventory.</Text></View><TextInput value={goldMultiplier} onChangeText={setGoldMultiplier} keyboardType="decimal-pad" style={[styles.costInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
-            <CommandButton label="Add to vault" icon="gift.fill" onPress={submit} />
+            <CommandButton label={editingRewardId ? "Save reward" : "Add to vault"} icon="gift.fill" onPress={submit} />
           </CommandCard>
         ) : null}
 
@@ -151,7 +180,7 @@ export default function RewardsScreen() {
           ))}
         </View>
 
-        <SectionHeader title="Available rewards" action="Create" onAction={() => setShowComposer(true)} />
+        <SectionHeader title="Available rewards" action="Open armory" onAction={() => router.push("/inventory" as never)} />
         {rewards.length ? (
           <View style={styles.rewardStack}>
             {rewards.map((reward) => {
@@ -166,7 +195,11 @@ export default function RewardsScreen() {
                       <Text style={[styles.rewardTitle, { color: colors.foreground }]}>{reward.title}</Text>
                       <Text style={[styles.rewardDescription, { color: colors.muted }]}>{reward.description}</Text>
                     </View>
-                    <StatusPill label={`${reward.goldCost} G`} tone="gold" icon="star.fill" />
+                    <View style={styles.rewardActions}>
+                      <Pressable onPress={() => openEditor(reward)} style={({ pressed }) => [styles.rewardAction, { borderColor: colors.border, opacity: pressed ? 0.68 : 1 }]}><Text style={[styles.rewardActionText, { color: colors.primary }]}>EDIT</Text></Pressable>
+                      <Pressable onPress={() => confirmDelete(reward.id, reward.title)} style={({ pressed }) => [styles.rewardAction, { borderColor: `${colors.error}70`, opacity: pressed ? 0.68 : 1 }]}><Text style={[styles.rewardActionText, { color: colors.error }]}>DELETE</Text></Pressable>
+                      <StatusPill label={`${reward.goldCost} G`} tone="gold" icon="star.fill" />
+                    </View>
                   </View>
                   <View style={styles.rewardFooter}>
                     <View style={styles.rewardTags}>
@@ -223,7 +256,10 @@ const styles = StyleSheet.create({
   rewardCard: { gap: 12 },
   rewardHead: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
   rewardIcon: { width: 43, height: 43, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  rewardCopy: { flex: 1, gap: 2 },
+  rewardCopy: { flex: 1 },
+  rewardActions: { alignItems: "flex-end", gap: 5 },
+  rewardAction: { minHeight: 24, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, justifyContent: "center", paddingHorizontal: 7 },
+  rewardActionText: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.7 },
   rewardTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },
   rewardDescription: { fontSize: 11, lineHeight: 16, fontWeight: "500" },
   rewardFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 9 },

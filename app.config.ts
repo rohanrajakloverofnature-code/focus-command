@@ -34,6 +34,7 @@ const env = {
   // Leave empty to use the default icon from assets/images/icon.png
   logoUrl: "/manus-storage/focus-command-icon_ea5b1db2.png",
   scheme: schemeFromBundleId,
+  oauthCallbackScheme: bundleId,
   iosBundleId: bundleId,
   androidPackage: bundleId,
 };
@@ -41,10 +42,10 @@ const env = {
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
-  version: "1.0.4",
+  version: "1.0.5",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
-  scheme: env.scheme,
+  scheme: [env.scheme, env.oauthCallbackScheme],
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
   ios: {
@@ -73,6 +74,10 @@ const config: ExpoConfig = {
           {
             scheme: env.scheme,
             host: "*",
+          },
+          {
+            scheme: env.oauthCallbackScheme,
+            pathPrefix: "/oauthredirect",
           },
         ],
         category: ["BROWSABLE", "DEFAULT"],

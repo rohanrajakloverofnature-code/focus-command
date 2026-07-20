@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { useCallback, useState } from "react";
 import { Alert, Appearance, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
@@ -12,6 +13,7 @@ import { createFocusWorkbook, getFocusWorkbookMetadata, getGoogleAccessToken, ge
 import { configureDailyMissionReminder, enableFocusReminders } from "@/lib/focus-reminders";
 import { useThemeContext } from "@/lib/theme-provider";
 import { playFocusRole } from "@/lib/focus-audio";
+import { pickAndPersistFocusSound } from "@/lib/focus-sound-library";
 
 export default function SettingsScreen() {
   const colors = useColors();
@@ -106,6 +108,15 @@ export default function SettingsScreen() {
   ];
   const patchSoundRole = (role: SoundRoleId, patch: Partial<typeof state.profile.soundRoles[SoundRoleId]>) => {
     updateProfile({ soundRoles: { ...state.profile.soundRoles, [role]: { ...state.profile.soundRoles[role], ...patch } } });
+  };
+
+  const selectSoundFile = async (role: SoundRoleId) => {
+    try {
+      const selected = await pickAndPersistFocusSound(role);
+      if (selected) patchSoundRole(role, { customUri: selected.uri, customName: selected.name });
+    } catch {
+      Alert.alert("Sound file unavailable", "Choose a standard audio file such as MP3, M4A, AAC, or WAV and try again.");
+    }
   };
 
   const reset = () => {
@@ -266,13 +277,19 @@ export default function SettingsScreen() {
                   <Switch value={setting.enabled} onValueChange={(enabled) => patchSoundRole(role.id, { enabled })} trackColor={{ false: colors.border, true: `${colors.primary}88` }} thumbColor={setting.enabled ? colors.primary : colors.surface} />
                 </View>
                 <View style={styles.soundRoleActions}>
-                  <View style={styles.soundStyleChoices}>{soundStyles.map((option) => <Pressable key={option.value} onPress={() => patchSoundRole(role.id, { style: option.value })} style={({ pressed }) => [styles.soundStyleChoice, { backgroundColor: setting.style === option.value ? `${colors.primary}1B` : colors.surface, borderColor: setting.style === option.value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1 }]}><Text style={[styles.soundStyleText, { color: setting.style === option.value ? colors.primary : colors.muted }]}>{option.label}</Text></Pressable>)}</View>
-                  <Pressable accessibilityRole="button" onPress={() => { void playFocusRole(role.id, state.profile.soundEnabled, setting); }} style={({ pressed }) => [styles.soundPreview, { backgroundColor: `${colors.primary}18`, borderColor: colors.primary, opacity: pressed ? 0.72 : 1 }]}><IconSymbol name="play.fill" size={14} color={colors.primary} /><Text style={[styles.soundPreviewText, { color: colors.primary }]}>Preview</Text></Pressable>
+                  <View style={styles.soundStyleChoices}>{soundStyles.map((option) => <Pressable key={option.value} onPress={() => patchSoundRole(role.id, { style: option.value, customUri: null, customName: null })} style={({ pressed }) => [styles.soundStyleChoice, { backgroundColor: !setting.customUri && setting.style === option.value ? `${colors.primary}1B` : colors.surface, borderColor: !setting.customUri && setting.style === option.value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1 }]}><Text style={[styles.soundStyleText, { color: !setting.customUri && setting.style === option.value ? colors.primary : colors.muted }]}>{option.label}</Text></Pressable>)}</View>
+                  <View style={styles.soundFileRow}>
+                    <View style={styles.soundFileCopy}><Text numberOfLines={1} style={[styles.soundFileName, { color: setting.customUri ? colors.success : colors.muted }]}>{setting.customName ? `Custom: ${setting.customName}` : "Bundled cue selected"}</Text><Text style={[styles.soundFileHint, { color: colors.muted }]}>Pick an MP3, M4A, AAC, or WAV from your device.</Text></View>
+                    <Pressable accessibilityRole="button" onPress={() => { void selectSoundFile(role.id); }} style={({ pressed }) => [styles.soundFileButton, { borderColor: colors.primary, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.soundFileButtonText, { color: colors.primary }]}>CHOOSE</Text></Pressable>
+                  </View>
+                  {setting.customUri ? <Pressable accessibilityRole="button" onPress={() => patchSoundRole(role.id, { customUri: null, customName: null })} style={({ pressed }) => [styles.restoreCue, { opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.restoreCueText, { color: colors.muted }]}>Use bundled cue instead</Text></Pressable> : null}
+                  <Pressable accessibilityRole="button" onPress={() => { void playFocusRole(role.id, state.profile.soundEnabled, setting); }} style={({ pressed }) => [styles.soundPreview, { backgroundColor: `${colors.primary}18`, borderColor: colors.primary, opacity: pressed ? 0.72 : 1 }]}><IconSymbol name="play.fill" size={14} color={colors.primary} /><Text style={[styles.soundPreviewText, { color: colors.primary }]}>Preview selected sound</Text></Pressable>
                 </View>
                 {index < soundRoles.length - 1 ? <View style={[styles.soundRoleDivider, { backgroundColor: colors.border }]} /> : null}
               </View>;
             })}
           </View> : null}
+          {state.profile.soundEnabled ? <Pressable accessibilityRole="link" onPress={() => { void WebBrowser.openBrowserAsync("https://pixabay.com/sound-effects/search/ui/"); }} style={({ pressed }) => [styles.pixabayLink, { borderColor: `${colors.primary}66`, backgroundColor: `${colors.primary}0F`, opacity: pressed ? 0.72 : 1 }]}><IconSymbol name="arrow.up.right.square" size={14} color={colors.primary} /><Text style={[styles.pixabayLinkText, { color: colors.primary }]}>Browse free Pixabay UI sounds, then assign a file above</Text></Pressable> : null}
           <Divider />
           <SwitchRow label="Haptic feedback" detail="Use subtle tactile confirmation for key actions." value={state.profile.hapticsEnabled} onValueChange={(hapticsEnabled) => updateProfile({ hapticsEnabled })} />
           <Divider />
@@ -505,7 +522,17 @@ const styles = StyleSheet.create({
   soundStyleText: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.35 },
   soundPreview: { minHeight: 34, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   soundPreviewText: { fontSize: 11, lineHeight: 14, fontWeight: "900" },
+  soundFileRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  soundFileCopy: { flex: 1, minWidth: 0, gap: 1 },
+  soundFileName: { fontSize: 10, lineHeight: 14, fontWeight: "800" },
+  soundFileHint: { fontSize: 9, lineHeight: 13, fontWeight: "500" },
+  soundFileButton: { minHeight: 30, borderRadius: 9, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 8, justifyContent: "center" },
+  soundFileButtonText: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.7 },
+  restoreCue: { alignSelf: "flex-start", minHeight: 22, justifyContent: "center" },
+  restoreCueText: { fontSize: 10, lineHeight: 13, fontWeight: "700", textDecorationLine: "underline" },
   soundRoleDivider: { height: StyleSheet.hairlineWidth, width: "100%", marginTop: 1 },
+  pixabayLink: { minHeight: 42, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 },
+  pixabayLinkText: { flex: 1, fontSize: 11, lineHeight: 15, fontWeight: "800" },
   notificationTimeRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   timeInput: { width: 78, minHeight: 42, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, textAlign: "center", fontSize: 13, lineHeight: 17, fontWeight: "900", fontVariant: ["tabular-nums"] },
 });

@@ -18,12 +18,19 @@ const cueByRoleAndStyle: Record<SoundRoleId, Record<SoundStyle, CueName>> = {
   extended: { crisp: "confirm", soft: "notification", ceremonial: "achievement" },
 };
 
-const players: Partial<Record<CueName, ReturnType<typeof createAudioPlayer>>> = {};
+const defaultRoleSettings: SoundRoleSettings = { enabled: true, style: "soft", customUri: null, customName: null };
+const bundledPlayers: Partial<Record<CueName, ReturnType<typeof createAudioPlayer>>> = {};
+const customPlayers: Record<string, ReturnType<typeof createAudioPlayer>> = {};
 let audioModePrepared = false;
 
-function getPlayer(name: CueName) {
-  if (!players[name]) players[name] = createAudioPlayer(sources[name]);
-  return players[name]!;
+function getBundledPlayer(name: CueName) {
+  if (!bundledPlayers[name]) bundledPlayers[name] = createAudioPlayer(sources[name]);
+  return bundledPlayers[name]!;
+}
+
+function getCustomPlayer(uri: string) {
+  if (!customPlayers[uri]) customPlayers[uri] = createAudioPlayer(uri);
+  return customPlayers[uri];
 }
 
 async function prepareAudio() {
@@ -32,34 +39,47 @@ async function prepareAudio() {
   audioModePrepared = true;
 }
 
+async function playPlayer(player: ReturnType<typeof createAudioPlayer>) {
+  await prepareAudio();
+  player.seekTo(0);
+  player.play();
+}
+
 export async function playFocusCue(name: CueName, enabled: boolean) {
   if (!enabled) return;
   try {
-    await prepareAudio();
-    const cue = getPlayer(name);
-    cue.seekTo(0);
-    cue.play();
+    await playPlayer(getBundledPlayer(name));
   } catch {
     // Audio feedback enhances the experience but never blocks a core action.
   }
 }
 
-export function playFocusRole(role: SoundRoleId, masterEnabled: boolean, settings: SoundRoleSettings) {
-  return playFocusCue(cueByRoleAndStyle[role][settings.style], masterEnabled && settings.enabled);
+export async function playFocusRole(role: SoundRoleId, masterEnabled: boolean, settings?: SoundRoleSettings) {
+  const resolved = settings ?? defaultRoleSettings;
+  if (!masterEnabled || !resolved.enabled) return;
+  try {
+    if (resolved.customUri) {
+      await playPlayer(getCustomPlayer(resolved.customUri));
+      return;
+    }
+    await playFocusCue(cueByRoleAndStyle[role][resolved.style], true);
+  } catch {
+    // A removed or incompatible user audio file safely falls back to silence.
+  }
 }
 
 export function playFocusTap(masterEnabled: boolean, settings?: SoundRoleSettings) {
-  return playFocusRole("tap", masterEnabled, settings ?? { enabled: true, style: "crisp" });
+  return playFocusRole("tap", masterEnabled, settings ?? { ...defaultRoleSettings, style: "crisp" });
 }
 
 export function playFocusConfirmCue(masterEnabled: boolean, settings?: SoundRoleSettings) {
-  return playFocusRole("extended", masterEnabled, settings ?? { enabled: true, style: "soft" });
+  return playFocusRole("extended", masterEnabled, settings ?? defaultRoleSettings);
 }
 
 export function playFocusSuccessCue(masterEnabled: boolean, settings?: SoundRoleSettings) {
-  return playFocusRole("missionWin", masterEnabled, settings ?? { enabled: true, style: "ceremonial" });
+  return playFocusRole("missionWin", masterEnabled, settings ?? { ...defaultRoleSettings, style: "ceremonial" });
 }
 
 export function playFocusNotificationCue(masterEnabled: boolean, settings?: SoundRoleSettings) {
-  return playFocusRole("notification", masterEnabled, settings ?? { enabled: true, style: "soft" });
+  return playFocusRole("notification", masterEnabled, settings ?? defaultRoleSettings);
 }

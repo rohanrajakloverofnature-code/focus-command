@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("Google Sheets OAuth configuration", () => {
@@ -15,14 +17,19 @@ describe("Google Sheets OAuth configuration", () => {
     expect(discovery.token_endpoint).toContain("googleapis.com");
   });
 
-  it("documents the native application-identifier redirect used by a development build", () => {
+  it("registers the native application-identifier redirect used by a development build", () => {
     const redirectUri = "com.app.rpgfocuscommand:/oauthredirect";
     const request = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     request.searchParams.set("redirect_uri", redirectUri);
     request.searchParams.set("response_type", "code");
     request.searchParams.set("scope", "openid https://www.googleapis.com/auth/spreadsheets");
+    const appConfig = readFileSync(resolve(process.cwd(), "app.config.ts"), "utf8");
+    const authHook = readFileSync(resolve(process.cwd(), "hooks/use-google-sheets-auth.ts"), "utf8");
 
     expect(request.searchParams.get("redirect_uri")).toBe(redirectUri);
     expect(request.searchParams.get("scope")).toContain("spreadsheets");
+    expect(appConfig).toContain("oauthCallbackScheme: bundleId");
+    expect(appConfig).toContain('pathPrefix: "/oauthredirect"');
+    expect(authHook).toContain("const nativeRedirectUri = Platform.OS === \"android\"");
   });
 });

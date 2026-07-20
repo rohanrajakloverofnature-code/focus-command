@@ -6,10 +6,12 @@ import React, {
   useEffect,
   useMemo,
   useReducer,
+  useState,
 } from "react";
 
 export type Difficulty = "easy" | "medium" | "hard";
 export type MissionStatus = "planned" | "active" | "paused" | "completed";
+export type MissionFrequency = "once" | "daily";
 export type Feeling = "charged" | "steady" | "restless" | "drained" | "great";
 export type RewardCategory = "life" | "gear" | "power" | "multiplier";
 export type SyncPhase = "local" | "ready" | "authorized" | "syncing" | "synced" | "needs_setup" | "error";
@@ -21,6 +23,8 @@ export type SoundStyle = "crisp" | "soft" | "ceremonial";
 export interface SoundRoleSettings {
   enabled: boolean;
   style: SoundStyle;
+  customUri: string | null;
+  customName: string | null;
 }
 
 export interface EmotionalChartConfig {
@@ -87,6 +91,7 @@ export interface Mission {
   specificTopic: string;
   revisionEnabled: boolean;
   status: MissionStatus;
+  frequency: MissionFrequency;
   createdAt: string;
   dueAt: string | null;
   startedAt: string | null;
@@ -195,6 +200,12 @@ export interface ProgressionEvent {
   goldAwarded: number;
   occurredAt: string;
   note: string;
+  levelBefore?: number;
+  levelAfter?: number;
+  titleBefore?: string;
+  titleAfter?: string;
+  comboBefore?: number;
+  comboAfter?: number;
 }
 
 export interface LifelinePoint {
@@ -270,6 +281,7 @@ export interface MissionDraft {
   specificTopic: string;
   revisionEnabled: boolean;
   dueAt: string | null;
+  frequency: MissionFrequency;
 }
 
 export interface ReflectionDraft {
@@ -409,6 +421,12 @@ export function formatCompactNumber(value: number): string {
   return new Intl.NumberFormat("en", { maximumFractionDigits: 0, notation: value >= 10_000 ? "compact" : "standard" }).format(value);
 }
 
+export function getLevelPowerThreshold(level: number, basePower: number): number {
+  const completedLevels = Math.max(0, Math.floor(level) - 1);
+  const growthMultiplier = 1 + completedLevels * 0.015;
+  return Math.round(Math.max(1, basePower) * completedLevels * growthMultiplier);
+}
+
 function defaultProfile(): PlayerProfile {
   return {
     firstName: "Commander",
@@ -423,10 +441,10 @@ function defaultProfile(): PlayerProfile {
     titles: DEFAULT_TITLES,
     soundEnabled: true,
     soundRoles: {
-      missionWin: { enabled: true, style: "ceremonial" },
-      tap: { enabled: true, style: "crisp" },
-      notification: { enabled: true, style: "soft" },
-      extended: { enabled: true, style: "soft" },
+      missionWin: { enabled: true, style: "ceremonial", customUri: null, customName: null },
+      tap: { enabled: true, style: "crisp", customUri: null, customName: null },
+      notification: { enabled: true, style: "soft", customUri: null, customName: null },
+      extended: { enabled: true, style: "soft", customUri: null, customName: null },
     },
     hapticsEnabled: true,
     notificationsEnabled: true,
@@ -596,26 +614,33 @@ export function getLifetimeGold(state: FocusState): number {
 
 export function getLevelInfo(state: FocusState) {
   const totalPower = getTotalPower(state);
-  const step = Math.max(1, state.profile.powerPerLevel);
-  const rawLevel = Math.floor(totalPower / step) + 1;
-  const level = Math.max(1, Math.min(state.profile.maxLevel, rawLevel));
-  const levelStart = (level - 1) * step;
-  const nextThreshold = level >= state.profile.maxLevel ? levelStart : level * step;
+  const maxLevel = Math.max(1, state.profile.maxLevel);
+  const basePower = Math.max(1, state.profile.powerPerLevel);
+  let level = 1;
+  while (level < maxLevel && totalPower >= getLevelPowerThreshold(level + 1, basePower)) level += 1;
+  const levelStart = getLevelPowerThreshold(level, basePower);
+  const nextThreshold = level >= maxLevel ? levelStart : getLevelPowerThreshold(level + 1, basePower);
+  const levelSpan = Math.max(1, nextThreshold - levelStart);
   return {
     level,
     currentLevelPower: Math.max(0, totalPower - levelStart),
     powerForNextLevel: Math.max(0, nextThreshold - totalPower),
     currentThreshold: levelStart,
     nextThreshold,
-    progress: level >= state.profile.maxLevel ? 1 : Math.min(1, Math.max(0, (totalPower - levelStart) / step)),
+    progress: level >= maxLevel ? 1 : Math.min(1, Math.max(0, (totalPower - levelStart) / levelSpan)),
   };
 }
 
 export function getCurrentTitle(state: FocusState): { title: string; index: number; progress: number } {
-  const level = getLevelInfo(state).level;
-  const titleIndex = Math.min(state.profile.titles.length - 1, Math.max(0, Math.floor((level - 1) / Math.max(1, state.profile.titleChangeInterval))));
-  const titleStartLevel = titleIndex * state.profile.titleChangeInterval + 1;
-  const progress = Math.min(1, Math.max(0, (level - titleStartLevel) / Math.max(1, state.profile.titleChangeInterval)));
+  const levelInfo = getLevelInfo(state);
+  const interval = Math.max(1, state.profile.titleChangeInterval);
+  const titleIndex = Math.min(state.profile.titles.length - 1, Math.max(0, Math.floor((levelInfo.level - 1) / interval)));
+  const titleStartLevel = titleIndex * interval + 1;
+  const titleEndLevel = titleStartLevel + interval;
+  const titleStartPower = getLevelPowerThreshold(titleStartLevel, state.profile.powerPerLevel);
+  const titleEndPower = getLevelPowerThreshold(titleEndLevel, state.profile.powerPerLevel);
+  const totalPower = getTotalPower(state);
+  const progress = titleIndex >= state.profile.titles.length - 1 ? 1 : Math.min(1, Math.max(0, (totalPower - titleStartPower) / Math.max(1, titleEndPower - titleStartPower)));
   return { title: state.profile.titles[titleIndex] ?? "Commander", index: titleIndex, progress };
 }
 
@@ -667,17 +692,29 @@ export function getActiveGoldMultiplier(state: FocusState, localDate = toLocalDa
     .reduce((maximum, multiplier) => Math.max(maximum, multiplier), 1);
 }
 
-export function getSubjectCapture(state: FocusState): Array<{ subject: string; capture: number; completed: number; total: number }> {
-  const subjects = new Map<string, SrsTopic[]>();
+export function getSubjectCapture(state: FocusState): Array<{ subject: string; capture: number; completed: number; total: number; active: number; planned: number }> {
+  const bySubject = new Map<string, { missions: Mission[]; reviews: SrsTopic[] }>();
+  state.missions.forEach((mission) => {
+    const subject = mission.subject.trim() || "General";
+    const current = bySubject.get(subject) ?? { missions: [], reviews: [] };
+    current.missions.push(mission);
+    bySubject.set(subject, current);
+  });
   state.srsTopics.forEach((topic) => {
-    const existing = subjects.get(topic.subject) ?? [];
-    existing.push(topic);
-    subjects.set(topic.subject, existing);
+    const subject = topic.subject.trim() || "General";
+    const current = bySubject.get(subject) ?? { missions: [], reviews: [] };
+    current.reviews.push(topic);
+    bySubject.set(subject, current);
   });
-  return Array.from(subjects.entries()).map(([subject, topics]) => {
-    const completed = topics.filter((topic) => topic.status === "completed").length;
-    return { subject, completed, total: topics.length, capture: topics.length ? completed / topics.length : 0 };
-  });
+  return Array.from(bySubject.entries()).map(([subject, data]) => {
+    const completedMissions = data.missions.filter((mission) => mission.status === "completed").length;
+    const completedReviews = data.reviews.filter((topic) => topic.status === "completed").length;
+    const total = data.missions.length + data.reviews.length;
+    const completed = completedMissions + completedReviews;
+    const active = data.missions.filter((mission) => mission.status === "active" || mission.status === "paused").length;
+    const planned = data.missions.filter((mission) => mission.status === "planned").length;
+    return { subject, completed, total, active, planned, capture: total ? completed / total : 0 };
+  }).sort((left, right) => right.capture - left.capture || right.total - left.total);
 }
 
 export function getDashboardStats(state: FocusState) {
@@ -748,6 +785,7 @@ function reducer(state: FocusState, action: Action): FocusState {
 interface FocusCommandContextValue {
   state: FocusState;
   ready: boolean;
+  dayMarker: string;
   createMission: (draft: MissionDraft) => string;
   updateMission: (missionId: string, patch: Partial<Mission>) => void;
   removeMission: (missionId: string) => void;
@@ -763,6 +801,8 @@ interface FocusCommandContextValue {
   addLifelinePoint: (draft: { year: number; lifePerformance: number; experience: number; note: string }) => void;
   removeLifelinePoint: (pointId: string) => void;
   createReward: (draft: RewardDraft) => void;
+  updateReward: (rewardId: string, patch: Partial<Omit<Reward, "id" | "createdAt">>) => void;
+  removeReward: (rewardId: string) => void;
   purchaseReward: (rewardId: string) => { ok: boolean; message: string };
   updateProfile: (patch: Partial<PlayerProfile>) => void;
   updateComboTiers: (tiers: ComboTier[]) => void;
@@ -789,10 +829,16 @@ function normalizeHydratedState(input: FocusState): FocusState {
       ...(input.profile ?? {}),
       palette: { ...defaults.profile.palette, ...(input.profile?.palette ?? {}) },
       notificationRules: { ...defaults.profile.notificationRules, ...(input.profile?.notificationRules ?? {}) },
-      soundRoles: { ...defaults.profile.soundRoles, ...(input.profile?.soundRoles ?? {}) },
+      soundRoles: {
+        missionWin: { ...defaults.profile.soundRoles.missionWin, ...(input.profile?.soundRoles?.missionWin ?? {}) },
+        tap: { ...defaults.profile.soundRoles.tap, ...(input.profile?.soundRoles?.tap ?? {}) },
+        notification: { ...defaults.profile.soundRoles.notification, ...(input.profile?.soundRoles?.notification ?? {}) },
+        extended: { ...defaults.profile.soundRoles.extended, ...(input.profile?.soundRoles?.extended ?? {}) },
+      },
       emotionalCharts: input.profile?.emotionalCharts?.length ? input.profile.emotionalCharts : defaults.profile.emotionalCharts,
     },
     combo: { ...defaults.combo, ...(input.combo ?? {}) },
+    missions: (input.missions ?? []).map((mission) => ({ ...mission, frequency: mission.frequency ?? "once" })),
     googleSheet: { ...defaults.googleSheet, ...(input.googleSheet ?? {}) },
     rewards: input.rewards?.length ? input.rewards : defaults.rewards,
     customGraphs: input.customGraphs?.length ? input.customGraphs : defaults.customGraphs,
@@ -801,6 +847,7 @@ function normalizeHydratedState(input: FocusState): FocusState {
 
 export function FocusCommandProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
+  const [localDay, setLocalDay] = useState(() => toLocalDate(nowIso()));
 
   useEffect(() => {
     let active = true;
@@ -831,6 +878,16 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(persistable)).catch(() => undefined);
   }, [state]);
 
+  useEffect(() => {
+    const refreshLocalDay = () => {
+      const nextDay = toLocalDate(nowIso(), state.profile.timezone);
+      setLocalDay((currentDay) => currentDay === nextDay ? currentDay : nextDay);
+    };
+    refreshLocalDay();
+    const interval = setInterval(refreshLocalDay, 15_000);
+    return () => clearInterval(interval);
+  }, [state.profile.timezone]);
+
   const commit = useCallback((producer: (current: FocusState) => FocusState) => {
     dispatch({ type: "replace", state: producer(state) });
   }, [state]);
@@ -851,6 +908,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
           specificTopic: draft.specificTopic.trim(),
           revisionEnabled: draft.revisionEnabled,
           status: "planned",
+          frequency: draft.frequency,
           createdAt: nowIso(),
           dueAt: draft.dueAt,
           startedAt: null,
@@ -891,15 +949,17 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   }, [commit]);
 
   const startMission = useCallback((missionId: string) => {
-    commit((current) => withQueuedOperation({
-      ...current,
-      missions: current.missions.map((mission) => mission.id === missionId ? {
-        ...mission,
-        status: "active",
-        startedAt: mission.startedAt ?? nowIso(),
-        pausedAt: null,
-      } : mission),
-    }));
+    commit((current) => {
+      const today = toLocalDate(nowIso(), current.profile.timezone);
+      return withQueuedOperation({
+        ...current,
+        missions: current.missions.map((mission) => {
+          const scheduledForFutureDay = mission.frequency === "daily" && mission.dueAt && toLocalDate(mission.dueAt, current.profile.timezone) > today;
+          if (mission.id !== missionId || scheduledForFutureDay) return mission;
+          return { ...mission, status: "active", startedAt: mission.startedAt ?? nowIso(), pausedAt: null };
+        }),
+      });
+    });
   }, [commit]);
 
   const toggleMissionPause = useCallback((missionId: string) => {
@@ -996,9 +1056,12 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         motivationLevel: reflectionDraft.motivationLevel ?? null,
         distractionLevel: reflectionDraft.distractionLevel ?? null,
       };
+      const levelBefore = getLevelInfo(current);
+      const titleBefore = getCurrentTitle(current);
+      const comboBefore = getCurrentCombo(current, completionDate);
       const updatedCombo = resolveCurrentComboAfterActivity(current, completionDate);
       const updatedMission = { ...completedMission, progressionEventId: progressionId };
-      const progression: ProgressionEvent = {
+      const provisionalProgression: ProgressionEvent = {
         id: progressionId,
         missionId,
         baseXp: completedMission.baseXp,
@@ -1008,6 +1071,18 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         goldAwarded,
         occurredAt: endedAt,
         note: `Completed: ${completedMission.title}`,
+      };
+      const milestoneState = { ...current, progression: [...current.progression, provisionalProgression], combo: updatedCombo };
+      const levelAfter = getLevelInfo(milestoneState);
+      const titleAfter = getCurrentTitle(milestoneState);
+      const progression: ProgressionEvent = {
+        ...provisionalProgression,
+        levelBefore: levelBefore.level,
+        levelAfter: levelAfter.level,
+        titleBefore: titleBefore.title,
+        titleAfter: titleAfter.title,
+        comboBefore: comboBefore.multiplier,
+        comboAfter: getCurrentCombo(milestoneState, completionDate).multiplier,
       };
       const transactions = [...current.transactions];
       if (goldAwarded > 0) {
@@ -1081,9 +1156,26 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         }
       }
 
+      const nextDailyMission = completedMission.frequency === "daily" ? {
+        ...completedMission,
+        id: createId("mission"),
+        status: "planned" as MissionStatus,
+        createdAt: endedAt,
+        dueAt: `${addDays(completionDate, 1)}T00:00:00`,
+        startedAt: null,
+        pausedAt: null,
+        pausedMilliseconds: 0,
+        endedAt: null,
+        completedAt: null,
+        revisionTopicIds: [],
+        progressionEventId: null,
+      } : null;
       return withQueuedOperation({
         ...current,
-        missions: current.missions.map((mission) => mission.id === missionId ? updatedMission : mission),
+        missions: [
+          ...(nextDailyMission ? [nextDailyMission] : []),
+          ...current.missions.map((mission) => mission.id === missionId ? updatedMission : mission),
+        ],
         reflections: [...current.reflections, reflection],
         srsTopics,
         progression: [...current.progression, progression],
@@ -1222,6 +1314,36 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     }));
   }, [commit]);
 
+  const updateReward = useCallback((rewardId: string, patch: Partial<Omit<Reward, "id" | "createdAt">>) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      rewards: current.rewards.map((reward) => reward.id === rewardId ? {
+        ...reward,
+        ...patch,
+        title: patch.title === undefined ? reward.title : patch.title.trim(),
+        description: patch.description === undefined ? reward.description : patch.description.trim(),
+        goldCost: patch.goldCost === undefined ? reward.goldCost : Math.max(0, Math.round(patch.goldCost)),
+        lootWeight: patch.lootWeight === undefined ? reward.lootWeight : Math.max(0, Number(patch.lootWeight) || 0),
+        goldMultiplier: patch.goldMultiplier === undefined ? reward.goldMultiplier : patch.goldMultiplier && patch.goldMultiplier > 1 ? patch.goldMultiplier : null,
+      } : reward),
+    }));
+  }, [commit]);
+
+  const removeReward = useCallback((rewardId: string) => {
+    commit((current) => {
+      const reward = current.rewards.find((candidate) => candidate.id === rewardId);
+      if (!reward) return current;
+      const hasInventoryHistory = current.inventory.some((item) => item.rewardId === rewardId);
+      if (hasInventoryHistory) {
+        return withQueuedOperation({
+          ...current,
+          rewards: current.rewards.map((candidate) => candidate.id === rewardId ? { ...candidate, active: false, lootEnabled: false } : candidate),
+        });
+      }
+      return withQueuedOperation({ ...current, rewards: current.rewards.filter((candidate) => candidate.id !== rewardId) });
+    });
+  }, [commit]);
+
   const purchaseReward = useCallback((rewardId: string) => {
     const reward = state.rewards.find((candidate) => candidate.id === rewardId);
     if (!reward) return { ok: false, message: "That reward is no longer available." };
@@ -1350,6 +1472,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   const value = useMemo<FocusCommandContextValue>(() => ({
     state,
     ready: state.hydrated,
+    dayMarker: localDay,
     createMission,
     updateMission,
     removeMission,
@@ -1365,6 +1488,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     addLifelinePoint,
     removeLifelinePoint,
     createReward,
+    updateReward,
+    removeReward,
     purchaseReward,
     updateProfile,
     updateComboTiers,
@@ -1378,6 +1503,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     resetLocalData,
   }), [
     state,
+    localDay,
     createMission,
     updateMission,
     removeMission,
@@ -1393,6 +1519,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     addLifelinePoint,
     removeLifelinePoint,
     createReward,
+    updateReward,
+    removeReward,
     purchaseReward,
     updateProfile,
     updateComboTiers,

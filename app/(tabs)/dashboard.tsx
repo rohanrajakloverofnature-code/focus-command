@@ -28,6 +28,7 @@ export default function DashboardScreen() {
   const [lifePerformance, setLifePerformance] = useState("5");
   const [experience, setExperience] = useState("5");
   const [lifelineNote, setLifelineNote] = useState("");
+  const [showLifelineDetails, setShowLifelineDetails] = useState(false);
 
   const daySeries = useMemo(() => createDaySeries(14, state.profile.timezone), [state.profile.timezone]);
   const dashboard = useMemo(() => getDashboardStats(state), [state]);
@@ -204,20 +205,22 @@ export default function DashboardScreen() {
             <CommandButton label="Add baseline" icon="plus" onPress={submitLifelinePoint} />
           </CommandCard>
         ) : null}
-        <InteractiveChartCard title="Life Performance vs Experience" detail="Cyan is cumulative Life Performance; green is cumulative Experience." tag="LIFELINE" onPress={() => router.push("/analytics?metric=lifeline" as never)}>
+        <InteractiveChartCard title="Life Performance vs Experience" detail="Tap to inspect baseline entries. Cyan is cumulative Life Performance; green is cumulative Experience." tag={showLifelineDetails ? "DETAIL" : "LIFELINE"} onPress={() => setShowLifelineDetails((value) => !value)}>
           {lifelinePower.length ? <LineTrendChart points={lifelinePower} secondaryPoints={lifelineExperience} color={colors.primary} secondaryColor={colors.success} accessibilityLabel="Dual-line Lifeline graph for life performance and experience" /> : <NoData label="Add a historical baseline or journal entry to begin your Lifeline graph." icon="chart.xyaxis.line" />}
         </InteractiveChartCard>
-        {manualLifeline.length ? <View style={styles.manualLifelineStack}>
-          <SectionHeader title="Manual Lifeline baselines" />
-          <Text style={[styles.behavioralIntro, { color: colors.muted }]}>You can remove only the baseline records you entered yourself. Journal-derived contributions stay linked to their journal entry.</Text>
-          {manualLifeline.map((point) => <CommandCard key={point.id} accent={colors.primary} style={styles.manualLifelineCard}>
+        {showLifelineDetails ? <CommandCard accent={colors.primary} style={styles.lifelineDetailDrawer}>
+          <View style={styles.lifelineDrawerHeading}>
+            <View><Text style={[styles.editorTitle, { color: colors.foreground }]}>Lifeline detail</Text><Text style={[styles.editorDetail, { color: colors.muted }]}>Manual baselines can be removed here. Journal-derived signals remain linked to your daily journal.</Text></View>
+            <StatusPill label={`${manualLifeline.length} MANUAL`} tone="primary" icon="chart.xyaxis.line" />
+          </View>
+          {manualLifeline.length ? manualLifeline.map((point) => <CommandCard key={point.id} accent={colors.primary} style={styles.manualLifelineCard}>
             <View style={styles.manualLifelineCopy}>
               <Text style={[styles.manualLifelineTitle, { color: colors.foreground }]}>{point.year} baseline</Text>
               <Text style={[styles.manualLifelineDetail, { color: colors.muted }]}>Life {point.lifePerformance} · Experience {point.experience}{point.note ? ` · ${point.note}` : ""}</Text>
             </View>
             <CommandButton label="Delete" variant="danger" onPress={() => Alert.alert("Delete Lifeline baseline?", "This removes only this manual record. Your journal contributions remain unchanged.", [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => removeLifelinePoint(point.id) }])} />
-          </CommandCard>)}
-        </View> : null}
+          </CommandCard>) : <NoData label="No manual baselines yet. Use Add baseline above to create one." icon="chart.xyaxis.line" />}
+        </CommandCard> : null}
 
         <SectionHeader title="Custom graph slots" action="Configure" onAction={() => router.push("/customize")} />
         <View style={styles.customGraphStack}>
@@ -296,6 +299,8 @@ const styles = StyleSheet.create({
   behavioralIntro: { fontSize: 12, lineHeight: 17, fontWeight: "600", marginTop: -7 },
   behavioralStack: { gap: 10 },
   manualLifelineStack: { gap: 9 },
+  lifelineDetailDrawer: { gap: 10 },
+  lifelineDrawerHeading: { flexDirection: "row", justifyContent: "space-between", gap: 10, alignItems: "flex-start" },
   manualLifelineCard: { padding: 12, flexDirection: "row", alignItems: "center", gap: 10 },
   manualLifelineCopy: { flex: 1, gap: 2 },
   manualLifelineTitle: { fontSize: 13, lineHeight: 18, fontWeight: "900" },

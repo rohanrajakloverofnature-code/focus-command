@@ -13,6 +13,8 @@ const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "";
 const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? "";
 const configuredScheme = Constants.expoConfig?.scheme;
 const appScheme = Array.isArray(configuredScheme) ? configuredScheme[0] : configuredScheme;
+const androidPackage = Constants.expoConfig?.android?.package ?? "com.app.rpgfocuscommand";
+const nativeRedirectUri = Platform.OS === "android" ? `${androidPackage}:/oauthredirect` : undefined;
 
 export type GoogleSheetsAuthStatus =
   | "idle"
@@ -63,6 +65,7 @@ export function useGoogleSheetsAuth(onAuthorized?: (accessToken: string, email: 
       "https://www.googleapis.com/auth/drive.file",
     ],
     selectAccount: true,
+    redirectUri: nativeRedirectUri,
     shouldAutoExchangeCode: true,
     extraParams: { access_type: "offline", prompt: "consent" },
   }, Platform.OS === "web" ? {

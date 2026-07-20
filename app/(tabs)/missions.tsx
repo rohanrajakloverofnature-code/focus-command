@@ -6,7 +6,7 @@ import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScree
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { Difficulty, getDifficultyColor, getDifficultyLabel, getMissionInvestedMilliseconds, useFocusCommand } from "@/lib/focus-command";
+import { Difficulty, MissionFrequency, getDifficultyColor, getDifficultyLabel, getMissionInvestedMilliseconds, useFocusCommand } from "@/lib/focus-command";
 
 type MissionFilter = "open" | "active" | "completed";
 
@@ -25,6 +25,7 @@ export default function MissionsScreen() {
   const [xp, setXp] = useState("25");
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [revisionEnabled, setRevisionEnabled] = useState(true);
+  const [frequency, setFrequency] = useState<MissionFrequency>("once");
   const [bossId, setBossId] = useState<string | null>(requestedBossId ?? null);
   const [showBossDraft, setShowBossDraft] = useState(false);
   const [bossTitle, setBossTitle] = useState("");
@@ -85,6 +86,7 @@ export default function MissionsScreen() {
       specificTopic: topic,
       revisionEnabled,
       dueAt: null,
+      frequency,
     });
     setTitle("");
     setSubject("");
@@ -93,6 +95,7 @@ export default function MissionsScreen() {
     setXp("25");
     setDifficulty("medium");
     setRevisionEnabled(true);
+    setFrequency("once");
     setBossId(null);
     setShowComposer(false);
   };
@@ -151,6 +154,19 @@ export default function MissionsScreen() {
                 <Text style={[styles.revisionDetail, { color: colors.muted }]}>Schedule a 1–7–30 day review when you complete this mission.</Text>
               </View>
             </Pressable>
+            <View style={styles.frequencySection}>
+              <Text style={[styles.inputLabel, { color: colors.muted }]}>TASK FREQUENCY</Text>
+              <View style={styles.frequencyOptions}>
+                {(["once", "daily"] as MissionFrequency[]).map((value) => {
+                  const selected = frequency === value;
+                  return <Pressable key={value} onPress={() => setFrequency(value)} style={({ pressed }) => [styles.frequencyChoice, { backgroundColor: selected ? `${colors.primary}18` : colors.background, borderColor: selected ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1 }]}>
+                    <Text style={[styles.frequencyChoiceTitle, { color: selected ? colors.primary : colors.foreground }]}>{value === "daily" ? "Daily" : "One time"}</Text>
+                    <Text style={[styles.frequencyChoiceDetail, { color: selected ? colors.primary : colors.muted }]}>{value === "daily" ? "Re-deploys tomorrow" : "Completes once"}</Text>
+                  </Pressable>;
+                })}
+              </View>
+              {frequency === "daily" ? <Text style={[styles.frequencyHint, { color: colors.muted }]}>After completion, a fresh copy returns to Planned at the next local midnight. Today’s XP and time totals reset automatically at midnight.</Text> : null}
+            </View>
             <View style={styles.bossSection}>
               <Text style={[styles.inputLabel, { color: colors.muted }]}>MISSION CAMPAIGN</Text>
               <Text style={[styles.bossSectionDetail, { color: colors.muted }]}>Link this task to an existing campaign, or create a boss here before you deploy the mission.</Text>
@@ -226,7 +242,10 @@ function MissionCard({ mission, onStart }: { mission: ReturnType<typeof useFocus
         <Text style={[styles.missionMeta, { color: colors.muted }]}>{mission.subject} · {mission.category} · {mission.baseXp} base XP{active ? ` · ${(duration / 3_600_000).toFixed(2)} h` : ""}</Text>
         <View style={styles.missionFooter}>
           <View style={styles.missionFooterCopy}>
-            {mission.revisionEnabled ? <StatusPill label="SRS READY" tone="primary" icon="arrow.clockwise" /> : <StatusPill label="STANDARD" tone="neutral" />}
+            <View style={styles.missionBadges}>
+              {mission.frequency === "daily" ? <StatusPill label="DAILY" tone="success" icon="arrow.clockwise" /> : null}
+              {mission.revisionEnabled ? <StatusPill label="SRS READY" tone="primary" icon="arrow.clockwise" /> : <StatusPill label="STANDARD" tone="neutral" />}
+            </View>
           </View>
           {mission.status === "planned" ? <CommandButton label="Start" icon="play.fill" onPress={onStart} /> : <CommandButton label="Open" icon="chevron.right" variant="ghost" onPress={() => router.push({ pathname: "/mission/[id]" as never, params: { id: mission.id } })} />}
         </View>
@@ -257,6 +276,12 @@ const styles = StyleSheet.create({
   revisionCopy: { flex: 1 },
   revisionTitle: { fontSize: 13, lineHeight: 18, fontWeight: "800" },
   revisionDetail: { fontSize: 11, lineHeight: 15, marginTop: 1, fontWeight: "500" },
+  frequencySection: { gap: 7 },
+  frequencyOptions: { flexDirection: "row", gap: 8 },
+  frequencyChoice: { flex: 1, minHeight: 58, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 11, paddingVertical: 9, justifyContent: "center" },
+  frequencyChoiceTitle: { fontSize: 12, lineHeight: 16, fontWeight: "900" },
+  frequencyChoiceDetail: { fontSize: 10, lineHeight: 14, fontWeight: "600", marginTop: 1 },
+  frequencyHint: { fontSize: 10, lineHeight: 15, fontWeight: "500" },
   bossSection: { gap: 8 },
   bossSectionDetail: { fontSize: 11, lineHeight: 16, fontWeight: "500", marginTop: -3 },
   bossChoices: { flexDirection: "row", gap: 7, flexWrap: "wrap" },
@@ -274,4 +299,5 @@ const styles = StyleSheet.create({
   missionMeta: { fontSize: 12, lineHeight: 17, fontWeight: "600" },
   missionFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10, marginTop: 2 },
   missionFooterCopy: { flex: 1 },
+  missionBadges: { flexDirection: "row", gap: 5, flexWrap: "wrap" },
 });

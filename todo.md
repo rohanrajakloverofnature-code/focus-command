@@ -61,3 +61,15 @@
 - [x] Add four separately configurable sound roles: mission win, tap/click, notification, and extended feedback.
 - [x] Repair the native metric grid flex behavior shown in the supplied portrait screenshot.
 - [x] Confirm and document the Android package, iOS bundle identifier, development-build signing SHA-1 retrieval path, and Google OAuth redirect configuration.
+- [x] Add configurable mission recurrence, including a daily frequency that remains in Planned after each completion.
+- [x] Reset day-scoped progress, target, and Today calculations at the local midnight boundary.
+- [x] Make level thresholds accelerate progressively and correct next-title progress computation.
+- [x] Add edit and delete controls for user-created rewards.
+- [x] Move Lifeline manual-entry deletion into an interactive graph drill-down detail view.
+- [x] Add a clearly reachable active inventory and equipped-items view.
+- [x] Add user-selected local sound-file assignment for the four sound roles, alongside improved bundled feedback cues.
+- [x] Add celebratory animations and sound cues for mission completion, level-ups, title changes, and combo-tier increases.
+- [x] Make the subject map explain and display real mission-category capture progress instead of static dots.
+- [x] Update the Home character into title-sensitive anime character states, enlarge player typography, and add periodic fire animation.
+- [x] Make pie charts and all dashboard graphs interactive with segment/point focus, labels, and distinct color schemes.
+- [x] Correct the native OAuth callback scheme so Google consent returns to Focus Command instead of a browser page.

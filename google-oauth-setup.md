@@ -1,6 +1,6 @@
 # Google Sheets OAuth Setup for Focus Command
 
-Focus Command now uses Expo's Google AuthSession provider with the supported **native application-identifier redirect** on Android and iOS. OAuth cannot complete in Expo Go because a native development build is needed to own the callback scheme.
+Focus Command uses Expo's Google AuthSession provider with the supported **native application-identifier redirect** on Android and iOS. The native build now registers both its normal app scheme and the Google callback scheme `com.app.rpgfocuscommand:/oauthredirect`, which is the return URI explicitly requested by the Android authorization hook. OAuth cannot complete in Expo Go because a native development build is needed to own this callback scheme.
 
 ## Values to Use in Google Cloud Console
 
@@ -41,7 +41,7 @@ When the Android and iOS client IDs are ready, provide only their client-ID stri
 |---|---|
 | Offline queue and local persistence | Implemented on-device. |
 | Google authorization UI | Implemented with PKCE, secure token storage, account identity display, and clear native-build guidance. |
-| Native redirect behavior | Uses `com.app.rpgfocuscommand:/oauthredirect` for the Android/iOS Google provider. |
+| Native redirect behavior | Explicitly requests and registers `com.app.rpgfocuscommand:/oauthredirect` for Android; the callback intent filter is included in the native app build. |
 | Token recovery | Implemented with secure refresh-token recovery when Google returns a refresh token. |
 | Workbook operations | Implemented: create workbook, create missing Focus Command tabs, import a snapshot, and sync active state. |
 | Conflict handling | Implemented: newer remote data plus unsynced local data presents an explicit local-versus-sheet choice. |

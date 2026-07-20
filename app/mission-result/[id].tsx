@@ -1,17 +1,30 @@
 import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { CelebrationKind, CelebrationOverlay } from "@/components/celebration-overlay";
 import { CommandButton, CommandCard, LoadingScreen, MetricTile, ProgressBar, ScreenTitle, StatusPill } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { formatCompactNumber, formatHours, getMissionInvestedMilliseconds, getTotalPower, useFocusCommand } from "@/lib/focus-command";
+import { playFocusRole } from "@/lib/focus-audio";
 
 export default function MissionResultScreen() {
   const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state, ready } = useFocusCommand();
   const mission = state.missions.find((candidate) => candidate.id === id);
+  const event = state.progression.find((candidate) => candidate.missionId === id);
+  const [celebration, setCelebration] = useState<CelebrationKind | null>(null);
+
+  useEffect(() => {
+    if (!ready || !event) return;
+    const kind: CelebrationKind = event.titleAfter && event.titleAfter !== event.titleBefore ? "title" : event.levelAfter && event.levelAfter > (event.levelBefore ?? event.levelAfter) ? "level" : event.comboAfter && event.comboAfter > (event.comboBefore ?? event.comboAfter) ? "combo" : "mission";
+    setCelebration(kind);
+    const role = kind === "mission" ? "missionWin" : "extended";
+    void playFocusRole(role, state.profile.soundEnabled, state.profile.soundRoles[role]);
+  }, [event, ready, state.profile.soundEnabled, state.profile.soundRoles]);
 
   if (!ready) return <LoadingScreen label="Calculating mission result…" />;
 
@@ -26,7 +39,6 @@ export default function MissionResultScreen() {
     );
   }
 
-  const event = state.progression.find((candidate) => candidate.missionId === mission.id);
   const reflection = state.reflections.find((candidate) => candidate.missionId === mission.id);
   const duration = getMissionInvestedMilliseconds(mission);
   const totalPower = getTotalPower(state);
@@ -88,6 +100,7 @@ export default function MissionResultScreen() {
           <CommandButton label="Mission board" icon="checklist" variant="secondary" onPress={() => router.replace("/missions" as never)} style={styles.actionButton} />
         </View>
       </ScrollView>
+      {celebration ? <CelebrationOverlay kind={celebration} reduceMotion={state.profile.reduceMotion} onDone={() => setCelebration(null)} /> : null}
     </ScreenContainer>
   );
 }

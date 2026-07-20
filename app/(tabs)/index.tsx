@@ -1,6 +1,8 @@
 import { router } from "expo-router";
-import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
+import { CelebrationKind, CelebrationOverlay } from "@/components/celebration-overlay";
 import {
   CommandButton,
   CommandCard,
@@ -14,9 +16,11 @@ import {
   StatusPill,
 } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { HomeFire } from "@/components/home-fire";
 import { RankCharacter } from "@/components/rank-character";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { playFocusRole } from "@/lib/focus-audio";
 import {
   formatCompactNumber,
   formatHours,
@@ -50,11 +54,24 @@ export default function HomeScreen() {
   const colors = useColors();
   const { width } = useWindowDimensions();
   const { state, ready } = useFocusCommand();
-  if (!ready) return <LoadingScreen />;
-
   const level = getLevelInfo(state);
   const title = getCurrentTitle(state);
   const combo = getCurrentCombo(state);
+  const milestones = useRef({ level: level.level, title: title.title, combo: combo.multiplier });
+  const [homeCelebration, setHomeCelebration] = useState<CelebrationKind | null>(null);
+
+  useEffect(() => {
+    if (!ready) return;
+    const previous = milestones.current;
+    const nextKind: CelebrationKind | null = title.title !== previous.title ? "title" : level.level > previous.level ? "level" : combo.multiplier > previous.combo ? "combo" : null;
+    if (nextKind) {
+      setHomeCelebration(nextKind);
+      void playFocusRole("extended", state.profile.soundEnabled, state.profile.soundRoles.extended);
+    }
+    milestones.current = { level: level.level, title: title.title, combo: combo.multiplier };
+  }, [combo.multiplier, level.level, ready, state.profile.soundEnabled, state.profile.soundRoles.extended, title.title]);
+
+  if (!ready) return <LoadingScreen />;
   const energy = getEnergy(state);
   const daily = getDailyProgress(state);
   const pendingRevisions = getPendingRevisions(state);
@@ -114,7 +131,9 @@ export default function HomeScreen() {
           <View style={styles.heroContent}>
             <View style={[styles.operatorColumn, { transform: [{ scale: operatorScale }] }]}>
               <RankCharacter title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} compact />
-              <Text style={styles.operatorName}>{title.title.toUpperCase()}</Text>
+              <HomeFire reduceMotion={state.profile.reduceMotion} />
+              <Text numberOfLines={1} style={styles.operatorPlayerName}>{state.profile.firstName.toUpperCase()}</Text>
+              <Text numberOfLines={1} style={styles.operatorName}>{title.title.toUpperCase()}</Text>
             </View>
             <View style={styles.heroCopy}>
               <Text style={[styles.heroHeadline, { color: "#F5F9FF" }]}>Secure your next block.</Text>
@@ -178,27 +197,32 @@ export default function HomeScreen() {
           <ProgressBar value={daily.progress} color={colors.success} height={10} />
         </CommandCard>
 
-        <SectionHeader title="Territory capture" />
+        <SectionHeader title="Territory capture" action="Mission board" onAction={() => router.push("/missions")} />
         <CommandCard accent={colors.primary} style={styles.mapCard}>
           <View style={styles.mapTopline}>
             <View>
               <Text style={[styles.mapTitle, { color: colors.foreground }]}>Subject map</Text>
-              <Text style={[styles.mapDetail, { color: colors.muted }]}>Every completed review captures more ground.</Text>
+              <Text style={[styles.mapDetail, { color: colors.muted }]}>Every completed mission and review captures a subject zone. Tap a zone to open its planned work.</Text>
             </View>
             <StatusPill label={`${subjectCapture.length} SUBJECT${subjectCapture.length === 1 ? "" : "S"}`} tone="primary" icon="circle.grid.cross.fill" />
           </View>
           <View style={styles.mapTerrain}>
             <View style={[styles.mapRing, styles.mapRingOne, { borderColor: `${colors.primary}55` }]} />
             <View style={[styles.mapRing, styles.mapRingTwo, { borderColor: `${colors.primary}38` }]} />
-            <View style={[styles.mapNode, styles.mapNodeOne, { backgroundColor: colors.primary }]} />
-            <View style={[styles.mapNode, styles.mapNodeTwo, { backgroundColor: colors.success }]} />
-            <View style={[styles.mapNode, styles.mapNodeThree, { backgroundColor: "#F4C95D" }]} />
+            {subjectCapture.slice(0, 5).map((subject, index) => {
+              const nodePositions = [{ top: 22, left: "19%" }, { top: 48, right: "18%" }, { bottom: 20, left: "55%" }, { bottom: 40, left: "31%" }, { top: 20, right: "38%" }] as const;
+              const accent = [colors.primary, colors.success, "#F4C95D", "#C092FF", "#FFAA4C"][index] ?? colors.primary;
+              return <View key={`${subject.subject}-node`} style={[styles.mapNode, styles.mapNodeDynamic, nodePositions[index], { backgroundColor: accent, width: 10 + Math.round(subject.capture * 14), height: 10 + Math.round(subject.capture * 14), borderRadius: 99 }]} />;
+            })}
             <View style={styles.mapSubjects}>
-              {(subjectCapture.length ? subjectCapture.slice(0, 3) : [{ subject: "Scout a subject", capture: 0, completed: 0, total: 0 }]).map((subject) => (
-                <View key={subject.subject} style={styles.mapSubjectRow}>
-                  <Text numberOfLines={1} style={[styles.mapSubjectName, { color: colors.foreground }]}>{subject.subject}</Text>
+              {(subjectCapture.length ? subjectCapture.slice(0, 4) : [{ subject: "Scout a subject", capture: 0, completed: 0, total: 0, active: 0, planned: 0 }]).map((subject) => (
+                <Pressable key={subject.subject} onPress={() => router.push("/missions?filter=open" as never)} style={({ pressed }) => [styles.mapSubjectPressable, { opacity: pressed ? 0.72 : 1 }]}>
+                  <View style={styles.mapSubjectCopy}>
+                    <Text numberOfLines={1} style={[styles.mapSubjectName, { color: colors.foreground }]}>{subject.subject}</Text>
+                    <Text style={[styles.mapSubjectDetail, { color: colors.muted }]}>{subject.completed}/{subject.total} captured · {subject.active} live · {subject.planned} planned</Text>
+                  </View>
                   <Text style={[styles.mapSubjectValue, { color: colors.primary }]}>{Math.round(subject.capture * 100)}%</Text>
-                </View>
+                </Pressable>
               ))}
             </View>
           </View>
@@ -277,6 +301,7 @@ export default function HomeScreen() {
           <CommandButton label={state.googleSheet.spreadsheetId ? "Status" : "Connect"} variant="ghost" onPress={() => router.push("/settings?section=sheet")} />
         </CommandCard>
       </ScrollView>
+      {homeCelebration ? <CelebrationOverlay kind={homeCelebration} reduceMotion={state.profile.reduceMotion} onDone={() => setHomeCelebration(null)} /> : null}
     </ScreenContainer>
   );
 }
@@ -289,10 +314,11 @@ const styles = StyleSheet.create({
   gridLineHorizontal: { position: "absolute", left: 0, right: 0, height: 1, backgroundColor: "#2C526B" },
   heroTopline: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   heroContent: { flexDirection: "row", gap: 16, alignItems: "center", flex: 1, paddingVertical: 14 },
-  operatorColumn: { alignItems: "center", width: 92, gap: 8 },
+  operatorColumn: { alignItems: "center", width: 104, gap: 3 },
   operatorCore: { width: 82, height: 82, borderRadius: 41, borderWidth: 2, padding: 5, shadowOpacity: 0.45, shadowRadius: 16, elevation: 5 },
   operatorInner: { flex: 1, borderRadius: 35, alignItems: "center", justifyContent: "center" },
-  operatorName: { fontSize: 9, lineHeight: 12, letterSpacing: 1, fontWeight: "800", color: "#A7B6C8" },
+  operatorPlayerName: { fontSize: 13, lineHeight: 16, letterSpacing: 0.3, fontWeight: "900", color: "#F5F9FF", maxWidth: 106, textAlign: "center" },
+  operatorName: { fontSize: 10, lineHeight: 13, letterSpacing: 0.85, fontWeight: "900", color: "#F4C95D", maxWidth: 108, textAlign: "center" },
   heroCopy: { flex: 1, gap: 6 },
   heroHeadline: { fontSize: 20, lineHeight: 25, fontWeight: "800", letterSpacing: -0.25 },
   heroText: { fontSize: 12, lineHeight: 17, fontWeight: "500" },
@@ -329,13 +355,13 @@ const styles = StyleSheet.create({
   mapRing: { position: "absolute", borderWidth: 1, borderRadius: 999 },
   mapRingOne: { width: 190, height: 190, top: -96, right: -24 },
   mapRingTwo: { width: 132, height: 132, top: -72, left: -36 },
-  mapNode: { width: 10, height: 10, borderRadius: 99, position: "absolute", shadowOpacity: 0.6, shadowRadius: 7, elevation: 4 },
-  mapNodeOne: { top: 26, left: "22%" },
-  mapNodeTwo: { top: 56, right: "21%" },
-  mapNodeThree: { bottom: 22, left: "58%" },
+  mapNode: { borderRadius: 99, position: "absolute", shadowOpacity: 0.6, shadowRadius: 7, elevation: 4 },
+  mapNodeDynamic: { shadowColor: "#39C6E8", borderWidth: 2, borderColor: "#FFFFFF55" },
   mapSubjects: { gap: 6 },
-  mapSubjectRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
-  mapSubjectName: { maxWidth: "75%", fontSize: 12, lineHeight: 16, fontWeight: "800" },
+  mapSubjectPressable: { minHeight: 35, paddingVertical: 4, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
+  mapSubjectCopy: { flex: 1, minWidth: 0 },
+  mapSubjectName: { fontSize: 12, lineHeight: 16, fontWeight: "800" },
+  mapSubjectDetail: { fontSize: 10, lineHeight: 14, marginTop: 1, fontWeight: "600" },
   mapSubjectValue: { fontSize: 11, lineHeight: 15, fontWeight: "900" },
   journalSignalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   journalBars: { height: 30, flexDirection: "row", alignItems: "flex-end", gap: 2 },

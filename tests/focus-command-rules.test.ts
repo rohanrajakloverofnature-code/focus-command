@@ -32,6 +32,7 @@ function completedMission(overrides: Partial<Mission> = {}): Mission {
     specificTopic: "Vectors",
     revisionEnabled: true,
     status: "completed",
+    frequency: "once",
     createdAt: startedAt,
     dueAt: null,
     startedAt,
@@ -60,11 +61,12 @@ describe("Focus Command deterministic gameplay rules", () => {
     );
 
     expect(getTotalPower(state)).toBe(470);
-    expect(getLevelInfo(state)).toMatchObject({ level: 5, currentLevelPower: 70, powerForNextLevel: 30 });
+    expect(getLevelInfo(state)).toMatchObject({ level: 5, currentLevelPower: 46, powerForNextLevel: 68 });
     expect(getCurrentTitle(state).index).toBe(0);
 
     state.profile.titleChangeInterval = 2;
     expect(getCurrentTitle(state).index).toBe(2);
+    expect(getCurrentTitle(state).progress).toBeGreaterThan(0);
   });
 
   it("tracks gold balance separately from lifetime income and activates only effective multiplier inventory", () => {
@@ -101,7 +103,7 @@ describe("Focus Command deterministic gameplay rules", () => {
     );
 
     expect(getPendingRevisions(state).map((topic) => topic.id)).toEqual(["due"]);
-    expect(getSubjectCapture(state)).toEqual([{ subject: "Physics", completed: 1, total: 3, capture: 1 / 3 }]);
+    expect(getSubjectCapture(state)).toEqual([{ subject: "Physics", completed: 1, total: 3, capture: 1 / 3, active: 0, planned: 0 }]);
   });
 
   it("starts with four configurable behavioral lenses and independent reminder categories", () => {
