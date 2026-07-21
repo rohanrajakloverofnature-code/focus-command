@@ -95,3 +95,6 @@
 - [x] Calculate weekly and monthly average time against all elapsed calendar days through today, including zero-work days.
 - [x] Add forecast-responsive short Home motivation messages that rotate every five seconds.
 - [x] Apply consistent subtle press animations and feedback to interactive controls across the app.
+
+- [x] Replace repeated fixed territory cells with varied organic subject regions that do not overlap and remain fully inside the geographic India boundary.
+- [x] Add clearly visible, reduce-motion-aware floating and ambient animation to the Home screen’s hero, character, metrics, and key cards.

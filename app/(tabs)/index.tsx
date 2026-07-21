@@ -17,6 +17,7 @@ import {
 } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { HomeFire } from "@/components/home-fire";
+import { HomeAmbientScene, HomeFloat } from "@/components/home-motion";
 import { IndiaSubjectMap } from "@/components/india-subject-map";
 import { RankCharacter, RankCharacterAchievement } from "@/components/rank-character";
 import { ScreenContainer } from "@/components/screen-container";
@@ -148,18 +149,24 @@ export default function HomeScreen() {
             <View style={[styles.gridLineHorizontal, { top: "28%" }]} />
             <View style={[styles.gridLineHorizontal, { top: "61%" }]} />
           </View>
-          <View style={styles.heroTopline}>
-            <StatusPill label={`LEVEL ${level.level}`} tone="primary" icon="shield.fill" />
-            <StatusPill label={`${Math.round(energy.remaining)}% ENERGY`} tone={energy.remaining > 50 ? "success" : energy.remaining > 20 ? "warning" : "danger"} icon="bolt.fill" />
-          </View>
+          <HomeAmbientScene reduceMotion={state.profile.reduceMotion} />
+          <HomeFloat reduceMotion={state.profile.reduceMotion} distance={2} sway={1} duration={2_400} style={styles.fullWidth}>
+            <View style={styles.heroTopline}>
+              <StatusPill label={`LEVEL ${level.level}`} tone="primary" icon="shield.fill" />
+              <StatusPill label={`${Math.round(energy.remaining)}% ENERGY`} tone={energy.remaining > 50 ? "success" : energy.remaining > 20 ? "warning" : "danger"} icon="bolt.fill" />
+            </View>
+          </HomeFloat>
           <View style={styles.heroContent}>
-            <View style={[styles.operatorColumn, { transform: [{ scale: operatorScale }] }]}>
+            <HomeFloat reduceMotion={state.profile.reduceMotion} distance={8} sway={2} duration={2_800} delay={180}>
+              <View style={[styles.operatorColumn, { transform: [{ scale: operatorScale }] }]}>
               <RankCharacter title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} compact onPress={openRankAchievement} />
               <HomeFire reduceMotion={state.profile.reduceMotion} />
               <Text numberOfLines={1} style={styles.operatorPlayerName}>{state.profile.firstName.toUpperCase()}</Text>
-              <Text numberOfLines={1} style={styles.operatorName}>{title.title.toUpperCase()}</Text>
-            </View>
-            <View style={styles.heroCopy}>
+                <Text numberOfLines={1} style={styles.operatorName}>{title.title.toUpperCase()}</Text>
+              </View>
+            </HomeFloat>
+            <HomeFloat reduceMotion={state.profile.reduceMotion} distance={4} sway={-1} duration={3_200} delay={520} style={styles.heroCopyFloat}>
+              <View style={styles.heroCopy}>
               <Text key={`motivation-headline-${forecast.outlook}-${motivationIndex}`} style={[styles.heroHeadline, { color: "#F5F9FF" }]}>{motivation.headline}</Text>
               <Text key={`motivation-detail-${forecast.outlook}-${motivationIndex}`} style={[styles.heroText, { color: "#A7B6C8" }]}>{motivation.detail}</Text>
               <View style={styles.heroStats}>
@@ -173,9 +180,11 @@ export default function HomeScreen() {
                   <Text style={styles.heroStatLabel}>ACTIVE COMBO</Text>
                 </View>
               </View>
-            </View>
+              </View>
+            </HomeFloat>
           </View>
-          <View style={styles.heroFooter}>
+          <HomeFloat reduceMotion={state.profile.reduceMotion} distance={3} sway={1} duration={2_600} delay={760} style={styles.fullWidth}>
+            <View style={styles.heroFooter}>
             <View style={styles.heroProgressCopy}>
               <Text style={styles.heroProgressLabel}>NEXT TITLE</Text>
               <Text style={styles.heroProgressValue}>{Math.round(title.progress * 100)}%</Text>
@@ -183,21 +192,29 @@ export default function HomeScreen() {
             <View style={styles.heroProgressWrap}>
               <ProgressBar value={title.progress} color="#F4C95D" trackColor="#25445C" height={7} />
             </View>
-          </View>
+            </View>
+          </HomeFloat>
         </CommandCard>
 
         <View style={styles.primaryActions}>
-          <CommandButton label="Deploy Mission" icon="play.fill" onPress={() => router.push("/missions?compose=1")} style={styles.deployButton} />
-          <CommandButton label="Log Journal" icon="book.closed.fill" variant="secondary" onPress={() => router.push("/journal?compose=1" as never)} style={styles.journalButton} />
+          <HomeFloat reduceMotion={state.profile.reduceMotion} distance={5} sway={1} duration={2_300} delay={120} style={styles.deployFloat}>
+            <CommandButton label="Deploy Mission" icon="play.fill" onPress={() => router.push("/missions?compose=1")} />
+          </HomeFloat>
+          <HomeFloat reduceMotion={state.profile.reduceMotion} distance={5} sway={-1} duration={2_500} delay={420} style={styles.journalFloat}>
+            <CommandButton label="Log Journal" icon="book.closed.fill" variant="secondary" onPress={() => router.push("/journal?compose=1" as never)} />
+          </HomeFloat>
         </View>
 
         <View style={styles.metricsGrid}>
           {metricRows.map((row, rowIndex) => <View key={`metric-row-${rowIndex}`} style={styles.metricsRow}>
-            {row.map((metric) => <MetricTile key={metric.id} style={styles.metricCell} label={metric.label} value={metric.value} detail={metric.detail} icon={metric.icon} accent={metric.accent} onPress={metric.onPress} />)}
+            {row.map((metric, metricIndex) => <HomeFloat key={metric.id} reduceMotion={state.profile.reduceMotion} distance={3 + (metricIndex % 2)} sway={metricIndex % 2 ? -1 : 1} duration={2_300 + metricIndex * 180} delay={rowIndex * 190 + metricIndex * 130} style={styles.metricFloat}>
+              <MetricTile style={styles.metricCell} label={metric.label} value={metric.value} detail={metric.detail} icon={metric.icon} accent={metric.accent} onPress={metric.onPress} />
+            </HomeFloat>)}
           </View>)}
         </View>
 
-        <CommandCard accent="#F4C95D" style={styles.lootCard}>
+        <HomeFloat reduceMotion={state.profile.reduceMotion} distance={4} sway={1} duration={2_700} delay={140} style={styles.fullWidth}>
+          <CommandCard accent="#F4C95D" style={styles.lootCard}>
           <View style={styles.lootIconFrame}>
             <IconSymbol name="gift.fill" size={24} color="#F4C95D" />
           </View>
@@ -206,9 +223,11 @@ export default function HomeScreen() {
             <Text style={[styles.lootDetail, { color: colors.muted }]}>Each completed mission rolls the loot chance you set in command settings for your reward vault.</Text>
           </View>
           <CommandButton label="Vault" icon="gift.fill" variant="ghost" onPress={() => router.push("/rewards" as never)} />
-        </CommandCard>
+          </CommandCard>
+        </HomeFloat>
 
-        <CommandCard style={styles.progressCard} accent={colors.success}>
+        <HomeFloat reduceMotion={state.profile.reduceMotion} distance={4} sway={-1} duration={2_900} delay={410} style={styles.fullWidth}>
+          <CommandCard style={styles.progressCard} accent={colors.success}>
           <View style={styles.progressTopline}>
             <View>
               <Text style={[styles.progressTitle, { color: colors.foreground }]}>Daily mission progress</Text>
@@ -217,10 +236,12 @@ export default function HomeScreen() {
             <Text style={[styles.progressPercent, { color: colors.success }]}>{Math.round(daily.progress * 100)}%</Text>
           </View>
           <ProgressBar value={daily.progress} color={colors.success} height={10} />
-        </CommandCard>
+          </CommandCard>
+        </HomeFloat>
 
         <SectionHeader title="Territory capture" action="Mission board" onAction={() => router.push("/missions")} />
-        <CommandCard accent={colors.primary} style={styles.mapCard}>
+        <HomeFloat reduceMotion={state.profile.reduceMotion} distance={5} sway={1} duration={3_100} delay={240} style={styles.fullWidth}>
+          <CommandCard accent={colors.primary} style={styles.mapCard}>
           <View style={styles.mapTopline}>
             <View>
               <Text style={[styles.mapTitle, { color: colors.foreground }]}>Subject map</Text>
@@ -244,13 +265,15 @@ export default function HomeScreen() {
           <View style={styles.journalBars}>
             {journalBars.map((bar) => <View key={bar.localDate} style={[styles.journalBar, { height: Math.max(3, (bar.points / maxJournalPoints) * 28), backgroundColor: bar.points ? colors.success : colors.border }]} />)}
           </View>
-        </CommandCard>
+          </CommandCard>
+        </HomeFloat>
 
         <SectionHeader title="Pending revisions" action={pendingRevisions.length ? "Open queue" : undefined} onAction={pendingRevisions.length ? () => router.push("/revisions") : undefined} />
         {pendingRevisions.length ? (
           <View style={styles.stack}>
-            {pendingRevisions.slice(0, 3).map((topic) => (
-              <CommandCard key={topic.id} accent={topic.dueDate < new Date().toISOString().slice(0, 10) ? colors.error : colors.warning} style={styles.listCard}>
+            {pendingRevisions.slice(0, 3).map((topic, index) => (
+              <HomeFloat key={topic.id} reduceMotion={state.profile.reduceMotion} distance={3} sway={index % 2 ? -1 : 1} duration={2_500 + index * 180} delay={index * 160} style={styles.fullWidth}>
+                <CommandCard accent={topic.dueDate < new Date().toISOString().slice(0, 10) ? colors.error : colors.warning} style={styles.listCard}>
                 <View style={styles.listLeading}>
                   <View style={[styles.listIcon, { backgroundColor: `${colors.warning}1A` }]}>
                     <IconSymbol name="arrow.clockwise" size={19} color={colors.warning} />
@@ -261,7 +284,8 @@ export default function HomeScreen() {
                   </View>
                 </View>
                 <CommandButton label="Review" variant="ghost" onPress={() => router.push(`/revisions?topic=${topic.id}`)} />
-              </CommandCard>
+                </CommandCard>
+              </HomeFloat>
             ))}
           </View>
         ) : (
@@ -274,7 +298,8 @@ export default function HomeScreen() {
             {activeBosses.slice(0, 2).map((boss) => {
               const progress = getBossProgress(state, boss.id);
               return (
-                <CommandCard key={boss.id} accent="#F4C95D" style={styles.bossCard}>
+                <HomeFloat key={boss.id} reduceMotion={state.profile.reduceMotion} distance={3} sway={-1} duration={2_700} delay={180} style={styles.fullWidth}>
+                  <CommandCard accent="#F4C95D" style={styles.bossCard}>
                   <View style={styles.bossHeader}>
                     <View style={styles.listLeading}>
                       <View style={[styles.listIcon, { backgroundColor: "#F4C95D1F" }]}>
@@ -288,18 +313,22 @@ export default function HomeScreen() {
                     <Text style={[styles.bossPercent, { color: "#F4C95D" }]}>{Math.round(progress * 100)}%</Text>
                   </View>
                   <ProgressBar value={progress} color="#F4C95D" height={7} />
-                </CommandCard>
+                  </CommandCard>
+                </HomeFloat>
               );
             })}
           </View>
         ) : (
-          <CommandCard subdued style={styles.bossEmpty}>
+          <HomeFloat reduceMotion={state.profile.reduceMotion} distance={3} sway={-1} duration={2_700} delay={180} style={styles.fullWidth}>
+            <CommandCard subdued style={styles.bossEmpty}>
             <IconSymbol name="trophy.fill" size={18} color={colors.muted} />
             <Text style={[styles.bossEmptyText, { color: colors.muted }]}>No boss is active. Build a campaign from the Mission Board.</Text>
-          </CommandCard>
+            </CommandCard>
+          </HomeFloat>
         )}
 
-        <CommandCard accent={state.googleSheet.phase === "synced" ? colors.success : colors.primary} style={styles.syncCard}>
+        <HomeFloat reduceMotion={state.profile.reduceMotion} distance={3} sway={1} duration={2_600} delay={340} style={styles.fullWidth}>
+          <CommandCard accent={state.googleSheet.phase === "synced" ? colors.success : colors.primary} style={styles.syncCard}>
           <View style={styles.listLeading}>
             <View style={[styles.listIcon, { backgroundColor: `${colors.primary}19` }]}>
               <IconSymbol name="cloud.fill" size={18} color={colors.primary} />
@@ -310,7 +339,8 @@ export default function HomeScreen() {
             </View>
           </View>
           <CommandButton label={state.googleSheet.spreadsheetId ? "Status" : "Connect"} variant="ghost" onPress={() => router.push("/settings?section=sheet")} />
-        </CommandCard>
+          </CommandCard>
+        </HomeFloat>
       </ScrollView>
       {homeCelebration ? <CelebrationOverlay kind={homeCelebration} reduceMotion={state.profile.reduceMotion} onDone={() => setHomeCelebration(null)} /> : null}
       <RankCharacterAchievement title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} visible={showRankAchievement} onDismiss={() => setShowRankAchievement(false)} />
@@ -320,7 +350,9 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: 18, paddingTop: 12, paddingBottom: 30 },
-  heroCard: { minHeight: 266, padding: 18, position: "relative" },
+  heroCard: { minHeight: 266, padding: 18, position: "relative", overflow: "hidden" },
+  fullWidth: { width: "100%" },
+  heroCopyFloat: { flex: 1, minWidth: 0 },
   heroGrid: { ...StyleSheet.absoluteFillObject, opacity: 0.55 },
   gridLineVertical: { position: "absolute", top: 0, bottom: 0, width: 1, backgroundColor: "#2C526B" },
   gridLineHorizontal: { position: "absolute", left: 0, right: 0, height: 1, backgroundColor: "#2C526B" },
@@ -344,10 +376,11 @@ const styles = StyleSheet.create({
   heroProgressValue: { fontSize: 12, lineHeight: 15, fontWeight: "800", color: "#F5F9FF" },
   heroProgressWrap: { flex: 1 },
   primaryActions: { flexDirection: "row", gap: 10 },
-  deployButton: { flex: 1.25 },
-  journalButton: { flex: 1 },
+  deployFloat: { flex: 1.25 },
+  journalFloat: { flex: 1 },
   metricsGrid: { gap: 10, width: "100%" },
   metricsRow: { flexDirection: "row", gap: 10, width: "100%" },
+  metricFloat: { flex: 1, minWidth: 0, alignSelf: "stretch" },
   metricCell: { flex: 1, minWidth: 0, alignSelf: "stretch" },
   lootCard: { padding: 13, flexDirection: "row", alignItems: "center", gap: 10 },
   lootIconFrame: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: "#F4C95D1C" },

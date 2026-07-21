@@ -24,25 +24,32 @@ interface IndiaSubjectMapProps {
 }
 
 type AnchorName = keyof typeof INDIA_MAP_ANCHORS;
-type TerritorySlot = { id: AnchorName; radius: number };
+type TerritorySlot = {
+  id: AnchorName;
+  radiusX: number;
+  radiusY: number;
+  rotation: number;
+  lobes: readonly number[];
+};
 
 /**
- * One compact cell is reserved for each geographic anchor. Cells never share a
- * slot, and are clipped to the India boundary, so subject zones cannot overlap.
+ * Each slot uses a different soft silhouette. The anchor spacing and compact
+ * dimensions leave a clear gap between neighboring territories; the India clip
+ * is retained as a final geographic safety boundary.
  */
 const TERRITORY_SLOTS: TerritorySlot[] = [
-  { id: "north", radius: 18 },
-  { id: "northwest", radius: 16 },
-  { id: "north_central", radius: 16 },
-  { id: "central", radius: 17 },
-  { id: "west", radius: 17 },
-  { id: "midwest", radius: 14 },
-  { id: "east", radius: 18 },
-  { id: "northeast", radius: 17 },
-  { id: "south_central", radius: 13 },
-  { id: "southwest", radius: 13 },
-  { id: "southeast", radius: 13 },
-  { id: "south", radius: 11 },
+  { id: "north", radiusX: 13, radiusY: 15, rotation: -0.22, lobes: [1, 0.78, 1.04, 0.82, 1.1, 0.88, 1.03] },
+  { id: "northwest", radiusX: 15, radiusY: 15, rotation: 0.18, lobes: [0.86, 1.08, 0.78, 1.04, 0.92, 1.12] },
+  { id: "north_central", radiusX: 14, radiusY: 15, rotation: -0.08, lobes: [1.1, 0.84, 0.98, 1.13, 0.8, 1.04, 0.9] },
+  { id: "central", radiusX: 16, radiusY: 17, rotation: 0.12, lobes: [0.92, 1.08, 0.84, 1.12, 0.9, 1.03] },
+  { id: "west", radiusX: 15, radiusY: 16, rotation: -0.17, lobes: [1.1, 0.8, 1.03, 0.88, 1.14, 0.82, 0.98] },
+  { id: "midwest", radiusX: 13, radiusY: 13, rotation: 0.28, lobes: [0.84, 1.12, 0.93, 1.04, 0.79, 1.1] },
+  { id: "east", radiusX: 19, radiusY: 16, rotation: -0.1, lobes: [1.08, 0.84, 1.13, 0.78, 1.02, 0.9, 1.08] },
+  { id: "northeast", radiusX: 17, radiusY: 15, rotation: 0.2, lobes: [0.8, 1.1, 0.9, 1.05, 0.82, 1.12] },
+  { id: "south_central", radiusX: 12, radiusY: 13, rotation: -0.24, lobes: [1.1, 0.82, 1.02, 0.9, 1.14, 0.8, 0.96] },
+  { id: "southwest", radiusX: 12, radiusY: 13, rotation: 0.15, lobes: [0.86, 1.1, 0.76, 1.03, 0.92, 1.08] },
+  { id: "southeast", radiusX: 11, radiusY: 12, rotation: -0.12, lobes: [1.06, 0.82, 1.12, 0.86, 0.98, 0.8, 1.03] },
+  { id: "south", radiusX: 8, radiusY: 10, rotation: 0.08, lobes: [0.82, 1.1, 0.9, 1.04, 0.8, 1.08] },
 ];
 
 const PALETTE = ["#8B5CF6", "#F4C95D", "#49D17D", "#C092FF", "#FF6B6B", "#FFAA4C", "#E879F9", "#9CCC65", "#FF8A80", "#BA8CFF", "#F59E0B", "#7DD3FC"];
@@ -55,12 +62,24 @@ function shortLabel(value: string) {
   return value.length > 7 ? `${value.slice(0, 6)}…` : value;
 }
 
-function hexagonPath(x: number, y: number, radius: number) {
-  const points = Array.from({ length: 6 }, (_, index) => {
-    const angle = Math.PI / 3 * index - Math.PI / 6;
-    return [x + Math.cos(angle) * radius, y + Math.sin(angle) * radius] as const;
+function organicTerritoryPath(x: number, y: number, slot: TerritorySlot) {
+  const points = slot.lobes.map((lobe, index) => {
+    const angle = slot.rotation + (Math.PI * 2 * index) / slot.lobes.length;
+    return {
+      x: x + Math.cos(angle) * slot.radiusX * lobe,
+      y: y + Math.sin(angle) * slot.radiusY * lobe,
+    };
   });
-  return `M${points.map(([pointX, pointY]) => `${pointX.toFixed(2)} ${pointY.toFixed(2)}`).join(" L")} Z`;
+  const start = points[0];
+  let path = `M${start.x.toFixed(2)} ${start.y.toFixed(2)}`;
+  for (let index = 0; index < points.length; index += 1) {
+    const current = points[index];
+    const next = points[(index + 1) % points.length];
+    const midpointX = (current.x + next.x) / 2;
+    const midpointY = (current.y + next.y) / 2;
+    path += ` Q${current.x.toFixed(2)} ${current.y.toFixed(2)} ${midpointX.toFixed(2)} ${midpointY.toFixed(2)}`;
+  }
+  return `${path} Z`;
 }
 
 export function IndiaSubjectMap({ subjects, accent, foreground, muted, surface, border, onOpenSubject }: IndiaSubjectMapProps) {
@@ -104,7 +123,7 @@ export function IndiaSubjectMap({ subjects, accent, foreground, muted, surface, 
             const selectedNow = selectedTerritory?.subject === subject.subject;
             const percentage = Math.round(subject.capture * 100);
             const depth = Math.max(2, Math.round(subject.capture * 5));
-            const cellPath = hexagonPath(anchor.x, anchor.y, slot.radius);
+            const cellPath = organicTerritoryPath(anchor.x, anchor.y, slot);
             return <G key={subject.subject} onPress={() => setSelected(subject.subject)}>
               <Path d={cellPath} fill="#060914" opacity={0.7} transform={`translate(1.5 ${depth + 2})`} />
               <Path d={cellPath} fill={`${color}${selectedNow ? "F2" : "C4"}`} stroke={selectedNow ? "#FFFFFF" : `${color}F2`} strokeWidth={selectedNow ? 1.9 : 1.05} />
@@ -120,7 +139,7 @@ export function IndiaSubjectMap({ subjects, accent, foreground, muted, surface, 
       </Svg>
       <View style={styles.mapKey}>
         <View style={[styles.mapKeyDot, { backgroundColor: accent }]} />
-        <Text style={[styles.mapKeyText, { color: muted }]}>Geographic India boundary · non-overlapping subject capture cells are generated from your missions and revision logs{overflowCount ? ` · ${overflowCount} additional subject${overflowCount === 1 ? "" : "s"} in registry` : ""}</Text>
+        <Text style={[styles.mapKeyText, { color: muted }]}>Geographic India boundary · unique, non-overlapping subject territories are generated from your missions and revision logs{overflowCount ? ` · ${overflowCount} additional subject${overflowCount === 1 ? "" : "s"} in registry` : ""}</Text>
       </View>
     </View>
     {selectedTerritory ? <Pressable onPress={() => onOpenSubject(selectedTerritory.subject)} style={({ pressed }) => [styles.detailCard, { borderColor: `${accent}66`, backgroundColor: `${accent}10`, opacity: pressed ? 0.76 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
