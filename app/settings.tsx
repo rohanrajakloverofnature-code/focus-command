@@ -110,7 +110,7 @@ export default function SettingsScreen() {
     const notificationRules = { ...state.profile.notificationRules, ...patch };
     updateProfile({ notificationRules });
     if (state.profile.notificationsEnabled && ("dailyMissionEnabled" in patch || "dailyMissionTime" in patch)) {
-      await configureDailyMissionReminder(notificationRules.dailyMissionEnabled, notificationRules.dailyMissionTime, state.profile.soundRoles.notification.enabled);
+      await configureDailyMissionReminder(notificationRules.dailyMissionEnabled, notificationRules.dailyMissionTime, state.profile.soundRoles.notification);
     }
   };
 
@@ -349,7 +349,7 @@ export default function SettingsScreen() {
               }
             }
             updateProfile({ notificationsEnabled });
-            await configureDailyMissionReminder(notificationsEnabled && state.profile.notificationRules.dailyMissionEnabled, state.profile.notificationRules.dailyMissionTime, state.profile.soundRoles.notification.enabled);
+            await configureDailyMissionReminder(notificationsEnabled && state.profile.notificationRules.dailyMissionEnabled, state.profile.notificationRules.dailyMissionTime, state.profile.soundRoles.notification);
           }} />
           <Divider />
           <SwitchRow label="Reduce motion" detail="Prefer still, immediate state changes over animation." value={state.profile.reduceMotion} onValueChange={(reduceMotion) => updateProfile({ reduceMotion })} />

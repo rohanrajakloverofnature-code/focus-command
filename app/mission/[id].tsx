@@ -65,7 +65,7 @@ export default function MissionDetailScreen() {
       return;
     }
     await playFocusSuccessCue(state.profile.soundEnabled, state.profile.soundRoles.missionWin);
-    if (state.profile.notificationsEnabled) await scheduleAchievementRecap(mission.title, state.profile.notificationRules, state.profile.soundRoles.notification.enabled);
+    if (state.profile.notificationsEnabled) await scheduleAchievementRecap(mission.title, state.profile.notificationRules, state.profile.soundRoles.notification);
     router.replace({ pathname: "/mission-result/[id]" as never, params: { id: mission.id } });
   };
 

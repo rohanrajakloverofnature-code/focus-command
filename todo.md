@@ -103,3 +103,5 @@
 - [x] Smoothly animate territory reflow and organic border changes when subject coverage changes.
 
 - [x] Make the Dashboard Total Power, Daily Average, Weekly Average, and Monthly Average summary cards tappable and provide a dedicated transparent details view for each metric.
+
+- [x] Fix notification sound selections so they persist permanently after being set, even after app redirects.

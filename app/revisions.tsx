@@ -24,7 +24,7 @@ export default function RevisionsScreen() {
     if (state.profile.notificationsEnabled && nextDelayDays) {
       const nextDue = new Date();
       nextDue.setDate(nextDue.getDate() + nextDelayDays);
-      await scheduleRevisionReminder(topic.topic, nextDue.toISOString(), state.profile.notificationRules, state.profile.soundRoles.notification.enabled);
+      await scheduleRevisionReminder(topic.topic, nextDue.toISOString(), state.profile.notificationRules, state.profile.soundRoles.notification);
     }
     if (returnToQueue) router.replace("/revisions");
   };
