@@ -98,3 +98,6 @@
 
 - [x] Replace repeated fixed territory cells with varied organic subject regions that do not overlap and remain fully inside the geographic India boundary.
 - [x] Add clearly visible, reduce-motion-aware floating and ambient animation to the Home screen’s hero, character, metrics, and key cards.
+
+- [x] Replace slot-based subject territories with a fully dynamic completion-weighted partition that preserves a minimum visible region for every subject, reflows on subject/progress changes, never overlaps, and remains inside India’s fixed outer boundary.
+- [x] Smoothly animate territory reflow and organic border changes when subject coverage changes.
