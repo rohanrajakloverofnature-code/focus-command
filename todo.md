@@ -101,3 +101,5 @@
 
 - [x] Replace slot-based subject territories with a fully dynamic completion-weighted partition that preserves a minimum visible region for every subject, reflows on subject/progress changes, never overlaps, and remains inside India’s fixed outer boundary.
 - [x] Smoothly animate territory reflow and organic border changes when subject coverage changes.
+
+- [x] Make the Dashboard Total Power, Daily Average, Weekly Average, and Monthly Average summary cards tappable and provide a dedicated transparent details view for each metric.

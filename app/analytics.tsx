@@ -5,11 +5,22 @@ import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, Sta
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, formatHours, getDashboardStats, getMissionInvestedMilliseconds, useFocusCommand } from "@/lib/focus-command";
+import { formatCompactNumber, formatHours, getCalendarTimeAverages, getDashboardStats, getMissionInvestedMilliseconds, getTotalPower, toLocalDate, useFocusCommand } from "@/lib/focus-command";
 
-const META: Record<string, { title: string; detail: string; icon: "chart.xyaxis.line" | "trophy.fill" | "star.fill" | "target" | "shield.fill" }> = {
-  power: { title: "Total Power", detail: "Immutable progression events awarded after each mission completion.", icon: "shield.fill" },
-  time: { title: "Invested Time", detail: "Exact active task time after every pause is removed.", icon: "timer" as "chart.xyaxis.line" },
+type MetricKey = "power" | "daily" | "weekly" | "monthly" | "time" | "fame" | "radar" | "emotion" | "skills" | "lifeline";
+
+type EntryTone = "gold" | "primary" | "success" | "warning";
+
+type AnalyticsEntry = { id: string; title: string; detail: string; date: string; tone: EntryTone };
+
+type MetricMeta = { title: string; detail: string; icon: "chart.xyaxis.line" | "trophy.fill" | "star.fill" | "target" | "shield.fill" | "timer" };
+
+const META: Record<MetricKey, MetricMeta> = {
+  power: { title: "Total Power", detail: "All immutable progression awards earned from completed command work.", icon: "shield.fill" },
+  daily: { title: "Daily Average", detail: "Lifetime average invested time across calendar days on which you completed work.", icon: "timer" },
+  weekly: { title: "Weekly Average", detail: "Week-to-date average across every elapsed day from Monday through today, including zero-work days.", icon: "chart.xyaxis.line" },
+  monthly: { title: "Monthly Average", detail: "Month-to-date average across every elapsed calendar day through today, including zero-work days.", icon: "target" },
+  time: { title: "Invested Time", detail: "Exact active task time after every pause is removed.", icon: "timer" },
   fame: { title: "Wall of Fame", detail: "Mini achievements rated above 3/5 during their seven-day display window.", icon: "trophy.fill" },
   radar: { title: "Achievement Radar", detail: "Tasks whose post-mission feeling was logged as Great during their seven-day display window.", icon: "star.fill" },
   emotion: { title: "Emotional Insight", detail: "Post-mission feelings and reflection signals.", icon: "target" },
@@ -17,38 +28,130 @@ const META: Record<string, { title: string; detail: string; icon: "chart.xyaxis.
   lifeline: { title: "Lifeline", detail: "Historical baseline data plus daily journal-derived increments.", icon: "chart.xyaxis.line" },
 };
 
+function isMetricKey(value: string | undefined): value is MetricKey {
+  return Boolean(value && value in META);
+}
+
+function addCalendarDays(localDate: string, amount: number) {
+  const [year, month, day] = localDate.split("-").map(Number);
+  const value = new Date(Date.UTC(year, month - 1, day));
+  value.setUTCDate(value.getUTCDate() + amount);
+  return value.toISOString().slice(0, 10);
+}
+
+function calendarDates(start: string, end: string) {
+  const dates: string[] = [];
+  let date = start;
+  while (date <= end) {
+    dates.push(date);
+    date = addCalendarDays(date, 1);
+  }
+  return dates;
+}
+
+function formatCalendarDate(localDate: string) {
+  const [year, month, day] = localDate.split("-").map(Number);
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(new Date(Date.UTC(year, month - 1, day, 12)));
+}
+
+function hoursByDate(state: ReturnType<typeof useFocusCommand>["state"]) {
+  const values = new Map<string, { hours: number; missionCount: number }>();
+  state.missions.filter((mission) => mission.completedAt).forEach((mission) => {
+    const localDate = toLocalDate(mission.completedAt!, state.profile.timezone);
+    const prior = values.get(localDate) ?? { hours: 0, missionCount: 0 };
+    values.set(localDate, { hours: prior.hours + getMissionInvestedMilliseconds(mission) / 3_600_000, missionCount: prior.missionCount + 1 });
+  });
+  return values;
+}
+
 export default function AnalyticsDetailScreen() {
   const colors = useColors();
-  const { metric = "power" } = useLocalSearchParams<{ metric?: string }>();
+  const params = useLocalSearchParams<{ metric?: string }>();
+  const metric: MetricKey = isMetricKey(params.metric) ? params.metric : "power";
   const { state, ready } = useFocusCommand();
 
   if (!ready) return <LoadingScreen label="Opening analytic source data…" />;
 
-  const meta = META[metric] ?? META.power;
+  const meta = META[metric];
   const dashboard = getDashboardStats(state);
-  const entries = metric === "power"
-    ? state.progression.map((event) => ({ id: event.id, title: event.note, detail: `${formatCompactNumber(event.powerAwarded)} power · ${event.comboMultiplier.toFixed(2)}× combo · ${event.goldAwarded} gold`, date: event.occurredAt, tone: "gold" as const }))
-    : metric === "time"
-      ? state.missions.filter((mission) => mission.status === "completed").map((mission) => ({ id: mission.id, title: mission.title, detail: `${formatHours(getMissionInvestedMilliseconds(mission))} · ${mission.subject} · ${mission.category}`, date: mission.completedAt ?? mission.createdAt, tone: "primary" as const }))
-      : metric === "fame"
-        ? dashboard.wallOfFame.map((mission) => ({ id: mission.id, title: mission.title, detail: "Mini achievement score above 3/5 · visible for 7 days", date: mission.completedAt ?? mission.createdAt, tone: "gold" as const }))
-        : metric === "radar"
-          ? dashboard.achievementRadar.map((mission) => ({ id: mission.id, title: mission.title, detail: "After-feeling logged as Great · visible for 7 days", date: mission.completedAt ?? mission.createdAt, tone: "success" as const }))
-          : metric === "emotion"
-            ? state.reflections.map((reflection) => ({ id: reflection.id, title: state.missions.find((mission) => mission.id === reflection.missionId)?.title ?? "Mission reflection", detail: `Before: ${reflection.feelingBefore ?? "not logged"} · After: ${reflection.feelingAfter ?? "not logged"} · Friction: ${reflection.frictionRating ?? "–"}/5`, date: reflection.createdAt, tone: "warning" as const }))
-            : metric === "skills"
-              ? state.reflections.filter((reflection) => reflection.skills.length).map((reflection) => ({ id: reflection.id, title: state.missions.find((mission) => mission.id === reflection.missionId)?.title ?? "Mission reflection", detail: reflection.skills.join(" · "), date: reflection.createdAt, tone: "primary" as const }))
-              : state.lifeline.map((point) => ({ id: point.id, title: point.source === "manual" ? `Historical baseline · ${point.year}` : `Journal contribution · ${point.localDate}`, detail: `Life Performance ${point.lifePerformance} · Experience ${point.experience}${point.note ? ` · ${point.note}` : ""}`, date: point.localDate, tone: point.source === "manual" ? "primary" as const : "success" as const }));
+  const timeAverages = getCalendarTimeAverages(state);
+  const timeByDate = hoursByDate(state);
+  const completedMissions = state.missions.filter((mission) => mission.completedAt);
+  const totalHours = completedMissions.reduce((sum, mission) => sum + getMissionInvestedMilliseconds(mission), 0) / 3_600_000;
+  const activeDayCount = timeByDate.size;
+  const power = getTotalPower(state);
+  const periodDates = metric === "weekly"
+    ? calendarDates(timeAverages.weekStart, timeAverages.today)
+    : metric === "monthly"
+      ? calendarDates(timeAverages.monthStart, timeAverages.today)
+      : [];
+  const dayEntries: AnalyticsEntry[] = periodDates.map((date) => {
+    const summary = timeByDate.get(date) ?? { hours: 0, missionCount: 0 };
+    return {
+      id: `day-${date}`,
+      title: formatCalendarDate(date),
+      detail: summary.missionCount ? `${summary.hours.toFixed(1)} h from ${summary.missionCount} completed mission${summary.missionCount === 1 ? "" : "s"}` : "0.0 h · no completed mission logged",
+      date,
+      tone: summary.hours > 0 ? "primary" : "warning",
+    };
+  });
+  const activeDayEntries: AnalyticsEntry[] = [...timeByDate.entries()].map(([date, summary]) => ({
+    id: `active-${date}`,
+    title: formatCalendarDate(date),
+    detail: `${summary.hours.toFixed(1)} h from ${summary.missionCount} completed mission${summary.missionCount === 1 ? "" : "s"}`,
+    date,
+    tone: "primary",
+  }));
+
+  const entries: AnalyticsEntry[] = metric === "power"
+    ? state.progression.map((event) => ({ id: event.id, title: event.note, detail: `${formatCompactNumber(event.powerAwarded)} power · ${event.comboMultiplier.toFixed(2)}× combo · ${event.goldAwarded} gold`, date: toLocalDate(event.occurredAt, state.profile.timezone), tone: "gold" as const }))
+    : metric === "daily"
+      ? activeDayEntries
+      : metric === "weekly" || metric === "monthly"
+        ? dayEntries
+        : metric === "time"
+          ? completedMissions.map((mission) => ({ id: mission.id, title: mission.title, detail: `${formatHours(getMissionInvestedMilliseconds(mission))} · ${mission.subject} · ${mission.category}`, date: toLocalDate(mission.completedAt!, state.profile.timezone), tone: "primary" as const }))
+          : metric === "fame"
+            ? dashboard.wallOfFame.map((mission) => ({ id: mission.id, title: mission.title, detail: "Mini achievement score above 3/5 · visible for 7 days", date: toLocalDate(mission.completedAt ?? mission.createdAt, state.profile.timezone), tone: "gold" as const }))
+            : metric === "radar"
+              ? dashboard.achievementRadar.map((mission) => ({ id: mission.id, title: mission.title, detail: "After-feeling logged as Great · visible for 7 days", date: toLocalDate(mission.completedAt ?? mission.createdAt, state.profile.timezone), tone: "success" as const }))
+              : metric === "emotion"
+                ? state.reflections.map((reflection) => ({ id: reflection.id, title: state.missions.find((mission) => mission.id === reflection.missionId)?.title ?? "Mission reflection", detail: `Before: ${reflection.feelingBefore ?? "not logged"} · After: ${reflection.feelingAfter ?? "not logged"} · Friction: ${reflection.frictionRating ?? "–"}/5`, date: toLocalDate(reflection.createdAt, state.profile.timezone), tone: "warning" as const }))
+                : metric === "skills"
+                  ? state.reflections.filter((reflection) => reflection.skills.length).map((reflection) => ({ id: reflection.id, title: state.missions.find((mission) => mission.id === reflection.missionId)?.title ?? "Mission reflection", detail: reflection.skills.join(" · "), date: toLocalDate(reflection.createdAt, state.profile.timezone), tone: "primary" as const }))
+                  : state.lifeline.map((point) => ({ id: point.id, title: point.source === "manual" ? `Historical baseline · ${point.year}` : `Journal contribution · ${point.localDate}`, detail: `Life Performance ${point.lifePerformance} · Experience ${point.experience}${point.note ? ` · ${point.note}` : ""}`, date: point.localDate, tone: point.source === "manual" ? "primary" as const : "success" as const }));
+
+  const calculation = metric === "power"
+    ? { value: formatCompactNumber(power), label: "CURRENT TOTAL", formula: "Sum of immutable awarded power events", detail: `${state.progression.length} progression event${state.progression.length === 1 ? "" : "s"} are included.` }
+    : metric === "daily"
+      ? { value: `${dashboard.averageDailyHours.toFixed(1)} h`, label: "LIFETIME DAILY AVERAGE", formula: `${totalHours.toFixed(1)} total hours ÷ ${activeDayCount} active completion day${activeDayCount === 1 ? "" : "s"}`, detail: activeDayCount ? "Only calendar days with a completed mission are included in this lifetime active-day average." : "No completed missions are available yet." }
+      : metric === "weekly"
+        ? { value: `${timeAverages.weekDailyAverageHours.toFixed(1)} h`, label: "WEEK-TO-DATE DAILY AVERAGE", formula: `${timeAverages.weekTotalHours.toFixed(1)} total hours ÷ ${timeAverages.weekElapsedDays} elapsed calendar day${timeAverages.weekElapsedDays === 1 ? "" : "s"}`, detail: `${formatCalendarDate(timeAverages.weekStart)} through ${formatCalendarDate(timeAverages.today)}. Zero-work days remain in the denominator.` }
+        : metric === "monthly"
+          ? { value: `${timeAverages.monthDailyAverageHours.toFixed(1)} h`, label: "MONTH-TO-DATE DAILY AVERAGE", formula: `${timeAverages.monthTotalHours.toFixed(1)} total hours ÷ ${timeAverages.monthElapsedDays} elapsed calendar day${timeAverages.monthElapsedDays === 1 ? "" : "s"}`, detail: `${formatCalendarDate(timeAverages.monthStart)} through ${formatCalendarDate(timeAverages.today)}. Zero-work days remain in the denominator.` }
+          : { value: "SOURCE", label: "TRACEABLE ANALYTICS", formula: "Records displayed below drive this analytic view", detail: "Each Dashboard number can be inspected rather than treated as a black box." };
 
   return (
     <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <ScreenTitle eyebrow="Data source" title={meta.title} detail={meta.detail} right={<IconAction icon="xmark" label="Close analytics detail" onPress={() => router.back()} />} />
+        <CommandCard accent={metric === "power" ? "#F4C95D" : metric === "weekly" ? colors.success : metric === "monthly" ? colors.warning : colors.primary} style={styles.calculation}>
+          <View style={styles.calculationTopline}>
+            <View style={[styles.calculationIcon, { backgroundColor: `${colors.primary}18` }]}><IconSymbol name={meta.icon} size={22} color={colors.primary} /></View>
+            <View style={styles.calculationCopy}>
+              <Text style={[styles.calculationLabel, { color: colors.muted }]}>{calculation.label}</Text>
+              <Text style={[styles.calculationValue, { color: colors.foreground }]}>{calculation.value}</Text>
+            </View>
+          </View>
+          <Text style={[styles.formulaLabel, { color: colors.primary }]}>CALCULATION</Text>
+          <Text style={[styles.formula, { color: colors.foreground }]}>{calculation.formula}</Text>
+          <Text style={[styles.calculationDetail, { color: colors.muted }]}>{calculation.detail}</Text>
+        </CommandCard>
         <CommandCard accent={colors.primary} style={styles.explainer}>
-          <IconSymbol name={meta.icon} size={25} color={colors.primary} />
+          <IconSymbol name="chart.xyaxis.line" size={25} color={colors.primary} />
           <View style={styles.explainerCopy}>
             <Text style={[styles.explainerTitle, { color: colors.foreground }]}>Traceable analytics</Text>
-            <Text style={[styles.explainerText, { color: colors.muted }]}>This view shows the records driving the selected metric, so every number in the Dashboard can be inspected rather than treated as a black box.</Text>
+            <Text style={[styles.explainerText, { color: colors.muted }]}>The records below are the current source data for this metric. Weekly and monthly views explicitly show every elapsed calendar day, including days with no completed work.</Text>
           </View>
         </CommandCard>
         {entries.length ? (
@@ -57,7 +160,7 @@ export default function AnalyticsDetailScreen() {
               <CommandCard key={entry.id} accent={entry.tone === "gold" ? "#F4C95D" : entry.tone === "success" ? colors.success : entry.tone === "warning" ? colors.warning : colors.primary} style={styles.entry}>
                 <View style={styles.entryTopline}>
                   <Text style={[styles.entryTitle, { color: colors.foreground }]}>{entry.title}</Text>
-                  <StatusPill label={new Date(entry.date).toLocaleDateString()} tone={entry.tone === "gold" ? "gold" : entry.tone === "success" ? "success" : entry.tone === "warning" ? "warning" : "primary"} />
+                  <StatusPill label={formatCalendarDate(entry.date)} tone={entry.tone === "gold" ? "gold" : entry.tone === "success" ? "success" : entry.tone === "warning" ? "warning" : "primary"} />
                 </View>
                 <Text style={[styles.entryDetail, { color: colors.muted }]}>{entry.detail}</Text>
               </CommandCard>
@@ -77,6 +180,15 @@ export default function AnalyticsDetailScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: 16, paddingTop: 10, paddingBottom: 28 },
+  calculation: { gap: 9 },
+  calculationTopline: { flexDirection: "row", alignItems: "center", gap: 11 },
+  calculationIcon: { width: 44, height: 44, borderRadius: 15, alignItems: "center", justifyContent: "center" },
+  calculationCopy: { flex: 1 },
+  calculationLabel: { fontSize: 10, lineHeight: 14, letterSpacing: 0.8, fontWeight: "900" },
+  calculationValue: { fontSize: 29, lineHeight: 34, fontWeight: "900", letterSpacing: -0.5, marginTop: 1 },
+  formulaLabel: { fontSize: 10, lineHeight: 14, letterSpacing: 0.85, fontWeight: "900", marginTop: 2 },
+  formula: { fontSize: 14, lineHeight: 20, fontWeight: "800" },
+  calculationDetail: { fontSize: 12, lineHeight: 18, fontWeight: "500" },
   explainer: { flexDirection: "row", gap: 11, alignItems: "flex-start" },
   explainerCopy: { flex: 1 },
   explainerTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },

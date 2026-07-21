@@ -135,10 +135,10 @@ export default function DashboardScreen() {
         />
 
         <View style={styles.metrics}>
-          <MetricTile label="Total power" value={formatCompactNumber(getTotalPower(state))} detail="Immutable awarded ledger" icon="shield.fill" accent="#F4C95D" />
-          <MetricTile label="Daily average" value={`${dashboard.averageDailyHours.toFixed(1)} h`} detail="Across active days" icon="timer" accent={colors.primary} />
-          <MetricTile label="Weekly average" value={`${timeAverages.weekDailyAverageHours.toFixed(1)} h`} detail={`${timeAverages.weekElapsedDays} elapsed day${timeAverages.weekElapsedDays === 1 ? "" : "s"} · ${timeAverages.weekTotalHours.toFixed(1)} h total`} icon="chart.xyaxis.line" accent={colors.success} />
-          <MetricTile label="Monthly average" value={`${timeAverages.monthDailyAverageHours.toFixed(1)} h`} detail={`${timeAverages.monthElapsedDays} elapsed day${timeAverages.monthElapsedDays === 1 ? "" : "s"} · ${timeAverages.monthTotalHours.toFixed(1)} h total`} icon="target" accent={colors.warning} />
+          <MetricTile label="Total power" value={formatCompactNumber(getTotalPower(state))} detail="Tap for power ledger" icon="shield.fill" accent="#F4C95D" onPress={() => router.push("/analytics?metric=power" as never)} />
+          <MetricTile label="Daily average" value={`${dashboard.averageDailyHours.toFixed(1)} h`} detail="Tap for daily detail" icon="timer" accent={colors.primary} onPress={() => router.push("/analytics?metric=daily" as never)} />
+          <MetricTile label="Weekly average" value={`${timeAverages.weekDailyAverageHours.toFixed(1)} h`} detail="Tap for week detail" icon="chart.xyaxis.line" accent={colors.success} onPress={() => router.push("/analytics?metric=weekly" as never)} />
+          <MetricTile label="Monthly average" value={`${timeAverages.monthDailyAverageHours.toFixed(1)} h`} detail="Tap for month detail" icon="target" accent={colors.warning} onPress={() => router.push("/analytics?metric=monthly" as never)} />
         </View>
 
         <SectionHeader title="Recognition window" />
