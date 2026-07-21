@@ -292,6 +292,41 @@ export function StatusPill({
   );
 }
 
+export function TapFeedback({
+  children,
+  onPress,
+  style,
+  disabled = false,
+  accessibilityLabel,
+}: {
+  children: ReactNode;
+  onPress: () => void;
+  style?: StyleProp<ViewStyle>;
+  disabled?: boolean;
+  accessibilityLabel?: string;
+}) {
+  const { state } = useFocusCommand();
+  const scale = useSharedValue(1);
+  const tapStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const handlePress = () => {
+    if (!state.profile.reduceMotion) scale.value = withSequence(withTiming(0.972, { duration: 45 }), withTiming(1.012, { duration: 90 }), withTiming(1, { duration: 110 }));
+    onPress();
+  };
+  return (
+    <Animated.View style={[tapStyle, style]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        disabled={disabled}
+        onPress={handlePress}
+        style={({ pressed }) => ({ opacity: disabled ? 0.45 : pressed ? 0.76 : 1 })}
+      >
+        {children}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export function SectionHeader({
   title,
   action,
@@ -306,9 +341,9 @@ export function SectionHeader({
     <View style={styles.sectionHeader}>
       <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{title}</Text>
       {action && onAction ? (
-        <Pressable accessibilityRole="button" onPress={onAction} style={({ pressed }) => ({ opacity: pressed ? 0.64 : 1 })}>
+        <TapFeedback onPress={onAction} accessibilityLabel={action}>
           <Text style={[styles.sectionAction, { color: colors.primary }]}>{action}</Text>
-        </Pressable>
+        </TapFeedback>
       ) : null}
     </View>
   );

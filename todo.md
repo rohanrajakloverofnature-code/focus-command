@@ -89,3 +89,9 @@
 - [x] Replace the existing territory outline with a more geographically faithful India map that retains dynamic subject territories and capture labels.
 - [x] Preserve the existing Dashboard and add a distinct nested configurable analytics workspace with arbitrary metrics, feature filters, date filters, and selectable chart styles.
 - [x] Keep the existing free pattern forecast and add a detailed non-clinical wellbeing insight drill-down rather than a medical diagnosis.
+
+- [x] Eliminate overlapping subject territories inside the geographic India map while retaining dynamic capture labels and tap targets.
+- [x] Repair the clipped active-inventory count on the Rewards screen at narrow portrait widths.
+- [x] Calculate weekly and monthly average time against all elapsed calendar days through today, including zero-work days.
+- [x] Add forecast-responsive short Home motivation messages that rotate every five seconds.
+- [x] Apply consistent subtle press animations and feedback to interactive controls across the app.

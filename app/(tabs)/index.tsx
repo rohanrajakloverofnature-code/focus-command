@@ -22,6 +22,7 @@ import { RankCharacter, RankCharacterAchievement } from "@/components/rank-chara
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { playFocusRole, playFocusSuccessCue } from "@/lib/focus-audio";
+import { getForecastMotivationMessages } from "@/lib/home-motivation";
 import {
   formatCompactNumber,
   formatHours,
@@ -31,6 +32,7 @@ import {
   getCurrentCombo,
   getCurrentTitle,
   getDailyProgress,
+  getEmotionalPatternForecast,
   getEnergy,
   getGoldBalance,
   getLevelInfo,
@@ -61,6 +63,7 @@ export default function HomeScreen() {
   const milestones = useRef({ level: level.level, title: title.title, combo: combo.multiplier });
   const [homeCelebration, setHomeCelebration] = useState<CelebrationKind | null>(null);
   const [showRankAchievement, setShowRankAchievement] = useState(false);
+  const [motivationIndex, setMotivationIndex] = useState(0);
 
   useEffect(() => {
     if (!ready) return;
@@ -73,7 +76,23 @@ export default function HomeScreen() {
     milestones.current = { level: level.level, title: title.title, combo: combo.multiplier };
   }, [combo.multiplier, level.level, ready, state.profile.soundEnabled, state.profile.soundRoles.extended, title.title]);
 
+  const forecast = getEmotionalPatternForecast(state);
+  const motivationMessages = getForecastMotivationMessages(forecast);
+
+  useEffect(() => {
+    setMotivationIndex(0);
+  }, [forecast.available, forecast.outlook, forecast.sampleSize]);
+
+  useEffect(() => {
+    if (motivationMessages.length < 2) return;
+    const rotation = setInterval(() => {
+      setMotivationIndex((current) => (current + 1) % motivationMessages.length);
+    }, 5_000);
+    return () => clearInterval(rotation);
+  }, [forecast.available, forecast.outlook, forecast.sampleSize, motivationMessages.length]);
+
   if (!ready) return <LoadingScreen />;
+  const motivation = motivationMessages[motivationIndex % motivationMessages.length] ?? motivationMessages[0];
   const openRankAchievement = () => {
     setShowRankAchievement(true);
     void playFocusSuccessCue(state.profile.soundEnabled, state.profile.soundRoles.missionWin);
@@ -88,7 +107,6 @@ export default function HomeScreen() {
   const goldBalance = getGoldBalance(state);
   const lifetimeGold = getLifetimeGold(state);
   const goldMultiplier = activeGoldMultiplier(state);
-  const topSubject = [...subjectCapture].sort((a, b) => b.capture - a.capture)[0];
   const operatorScale = Math.min(1.2, 0.9 + totalPower / 5_000);
   const journalByDate = new Map(state.journals.map((entry) => [entry.localDate, entry.points]));
   const journalBars = Array.from({ length: 30 }, (_, index) => {
@@ -142,10 +160,8 @@ export default function HomeScreen() {
               <Text numberOfLines={1} style={styles.operatorName}>{title.title.toUpperCase()}</Text>
             </View>
             <View style={styles.heroCopy}>
-              <Text style={[styles.heroHeadline, { color: "#F5F9FF" }]}>Secure your next block.</Text>
-              <Text style={[styles.heroText, { color: "#A7B6C8" }]}>
-                {topSubject ? `${topSubject.subject} map capture is ${Math.round(topSubject.capture * 100)}%.` : "Create your first mission to begin capturing territory."}
-              </Text>
+              <Text key={`motivation-headline-${forecast.outlook}-${motivationIndex}`} style={[styles.heroHeadline, { color: "#F5F9FF" }]}>{motivation.headline}</Text>
+              <Text key={`motivation-detail-${forecast.outlook}-${motivationIndex}`} style={[styles.heroText, { color: "#A7B6C8" }]}>{motivation.detail}</Text>
               <View style={styles.heroStats}>
                 <View>
                   <Text style={[styles.heroStatValue, { color: "#F4C95D" }]}>{formatCompactNumber(totalPower)}</Text>

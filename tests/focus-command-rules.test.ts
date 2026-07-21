@@ -4,6 +4,7 @@ import {
   createInitialState,
   getActiveGoldMultiplier,
   getBossProgress,
+  getCalendarTimeAverages,
   getCurrentTitle,
   getDashboardStats,
   getEmotionalPatternForecast,
@@ -93,6 +94,34 @@ describe("Focus Command deterministic gameplay rules", () => {
 
     expect(getMissionInvestedMilliseconds(mission)).toBe(50 * 60_000);
     expect(getEnergy(state)).toMatchObject({ used: 15, remaining: 85, maximum: 100 });
+  });
+
+  it("calculates week-to-date and month-to-date averages across every elapsed calendar day, including a zero-work today", () => {
+    const state = stateWithToday();
+    const julySecond = completedMission({
+      id: "july_second",
+      startedAt: "2026-07-02T07:00:00.000Z",
+      endedAt: "2026-07-02T10:00:00.000Z",
+      completedAt: "2026-07-02T10:00:00.000Z",
+      pausedMilliseconds: 0,
+    });
+    const monday = completedMission({
+      id: "monday",
+      startedAt: "2026-07-06T08:00:00.000Z",
+      endedAt: "2026-07-06T10:00:00.000Z",
+      completedAt: "2026-07-06T10:00:00.000Z",
+      pausedMilliseconds: 0,
+    });
+    state.missions.push(julySecond, monday);
+
+    const mondayAverage = getCalendarTimeAverages(state, "2026-07-06T12:00:00.000Z");
+    expect(mondayAverage).toMatchObject({ weekElapsedDays: 1, monthElapsedDays: 6, weekTotalHours: 2, monthTotalHours: 5, weekDailyAverageHours: 2 });
+    expect(mondayAverage.monthDailyAverageHours).toBeCloseTo(5 / 6, 8);
+
+    const wednesdayAverage = getCalendarTimeAverages(state, "2026-07-08T12:00:00.000Z");
+    expect(wednesdayAverage).toMatchObject({ weekElapsedDays: 3, monthElapsedDays: 8, weekTotalHours: 2, monthTotalHours: 5 });
+    expect(wednesdayAverage.weekDailyAverageHours).toBeCloseTo(2 / 3, 8);
+    expect(wednesdayAverage.monthDailyAverageHours).toBeCloseTo(5 / 8, 8);
   });
 
   it("returns only due revision topics and measures subject capture from completed reviews", () => {

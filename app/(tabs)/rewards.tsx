@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
+import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill, TapFeedback } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -121,7 +121,12 @@ export default function RewardsScreen() {
         {inventory.length ? (
           <CommandCard accent={colors.primary} style={styles.inventoryCard}>
             <View style={styles.inventoryHeading}>
-              <Pressable onPress={() => router.push("/inventory" as never)} style={({ pressed }) => ({ opacity: pressed ? 0.68 : 1 })}><Text style={[styles.inventoryTitle, { color: colors.foreground }]}>Active inventory · Open armory</Text></Pressable>
+              <TapFeedback onPress={() => router.push("/inventory" as never)} accessibilityLabel="Open active inventory and armory" style={styles.inventoryArmoryLink}>
+                <View>
+                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78} style={[styles.inventoryTitle, { color: colors.foreground }]}>Active inventory</Text>
+                  <Text numberOfLines={1} style={[styles.inventoryArmoryText, { color: colors.primary }]}>Open armory ›</Text>
+                </View>
+              </TapFeedback>
               <StatusPill label={`${inventory.length} ACTIVE`} tone="primary" icon="shield.fill" />
             </View>
             {inventory.map(({ item, reward }) => reward ? (
@@ -152,13 +157,13 @@ export default function RewardsScreen() {
               <Text style={[styles.inputLabel, { color: colors.muted }]}>CATEGORY</Text>
               <View style={styles.categoryChoices}>
                 {(["life", "gear", "power", "multiplier"] as RewardCategory[]).map((value) => (
-                  <Pressable key={value} onPress={() => setDraftCategory(value)} style={({ pressed }) => [styles.categoryChoice, { backgroundColor: draftCategory === value ? `${colors.primary}1B` : colors.background, borderColor: draftCategory === value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1 }]}>
+                  <Pressable key={value} onPress={() => setDraftCategory(value)} style={({ pressed }) => [styles.categoryChoice, { backgroundColor: draftCategory === value ? `${colors.primary}1B` : colors.background, borderColor: draftCategory === value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                     <Text style={[styles.categoryChoiceText, { color: draftCategory === value ? colors.primary : colors.muted }]}>{value.toUpperCase()}</Text>
                   </Pressable>
                 ))}
               </View>
             </View>
-            <Pressable onPress={() => setLootEnabled((value) => !value)} style={({ pressed }) => [styles.lootToggle, { borderColor: lootEnabled ? "#F4C95D" : colors.border, backgroundColor: lootEnabled ? "#F4C95D16" : colors.background, opacity: pressed ? 0.75 : 1 }]}>
+            <Pressable onPress={() => setLootEnabled((value) => !value)} style={({ pressed }) => [styles.lootToggle, { borderColor: lootEnabled ? "#F4C95D" : colors.border, backgroundColor: lootEnabled ? "#F4C95D16" : colors.background, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
               <IconSymbol name="gift.fill" size={18} color={lootEnabled ? "#F4C95D" : colors.muted} />
               <View style={styles.lootToggleCopy}>
                 <Text style={[styles.lootToggleTitle, { color: colors.foreground }]}>Eligible for loot drops</Text>
@@ -173,7 +178,7 @@ export default function RewardsScreen() {
 
         <View style={styles.categoryRow}>
           {categories.map((item) => (
-            <Pressable key={item.value} onPress={() => setCategory(item.value)} style={({ pressed }) => [styles.categoryPill, { backgroundColor: category === item.value ? `${colors.primary}1B` : colors.surface, borderColor: category === item.value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1 }]}>
+            <Pressable key={item.value} onPress={() => setCategory(item.value)} style={({ pressed }) => [styles.categoryPill, { backgroundColor: category === item.value ? `${colors.primary}1B` : colors.surface, borderColor: category === item.value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
               <IconSymbol name={item.icon} size={14} color={category === item.value ? colors.primary : colors.muted} />
               <Text style={[styles.categoryLabel, { color: category === item.value ? colors.primary : colors.muted }]}>{item.label}</Text>
             </Pressable>
@@ -196,8 +201,8 @@ export default function RewardsScreen() {
                       <Text style={[styles.rewardDescription, { color: colors.muted }]}>{reward.description}</Text>
                     </View>
                     <View style={styles.rewardActions}>
-                      <Pressable onPress={() => openEditor(reward)} style={({ pressed }) => [styles.rewardAction, { borderColor: colors.border, opacity: pressed ? 0.68 : 1 }]}><Text style={[styles.rewardActionText, { color: colors.primary }]}>EDIT</Text></Pressable>
-                      <Pressable onPress={() => confirmDelete(reward.id, reward.title)} style={({ pressed }) => [styles.rewardAction, { borderColor: `${colors.error}70`, opacity: pressed ? 0.68 : 1 }]}><Text style={[styles.rewardActionText, { color: colors.error }]}>DELETE</Text></Pressable>
+                      <Pressable onPress={() => openEditor(reward)} style={({ pressed }) => [styles.rewardAction, { borderColor: colors.border, opacity: pressed ? 0.68 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.rewardActionText, { color: colors.primary }]}>EDIT</Text></Pressable>
+                      <Pressable onPress={() => confirmDelete(reward.id, reward.title)} style={({ pressed }) => [styles.rewardAction, { borderColor: `${colors.error}70`, opacity: pressed ? 0.68 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.rewardActionText, { color: colors.error }]}>DELETE</Text></Pressable>
                       <StatusPill label={`${reward.goldCost} G`} tone="gold" icon="star.fill" />
                     </View>
                   </View>
@@ -228,8 +233,10 @@ const styles = StyleSheet.create({
   walletValue: { fontSize: 42, lineHeight: 48, letterSpacing: -1.1, fontWeight: "900" },
   walletDetail: { fontSize: 12, lineHeight: 17, fontWeight: "500" },
   inventoryCard: { gap: 11 },
-  inventoryHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  inventoryTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },
+  inventoryHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  inventoryArmoryLink: { flex: 1, minWidth: 0, gap: 1 },
+  inventoryTitle: { fontSize: 15, lineHeight: 19, fontWeight: "900" },
+  inventoryArmoryText: { fontSize: 11, lineHeight: 15, fontWeight: "900" },
   inventoryItem: { flexDirection: "row", gap: 10, alignItems: "center" },
   inventoryCopy: { flex: 1 },
   inventoryName: { fontSize: 13, lineHeight: 18, fontWeight: "800" },

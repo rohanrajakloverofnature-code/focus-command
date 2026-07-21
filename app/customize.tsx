@@ -131,7 +131,7 @@ export default function CustomizeScreen() {
           <View style={styles.typeChoices}>
             {questionTypes.map((choice) => {
               const active = questionType === choice.type;
-              return <Pressable key={choice.type} onPress={() => setQuestionType(choice.type)} style={({ pressed }) => [styles.typeChoice, { backgroundColor: active ? `${colors.success}1D` : colors.background, borderColor: active ? colors.success : colors.border, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.typeChoiceText, { color: active ? colors.success : colors.muted }]}>{choice.label}</Text></Pressable>;
+              return <Pressable key={choice.type} onPress={() => setQuestionType(choice.type)} style={({ pressed }) => [styles.typeChoice, { backgroundColor: active ? `${colors.success}1D` : colors.background, borderColor: active ? colors.success : colors.border, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.typeChoiceText, { color: active ? colors.success : colors.muted }]}>{choice.label}</Text></Pressable>;
             })}
           </View>
           {questionType === "single_choice" || questionType === "multiple_choice" ? <TextInput value={questionOptions} onChangeText={setQuestionOptions} placeholder="Choices, separated by commas" placeholderTextColor={colors.muted} style={[styles.questionInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /> : null}
@@ -159,7 +159,7 @@ export default function CustomizeScreen() {
               <View style={styles.metricChoices}>
                 {["#F4C95D", "#A78BFA", "#49D17D", "#C092FF", "#FFAA4C"].map((color) => {
                   const selected = chart.color === color;
-                  return <Pressable key={color} onPress={() => updateEmotionalChart(chart.id, { color })} style={({ pressed }) => [styles.colorChoice, { borderColor: selected ? color : colors.border, backgroundColor: selected ? `${color}1D` : colors.surface, opacity: pressed ? 0.72 : 1 }]}><View style={[styles.metricDot, { backgroundColor: color }]} /><Text style={[styles.metricChoiceText, { color: selected ? color : colors.muted }]}>ACCENT</Text></Pressable>;
+                  return <Pressable key={color} onPress={() => updateEmotionalChart(chart.id, { color })} style={({ pressed }) => [styles.colorChoice, { borderColor: selected ? color : colors.border, backgroundColor: selected ? `${color}1D` : colors.surface, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><View style={[styles.metricDot, { backgroundColor: color }]} /><Text style={[styles.metricChoiceText, { color: selected ? color : colors.muted }]}>ACCENT</Text></Pressable>;
                 })}
               </View>
             </View>
@@ -175,7 +175,7 @@ export default function CustomizeScreen() {
                   <Text style={[styles.graphTitle, { color: colors.foreground }]}>{graph.title || `Custom graph ${index + 1}`}</Text>
                   <Text style={[styles.graphDetail, { color: colors.muted }]}>{graph.series.length}/5 post-mission lines selected.</Text>
                 </View>
-                <Pressable onPress={() => updateCustomGraph(graph.id, { enabled: !graph.enabled })} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+                <Pressable onPress={() => updateCustomGraph(graph.id, { enabled: !graph.enabled })} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}>
                   <StatusPill label={graph.enabled ? "ENABLED" : "OFF"} tone={graph.enabled ? "success" : "neutral"} />
                 </Pressable>
               </View>
@@ -184,7 +184,7 @@ export default function CustomizeScreen() {
                 {graphMetrics.map((metric) => {
                   const active = graph.series.some((series) => series.metric === metric.metric);
                   return (
-                    <Pressable key={metric.metric} onPress={() => toggleMetric(graph.id, metric.metric, metric.label, metric.color)} style={({ pressed }) => [styles.metricChoice, { backgroundColor: active ? `${metric.color}1D` : colors.background, borderColor: active ? metric.color : colors.border, opacity: pressed ? 0.75 : 1 }]}>
+                    <Pressable key={metric.metric} onPress={() => toggleMetric(graph.id, metric.metric, metric.label, metric.color)} style={({ pressed }) => [styles.metricChoice, { backgroundColor: active ? `${metric.color}1D` : colors.background, borderColor: active ? metric.color : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                       <View style={[styles.metricDot, { backgroundColor: metric.color }]} />
                       <Text style={[styles.metricChoiceText, { color: active ? metric.color : colors.muted }]}>{metric.label}</Text>
                     </Pressable>
@@ -215,7 +215,7 @@ function QuestionEditor({ question, onUpdate, onRemove }: { question: CustomQues
       <View style={styles.typeChoices}>
         {questionTypes.map((choice) => {
           const active = question.type === choice.type;
-          return <Pressable key={choice.type} onPress={() => onUpdate({ type: choice.type, options: choice.type === "single_choice" || choice.type === "multiple_choice" ? question.options : [] })} style={({ pressed }) => [styles.typeChoice, { backgroundColor: active ? `${colors.success}1D` : colors.surface, borderColor: active ? colors.success : colors.border, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.typeChoiceText, { color: active ? colors.success : colors.muted }]}>{choice.label}</Text></Pressable>;
+          return <Pressable key={choice.type} onPress={() => onUpdate({ type: choice.type, options: choice.type === "single_choice" || choice.type === "multiple_choice" ? question.options : [] })} style={({ pressed }) => [styles.typeChoice, { backgroundColor: active ? `${colors.success}1D` : colors.surface, borderColor: active ? colors.success : colors.border, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.typeChoiceText, { color: active ? colors.success : colors.muted }]}>{choice.label}</Text></Pressable>;
         })}
       </View>
       {isChoice ? <TextInput value={question.options.join(", ")} onChangeText={(value) => onUpdate({ options: parseOptions(value) })} placeholder="Choices, separated by commas" placeholderTextColor={colors.muted} style={[styles.questionInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} /> : null}

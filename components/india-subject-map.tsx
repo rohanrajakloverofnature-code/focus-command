@@ -24,25 +24,25 @@ interface IndiaSubjectMapProps {
 }
 
 type AnchorName = keyof typeof INDIA_MAP_ANCHORS;
-type TerritorySlot = { id: AnchorName; path: string };
+type TerritorySlot = { id: AnchorName; radius: number };
 
 /**
- * These stylized capture cells are clipped to the licensed geographic India boundary.
- * They are player-generated subject territories, never administrative or political areas.
+ * One compact cell is reserved for each geographic anchor. Cells never share a
+ * slot, and are clipped to the India boundary, so subject zones cannot overlap.
  */
 const TERRITORY_SLOTS: TerritorySlot[] = [
-  { id: "north", path: "M57 35 L132 37 L151 80 L124 113 L69 108 L48 72 Z" },
-  { id: "northwest", path: "M34 96 L95 89 L122 128 L100 163 L39 155 L25 123 Z" },
-  { id: "north_central", path: "M90 93 L154 83 L175 130 L145 166 L94 150 L71 122 Z" },
-  { id: "central", path: "M92 145 L165 140 L183 190 L143 220 L86 201 L70 172 Z" },
-  { id: "west", path: "M28 164 L88 154 L108 198 L85 235 L35 231 L19 201 Z" },
-  { id: "midwest", path: "M60 204 L133 194 L155 238 L120 270 L68 257 L47 228 Z" },
-  { id: "east", path: "M143 144 L224 139 L240 190 L197 221 L150 205 L130 174 Z" },
-  { id: "northeast", path: "M208 98 L306 103 L306 181 L244 198 L211 162 L190 129 Z" },
-  { id: "south_central", path: "M92 241 L155 229 L173 274 L141 301 L98 285 L77 260 Z" },
-  { id: "southwest", path: "M57 263 L117 257 L137 305 L111 336 L75 321 L58 288 Z" },
-  { id: "southeast", path: "M117 269 L163 262 L179 310 L146 341 L114 318 Z" },
-  { id: "south", path: "M93 302 L145 296 L156 350 L123 371 L99 343 Z" },
+  { id: "north", radius: 18 },
+  { id: "northwest", radius: 16 },
+  { id: "north_central", radius: 16 },
+  { id: "central", radius: 17 },
+  { id: "west", radius: 17 },
+  { id: "midwest", radius: 14 },
+  { id: "east", radius: 18 },
+  { id: "northeast", radius: 17 },
+  { id: "south_central", radius: 13 },
+  { id: "southwest", radius: 13 },
+  { id: "southeast", radius: 13 },
+  { id: "south", radius: 11 },
 ];
 
 const PALETTE = ["#8B5CF6", "#F4C95D", "#49D17D", "#C092FF", "#FF6B6B", "#FFAA4C", "#E879F9", "#9CCC65", "#FF8A80", "#BA8CFF", "#F59E0B", "#7DD3FC"];
@@ -52,17 +52,29 @@ function hashSubject(value: string) {
 }
 
 function shortLabel(value: string) {
-  return value.length > 13 ? `${value.slice(0, 12)}…` : value;
+  return value.length > 7 ? `${value.slice(0, 6)}…` : value;
+}
+
+function hexagonPath(x: number, y: number, radius: number) {
+  const points = Array.from({ length: 6 }, (_, index) => {
+    const angle = Math.PI / 3 * index - Math.PI / 6;
+    return [x + Math.cos(angle) * radius, y + Math.sin(angle) * radius] as const;
+  });
+  return `M${points.map(([pointX, pointY]) => `${pointX.toFixed(2)} ${pointY.toFixed(2)}`).join(" L")} Z`;
 }
 
 export function IndiaSubjectMap({ subjects, accent, foreground, muted, surface, border, onOpenSubject }: IndiaSubjectMapProps) {
   const [selected, setSelected] = useState<string | null>(subjects[0]?.subject ?? null);
-  const positioned = useMemo(() => [...subjects]
-    .sort((left, right) => hashSubject(left.subject) - hashSubject(right.subject))
-    .map((subject, index) => {
-      const slot = TERRITORY_SLOTS[index % TERRITORY_SLOTS.length];
-      return { subject, index, slot, color: PALETTE[index % PALETTE.length] ?? accent };
-    }), [subjects, accent]);
+  const { positioned, overflowCount } = useMemo(() => {
+    const ranked = [...subjects].sort((left, right) => right.capture - left.capture || hashSubject(left.subject) - hashSubject(right.subject));
+    return {
+      positioned: ranked.slice(0, TERRITORY_SLOTS.length).map((subject, index) => {
+        const slot = TERRITORY_SLOTS[index];
+        return { subject, index, slot, color: PALETTE[index % PALETTE.length] ?? accent };
+      }),
+      overflowCount: Math.max(0, ranked.length - TERRITORY_SLOTS.length),
+    };
+  }, [subjects, accent]);
   const selectedTerritory = positioned.find(({ subject }) => subject.subject === selected)?.subject ?? positioned[0]?.subject ?? null;
 
   if (!subjects.length) {
@@ -91,14 +103,15 @@ export function IndiaSubjectMap({ subjects, accent, foreground, muted, surface, 
             const anchor = INDIA_MAP_ANCHORS[slot.id];
             const selectedNow = selectedTerritory?.subject === subject.subject;
             const percentage = Math.round(subject.capture * 100);
-            const depth = Math.max(3, Math.round(subject.capture * 10));
+            const depth = Math.max(2, Math.round(subject.capture * 5));
+            const cellPath = hexagonPath(anchor.x, anchor.y, slot.radius);
             return <G key={subject.subject} onPress={() => setSelected(subject.subject)}>
-              <Path d={slot.path} fill="#060914" opacity={0.72} transform={`translate(2 ${depth + 3})`} />
-              <Path d={slot.path} fill={`${color}${selectedNow ? "F2" : "B6"}`} stroke={selectedNow ? "#FFFFFF" : `${color}F2`} strokeWidth={selectedNow ? 2.25 : 1.15} />
-              {selectedNow ? <Path d={slot.path} fill="none" stroke="#FFFFFF88" strokeWidth={0.8} transform="translate(-1 -1)" /> : null}
-              <SvgText x={anchor.x} y={anchor.y - 4} fill="#FFFFFF" fontSize="8.2" fontWeight="800" textAnchor="middle">{shortLabel(subject.subject)}</SvgText>
-              <SvgText x={anchor.x} y={anchor.y + 8} fill="#0B1221" fontSize="12" fontWeight="900" textAnchor="middle">{percentage}%</SvgText>
-              {index < 6 ? <Path d={`M${anchor.x - 9} ${anchor.y + 14} H${anchor.x + 9}`} stroke="#FFFFFFAA" strokeWidth="1" /> : null}
+              <Path d={cellPath} fill="#060914" opacity={0.7} transform={`translate(1.5 ${depth + 2})`} />
+              <Path d={cellPath} fill={`${color}${selectedNow ? "F2" : "C4"}`} stroke={selectedNow ? "#FFFFFF" : `${color}F2`} strokeWidth={selectedNow ? 1.9 : 1.05} />
+              {selectedNow ? <Path d={cellPath} fill="none" stroke="#FFFFFF88" strokeWidth={0.65} transform="translate(-0.8 -0.8)" /> : null}
+              <SvgText x={anchor.x} y={anchor.y - 3} fill="#FFFFFF" fontSize="6.6" fontWeight="800" textAnchor="middle">{shortLabel(subject.subject)}</SvgText>
+              <SvgText x={anchor.x} y={anchor.y + 8} fill="#0B1221" fontSize="9.8" fontWeight="900" textAnchor="middle">{percentage}%</SvgText>
+              {index < 6 ? <Path d={`M${anchor.x - 6} ${anchor.y + 12} H${anchor.x + 6}`} stroke="#FFFFFFAA" strokeWidth="0.75" /> : null}
             </G>;
           })}
         </G>
@@ -107,10 +120,10 @@ export function IndiaSubjectMap({ subjects, accent, foreground, muted, surface, 
       </Svg>
       <View style={styles.mapKey}>
         <View style={[styles.mapKeyDot, { backgroundColor: accent }]} />
-        <Text style={[styles.mapKeyText, { color: muted }]}>Geographic India boundary · stylized subject capture regions are generated from your missions and revision logs</Text>
+        <Text style={[styles.mapKeyText, { color: muted }]}>Geographic India boundary · non-overlapping subject capture cells are generated from your missions and revision logs{overflowCount ? ` · ${overflowCount} additional subject${overflowCount === 1 ? "" : "s"} in registry` : ""}</Text>
       </View>
     </View>
-    {selectedTerritory ? <Pressable onPress={() => onOpenSubject(selectedTerritory.subject)} style={({ pressed }) => [styles.detailCard, { borderColor: `${accent}66`, backgroundColor: `${accent}10`, opacity: pressed ? 0.76 : 1 }]}>
+    {selectedTerritory ? <Pressable onPress={() => onOpenSubject(selectedTerritory.subject)} style={({ pressed }) => [styles.detailCard, { borderColor: `${accent}66`, backgroundColor: `${accent}10`, opacity: pressed ? 0.76 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
       <View style={styles.detailCopy}>
         <Text style={[styles.detailTitle, { color: foreground }]}>{selectedTerritory.subject}</Text>
         <Text style={[styles.detailText, { color: muted }]}>{selectedTerritory.completed}/{selectedTerritory.total} captured · {selectedTerritory.active} live · {selectedTerritory.planned} planned</Text>

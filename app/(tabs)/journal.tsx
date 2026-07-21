@@ -68,11 +68,11 @@ export default function JournalScreen() {
             <View style={styles.questionBlock}>
               <Text style={[styles.questionLabel, { color: colors.foreground }]}>Were you better than yesterday?</Text>
               <View style={styles.answerRow}>
-                <Pressable onPress={() => setBetter(true)} style={({ pressed }) => [styles.answer, { backgroundColor: better ? `${colors.success}20` : colors.background, borderColor: better ? colors.success : colors.border, opacity: pressed ? 0.75 : 1 }]}>
+                <Pressable onPress={() => setBetter(true)} style={({ pressed }) => [styles.answer, { backgroundColor: better ? `${colors.success}20` : colors.background, borderColor: better ? colors.success : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                   <IconSymbol name="checklist" size={18} color={better ? colors.success : colors.muted} />
                   <Text style={[styles.answerText, { color: better ? colors.success : colors.muted }]}>Yes</Text>
                 </Pressable>
-                <Pressable onPress={() => setBetter(false)} style={({ pressed }) => [styles.answer, { backgroundColor: !better ? `${colors.warning}20` : colors.background, borderColor: !better ? colors.warning : colors.border, opacity: pressed ? 0.75 : 1 }]}>
+                <Pressable onPress={() => setBetter(false)} style={({ pressed }) => [styles.answer, { backgroundColor: !better ? `${colors.warning}20` : colors.background, borderColor: !better ? colors.warning : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                   <IconSymbol name="arrow.clockwise" size={18} color={!better ? colors.warning : colors.muted} />
                   <Text style={[styles.answerText, { color: !better ? colors.warning : colors.muted }]}>Not yet</Text>
                 </Pressable>

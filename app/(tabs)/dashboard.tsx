@@ -1,13 +1,13 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { BarsChart, ChartPoint, DonutChart, LineTrendChart, MultiLineTrendChart, RadarChart } from "@/components/focus-charts";
-import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
+import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, StatusPill, TapFeedback } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, getDashboardStats, getEmotionalPatternForecast, getMissionInvestedMilliseconds, getTotalPower, getWellbeingInsight, toLocalDate, useFocusCommand } from "@/lib/focus-command";
+import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getMissionInvestedMilliseconds, getTotalPower, getWellbeingInsight, toLocalDate, useFocusCommand } from "@/lib/focus-command";
 
 function createDaySeries(days: number, profileTimezone: string) {
   return Array.from({ length: days }, (_, index) => {
@@ -122,9 +122,7 @@ export default function DashboardScreen() {
     setLifelineNote("");
   };
 
-  const totalTimeHours = state.missions.filter((mission) => mission.status === "completed").reduce((total, mission) => total + getMissionInvestedMilliseconds(mission), 0) / 3_600_000;
-  const weeklyHours = timeSeries.reduce((total, point) => total + point.value, 0) / 2;
-  const monthlyHours = timeSeries.reduce((total, point) => total + point.value, 0);
+  const timeAverages = getCalendarTimeAverages(state);
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background">
@@ -139,8 +137,8 @@ export default function DashboardScreen() {
         <View style={styles.metrics}>
           <MetricTile label="Total power" value={formatCompactNumber(getTotalPower(state))} detail="Immutable awarded ledger" icon="shield.fill" accent="#F4C95D" />
           <MetricTile label="Daily average" value={`${dashboard.averageDailyHours.toFixed(1)} h`} detail="Across active days" icon="timer" accent={colors.primary} />
-          <MetricTile label="Weekly average" value={`${weeklyHours.toFixed(1)} h`} detail="Last 14 days / 2" icon="chart.xyaxis.line" accent={colors.success} />
-          <MetricTile label="Monthly time" value={`${monthlyHours.toFixed(1)} h`} detail={`${totalTimeHours.toFixed(1)} h all time`} icon="target" accent={colors.warning} />
+          <MetricTile label="Weekly average" value={`${timeAverages.weekDailyAverageHours.toFixed(1)} h`} detail={`${timeAverages.weekElapsedDays} elapsed day${timeAverages.weekElapsedDays === 1 ? "" : "s"} · ${timeAverages.weekTotalHours.toFixed(1)} h total`} icon="chart.xyaxis.line" accent={colors.success} />
+          <MetricTile label="Monthly average" value={`${timeAverages.monthDailyAverageHours.toFixed(1)} h`} detail={`${timeAverages.monthElapsedDays} elapsed day${timeAverages.monthElapsedDays === 1 ? "" : "s"} · ${timeAverages.monthTotalHours.toFixed(1)} h total`} icon="target" accent={colors.warning} />
         </View>
 
         <SectionHeader title="Recognition window" />
@@ -198,7 +196,7 @@ export default function DashboardScreen() {
         </> : null}
 
         <SectionHeader title="Wellbeing insight" />
-        <Pressable onPress={() => router.push("/wellbeing-insight" as never)} accessibilityRole="button" accessibilityLabel="Open non-clinical wellbeing insight" style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}>
+        <TapFeedback onPress={() => router.push("/wellbeing-insight" as never)} accessibilityLabel="Open non-clinical wellbeing insight">
           <CommandCard accent={wellbeing.available ? wellbeing.balanceScore >= 68 ? colors.success : wellbeing.balanceScore >= 45 ? colors.warning : colors.error : colors.primary} style={styles.wellbeingCard}>
             <View style={styles.wellbeingHeading}>
               <View style={styles.wellbeingCopy}>
@@ -216,7 +214,7 @@ export default function DashboardScreen() {
               <Text style={[styles.wellbeingOpen, { color: colors.primary }]}>VIEW DETAIL ›</Text>
             </View>
           </CommandCard>
-        </Pressable>
+        </TapFeedback>
 
         <SectionHeader title="Emotional intelligence" />
         <InteractiveChartCard title="Emotional radar" detail="How you tend to feel after finishing work" tag="INSIGHT" onPress={() => router.push("/analytics?metric=emotion" as never)}>
@@ -300,19 +298,21 @@ export default function DashboardScreen() {
 function RecognitionCard({ title, subtitle, items, icon, accent, onPress }: { title: string; subtitle: string; items: string[]; icon: "trophy.fill" | "star.fill"; accent: string; onPress: () => void }) {
   const colors = useColors();
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.recognitionCard, { backgroundColor: colors.surface, borderColor: `${accent}55`, opacity: pressed ? 0.78 : 1 }]}>
-      <View style={[styles.recognitionIcon, { backgroundColor: `${accent}18` }]}><IconSymbol name={icon} size={20} color={accent} /></View>
-      <Text style={[styles.recognitionTitle, { color: colors.foreground }]}>{title}</Text>
-      <Text numberOfLines={3} style={[styles.recognitionDetail, { color: colors.muted }]}>{items.length ? items.slice(0, 2).join(" · ") : subtitle}</Text>
-      <StatusPill label={items.length ? `${items.length} LIVE` : "AWAITING DATA"} tone={items.length ? "success" : "neutral"} />
-    </Pressable>
+    <TapFeedback onPress={onPress} accessibilityLabel={`Open ${title}`}>
+      <View style={[styles.recognitionCard, { backgroundColor: colors.surface, borderColor: `${accent}55` }]}>
+        <View style={[styles.recognitionIcon, { backgroundColor: `${accent}18` }]}><IconSymbol name={icon} size={20} color={accent} /></View>
+        <Text style={[styles.recognitionTitle, { color: colors.foreground }]}>{title}</Text>
+        <Text numberOfLines={3} style={[styles.recognitionDetail, { color: colors.muted }]}>{items.length ? items.slice(0, 2).join(" · ") : subtitle}</Text>
+        <StatusPill label={items.length ? `${items.length} LIVE` : "AWAITING DATA"} tone={items.length ? "success" : "neutral"} />
+      </View>
+    </TapFeedback>
   );
 }
 
 function InteractiveChartCard({ title, detail, tag, onPress, children }: { title: string; detail: string; tag: string; onPress: () => void; children: React.ReactNode }) {
   const colors = useColors();
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.82 : 1 })}>
+    <TapFeedback onPress={onPress} accessibilityLabel={`Open ${title}`}>
       <CommandCard accent={colors.primary} style={styles.chartCard}>
         <View style={styles.chartHeading}>
           <View style={styles.chartCopy}>
@@ -323,7 +323,7 @@ function InteractiveChartCard({ title, detail, tag, onPress, children }: { title
         </View>
         {children}
       </CommandCard>
-    </Pressable>
+    </TapFeedback>
   );
 }
 

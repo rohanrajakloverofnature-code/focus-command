@@ -1,18 +1,28 @@
 import { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
 import { PlatformPressable } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { Platform } from "react-native";
+
+import { useFocusCommand } from "@/lib/focus-command";
 
 export function HapticTab(props: BottomTabBarButtonProps) {
+  const { state } = useFocusCommand();
+  const scale = useSharedValue(1);
+  const scaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const pressIn = (event: Parameters<NonNullable<BottomTabBarButtonProps["onPressIn"]>>[0]) => {
+    if (!state.profile.reduceMotion) scale.value = withTiming(0.94, { duration: 70 });
+    if (state.profile.hapticsEnabled && Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    props.onPressIn?.(event);
+  };
+  const pressOut = (event: Parameters<NonNullable<BottomTabBarButtonProps["onPressOut"]>>[0]) => {
+    if (!state.profile.reduceMotion) scale.value = withTiming(1, { duration: 140 });
+    props.onPressOut?.(event);
+  };
+
   return (
-    <PlatformPressable
-      {...props}
-      onPressIn={(ev) => {
-        if (process.env.EXPO_OS === "ios") {
-          // Add a soft haptic feedback when pressing down on the tabs.
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-        props.onPressIn?.(ev);
-      }}
-    />
+    <Animated.View style={scaleStyle}>
+      <PlatformPressable {...props} onPressIn={pressIn} onPressOut={pressOut} />
+    </Animated.View>
   );
 }

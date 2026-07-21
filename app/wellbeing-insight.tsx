@@ -118,7 +118,7 @@ export default function WellbeingInsightScreen() {
             {insight.records.map((record) => {
               const expanded = expandedRecordId === record.id;
               const feelingColor = record.feelingAfter === "great" || record.feelingAfter === "charged" ? colors.success : record.feelingAfter === "drained" || record.feelingAfter === "restless" ? colors.warning : colors.primary;
-              return <Pressable key={record.id} onPress={() => setExpandedRecordId((current) => current === record.id ? null : record.id)} accessibilityRole="button" accessibilityState={{ expanded }} style={({ pressed }) => [styles.recordPressable, { opacity: pressed ? 0.78 : 1 }]}>
+              return <Pressable key={record.id} onPress={() => setExpandedRecordId((current) => current === record.id ? null : record.id)} accessibilityRole="button" accessibilityState={{ expanded }} style={({ pressed }) => [styles.recordPressable, { opacity: pressed ? 0.78 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                 <CommandCard accent={feelingColor} style={styles.recordCard}>
                   <View style={styles.recordHeading}>
                     <View style={styles.recordCopy}>

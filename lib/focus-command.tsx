@@ -777,6 +777,55 @@ export function getTodayInvestedMilliseconds(state: FocusState): number {
   return getTodayMissions(state).reduce((total, mission) => total + getMissionInvestedMilliseconds(mission), 0);
 }
 
+export interface CalendarTimeAverages {
+  today: string;
+  weekStart: string;
+  monthStart: string;
+  weekElapsedDays: number;
+  monthElapsedDays: number;
+  weekTotalHours: number;
+  monthTotalHours: number;
+  weekDailyAverageHours: number;
+  monthDailyAverageHours: number;
+}
+
+/**
+ * Returns week-to-date and month-to-date daily averages. Both denominator windows
+ * include the current local calendar day, even when no mission has been completed
+ * today, so a zero-work day naturally affects the displayed average.
+ */
+export function getCalendarTimeAverages(state: FocusState, referenceIso = nowIso()): CalendarTimeAverages {
+  const today = toLocalDate(referenceIso, state.profile.timezone);
+  const [year, month, day] = today.split("-").map(Number);
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  const daysSinceMonday = (weekday + 6) % 7;
+  const weekStart = addDays(today, -daysSinceMonday);
+  const monthStart = `${today.slice(0, 8)}01`;
+  const weekElapsedDays = differenceInDays(weekStart, today) + 1;
+  const monthElapsedDays = day;
+  let weekTotalHours = 0;
+  let monthTotalHours = 0;
+
+  state.missions.filter((mission) => mission.completedAt).forEach((mission) => {
+    const completedDate = toLocalDate(mission.completedAt!, state.profile.timezone);
+    const hours = getMissionInvestedMilliseconds(mission) / 3_600_000;
+    if (completedDate >= weekStart && completedDate <= today) weekTotalHours += hours;
+    if (completedDate >= monthStart && completedDate <= today) monthTotalHours += hours;
+  });
+
+  return {
+    today,
+    weekStart,
+    monthStart,
+    weekElapsedDays,
+    monthElapsedDays,
+    weekTotalHours,
+    monthTotalHours,
+    weekDailyAverageHours: weekElapsedDays ? weekTotalHours / weekElapsedDays : 0,
+    monthDailyAverageHours: monthElapsedDays ? monthTotalHours / monthElapsedDays : 0,
+  };
+}
+
 export function getPendingRevisions(state: FocusState): SrsTopic[] {
   const today = toLocalDate(nowIso(), state.profile.timezone);
   return state.srsTopics.filter((topic) => topic.status !== "completed" && topic.dueDate <= today).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
