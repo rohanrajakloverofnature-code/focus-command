@@ -1,9 +1,9 @@
 import { useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { CelebrationOverlay } from "@/components/celebration-overlay";
-import { CommandButton, CommandCard, EmptyCommandState, FeedbackPressable, IconAction, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
+import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -35,7 +35,7 @@ export default function JournalScreen() {
       return;
     }
     addJournal({ betterThanYesterday: better, points: amount, note });
-    void playFocusRole("achievement", state.profile.soundEnabled, state.profile.soundRoles.achievement);
+    void playFocusRole("extended", state.profile.soundEnabled, state.profile.soundRoles.extended);
     setShowComposer(false);
     setJournalCelebration(true);
   };
@@ -68,14 +68,14 @@ export default function JournalScreen() {
             <View style={styles.questionBlock}>
               <Text style={[styles.questionLabel, { color: colors.foreground }]}>Were you better than yesterday?</Text>
               <View style={styles.answerRow}>
-                <FeedbackPressable onPress={() => setBetter(true)} style={({ pressed }) => [styles.answer, { backgroundColor: better ? `${colors.success}20` : colors.background, borderColor: better ? colors.success : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+                <Pressable onPress={() => setBetter(true)} style={({ pressed }) => [styles.answer, { backgroundColor: better ? `${colors.success}20` : colors.background, borderColor: better ? colors.success : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                   <IconSymbol name="checklist" size={18} color={better ? colors.success : colors.muted} />
                   <Text style={[styles.answerText, { color: better ? colors.success : colors.muted }]}>Yes</Text>
-                </FeedbackPressable>
-                <FeedbackPressable onPress={() => setBetter(false)} style={({ pressed }) => [styles.answer, { backgroundColor: !better ? `${colors.warning}20` : colors.background, borderColor: !better ? colors.warning : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+                </Pressable>
+                <Pressable onPress={() => setBetter(false)} style={({ pressed }) => [styles.answer, { backgroundColor: !better ? `${colors.warning}20` : colors.background, borderColor: !better ? colors.warning : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                   <IconSymbol name="arrow.clockwise" size={18} color={!better ? colors.warning : colors.muted} />
                   <Text style={[styles.answerText, { color: !better ? colors.warning : colors.muted }]}>Not yet</Text>
-                </FeedbackPressable>
+                </Pressable>
               </View>
             </View>
 

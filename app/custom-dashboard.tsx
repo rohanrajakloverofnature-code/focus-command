@@ -1,9 +1,9 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { BarsChart, DonutChart, LineTrendChart, RadarChart } from "@/components/focus-charts";
-import { CommandButton, CommandCard, FeedbackPressable, IconAction, LoadingScreen, ScreenTitle, StatusPill } from "@/components/focus-ui";
+import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import {
@@ -157,13 +157,13 @@ function DashboardWidgetCard({
 
   return (
     <CommandCard accent={accent} style={styles.widgetCard}>
-      <FeedbackPressable onPress={onToggle} accessibilityRole="button" accessibilityLabel={`Edit ${widget.title || result.metricLabel} dashboard widget`} style={({ pressed }) => [styles.widgetHeading, { opacity: pressed ? 0.78 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+      <Pressable onPress={onToggle} accessibilityRole="button" accessibilityLabel={`Edit ${widget.title || result.metricLabel} dashboard widget`} style={({ pressed }) => [styles.widgetHeading, { opacity: pressed ? 0.78 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
         <View style={styles.widgetHeadingCopy}>
           <Text style={[styles.widgetTitle, { color: colors.foreground }]}>{widget.title.trim() || result.metricLabel}</Text>
           <Text style={[styles.widgetDescription, { color: colors.muted }]}>{result.metricLabel} · {rangeLabel} · {chartLabel}</Text>
         </View>
         <StatusPill label={expanded ? "EDITING" : "TAP TO EDIT"} tone={expanded ? "primary" : "neutral"} />
-      </FeedbackPressable>
+      </Pressable>
 
       <WidgetPreview widget={widget} result={result} accent={accent} />
 
@@ -222,7 +222,7 @@ function OptionGroup({ label, items, selected, accent, onChange }: { label: stri
     <Text style={[styles.fieldLabel, { color: colors.muted }]}>{label.toUpperCase()}</Text>
     <View style={styles.optionWrap}>{items.map((item) => {
       const active = selected === item.id;
-      return <FeedbackPressable key={item.id} onPress={() => onChange(item.id)} accessibilityRole="button" accessibilityState={{ selected: active }} style={({ pressed }) => [styles.option, { borderColor: active ? accent : colors.border, backgroundColor: active ? `${accent}18` : colors.surface, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text numberOfLines={1} style={[styles.optionLabel, { color: active ? accent : colors.muted }]}>{item.label}</Text></FeedbackPressable>;
+      return <Pressable key={item.id} onPress={() => onChange(item.id)} accessibilityRole="button" accessibilityState={{ selected: active }} style={({ pressed }) => [styles.option, { borderColor: active ? accent : colors.border, backgroundColor: active ? `${accent}18` : colors.surface, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text numberOfLines={1} style={[styles.optionLabel, { color: active ? accent : colors.muted }]}>{item.label}</Text></Pressable>;
     })}</View>
   </View>;
 }

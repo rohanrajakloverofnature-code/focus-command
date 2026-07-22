@@ -1,19 +1,19 @@
 import { router, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Appearance, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Alert, Appearance, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
-import { CommandButton, CommandCard, FeedbackPressable, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
+import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useGoogleSheetsAuth } from "@/hooks/use-google-sheets-auth";
 import { ComboTier, getComboTiers, PaletteToken, SoundRoleId, SoundStyle, useFocusCommand } from "@/lib/focus-command";
 import { clearSelectedFocusWorkbook, createFocusWorkbook, getFocusWorkbookMetadata, getGoogleAccessToken, getSelectedFocusWorkbook, getSpreadsheet, readFocusWorkbook, saveSelectedFocusWorkbook, writeFocusWorkbook } from "@/lib/google-sheets";
-import { configureDailyMissionReminder, enableFocusReminders, refreshScheduledReminderSounds } from "@/lib/focus-reminders";
+import { configureDailyMissionReminder, enableFocusReminders } from "@/lib/focus-reminders";
 import { useThemeContext } from "@/lib/theme-provider";
 import { playFocusRole } from "@/lib/focus-audio";
-import { pickAndPersistFocusSound, removePersistedFocusSound } from "@/lib/focus-sound-library";
+import { pickAndPersistFocusSound } from "@/lib/focus-sound-library";
 
 export default function SettingsScreen() {
   const colors = useColors();
@@ -34,7 +34,6 @@ export default function SettingsScreen() {
   const [newTierMultiplier, setNewTierMultiplier] = useState("");
   const [sheetId, setSheetId] = useState(state.googleSheet.spreadsheetId ?? "");
   const [sheetName, setSheetName] = useState(state.googleSheet.spreadsheetName || "Focus Command Data");
-  const [savingSoundRole, setSavingSoundRole] = useState<SoundRoleId | null>(null);
   const onGoogleAuthorized = useCallback((_token: string, email: string | null) => {
     setGoogleSheetConnection({ phase: "authorized", connectedEmail: email ?? "", errorMessage: null });
   }, [setGoogleSheetConnection]);
@@ -111,68 +110,32 @@ export default function SettingsScreen() {
     const notificationRules = { ...state.profile.notificationRules, ...patch };
     updateProfile({ notificationRules });
     if (state.profile.notificationsEnabled && ("dailyMissionEnabled" in patch || "dailyMissionTime" in patch)) {
-      await configureDailyMissionReminder(notificationRules.dailyMissionEnabled, notificationRules.dailyMissionTime, state.profile.soundRoles.dailyReminder);
+      await configureDailyMissionReminder(notificationRules.dailyMissionEnabled, notificationRules.dailyMissionTime, state.profile.soundRoles.notification);
     }
   };
 
   const soundRoles: { id: SoundRoleId; title: string; detail: string }[] = [
-    { id: "tap", title: "Button click", detail: "Buttons, tabs, cards, filters, and direct controls." },
-    { id: "missionWin", title: "Mission completion", detail: "Plays after a mission result is secured." },
-    { id: "titleUnlock", title: "Title unlock", detail: "New rank-title and title achievement reveals." },
-    { id: "levelUp", title: "Level up", detail: "Plays when Total Power advances a level." },
-    { id: "achievement", title: "Achievement", detail: "Mini achievements, recognition, and celebrations." },
-    { id: "reward", title: "Reward", detail: "Loot, purchases, inventory, and reward confirmations." },
-    { id: "notification", title: "General notification", detail: "Fallback notification and alert cue." },
-    { id: "dailyReminder", title: "Daily mission reminder", detail: "Scheduled daily command briefing." },
-    { id: "revisionReminder", title: "Revision reminder", detail: "Day 1, Day 7, and Day 30 review alerts." },
-    { id: "multiplierReminder", title: "Multiplier activation", detail: "Next-day gold-cache activation alert." },
-    { id: "achievementReminder", title: "Achievement recap", detail: "Post-mission achievement recap alert." },
-    { id: "extended", title: "Extended feedback", detail: "Longer ceremonial confirmation for special sequences." },
-    { id: "system", title: "System confirmation", detail: "Save, sync, import, and remaining system events." },
+    { id: "missionWin", title: "Mission win", detail: "Plays when a mission is completed." },
+    { id: "tap", title: "Tap / click", detail: "Short feedback for command buttons and controls." },
+    { id: "notification", title: "Notification", detail: "Preview cue for reminder and alert style." },
+    { id: "extended", title: "Extended feedback", detail: "Longer confirmation for vault and special actions." },
   ];
-  const reminderSoundRoles: SoundRoleId[] = ["dailyReminder", "revisionReminder", "multiplierReminder", "achievementReminder"];
   const soundStyles: { value: SoundStyle; label: string }[] = [
     { value: "crisp", label: "Crisp" },
     { value: "soft", label: "Soft" },
     { value: "ceremonial", label: "Ceremonial" },
   ];
-  const patchSoundRole = (role: SoundRoleId, patch: Partial<typeof state.profile.soundRoles[SoundRoleId]>, preview = false) => {
-    const nextSetting = { ...state.profile.soundRoles[role], ...patch };
-    const nextRoles = { ...state.profile.soundRoles, [role]: nextSetting };
-    updateProfile({ soundRoles: nextRoles });
-    if (state.profile.notificationsEnabled && reminderSoundRoles.includes(role)) void refreshScheduledReminderSounds(nextRoles);
-    if (preview && nextSetting.enabled) void playFocusRole(role, state.profile.soundEnabled, nextSetting);
+  const patchSoundRole = (role: SoundRoleId, patch: Partial<typeof state.profile.soundRoles[SoundRoleId]>) => {
+    updateProfile({ soundRoles: { ...state.profile.soundRoles, [role]: { ...state.profile.soundRoles[role], ...patch } } });
   };
 
   const selectSoundFile = async (role: SoundRoleId) => {
-    if (savingSoundRole) return;
-    setSavingSoundRole(role);
     try {
-      const previousUri = state.profile.soundRoles[role].customUri;
       const selected = await pickAndPersistFocusSound(role);
-      if (!selected) return;
-      patchSoundRole(role, { customUri: selected.uri, customName: selected.name }, false);
-      await playFocusRole(role, state.profile.soundEnabled, { ...state.profile.soundRoles[role], customUri: selected.uri, customName: selected.name });
-      if (previousUri && previousUri !== selected.uri) await removePersistedFocusSound(previousUri);
-      const label = soundRoles.find((item) => item.id === role)?.title ?? "this sound";
-      Alert.alert("Custom sound saved", `${selected.name} is now saved for ${label}. It will remain selected until you replace or remove it.`);
+      if (selected) patchSoundRole(role, { customUri: selected.uri, customName: selected.name });
     } catch {
-      Alert.alert("Sound file unavailable", "Focus Command could not copy that audio file. Choose a standard MP3, M4A, AAC, or WAV file and try again.");
-    } finally {
-      setSavingSoundRole(null);
+      Alert.alert("Sound file unavailable", "Choose a standard audio file such as MP3, M4A, AAC, or WAV and try again.");
     }
-  };
-
-  const clearSoundFile = async (role: SoundRoleId) => {
-    const customUri = state.profile.soundRoles[role].customUri;
-    patchSoundRole(role, { customUri: null, customName: null }, true);
-    await removePersistedFocusSound(customUri);
-  };
-
-  const selectBundledSound = (role: SoundRoleId, style: SoundStyle) => {
-    const customUri = state.profile.soundRoles[role].customUri;
-    patchSoundRole(role, { style, customUri: null, customName: null }, true);
-    void removePersistedFocusSound(customUri);
   };
 
   const reset = () => {
@@ -203,7 +166,6 @@ export default function SettingsScreen() {
       await saveSelectedFocusWorkbook(workbook);
       setGoogleSheetConnection({ ...workbook, phase: "synced", pendingOperations: 0, lastSyncedAt: new Date().toISOString(), errorMessage: null });
       markSynced();
-      void playFocusRole("system", state.profile.soundEnabled, state.profile.soundRoles.system);
       Alert.alert("Spreadsheet ready", "Focus Command created its data tabs and exported the current command log.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Google Sheets could not create the spreadsheet.";
@@ -245,7 +207,6 @@ export default function SettingsScreen() {
       await saveSelectedFocusWorkbook(workbook);
       setGoogleSheetConnection({ ...workbook, phase: "synced", pendingOperations: 0, lastSyncedAt: new Date().toISOString(), errorMessage: null });
       markSynced();
-      void playFocusRole("system", state.profile.soundEnabled, state.profile.soundRoles.system);
       Alert.alert("Sync complete", "The selected Google Sheet now contains the latest Focus Command snapshot and data tabs.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Google Sheets could not sync the selected spreadsheet.";
@@ -294,7 +255,6 @@ export default function SettingsScreen() {
       setSheetId(workbook.spreadsheetId);
       setSheetName(workbook.spreadsheetName);
       await saveSelectedFocusWorkbook(workbook);
-      void playFocusRole("system", state.profile.soundEnabled, state.profile.soundRoles.system);
       Alert.alert("Import complete", "The local command system has been refreshed from the selected Google Sheet snapshot.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Google Sheets could not import this spreadsheet.";
@@ -309,7 +269,7 @@ export default function SettingsScreen() {
         <ScreenTitle
           eyebrow="Hamburger menu"
           title="Command settings"
-          detail={section === "sheet" ? "Sheet connection & synchronization" : section === "sounds" ? "Configure every in-app, gameplay, and reminder sound. Changes save on this device immediately." : "Tune your command system without leaving the mission."}
+          detail={section === "sheet" ? "Sheet connection & synchronization" : "Tune your command system without leaving the mission."}
           right={<IconAction icon="xmark" label="Close settings" onPress={() => router.back()} />}
         />
 
@@ -364,19 +324,19 @@ export default function SettingsScreen() {
                   <Switch value={setting.enabled} onValueChange={(enabled) => patchSoundRole(role.id, { enabled })} trackColor={{ false: colors.border, true: `${colors.primary}88` }} thumbColor={setting.enabled ? colors.primary : colors.surface} />
                 </View>
                 <View style={styles.soundRoleActions}>
-                  <View style={styles.soundStyleChoices}>{soundStyles.map((option) => <FeedbackPressable key={option.value} sound={false} onPress={() => selectBundledSound(role.id, option.value)} style={({ pressed }) => [styles.soundStyleChoice, { backgroundColor: !setting.customUri && setting.style === option.value ? `${colors.primary}1B` : colors.surface, borderColor: !setting.customUri && setting.style === option.value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.soundStyleText, { color: !setting.customUri && setting.style === option.value ? colors.primary : colors.muted }]}>{option.label}</Text></FeedbackPressable>)}</View>
+                  <View style={styles.soundStyleChoices}>{soundStyles.map((option) => <Pressable key={option.value} onPress={() => patchSoundRole(role.id, { style: option.value, customUri: null, customName: null })} style={({ pressed }) => [styles.soundStyleChoice, { backgroundColor: !setting.customUri && setting.style === option.value ? `${colors.primary}1B` : colors.surface, borderColor: !setting.customUri && setting.style === option.value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.soundStyleText, { color: !setting.customUri && setting.style === option.value ? colors.primary : colors.muted }]}>{option.label}</Text></Pressable>)}</View>
                   <View style={styles.soundFileRow}>
-                    <View style={styles.soundFileCopy}><Text numberOfLines={1} style={[styles.soundFileName, { color: setting.customUri ? colors.success : colors.muted }]}>{setting.customUri ? `Custom: ${setting.customName ?? "Saved audio file"}` : "Bundled cue selected"}</Text><Text style={[styles.soundFileHint, { color: colors.muted }]}>{reminderSoundRoles.includes(role.id) ? "Custom files preview and play while Focus Command is open. Background reminders use the platform-compatible notification channel." : "Pick an MP3, M4A, AAC, or WAV from your device."}</Text></View>
-                    <FeedbackPressable accessibilityRole="button" disabled={savingSoundRole === role.id} onPress={() => { void selectSoundFile(role.id); }} style={({ pressed }) => [styles.soundFileButton, { borderColor: colors.primary, opacity: savingSoundRole === role.id ? 0.5 : pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.soundFileButtonText, { color: colors.primary }]}>{savingSoundRole === role.id ? "SAVING…" : "CHOOSE"}</Text></FeedbackPressable>
+                    <View style={styles.soundFileCopy}><Text numberOfLines={1} style={[styles.soundFileName, { color: setting.customUri ? colors.success : colors.muted }]}>{setting.customName ? `Custom: ${setting.customName}` : "Bundled cue selected"}</Text><Text style={[styles.soundFileHint, { color: colors.muted }]}>Pick an MP3, M4A, AAC, or WAV from your device.</Text></View>
+                    <Pressable accessibilityRole="button" onPress={() => { void selectSoundFile(role.id); }} style={({ pressed }) => [styles.soundFileButton, { borderColor: colors.primary, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.soundFileButtonText, { color: colors.primary }]}>CHOOSE</Text></Pressable>
                   </View>
-                  {setting.customUri ? <FeedbackPressable accessibilityRole="button" onPress={() => { void clearSoundFile(role.id); }} style={({ pressed }) => [styles.restoreCue, { opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.restoreCueText, { color: colors.muted }]}>Use bundled cue instead</Text></FeedbackPressable> : null}
-                  <FeedbackPressable sound={false} accessibilityRole="button" onPress={() => { void playFocusRole(role.id, state.profile.soundEnabled, setting); }} style={({ pressed }) => [styles.soundPreview, { backgroundColor: `${colors.primary}18`, borderColor: colors.primary, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><IconSymbol name="play.fill" size={14} color={colors.primary} /><Text style={[styles.soundPreviewText, { color: colors.primary }]}>Preview selected sound</Text></FeedbackPressable>
+                  {setting.customUri ? <Pressable accessibilityRole="button" onPress={() => patchSoundRole(role.id, { customUri: null, customName: null })} style={({ pressed }) => [styles.restoreCue, { opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.restoreCueText, { color: colors.muted }]}>Use bundled cue instead</Text></Pressable> : null}
+                  <Pressable accessibilityRole="button" onPress={() => { void playFocusRole(role.id, state.profile.soundEnabled, setting); }} style={({ pressed }) => [styles.soundPreview, { backgroundColor: `${colors.primary}18`, borderColor: colors.primary, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><IconSymbol name="play.fill" size={14} color={colors.primary} /><Text style={[styles.soundPreviewText, { color: colors.primary }]}>Preview selected sound</Text></Pressable>
                 </View>
                 {index < soundRoles.length - 1 ? <View style={[styles.soundRoleDivider, { backgroundColor: colors.border }]} /> : null}
               </View>;
             })}
           </View> : null}
-          {state.profile.soundEnabled ? <FeedbackPressable accessibilityRole="link" onPress={() => { void WebBrowser.openBrowserAsync("https://pixabay.com/sound-effects/search/ui/"); }} style={({ pressed }) => [styles.pixabayLink, { borderColor: `${colors.primary}66`, backgroundColor: `${colors.primary}0F`, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><IconSymbol name="arrow.up.right.square" size={14} color={colors.primary} /><Text style={[styles.pixabayLinkText, { color: colors.primary }]}>Browse free Pixabay UI sounds, then assign a file above</Text></FeedbackPressable> : null}
+          {state.profile.soundEnabled ? <Pressable accessibilityRole="link" onPress={() => { void WebBrowser.openBrowserAsync("https://pixabay.com/sound-effects/search/ui/"); }} style={({ pressed }) => [styles.pixabayLink, { borderColor: `${colors.primary}66`, backgroundColor: `${colors.primary}0F`, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><IconSymbol name="arrow.up.right.square" size={14} color={colors.primary} /><Text style={[styles.pixabayLinkText, { color: colors.primary }]}>Browse free Pixabay UI sounds, then assign a file above</Text></Pressable> : null}
           <Divider />
           <SwitchRow label="Haptic feedback" detail="Use subtle tactile confirmation for key actions." value={state.profile.hapticsEnabled} onValueChange={(hapticsEnabled) => updateProfile({ hapticsEnabled })} />
           <Divider />
@@ -389,7 +349,7 @@ export default function SettingsScreen() {
               }
             }
             updateProfile({ notificationsEnabled });
-            await configureDailyMissionReminder(notificationsEnabled && state.profile.notificationRules.dailyMissionEnabled, state.profile.notificationRules.dailyMissionTime, state.profile.soundRoles.dailyReminder);
+            await configureDailyMissionReminder(notificationsEnabled && state.profile.notificationRules.dailyMissionEnabled, state.profile.notificationRules.dailyMissionTime, state.profile.soundRoles.notification);
           }} />
           <Divider />
           <SwitchRow label="Reduce motion" detail="Prefer still, immediate state changes over animation." value={state.profile.reduceMotion} onValueChange={(reduceMotion) => updateProfile({ reduceMotion })} />
@@ -410,7 +370,7 @@ export default function SettingsScreen() {
             <View style={styles.themeChoices}>
               {(["dark", "light", "system"] as const).map((theme) => {
                 const active = state.profile.theme === theme;
-                return <FeedbackPressable key={theme} onPress={() => { updateProfile({ theme }); setColorScheme(theme === "system" ? Appearance.getColorScheme() ?? "light" : theme); }} style={({ pressed }) => [styles.themeChoice, { backgroundColor: active ? `${colors.primary}1C` : colors.background, borderColor: active ? colors.primary : colors.border, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.themeChoiceText, { color: active ? colors.primary : colors.muted }]}>{theme.toUpperCase()}</Text></FeedbackPressable>;
+                return <Pressable key={theme} onPress={() => { updateProfile({ theme }); setColorScheme(theme === "system" ? Appearance.getColorScheme() ?? "light" : theme); }} style={({ pressed }) => [styles.themeChoice, { backgroundColor: active ? `${colors.primary}1C` : colors.background, borderColor: active ? colors.primary : colors.border, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.themeChoiceText, { color: active ? colors.primary : colors.muted }]}>{theme.toUpperCase()}</Text></Pressable>;
               })}
             </View>
           </View>

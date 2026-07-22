@@ -1,14 +1,14 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { CommandButton, CommandCard, EmptyCommandState, FeedbackPressable, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill, TapFeedback } from "@/components/focus-ui";
+import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill, TapFeedback } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { formatCompactNumber, getGoldBalance, getLifetimeGold, RewardCategory, useFocusCommand } from "@/lib/focus-command";
 import { scheduleMultiplierReminder } from "@/lib/focus-reminders";
-import { playFocusRole } from "@/lib/focus-audio";
+import { playFocusConfirmCue } from "@/lib/focus-audio";
 
 const categories: { value: RewardCategory | "all"; label: string; icon: "gift.fill" | "shield.fill" | "bolt.fill" | "star.fill" }[] = [
   { value: "all", label: "All", icon: "gift.fill" },
@@ -31,7 +31,6 @@ export default function RewardsScreen() {
   const [lootEnabled, setLootEnabled] = useState(true);
   const [lootWeight, setLootWeight] = useState("1");
   const [goldMultiplier, setGoldMultiplier] = useState("2");
-  const [buyingRewardId, setBuyingRewardId] = useState<string | null>(null);
 
   if (!ready) return <LoadingScreen label="Opening reward vault…" />;
 
@@ -91,19 +90,13 @@ export default function RewardsScreen() {
   };
 
   const buy = async (rewardId: string) => {
-    if (buyingRewardId) return;
-    setBuyingRewardId(rewardId);
-    try {
-      const reward = state.rewards.find((candidate) => candidate.id === rewardId);
-      const result = purchaseReward(rewardId);
-      if (result.ok) await playFocusRole("reward", state.profile.soundEnabled, state.profile.soundRoles.reward);
-      if (result.ok && reward?.goldMultiplier && state.profile.notificationsEnabled) {
-        await scheduleMultiplierReminder(reward.title, state.profile.notificationRules, state.profile.soundRoles.multiplierReminder);
-      }
-      Alert.alert(result.ok ? "Reward secured" : "Not enough gold", result.message);
-    } finally {
-      setBuyingRewardId(null);
+    const reward = state.rewards.find((candidate) => candidate.id === rewardId);
+    const result = purchaseReward(rewardId);
+    if (result.ok) await playFocusConfirmCue(state.profile.soundEnabled, state.profile.soundRoles.extended);
+    if (result.ok && reward?.goldMultiplier && state.profile.notificationsEnabled) {
+      await scheduleMultiplierReminder(reward.title, state.profile.notificationRules, state.profile.soundRoles.notification);
     }
+    Alert.alert(result.ok ? "Reward secured" : "Not enough gold", result.message);
   };
 
   return (
@@ -164,19 +157,19 @@ export default function RewardsScreen() {
               <Text style={[styles.inputLabel, { color: colors.muted }]}>CATEGORY</Text>
               <View style={styles.categoryChoices}>
                 {(["life", "gear", "power", "multiplier"] as RewardCategory[]).map((value) => (
-                  <FeedbackPressable key={value} onPress={() => setDraftCategory(value)} style={({ pressed }) => [styles.categoryChoice, { backgroundColor: draftCategory === value ? `${colors.primary}1B` : colors.background, borderColor: draftCategory === value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+                  <Pressable key={value} onPress={() => setDraftCategory(value)} style={({ pressed }) => [styles.categoryChoice, { backgroundColor: draftCategory === value ? `${colors.primary}1B` : colors.background, borderColor: draftCategory === value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                     <Text style={[styles.categoryChoiceText, { color: draftCategory === value ? colors.primary : colors.muted }]}>{value.toUpperCase()}</Text>
-                  </FeedbackPressable>
+                  </Pressable>
                 ))}
               </View>
             </View>
-            <FeedbackPressable onPress={() => setLootEnabled((value) => !value)} style={({ pressed }) => [styles.lootToggle, { borderColor: lootEnabled ? "#F4C95D" : colors.border, backgroundColor: lootEnabled ? "#F4C95D16" : colors.background, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+            <Pressable onPress={() => setLootEnabled((value) => !value)} style={({ pressed }) => [styles.lootToggle, { borderColor: lootEnabled ? "#F4C95D" : colors.border, backgroundColor: lootEnabled ? "#F4C95D16" : colors.background, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
               <IconSymbol name="gift.fill" size={18} color={lootEnabled ? "#F4C95D" : colors.muted} />
               <View style={styles.lootToggleCopy}>
                 <Text style={[styles.lootToggleTitle, { color: colors.foreground }]}>Eligible for loot drops</Text>
                 <Text style={[styles.lootToggleDetail, { color: colors.muted }]}>Add this reward to your random post-mission loot pool.</Text>
               </View>
-            </FeedbackPressable>
+            </Pressable>
             {lootEnabled ? <View style={styles.composerCostRow}><View style={styles.costCopy}><Text style={[styles.inputLabel, { color: colors.muted }]}>LOOT WEIGHT</Text><Text style={[styles.costDetail, { color: colors.muted }]}>Higher values make this reward more likely within a successful draw.</Text></View><TextInput value={lootWeight} onChangeText={setLootWeight} keyboardType="number-pad" style={[styles.costInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
             {draftCategory === "multiplier" ? <View style={styles.composerCostRow}><View style={styles.costCopy}><Text style={[styles.inputLabel, { color: colors.muted }]}>NEXT-DAY GOLD MULTIPLIER</Text><Text style={[styles.costDetail, { color: colors.muted }]}>Applied only to missions completed tomorrow, then archived in inventory.</Text></View><TextInput value={goldMultiplier} onChangeText={setGoldMultiplier} keyboardType="decimal-pad" style={[styles.costInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
             <CommandButton label={editingRewardId ? "Save reward" : "Add to vault"} icon="gift.fill" onPress={submit} />
@@ -185,10 +178,10 @@ export default function RewardsScreen() {
 
         <View style={styles.categoryRow}>
           {categories.map((item) => (
-            <FeedbackPressable key={item.value} onPress={() => setCategory(item.value)} style={({ pressed }) => [styles.categoryPill, { backgroundColor: category === item.value ? `${colors.primary}1B` : colors.surface, borderColor: category === item.value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+            <Pressable key={item.value} onPress={() => setCategory(item.value)} style={({ pressed }) => [styles.categoryPill, { backgroundColor: category === item.value ? `${colors.primary}1B` : colors.surface, borderColor: category === item.value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
               <IconSymbol name={item.icon} size={14} color={category === item.value ? colors.primary : colors.muted} />
               <Text style={[styles.categoryLabel, { color: category === item.value ? colors.primary : colors.muted }]}>{item.label}</Text>
-            </FeedbackPressable>
+            </Pressable>
           ))}
         </View>
 
@@ -208,8 +201,8 @@ export default function RewardsScreen() {
                       <Text style={[styles.rewardDescription, { color: colors.muted }]}>{reward.description}</Text>
                     </View>
                     <View style={styles.rewardActions}>
-                      <FeedbackPressable onPress={() => openEditor(reward)} style={({ pressed }) => [styles.rewardAction, { borderColor: colors.border, opacity: pressed ? 0.68 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.rewardActionText, { color: colors.primary }]}>EDIT</Text></FeedbackPressable>
-                      <FeedbackPressable onPress={() => confirmDelete(reward.id, reward.title)} style={({ pressed }) => [styles.rewardAction, { borderColor: `${colors.error}70`, opacity: pressed ? 0.68 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.rewardActionText, { color: colors.error }]}>DELETE</Text></FeedbackPressable>
+                      <Pressable onPress={() => openEditor(reward)} style={({ pressed }) => [styles.rewardAction, { borderColor: colors.border, opacity: pressed ? 0.68 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.rewardActionText, { color: colors.primary }]}>EDIT</Text></Pressable>
+                      <Pressable onPress={() => confirmDelete(reward.id, reward.title)} style={({ pressed }) => [styles.rewardAction, { borderColor: `${colors.error}70`, opacity: pressed ? 0.68 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.rewardActionText, { color: colors.error }]}>DELETE</Text></Pressable>
                       <StatusPill label={`${reward.goldCost} G`} tone="gold" icon="star.fill" />
                     </View>
                   </View>
@@ -218,7 +211,7 @@ export default function RewardsScreen() {
                       {reward.lootEnabled ? <StatusPill label="LOOT" tone="gold" icon="gift.fill" /> : null}
                       {reward.goldMultiplier ? <StatusPill label={`${reward.goldMultiplier}× TOMORROW`} tone="primary" icon="bolt.fill" /> : null}
                     </View>
-                    <CommandButton label={buyingRewardId === reward.id ? "Securing…" : canAfford ? "Redeem" : "Insufficient gold"} icon={canAfford ? "star.fill" : "xmark"} variant={canAfford ? "primary" : "secondary"} disabled={!canAfford || buyingRewardId !== null} onPress={() => { void buy(reward.id); }} />
+                    <CommandButton label={canAfford ? "Redeem" : "Insufficient gold"} icon={canAfford ? "star.fill" : "xmark"} variant={canAfford ? "primary" : "secondary"} disabled={!canAfford} onPress={() => buy(reward.id)} />
                   </View>
                 </CommandCard>
               );

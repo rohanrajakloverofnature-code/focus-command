@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Svg, { Circle, Line, Path, Polygon, Rect } from "react-native-svg";
 
-import { FeedbackPressable } from "@/components/focus-ui";
 import { useColors } from "@/hooks/use-colors";
 
 export interface ChartPoint {
@@ -87,7 +86,7 @@ export function MultiLineTrendChart({ series, height = 144, accessibilityLabel }
       {[0, 0.5, 1].map((fraction) => { const y = padding.top + chartHeight * fraction; return <Line key={fraction} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={colors.border} strokeWidth={1} opacity={0.65} />; })}
       {series.map((item, index) => item.points.length > 1 ? <Path key={item.id} onPress={() => setSelectedSeries(index)} d={makePath(item.points)} fill="none" stroke={item.color} strokeWidth={index === selectedSeries ? 3.6 : 2.25} strokeLinecap="round" strokeLinejoin="round" opacity={index === selectedSeries ? 1 : 0.52} /> : null)}
     </Svg>
-    <View style={styles.multiLegend}>{series.map((item, index) => <FeedbackPressable key={item.id} accessibilityRole="button" onPress={() => setSelectedSeries(index)} style={({ pressed }) => [styles.multiLegendItem, { opacity: pressed ? 0.65 : index === selectedSeries ? 1 : 0.58 }]}><View style={[styles.legendDot, { backgroundColor: item.color }]} /><Text style={[styles.axisLabel, { color: colors.muted }]}>{item.label}</Text></FeedbackPressable>)}</View>
+    <View style={styles.multiLegend}>{series.map((item, index) => <Pressable key={item.id} accessibilityRole="button" onPress={() => setSelectedSeries(index)} style={({ pressed }) => [styles.multiLegendItem, { opacity: pressed ? 0.65 : index === selectedSeries ? 1 : 0.58 }]}><View style={[styles.legendDot, { backgroundColor: item.color }]} /><Text style={[styles.axisLabel, { color: colors.muted }]}>{item.label}</Text></Pressable>)}</View>
     <ChartFocus label={`${selected?.label ?? "Series"} · ${latest.label}`} value={latest.value} color={selected?.color ?? colors.primary} />
     <View style={styles.lineLabels}>{(referencePoints.length <= 4 ? referencePoints.map((_, index) => index) : [0, Math.floor((referencePoints.length - 1) / 2), referencePoints.length - 1]).map((index) => <Text key={`${referencePoints[index].label}-${index}`} style={[styles.axisLabel, { color: colors.muted }]}>{referencePoints[index].label}</Text>)}</View>
   </View>;
@@ -157,7 +156,7 @@ export function RadarChart({ points, color, size = 176, accessibilityLabel }: { 
       <Polygon points={fullCoordinates} fill="none" stroke={colors.border} strokeWidth={1} />
       <Polygon points={coordinates} fill={`${color}40`} stroke={color} strokeWidth={2} />
     </Svg>
-    <View style={styles.radarLegend}>{points.map((point, index) => <FeedbackPressable key={`${point.label}-${index}`} onPress={() => setSelectedIndex(index)} style={({ pressed }) => [styles.radarLegendItem, { opacity: pressed ? 0.65 : index === selectedIndex ? 1 : 0.62, borderColor: index === selectedIndex ? color : colors.border }]}><Text style={[styles.radarLegendText, { color: index === selectedIndex ? color : colors.muted }]}>{point.label}: {Math.round(point.value)}</Text></FeedbackPressable>)}</View>
+    <View style={styles.radarLegend}>{points.map((point, index) => <Pressable key={`${point.label}-${index}`} onPress={() => setSelectedIndex(index)} style={({ pressed }) => [styles.radarLegendItem, { opacity: pressed ? 0.65 : index === selectedIndex ? 1 : 0.62, borderColor: index === selectedIndex ? color : colors.border }]}><Text style={[styles.radarLegendText, { color: index === selectedIndex ? color : colors.muted }]}>{point.label}: {Math.round(point.value)}</Text></Pressable>)}</View>
     <ChartFocus label={selected.label} value={selected.value} color={color} />
   </View>;
 }

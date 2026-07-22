@@ -46,9 +46,9 @@ describe("Custom Analytics workspace", () => {
     const widget = { ...state.profile.dashboardWidgets[0], metric: "power" as const, dateRange: "7d" as const, feature: "missions" as const, subject: "Math", category: "all", missionFrequency: "all" as const };
     const result = getDashboardWorkspaceResult(state, widget);
 
-    expect(result.total).toBe(50);
+    expect(result.total).toBe(120);
     expect(result.sampleCount).toBe(1);
-    expect(result.breakdown).toEqual([{ label: "Math", value: 50, color: expect.any(String) }]);
+    expect(result.breakdown).toEqual([{ label: "Math", value: 120, color: expect.any(String) }]);
   });
 
   it("averages selected reflection signals without leaking records from another subject", () => {

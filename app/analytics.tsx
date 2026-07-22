@@ -5,7 +5,7 @@ import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, Sta
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, formatHours, getCalendarTimeAverages, getDashboardStats, getMissionInvestedMilliseconds, getProgressionPower, getTotalPower, toLocalDate, useFocusCommand } from "@/lib/focus-command";
+import { formatCompactNumber, formatHours, getCalendarTimeAverages, getDashboardStats, getMissionInvestedMilliseconds, getTotalPower, toLocalDate, useFocusCommand } from "@/lib/focus-command";
 
 type MetricKey = "power" | "daily" | "weekly" | "monthly" | "time" | "fame" | "radar" | "emotion" | "skills" | "lifeline";
 
@@ -16,7 +16,7 @@ type AnalyticsEntry = { id: string; title: string; detail: string; date: string;
 type MetricMeta = { title: string; detail: string; icon: "chart.xyaxis.line" | "trophy.fill" | "star.fill" | "target" | "shield.fill" | "timer" };
 
 const META: Record<MetricKey, MetricMeta> = {
-  power: { title: "Total Power", detail: "Raw XP with each reward's recorded combo and gold-multiplier snapshot applied exactly once.", icon: "shield.fill" },
+  power: { title: "Total Power", detail: "All immutable progression awards earned from completed command work.", icon: "shield.fill" },
   daily: { title: "Daily Average", detail: "Lifetime average invested time across calendar days on which you completed work.", icon: "timer" },
   weekly: { title: "Weekly Average", detail: "Week-to-date average across every elapsed day from Monday through today, including zero-work days.", icon: "chart.xyaxis.line" },
   monthly: { title: "Monthly Average", detail: "Month-to-date average across every elapsed calendar day through today, including zero-work days.", icon: "target" },
@@ -104,7 +104,7 @@ export default function AnalyticsDetailScreen() {
   }));
 
   const entries: AnalyticsEntry[] = metric === "power"
-    ? state.progression.map((event) => ({ id: event.id, title: event.note, detail: `${formatCompactNumber(getProgressionPower(event))} power · ${event.baseXp} raw XP · ${event.comboMultiplier.toFixed(2)}× combo · ${event.goldMultiplier.toFixed(2)}× gold`, date: toLocalDate(event.occurredAt, state.profile.timezone), tone: "gold" as const }))
+    ? state.progression.map((event) => ({ id: event.id, title: event.note, detail: `${formatCompactNumber(event.powerAwarded)} power · ${event.comboMultiplier.toFixed(2)}× combo · ${event.goldAwarded} gold`, date: toLocalDate(event.occurredAt, state.profile.timezone), tone: "gold" as const }))
     : metric === "daily"
       ? activeDayEntries
       : metric === "weekly" || metric === "monthly"
@@ -122,7 +122,7 @@ export default function AnalyticsDetailScreen() {
                   : state.lifeline.map((point) => ({ id: point.id, title: point.source === "manual" ? `Historical baseline · ${point.year}` : `Journal contribution · ${point.localDate}`, detail: `Life Performance ${point.lifePerformance} · Experience ${point.experience}${point.note ? ` · ${point.note}` : ""}`, date: point.localDate, tone: point.source === "manual" ? "primary" as const : "success" as const }));
 
   const calculation = metric === "power"
-    ? { value: formatCompactNumber(power), label: "TOTAL POWER", formula: "Σ (raw XP × recorded combo multiplier × recorded gold multiplier)", detail: `${state.progression.length} progression event${state.progression.length === 1 ? "" : "s"} are recalculated from their raw XP and multiplier snapshots.` }
+    ? { value: formatCompactNumber(power), label: "CURRENT TOTAL", formula: "Sum of immutable awarded power events", detail: `${state.progression.length} progression event${state.progression.length === 1 ? "" : "s"} are included.` }
     : metric === "daily"
       ? { value: `${dashboard.averageDailyHours.toFixed(1)} h`, label: "LIFETIME DAILY AVERAGE", formula: `${totalHours.toFixed(1)} total hours ÷ ${activeDayCount} active completion day${activeDayCount === 1 ? "" : "s"}`, detail: activeDayCount ? "Only calendar days with a completed mission are included in this lifetime active-day average." : "No completed missions are available yet." }
       : metric === "weekly"

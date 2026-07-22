@@ -1,9 +1,9 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { MultiLineTrendChart, type MultiLineSeries } from "@/components/focus-charts";
-import { CommandCard, FeedbackPressable, IconAction, LoadingScreen, ScreenTitle, StatusPill } from "@/components/focus-ui";
+import { CommandCard, IconAction, LoadingScreen, ScreenTitle, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { getWellbeingInsight, useFocusCommand } from "@/lib/focus-command";
@@ -118,7 +118,7 @@ export default function WellbeingInsightScreen() {
             {insight.records.map((record) => {
               const expanded = expandedRecordId === record.id;
               const feelingColor = record.feelingAfter === "great" || record.feelingAfter === "charged" ? colors.success : record.feelingAfter === "drained" || record.feelingAfter === "restless" ? colors.warning : colors.primary;
-              return <FeedbackPressable key={record.id} onPress={() => setExpandedRecordId((current) => current === record.id ? null : record.id)} accessibilityRole="button" accessibilityState={{ expanded }} style={({ pressed }) => [styles.recordPressable, { opacity: pressed ? 0.78 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+              return <Pressable key={record.id} onPress={() => setExpandedRecordId((current) => current === record.id ? null : record.id)} accessibilityRole="button" accessibilityState={{ expanded }} style={({ pressed }) => [styles.recordPressable, { opacity: pressed ? 0.78 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                 <CommandCard accent={feelingColor} style={styles.recordCard}>
                   <View style={styles.recordHeading}>
                     <View style={styles.recordCopy}>
@@ -137,7 +137,7 @@ export default function WellbeingInsightScreen() {
                     <RecordMetric label="Friction" value={rating(record.friction)} accent={colors.error} />
                   </View> : null}
                 </CommandCard>
-              </FeedbackPressable>;
+              </Pressable>;
             })}
           </View>
         </> : <CommandCard accent={colors.primary} style={styles.emptyCard}>

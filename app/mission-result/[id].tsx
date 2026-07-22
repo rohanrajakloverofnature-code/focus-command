@@ -7,7 +7,7 @@ import { CommandButton, CommandCard, LoadingScreen, MetricTile, ProgressBar, Scr
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, formatHours, getMissionInvestedMilliseconds, getProgressionPower, getTotalPower, useFocusCommand } from "@/lib/focus-command";
+import { formatCompactNumber, formatHours, getMissionInvestedMilliseconds, getTotalPower, useFocusCommand } from "@/lib/focus-command";
 import { playFocusRole } from "@/lib/focus-audio";
 
 export default function MissionResultScreen() {
@@ -16,16 +16,15 @@ export default function MissionResultScreen() {
   const { state, ready } = useFocusCommand();
   const mission = state.missions.find((candidate) => candidate.id === id);
   const event = state.progression.find((candidate) => candidate.missionId === id);
-  const reflection = state.reflections.find((candidate) => candidate.missionId === id);
   const [celebration, setCelebration] = useState<CelebrationKind | null>(null);
 
   useEffect(() => {
     if (!ready || !event) return;
     const kind: CelebrationKind = event.titleAfter && event.titleAfter !== event.titleBefore ? "title" : event.levelAfter && event.levelAfter > (event.levelBefore ?? event.levelAfter) ? "level" : event.comboAfter && event.comboAfter > (event.comboBefore ?? event.comboAfter) ? "combo" : "mission";
     setCelebration(kind);
-    const role = kind === "title" ? "titleUnlock" : kind === "level" ? "levelUp" : kind === "combo" ? "extended" : reflection?.miniAchievement ? "achievement" : "missionWin";
+    const role = kind === "mission" ? "missionWin" : "extended";
     void playFocusRole(role, state.profile.soundEnabled, state.profile.soundRoles[role]);
-  }, [event, ready, reflection?.miniAchievement, state.profile.soundEnabled, state.profile.soundRoles]);
+  }, [event, ready, state.profile.soundEnabled, state.profile.soundRoles]);
 
   if (!ready) return <LoadingScreen label="Calculating mission result…" />;
 
@@ -40,9 +39,9 @@ export default function MissionResultScreen() {
     );
   }
 
+  const reflection = state.reflections.find((candidate) => candidate.missionId === mission.id);
   const duration = getMissionInvestedMilliseconds(mission);
   const totalPower = getTotalPower(state);
-  const awardedPower = event ? getProgressionPower(event) : 0;
 
   return (
     <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
@@ -56,10 +55,10 @@ export default function MissionResultScreen() {
           <Text style={[styles.heroTitle, { color: colors.foreground }]}>Focused work became progress.</Text>
           <Text style={[styles.heroDetail, { color: colors.muted }]}>Your ledger records this mission once, using the combo active when you completed it. Future streak changes will never rewrite this result.</Text>
           <View style={styles.heroPower}>
-            <Text style={[styles.heroPowerValue, { color: "#F4C95D" }]}>{formatCompactNumber(awardedPower)}</Text>
+            <Text style={[styles.heroPowerValue, { color: "#F4C95D" }]}>{formatCompactNumber(event?.powerAwarded ?? 0)}</Text>
             <Text style={[styles.heroPowerLabel, { color: colors.muted }]}>POWER AWARDED</Text>
           </View>
-          <ProgressBar value={Math.min(1, awardedPower / 100)} color="#F4C95D" trackColor={colors.border} height={8} />
+          <ProgressBar value={Math.min(1, (event?.powerAwarded ?? 0) / 100)} color="#F4C95D" trackColor={colors.border} height={8} />
         </CommandCard>
 
         <View style={styles.metrics}>

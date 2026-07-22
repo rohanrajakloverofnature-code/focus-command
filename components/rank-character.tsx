@@ -1,8 +1,7 @@
-import { useEffect } from "react";
-import { Image, Modal, type ImageSourcePropType, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Image, Modal, Pressable, type ImageSourcePropType, StyleSheet, Text, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 
-import { FeedbackPressable } from "@/components/focus-ui";
 import { useColors } from "@/hooks/use-colors";
 
 export type RankCharacterProps = {
@@ -19,6 +18,9 @@ type RankProfile = {
   detail: string;
   portrait: ImageSourcePropType;
 };
+
+export const TITLE_ACHIEVEMENT_DURATION_MS = 10_000;
+const TITLE_ACHIEVEMENT_PULSE_DURATION_MS = 1_250;
 
 const PORTRAITS = {
   recruit: require("@/assets/images/characters/recruit.jpg"),
@@ -77,7 +79,7 @@ export function RankCharacter({ title, level, reduceMotion, compact = false, onP
 
   return (
     <View accessibilityLabel={`${profile.name} anime character for ${title}, level ${level}`} style={[styles.wrap, compact && styles.compactWrap]}>
-      {onPress ? <FeedbackPressable sound={false} onPress={onPress} accessibilityRole="button" accessibilityLabel={`Open ${title} rank achievement`} accessibilityHint="Shows your current title achievement" style={({ pressed }) => [styles.characterPressable, { opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>{characterVisual}</FeedbackPressable> : characterVisual}
+      {onPress ? <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Open ${title} rank achievement`} accessibilityHint="Shows your current title achievement" style={({ pressed }) => [styles.characterPressable, { opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>{characterVisual}</Pressable> : characterVisual}
       <View style={[styles.label, { borderColor: `${profile.accent}99`, backgroundColor: colors.background }]}> 
         <Text style={[styles.labelText, { color: profile.accent }]}>{profile.name.toUpperCase()} · L{level}</Text>
         <Text numberOfLines={1} style={[styles.detailText, { color: colors.muted }]}>{title}</Text>
@@ -92,6 +94,11 @@ export function RankCharacterAchievement({ title, level, reduceMotion, visible, 
   const fade = useSharedValue(0);
   const scale = useSharedValue(0.9);
   const halo = useSharedValue(0.45);
+  const dismissRef = useRef(onDismiss);
+
+  useEffect(() => {
+    dismissRef.current = onDismiss;
+  }, [onDismiss]);
 
   useEffect(() => {
     if (!visible) return;
@@ -104,24 +111,31 @@ export function RankCharacterAchievement({ title, level, reduceMotion, visible, 
     } else {
       fade.value = withTiming(1, { duration: 180 });
       scale.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
-      halo.value = withRepeat(withSequence(withTiming(1, { duration: 680 }), withTiming(0.42, { duration: 680 })), -1, false);
+      halo.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: TITLE_ACHIEVEMENT_PULSE_DURATION_MS, easing: Easing.inOut(Easing.sin) }),
+          withTiming(0.42, { duration: TITLE_ACHIEVEMENT_PULSE_DURATION_MS, easing: Easing.inOut(Easing.sin) }),
+        ),
+        TITLE_ACHIEVEMENT_DURATION_MS / (TITLE_ACHIEVEMENT_PULSE_DURATION_MS * 2),
+        false,
+      );
     }
-    const dismissTimer = setTimeout(onDismiss, reduceMotion ? 5000 : 4200);
+    const dismissTimer = setTimeout(() => dismissRef.current(), TITLE_ACHIEVEMENT_DURATION_MS);
     return () => clearTimeout(dismissTimer);
-  }, [fade, halo, onDismiss, reduceMotion, scale, visible]);
+  }, [fade, halo, reduceMotion, scale, visible]);
 
   const backdropStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
   const panelStyle = useAnimatedStyle(() => ({ opacity: fade.value, transform: [{ scale: scale.value }] }));
-  const haloStyle = useAnimatedStyle(() => ({ opacity: halo.value, transform: [{ scale: 0.9 + halo.value * 0.2 }] }));
+  const haloStyle = useAnimatedStyle(() => ({ opacity: halo.value, transform: [{ scale: 0.86 + halo.value * 0.32 }] }));
 
   return (
     <Modal transparent visible={visible} animationType="none" statusBarTranslucent onRequestClose={onDismiss}>
       <Animated.View style={[styles.modalBackdrop, backdropStyle]}>
-        <FeedbackPressable sound={false} onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss title achievement" style={styles.modalPressable}>
+        <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss title achievement" style={styles.modalPressable}>
           <Animated.View accessibilityRole="alert" accessibilityLabel={`${title} title achievement unlocked`} style={[styles.achievementPanel, { backgroundColor: colors.surface, borderColor: `${profile.accent}88` }, panelStyle]}>
             <View style={styles.achievementTopline}>
               <Text style={[styles.achievementEyebrow, { color: profile.accent }]}>TITLE ACHIEVEMENT</Text>
-              <Text style={[styles.achievementDismiss, { color: colors.muted }]}>TAP TO DISMISS</Text>
+              <Text style={[styles.achievementDismiss, { color: colors.muted }]}>10S · TAP TO DISMISS</Text>
             </View>
             <View style={styles.achievementPortraitWrap}>
               <Animated.View style={[styles.achievementHalo, { backgroundColor: `${profile.accent}28` }, haloStyle]} />
@@ -134,7 +148,7 @@ export function RankCharacterAchievement({ title, level, reduceMotion, visible, 
             <Text style={[styles.achievementDetail, { color: colors.muted }]}>{profile.detail}. Your current command title is ready for the next focused block.</Text>
             <View style={[styles.achievementSeal, { borderColor: `${profile.accent}66`, backgroundColor: `${profile.accent}12` }]}><Text style={[styles.achievementSealText, { color: profile.accent }]}>ACHIEVEMENT LOGGED</Text></View>
           </Animated.View>
-        </FeedbackPressable>
+        </Pressable>
       </Animated.View>
     </Modal>
   );

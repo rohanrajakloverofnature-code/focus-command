@@ -56,11 +56,11 @@ function stateWithToday(): FocusState {
 }
 
 describe("Focus Command deterministic gameplay rules", () => {
-  it("calculates power levels and titles from raw XP and immutable multiplier snapshots", () => {
+  it("calculates power levels and titles from the immutable progression ledger", () => {
     const state = stateWithToday();
     state.progression.push(
-      { id: "p1", missionId: null, baseXp: 50, comboMultiplier: 3, goldMultiplier: 2, powerAwarded: 350, goldAwarded: 0, occurredAt: new Date().toISOString(), note: "test" },
-      { id: "p2", missionId: null, baseXp: 50, comboMultiplier: 1.7, goldMultiplier: 2, powerAwarded: 120, goldAwarded: 0, occurredAt: new Date().toISOString(), note: "test" },
+      { id: "p1", missionId: null, baseXp: 50, comboMultiplier: 1, goldMultiplier: 1, powerAwarded: 350, goldAwarded: 0, occurredAt: new Date().toISOString(), note: "test" },
+      { id: "p2", missionId: null, baseXp: 50, comboMultiplier: 1, goldMultiplier: 1, powerAwarded: 120, goldAwarded: 0, occurredAt: new Date().toISOString(), note: "test" },
     );
 
     expect(getTotalPower(state)).toBe(470);

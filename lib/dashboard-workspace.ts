@@ -8,7 +8,6 @@ import {
   Mission,
   Reflection,
   getMissionInvestedMilliseconds,
-  getProgressionPower,
   toLocalDate,
 } from "./focus-command";
 
@@ -272,7 +271,7 @@ export function getDashboardWorkspaceResult(state: FocusState, widget: Dashboard
     state.progression.forEach((event) => {
       const mission = event.missionId ? missionsById.get(event.missionId) : undefined;
       if (!missionMatches(mission, widget)) return;
-      const value = widget.metric === "power" ? getProgressionPower(event) : event.baseXp;
+      const value = widget.metric === "power" ? event.powerAwarded : event.baseXp;
       add(toLocalDate(event.occurredAt, state.profile.timezone), value, mission?.subject || "Campaign");
     });
   }

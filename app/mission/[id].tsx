@@ -1,12 +1,13 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { CommandButton, CommandCard, FeedbackPressable, IconAction, LoadingScreen, ProgressBar, ScreenTitle, StatusPill } from "@/components/focus-ui";
+import { CommandButton, CommandCard, IconAction, LoadingScreen, ProgressBar, ScreenTitle, StatusPill } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { CustomQuestion, Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getMissionInvestedMilliseconds, ReflectionDraft, useFocusCommand } from "@/lib/focus-command";
+import { playFocusSuccessCue } from "@/lib/focus-audio";
 import { scheduleAchievementRecap } from "@/lib/focus-reminders";
 
 const feelings: { value: Feeling; label: string; color: string }[] = [
@@ -63,7 +64,8 @@ export default function MissionDetailScreen() {
       Alert.alert("Mission cannot be finalized", "Start the mission before ending it.");
       return;
     }
-    if (state.profile.notificationsEnabled) await scheduleAchievementRecap(mission.title, state.profile.notificationRules, state.profile.soundRoles.achievementReminder);
+    await playFocusSuccessCue(state.profile.soundEnabled, state.profile.soundRoles.missionWin);
+    if (state.profile.notificationsEnabled) await scheduleAchievementRecap(mission.title, state.profile.notificationRules, state.profile.soundRoles.notification);
     router.replace({ pathname: "/mission-result/[id]" as never, params: { id: mission.id } });
   };
 
@@ -149,8 +151,8 @@ export default function MissionDetailScreen() {
           </View>
           <Text style={[styles.editorLabel, { color: colors.muted }]}>CAMPAIGN LINK</Text>
           <View style={styles.bossPicker}>
-            <FeedbackPressable onPress={() => setEditBossId(null)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: editBossId === null ? `${colors.primary}18` : colors.background, borderColor: editBossId === null ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.bossChoiceText, { color: editBossId === null ? colors.primary : colors.muted }]}>No boss</Text></FeedbackPressable>
-            {state.bosses.filter((boss) => boss.status === "active").map((boss) => <FeedbackPressable key={boss.id} onPress={() => setEditBossId(boss.id)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: editBossId === boss.id ? "#F4C95D1D" : colors.background, borderColor: editBossId === boss.id ? "#F4C95D" : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text numberOfLines={1} style={[styles.bossChoiceText, { color: editBossId === boss.id ? "#F4C95D" : colors.muted }]}>{boss.title}</Text></FeedbackPressable>)}
+            <Pressable onPress={() => setEditBossId(null)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: editBossId === null ? `${colors.primary}18` : colors.background, borderColor: editBossId === null ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.bossChoiceText, { color: editBossId === null ? colors.primary : colors.muted }]}>No boss</Text></Pressable>
+            {state.bosses.filter((boss) => boss.status === "active").map((boss) => <Pressable key={boss.id} onPress={() => setEditBossId(boss.id)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: editBossId === boss.id ? "#F4C95D1D" : colors.background, borderColor: editBossId === boss.id ? "#F4C95D" : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text numberOfLines={1} style={[styles.bossChoiceText, { color: editBossId === boss.id ? "#F4C95D" : colors.muted }]}>{boss.title}</Text></Pressable>)}
           </View>
           <CommandButton label="Save mission changes" icon="checklist" onPress={saveEditor} />
         </CommandCard> : null}
@@ -251,9 +253,9 @@ function FeelingSelector({ label, value, onChange }: { label: string; value: Fee
       <Text style={[styles.selectorLabel, { color: colors.muted }]}>{label.toUpperCase()}</Text>
       <View style={styles.feelingGrid}>
         {feelings.map((feeling) => (
-          <FeedbackPressable key={feeling.value} onPress={() => onChange(feeling.value)} style={({ pressed }) => [styles.feelingChip, { backgroundColor: value === feeling.value ? `${feeling.color}24` : colors.background, borderColor: value === feeling.value ? feeling.color : colors.border, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+          <Pressable key={feeling.value} onPress={() => onChange(feeling.value)} style={({ pressed }) => [styles.feelingChip, { backgroundColor: value === feeling.value ? `${feeling.color}24` : colors.background, borderColor: value === feeling.value ? feeling.color : colors.border, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
             <Text style={[styles.feelingText, { color: value === feeling.value ? feeling.color : colors.muted }]}>{feeling.label}</Text>
-          </FeedbackPressable>
+          </Pressable>
         ))}
       </View>
     </View>
@@ -276,7 +278,7 @@ function CustomQuestionInput({ question, answer, onChange }: { question: CustomQ
       <View style={styles.choiceAnswerGrid}>
         {question.options.map((option) => {
           const active = question.type === "single_choice" ? answer === option : selected.includes(option);
-          return <FeedbackPressable key={option} onPress={() => onChange(question.type === "single_choice" ? option : active ? selected.filter((value) => value !== option) : [...selected, option])} style={({ pressed }) => [styles.answerChoice, { backgroundColor: active ? `${colors.primary}1D` : colors.background, borderColor: active ? colors.primary : colors.border, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.answerChoiceText, { color: active ? colors.primary : colors.muted }]}>{option}</Text></FeedbackPressable>;
+          return <Pressable key={option} onPress={() => onChange(question.type === "single_choice" ? option : active ? selected.filter((value) => value !== option) : [...selected, option])} style={({ pressed }) => [styles.answerChoice, { backgroundColor: active ? `${colors.primary}1D` : colors.background, borderColor: active ? colors.primary : colors.border, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.answerChoiceText, { color: active ? colors.primary : colors.muted }]}>{option}</Text></Pressable>;
         })}
       </View>
     </View>
@@ -290,9 +292,9 @@ function RatingSelector({ label, value, onChange }: { label: string; value: numb
       <Text style={[styles.selectorLabel, { color: colors.muted }]}>{label.toUpperCase()}</Text>
       <View style={styles.ratingRow}>
         {[1, 2, 3, 4, 5].map((rating) => (
-          <FeedbackPressable key={rating} onPress={() => onChange(rating)} style={({ pressed }) => [styles.ratingChip, { backgroundColor: rating <= value ? "#F4C95D25" : colors.background, borderColor: rating <= value ? "#F4C95D" : colors.border, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+          <Pressable key={rating} onPress={() => onChange(rating)} style={({ pressed }) => [styles.ratingChip, { backgroundColor: rating <= value ? "#F4C95D25" : colors.background, borderColor: rating <= value ? "#F4C95D" : colors.border, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
             <Text style={[styles.ratingText, { color: rating <= value ? "#F4C95D" : colors.muted }]}>{rating}</Text>
-          </FeedbackPressable>
+          </Pressable>
         ))}
       </View>
     </View>
