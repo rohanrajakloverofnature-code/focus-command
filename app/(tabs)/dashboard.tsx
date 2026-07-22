@@ -7,7 +7,7 @@ import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, Scre
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getMissionInvestedMilliseconds, getTotalPower, getWellbeingInsight, toLocalDate, useFocusCommand } from "@/lib/focus-command";
+import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getMissionInvestedMilliseconds, getProgressionPower, getTotalPower, getWellbeingInsight, toLocalDate, useFocusCommand } from "@/lib/focus-command";
 
 function createDaySeries(days: number, profileTimezone: string) {
   return Array.from({ length: days }, (_, index) => {
@@ -40,7 +40,7 @@ export default function DashboardScreen() {
   const progressionByDate = new Map<string, number>();
   state.progression.forEach((event) => {
     const date = toLocalDate(event.occurredAt, state.profile.timezone);
-    progressionByDate.set(date, (progressionByDate.get(date) ?? 0) + event.powerAwarded);
+    progressionByDate.set(date, (progressionByDate.get(date) ?? 0) + getProgressionPower(event));
   });
   const powerSeries: ChartPoint[] = daySeries.map((day) => ({ label: day.label, value: progressionByDate.get(day.localDate) ?? 0 }));
 
@@ -148,7 +148,7 @@ export default function DashboardScreen() {
         </View>
 
         <SectionHeader title="Power & time history" />
-        <InteractiveChartCard title="Total Power by day" detail="Awarded power in the last 14 days" tag="POWER" onPress={() => router.push("/analytics?metric=power" as never)}>
+        <InteractiveChartCard title="Total Power by day" detail="Raw XP with the combo and gold multipliers active at each award" tag="POWER" onPress={() => router.push("/analytics?metric=power" as never)}>
           <LineTrendChart points={powerSeries} color="#F4C95D" accessibilityLabel="Total Power line chart over the last fourteen days" />
         </InteractiveChartCard>
         <InteractiveChartCard title="Time invested by day" detail="All task time is presented in hours" tag="HOURS" onPress={() => router.push("/analytics?metric=time" as never)}>

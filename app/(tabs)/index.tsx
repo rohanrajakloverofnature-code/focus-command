@@ -41,6 +41,8 @@ import {
   getPendingRevisions,
   getSubjectCapture,
   getTodayInvestedMilliseconds,
+  getTodayRawXp,
+  getTodayXp,
   getTotalPower,
   getTotalXp,
   useFocusCommand,
@@ -105,6 +107,9 @@ export default function HomeScreen() {
   const subjectCapture = getSubjectCapture(state);
   const totalPower = getTotalPower(state);
   const totalXp = getTotalXp(state);
+  const todayRawXp = getTodayRawXp(state);
+  const todayXp = getTodayXp(state);
+  const todayMultiplier = todayRawXp > 0 ? todayXp / todayRawXp : 1;
   const goldBalance = getGoldBalance(state);
   const lifetimeGold = getLifetimeGold(state);
   const goldMultiplier = activeGoldMultiplier(state);
@@ -119,9 +124,10 @@ export default function HomeScreen() {
   const maxJournalPoints = Math.max(1, ...journalBars.map((bar) => bar.points));
   const metricColumns = width < 600 ? 2 : 3;
   const metrics = [
-    { id: "xp", label: "Total XP", value: formatCompactNumber(totalXp), detail: combo.multiplier > 1 ? "Combo amplified" : "Base experience", icon: "bolt.fill" as const, accent: colors.primary },
+    { id: "xp", label: "Total XP", value: formatCompactNumber(totalXp), detail: "Raw experience only", icon: "bolt.fill" as const, accent: colors.primary },
     { id: "gold", label: "Gold Balance", value: formatCompactNumber(goldBalance), detail: `${formatCompactNumber(lifetimeGold)} earned`, icon: "star.fill" as const, accent: "#F4C95D", onPress: () => router.push("/rewards" as never) },
     { id: "target", label: "Mission Target", value: `${daily.earned}/${daily.target}`, detail: `${Math.round(daily.progress * 100)}% deployed`, icon: "target" as const, accent: colors.success, onPress: () => router.push("/missions" as never) },
+    { id: "today_xp", label: "Today's XP", value: formatCompactNumber(todayXp), detail: "Raw XP with per-award combo & gold", icon: "bolt.fill" as const, accent: colors.primary },
     { id: "time", label: "Invested Today", value: formatHours(getTodayInvestedMilliseconds(state)), detail: goldMultiplier > 1 ? `${goldMultiplier}× gold cache active` : "Exact active time", icon: "timer" as const, accent: colors.warning },
     { id: "combo", label: "Next combo tier", value: combo.daysToNext ? `${combo.daysToNext}d` : "MAX", detail: `${combo.multiplier.toFixed(2)}× is live`, icon: "flame.fill" as const, accent: "#F4C95D" },
     { id: "level", label: "XP to level", value: formatCompactNumber(level.powerForNextLevel), detail: `${formatCompactNumber(level.currentLevelPower)} at current level`, icon: "shield.fill" as const, accent: colors.primary },
@@ -195,6 +201,23 @@ export default function HomeScreen() {
             </View>
           </HomeFloat>
         </CommandCard>
+
+        <HomeFloat reduceMotion={state.profile.reduceMotion} distance={4} sway={-1} duration={2_650} delay={90} style={styles.fullWidth}>
+          <CommandCard accent={colors.primary} style={styles.todayXpCard}>
+            <View style={styles.todayXpHeading}>
+              <View>
+                <Text style={[styles.todayXpEyebrow, { color: colors.primary }]}>TODAY&apos;S XP</Text>
+                <Text style={[styles.todayXpValue, { color: colors.foreground }]}>{formatCompactNumber(todayXp)}</Text>
+                <Text style={[styles.todayXpDetail, { color: colors.muted }]}>{formatCompactNumber(todayRawXp)} raw XP × {todayMultiplier.toFixed(2)}× earned multiplier</Text>
+              </View>
+              <View style={[styles.todayXpBadge, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}55` }]}>
+                <IconSymbol name="bolt.fill" size={22} color={colors.primary} />
+                <Text style={[styles.todayXpBadgeText, { color: colors.primary }]}>PER AWARD</Text>
+              </View>
+            </View>
+            <Text style={[styles.todayXpFormula, { color: colors.muted }]}>Every completed mission keeps the combo and gold multiplier that was active when that XP was earned. Total XP remains raw; Power is multiplier-adjusted.</Text>
+          </CommandCard>
+        </HomeFloat>
 
         <View style={styles.primaryActions}>
           <HomeFloat reduceMotion={state.profile.reduceMotion} distance={5} sway={1} duration={2_300} delay={120} style={styles.deployFloat}>
@@ -375,6 +398,14 @@ const styles = StyleSheet.create({
   heroProgressLabel: { fontSize: 9, lineHeight: 12, letterSpacing: 0.9, fontWeight: "800", color: "#A7B6C8" },
   heroProgressValue: { fontSize: 12, lineHeight: 15, fontWeight: "800", color: "#F5F9FF" },
   heroProgressWrap: { flex: 1 },
+  todayXpCard: { gap: 8, padding: 15 },
+  todayXpHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
+  todayXpEyebrow: { fontSize: 10, lineHeight: 13, letterSpacing: 1.1, fontWeight: "900" },
+  todayXpValue: { fontSize: 32, lineHeight: 38, letterSpacing: -0.8, fontWeight: "900", marginTop: 2 },
+  todayXpDetail: { fontSize: 12, lineHeight: 17, fontWeight: "700" },
+  todayXpBadge: { minWidth: 78, borderWidth: 1, borderRadius: 14, alignItems: "center", justifyContent: "center", gap: 3, paddingHorizontal: 9, paddingVertical: 10 },
+  todayXpBadgeText: { fontSize: 8, lineHeight: 10, letterSpacing: 0.65, fontWeight: "900" },
+  todayXpFormula: { fontSize: 11, lineHeight: 16, fontWeight: "500" },
   primaryActions: { flexDirection: "row", gap: 10 },
   deployFloat: { flex: 1.25 },
   journalFloat: { flex: 1 },

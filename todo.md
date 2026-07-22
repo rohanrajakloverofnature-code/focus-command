@@ -105,3 +105,5 @@
 - [x] Make the Dashboard Total Power, Daily Average, Weekly Average, and Monthly Average summary cards tappable and provide a dedicated transparent details view for each metric.
 
 - [x] Fix notification sound selections so they persist permanently after being set, even after app redirects.
+
+- [x] Audit and fix XP and Power calculation system: separate raw XP from multiplier-adjusted Power, add Today's XP to Home, and verify no-multiplier, combo, gold-expiry, combo-change, and multiple-award scenarios with unit tests.

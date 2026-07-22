@@ -450,7 +450,7 @@ function createId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${entropy}`;
 }
 
-function nowIso(): string {
+export function nowIso(): string {
   return new Date().toISOString();
 }
 
@@ -699,12 +699,25 @@ export function getCurrentCombo(state: FocusState, referenceDate = toLocalDate(n
   return { tier, multiplier: tier.multiplier, missedDays, daysToNext };
 }
 
-export function getTotalPower(state: FocusState): number {
-  return state.progression.reduce((total, event) => total + event.powerAwarded, 0);
+export function calculateAdjustedPower(baseXp: number, comboMultiplier = 1, goldMultiplier = 1): number {
+  const rawXp = Math.max(0, Number(baseXp) || 0);
+  const combo = Math.max(1, Number(comboMultiplier) || 1);
+  const gold = Math.max(1, Number(goldMultiplier) || 1);
+  return Math.round(rawXp * combo * gold * 10_000) / 10_000;
 }
 
+/** Uses the multiplier snapshot recorded when this XP award was earned. */
+export function getProgressionPower(event: Pick<ProgressionEvent, "baseXp" | "comboMultiplier" | "goldMultiplier">): number {
+  return calculateAdjustedPower(event.baseXp, event.comboMultiplier, event.goldMultiplier);
+}
+
+export function getTotalPower(state: FocusState): number {
+  return state.progression.reduce((total, event) => total + getProgressionPower(event), 0);
+}
+
+/** Total XP is intentionally raw experience only; no combo or gold multiplier is included. */
 export function getTotalXp(state: FocusState): number {
-  return state.progression.reduce((total, event) => total + event.baseXp, 0);
+  return state.progression.reduce((total, event) => total + Math.max(0, event.baseXp), 0);
 }
 
 export function getGoldBalance(state: FocusState): number {
@@ -775,6 +788,25 @@ export function getDailyProgress(state: FocusState): { earned: number; target: n
 
 export function getTodayInvestedMilliseconds(state: FocusState): number {
   return getTodayMissions(state).reduce((total, mission) => total + getMissionInvestedMilliseconds(mission), 0);
+}
+
+export function getTodayRawXp(state: FocusState, referenceIso = nowIso()): number {
+  const today = toLocalDate(referenceIso, state.profile.timezone);
+  return state.progression
+    .filter((event) => toLocalDate(event.occurredAt, state.profile.timezone) === today)
+    .reduce((total, event) => total + Math.max(0, event.baseXp), 0);
+}
+
+/**
+ * Today's displayed XP is the sum of today's raw XP awards after each award's
+ * own combo and gold-multiplier snapshot is applied. This prevents a later
+ * combo change or an expired gold cache from re-multiplying earlier awards.
+ */
+export function getTodayXp(state: FocusState, referenceIso = nowIso()): number {
+  const today = toLocalDate(referenceIso, state.profile.timezone);
+  return state.progression
+    .filter((event) => toLocalDate(event.occurredAt, state.profile.timezone) === today)
+    .reduce((total, event) => total + getProgressionPower(event), 0);
 }
 
 export interface CalendarTimeAverages {
@@ -1337,8 +1369,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       const completionDate = toLocalDate(endedAt, current.profile.timezone);
       const comboForAward = getCurrentCombo(current, completionDate);
       const goldMultiplier = getActiveGoldMultiplier(current, completionDate);
-      const basePower = completedMission.baseXp * comboForAward.multiplier;
-      const adjustedPower = basePower * goldMultiplier;
+      const adjustedPower = calculateAdjustedPower(completedMission.baseXp, comboForAward.multiplier, goldMultiplier);
       const carryTotal = current.goldPowerCarry + adjustedPower;
       const goldAwarded = Math.floor(carryTotal / 10);
       const goldPowerCarry = carryTotal - goldAwarded * 10;
@@ -1377,7 +1408,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         baseXp: completedMission.baseXp,
         comboMultiplier: comboForAward.multiplier,
         goldMultiplier,
-        powerAwarded: basePower,
+        powerAwarded: adjustedPower,
         goldAwarded,
         occurredAt: endedAt,
         note: `Completed: ${completedMission.title}`,
