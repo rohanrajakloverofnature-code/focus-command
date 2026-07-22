@@ -18,6 +18,15 @@ export interface SelectedSoundFile {
   name: string;
 }
 
+export async function removePersistedFocusSound(uri: string | null | undefined): Promise<void> {
+  if (!uri || !uri.includes("/focus-command-sounds/")) return;
+  try {
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+  } catch {
+    // A missing or already-removed file must never block a settings update.
+  }
+}
+
 export async function pickAndPersistFocusSound(role: SoundRoleId): Promise<SelectedSoundFile | null> {
   const result = await DocumentPicker.getDocumentAsync({
     type: AUDIO_TYPES,

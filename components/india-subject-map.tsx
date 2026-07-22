@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 import Svg, { ClipPath, Defs, G, LinearGradient, Path, Stop, Text as SvgText } from "react-native-svg";
 
 import { INDIA_BOUNDARY_PATH, INDIA_BOUNDARY_VIEWBOX } from "@/components/india-boundary";
+import { FeedbackPressable } from "@/components/focus-ui";
+import { playFocusRole } from "@/lib/focus-audio";
+import { useFocusCommand } from "@/lib/focus-command";
 import { getDynamicTerritories, type DynamicTerritory } from "@/lib/territory-partition";
 
 export interface SubjectTerritory {
@@ -72,6 +75,7 @@ function TerritoryLayer({
 }
 
 export function IndiaSubjectMap({ subjects, accent, foreground, muted, surface, border, onOpenSubject }: IndiaSubjectMapProps) {
+  const { state } = useFocusCommand();
   const [selected, setSelected] = useState<string | null>(subjects[0]?.subject ?? null);
   const [previousTerritories, setPreviousTerritories] = useState<PositionedTerritory[]>([]);
   const reflowOpacity = useRef(new Animated.Value(0)).current;
@@ -85,6 +89,10 @@ export function IndiaSubjectMap({ subjects, accent, foreground, muted, surface, 
     color: PALETTE[hashSubject(territory.subject) % PALETTE.length] ?? accent,
   })), [subjects, accent]);
   const selectedTerritory = positioned.find((territory) => territory.subject === selected) ?? positioned[0] ?? null;
+  const selectTerritory = (subject: string) => {
+    setSelected(subject);
+    void playFocusRole("tap", state.profile.soundEnabled, state.profile.soundRoles.tap);
+  };
   const selectedSubject = subjects.find((subject) => subject.subject === selectedTerritory?.subject) ?? null;
 
   useEffect(() => {
@@ -130,7 +138,7 @@ export function IndiaSubjectMap({ subjects, accent, foreground, muted, surface, 
         <Path d={INDIA_BOUNDARY_PATH} fill="url(#india-terrain)" stroke={`${accent}99`} strokeWidth={2.2} />
         <G clipPath="url(#india-geographic-boundary)">
           <Path d="M0 72 H320 M0 145 H320 M0 218 H320 M0 291 H320 M64 0 V380 M128 0 V380 M192 0 V380 M256 0 V380" stroke="#FFFFFF12" strokeWidth={0.8} strokeDasharray="3 6" />
-          <TerritoryLayer territories={positioned} selectedSubject={selectedTerritory?.subject ?? null} interactive showLabels onSelect={setSelected} />
+          <TerritoryLayer territories={positioned} selectedSubject={selectedTerritory?.subject ?? null} interactive showLabels onSelect={selectTerritory} />
         </G>
         <Path d={INDIA_BOUNDARY_PATH} fill="none" stroke="#FFF8" strokeWidth={0.7} pointerEvents="none" />
         <Path d={INDIA_BOUNDARY_PATH} fill="none" stroke={`${accent}99`} strokeWidth={2.2} pointerEvents="none" />
@@ -148,13 +156,13 @@ export function IndiaSubjectMap({ subjects, accent, foreground, muted, surface, 
         <Text style={[styles.mapKeyText, { color: muted }]}>Geographic India boundary · every visible subject territory is dynamically reflowed from your current mission and revision progress</Text>
       </View>
     </View>
-    {selectedTerritory ? <Pressable onPress={() => onOpenSubject(selectedTerritory.subject)} style={({ pressed }) => [styles.detailCard, { borderColor: `${accent}66`, backgroundColor: `${accent}10`, opacity: pressed ? 0.76 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+    {selectedTerritory ? <FeedbackPressable onPress={() => onOpenSubject(selectedTerritory.subject)} style={({ pressed }) => [styles.detailCard, { borderColor: `${accent}66`, backgroundColor: `${accent}10`, opacity: pressed ? 0.76 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
       <View style={styles.detailCopy}>
         <Text style={[styles.detailTitle, { color: foreground }]}>{selectedTerritory.subject}</Text>
         <Text style={[styles.detailText, { color: muted }]}>{selectedSubject?.completed ?? 0}/{selectedSubject?.total ?? 0} captured · {selectedSubject?.active ?? 0} live · {selectedSubject?.planned ?? 0} planned</Text>
       </View>
       <Text style={[styles.detailPercent, { color: accent }]}>{Math.round(selectedTerritory.capture * 100)}%</Text>
-    </Pressable> : null}
+    </FeedbackPressable> : null}
   </View>;
 }
 

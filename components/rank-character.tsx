@@ -1,7 +1,8 @@
 import { useEffect } from "react";
-import { Image, Modal, Pressable, type ImageSourcePropType, StyleSheet, Text, View } from "react-native";
+import { Image, Modal, type ImageSourcePropType, StyleSheet, Text, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 
+import { FeedbackPressable } from "@/components/focus-ui";
 import { useColors } from "@/hooks/use-colors";
 
 export type RankCharacterProps = {
@@ -76,7 +77,7 @@ export function RankCharacter({ title, level, reduceMotion, compact = false, onP
 
   return (
     <View accessibilityLabel={`${profile.name} anime character for ${title}, level ${level}`} style={[styles.wrap, compact && styles.compactWrap]}>
-      {onPress ? <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Open ${title} rank achievement`} accessibilityHint="Shows your current title achievement" style={({ pressed }) => [styles.characterPressable, { opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>{characterVisual}</Pressable> : characterVisual}
+      {onPress ? <FeedbackPressable sound={false} onPress={onPress} accessibilityRole="button" accessibilityLabel={`Open ${title} rank achievement`} accessibilityHint="Shows your current title achievement" style={({ pressed }) => [styles.characterPressable, { opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>{characterVisual}</FeedbackPressable> : characterVisual}
       <View style={[styles.label, { borderColor: `${profile.accent}99`, backgroundColor: colors.background }]}> 
         <Text style={[styles.labelText, { color: profile.accent }]}>{profile.name.toUpperCase()} · L{level}</Text>
         <Text numberOfLines={1} style={[styles.detailText, { color: colors.muted }]}>{title}</Text>
@@ -116,7 +117,7 @@ export function RankCharacterAchievement({ title, level, reduceMotion, visible, 
   return (
     <Modal transparent visible={visible} animationType="none" statusBarTranslucent onRequestClose={onDismiss}>
       <Animated.View style={[styles.modalBackdrop, backdropStyle]}>
-        <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss title achievement" style={styles.modalPressable}>
+        <FeedbackPressable sound={false} onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss title achievement" style={styles.modalPressable}>
           <Animated.View accessibilityRole="alert" accessibilityLabel={`${title} title achievement unlocked`} style={[styles.achievementPanel, { backgroundColor: colors.surface, borderColor: `${profile.accent}88` }, panelStyle]}>
             <View style={styles.achievementTopline}>
               <Text style={[styles.achievementEyebrow, { color: profile.accent }]}>TITLE ACHIEVEMENT</Text>
@@ -133,7 +134,7 @@ export function RankCharacterAchievement({ title, level, reduceMotion, visible, 
             <Text style={[styles.achievementDetail, { color: colors.muted }]}>{profile.detail}. Your current command title is ready for the next focused block.</Text>
             <View style={[styles.achievementSeal, { borderColor: `${profile.accent}66`, backgroundColor: `${profile.accent}12` }]}><Text style={[styles.achievementSealText, { color: profile.accent }]}>ACHIEVEMENT LOGGED</Text></View>
           </Animated.View>
-        </Pressable>
+        </FeedbackPressable>
       </Animated.View>
     </Modal>
   );

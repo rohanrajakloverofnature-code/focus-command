@@ -22,7 +22,7 @@ import { IndiaSubjectMap } from "@/components/india-subject-map";
 import { RankCharacter, RankCharacterAchievement } from "@/components/rank-character";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { playFocusRole, playFocusSuccessCue } from "@/lib/focus-audio";
+import { playFocusRole } from "@/lib/focus-audio";
 import { getForecastMotivationMessages } from "@/lib/home-motivation";
 import {
   formatCompactNumber,
@@ -74,10 +74,11 @@ export default function HomeScreen() {
     const nextKind: CelebrationKind | null = title.title !== previous.title ? "title" : level.level > previous.level ? "level" : combo.multiplier > previous.combo ? "combo" : null;
     if (nextKind) {
       setHomeCelebration(nextKind);
-      void playFocusRole("extended", state.profile.soundEnabled, state.profile.soundRoles.extended);
+      const soundRole = nextKind === "title" ? "titleUnlock" : nextKind === "level" ? "levelUp" : "extended";
+      void playFocusRole(soundRole, state.profile.soundEnabled, state.profile.soundRoles[soundRole]);
     }
     milestones.current = { level: level.level, title: title.title, combo: combo.multiplier };
-  }, [combo.multiplier, level.level, ready, state.profile.soundEnabled, state.profile.soundRoles.extended, title.title]);
+  }, [combo.multiplier, level.level, ready, state.profile.soundEnabled, state.profile.soundRoles, title.title]);
 
   const forecast = getEmotionalPatternForecast(state);
   const motivationMessages = getForecastMotivationMessages(forecast);
@@ -98,7 +99,7 @@ export default function HomeScreen() {
   const motivation = motivationMessages[motivationIndex % motivationMessages.length] ?? motivationMessages[0];
   const openRankAchievement = () => {
     setShowRankAchievement(true);
-    void playFocusSuccessCue(state.profile.soundEnabled, state.profile.soundRoles.missionWin);
+    void playFocusRole("achievement", state.profile.soundEnabled, state.profile.soundRoles.achievement);
   };
   const energy = getEnergy(state);
   const daily = getDailyProgress(state);
@@ -158,7 +159,7 @@ export default function HomeScreen() {
           <HomeFloat reduceMotion={state.profile.reduceMotion} distance={2} sway={1} duration={2_400} style={styles.fullWidth}>
             <View style={styles.heroTopline}>
               <StatusPill label={`LEVEL ${level.level}`} tone="primary" icon="shield.fill" />
-              <StatusPill label={`${Math.round(energy.remaining)}% ENERGY`} tone={energy.remaining > 50 ? "success" : energy.remaining > 20 ? "warning" : "danger"} icon="bolt.fill" />
+              <StatusPill label={`${energy.percent}% ENERGY`} tone={energy.percent > 50 ? "success" : energy.percent > 20 ? "warning" : "danger"} icon="bolt.fill" />
             </View>
           </HomeFloat>
           <View style={styles.heroContent}>

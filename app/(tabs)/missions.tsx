@@ -1,8 +1,8 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
+import { CommandButton, CommandCard, EmptyCommandState, FeedbackPressable, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -132,10 +132,10 @@ export default function MissionsScreen() {
                   const active = difficulty === option;
                   const color = getDifficultyColor(option);
                   return (
-                    <Pressable key={option} onPress={() => setDifficulty(option)} style={({ pressed }) => [styles.choice, { backgroundColor: active ? `${color}25` : colors.background, borderColor: active ? color : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+                    <FeedbackPressable key={option} onPress={() => setDifficulty(option)} style={({ pressed }) => [styles.choice, { backgroundColor: active ? `${color}25` : colors.background, borderColor: active ? color : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                       <View style={[styles.choiceDot, { backgroundColor: color }]} />
                       <Text style={[styles.choiceLabel, { color: active ? color : colors.foreground }]}>{getDifficultyLabel(option)}</Text>
-                    </Pressable>
+                    </FeedbackPressable>
                   );
                 })}
               </View>
@@ -147,22 +147,22 @@ export default function MissionsScreen() {
               </View>
               <TextInput value={xp} onChangeText={setXp} keyboardType="number-pad" style={[styles.xpInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
             </View>
-            <Pressable onPress={() => setRevisionEnabled((value) => !value)} style={({ pressed }) => [styles.revisionToggle, { borderColor: revisionEnabled ? colors.primary : colors.border, backgroundColor: revisionEnabled ? `${colors.primary}16` : colors.background, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+            <FeedbackPressable onPress={() => setRevisionEnabled((value) => !value)} style={({ pressed }) => [styles.revisionToggle, { borderColor: revisionEnabled ? colors.primary : colors.border, backgroundColor: revisionEnabled ? `${colors.primary}16` : colors.background, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
               <IconSymbol name={revisionEnabled ? "checklist" : "xmark"} size={17} color={revisionEnabled ? colors.primary : colors.muted} />
               <View style={styles.revisionCopy}>
                 <Text style={[styles.revisionTitle, { color: colors.foreground }]}>Queue spaced repetition</Text>
                 <Text style={[styles.revisionDetail, { color: colors.muted }]}>Schedule a 1–7–30 day review when you complete this mission.</Text>
               </View>
-            </Pressable>
+            </FeedbackPressable>
             <View style={styles.frequencySection}>
               <Text style={[styles.inputLabel, { color: colors.muted }]}>TASK FREQUENCY</Text>
               <View style={styles.frequencyOptions}>
                 {(["once", "daily"] as MissionFrequency[]).map((value) => {
                   const selected = frequency === value;
-                  return <Pressable key={value} onPress={() => setFrequency(value)} style={({ pressed }) => [styles.frequencyChoice, { backgroundColor: selected ? `${colors.primary}18` : colors.background, borderColor: selected ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+                  return <FeedbackPressable key={value} onPress={() => setFrequency(value)} style={({ pressed }) => [styles.frequencyChoice, { backgroundColor: selected ? `${colors.primary}18` : colors.background, borderColor: selected ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                     <Text style={[styles.frequencyChoiceTitle, { color: selected ? colors.primary : colors.foreground }]}>{value === "daily" ? "Daily" : "One time"}</Text>
                     <Text style={[styles.frequencyChoiceDetail, { color: selected ? colors.primary : colors.muted }]}>{value === "daily" ? "Re-deploys tomorrow" : "Completes once"}</Text>
-                  </Pressable>;
+                  </FeedbackPressable>;
                 })}
               </View>
               {frequency === "daily" ? <Text style={[styles.frequencyHint, { color: colors.muted }]}>After completion, a fresh copy returns to Planned at the next local midnight. Today’s XP and time totals reset automatically at midnight.</Text> : null}
@@ -172,13 +172,13 @@ export default function MissionsScreen() {
               <Text style={[styles.bossSectionDetail, { color: colors.muted }]}>Link this task to an existing campaign, or create a boss here before you deploy the mission.</Text>
               {state.bosses.filter((boss) => boss.status === "active").length ? (
                 <View style={styles.bossChoices}>
-                  <Pressable onPress={() => setBossId(null)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: bossId === null ? `${colors.primary}18` : colors.background, borderColor: bossId === null ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+                  <FeedbackPressable onPress={() => setBossId(null)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: bossId === null ? `${colors.primary}18` : colors.background, borderColor: bossId === null ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                     <Text style={[styles.bossChoiceText, { color: bossId === null ? colors.primary : colors.muted }]}>No boss</Text>
-                  </Pressable>
+                  </FeedbackPressable>
                   {state.bosses.filter((boss) => boss.status === "active").map((boss) => (
-                    <Pressable key={boss.id} onPress={() => setBossId(boss.id)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: bossId === boss.id ? "#F4C95D1D" : colors.background, borderColor: bossId === boss.id ? "#F4C95D" : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+                    <FeedbackPressable key={boss.id} onPress={() => setBossId(boss.id)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: bossId === boss.id ? "#F4C95D1D" : colors.background, borderColor: bossId === boss.id ? "#F4C95D" : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                       <Text numberOfLines={1} style={[styles.bossChoiceText, { color: bossId === boss.id ? "#F4C95D" : colors.muted }]}>{boss.title}</Text>
-                    </Pressable>
+                    </FeedbackPressable>
                   ))}
                 </View>
               ) : null}
@@ -201,9 +201,9 @@ export default function MissionsScreen() {
             ["active", "Live"],
             ["completed", "History"],
           ] as [MissionFilter, string][]).map(([value, label]) => (
-            <Pressable key={value} onPress={() => setFilter(value)} style={({ pressed }) => [styles.filter, { backgroundColor: filter === value ? `${colors.primary}18` : colors.surface, borderColor: filter === value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+            <FeedbackPressable key={value} onPress={() => setFilter(value)} style={({ pressed }) => [styles.filter, { backgroundColor: filter === value ? `${colors.primary}18` : colors.surface, borderColor: filter === value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
               <Text style={[styles.filterLabel, { color: filter === value ? colors.primary : colors.muted }]}>{label}</Text>
-            </Pressable>
+            </FeedbackPressable>
           ))}
         </View>
 
@@ -232,7 +232,7 @@ function MissionCard({ mission, onStart }: { mission: ReturnType<typeof useFocus
   const color = getDifficultyColor(mission.difficulty);
   const duration = getMissionInvestedMilliseconds(mission);
   return (
-    <Pressable onPress={() => router.push({ pathname: "/mission/[id]" as never, params: { id: mission.id } })} style={({ pressed }) => ({ opacity: pressed ? 0.82 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}>
+    <FeedbackPressable onPress={() => router.push({ pathname: "/mission/[id]" as never, params: { id: mission.id } })} style={({ pressed }) => ({ opacity: pressed ? 0.82 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}>
       <CommandCard accent={color} style={styles.missionCard}>
         <View style={styles.missionTopline}>
           <StatusPill label={getDifficultyLabel(mission.difficulty)} tone={mission.difficulty === "easy" ? "success" : mission.difficulty === "medium" ? "warning" : "danger"} />
@@ -250,7 +250,7 @@ function MissionCard({ mission, onStart }: { mission: ReturnType<typeof useFocus
           {mission.status === "planned" ? <CommandButton label="Start" icon="play.fill" onPress={onStart} /> : <CommandButton label="Open" icon="chevron.right" variant="ghost" onPress={() => router.push({ pathname: "/mission/[id]" as never, params: { id: mission.id } })} />}
         </View>
       </CommandCard>
-    </Pressable>
+    </FeedbackPressable>
   );
 }
 

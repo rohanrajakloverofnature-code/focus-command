@@ -16,15 +16,16 @@ export default function MissionResultScreen() {
   const { state, ready } = useFocusCommand();
   const mission = state.missions.find((candidate) => candidate.id === id);
   const event = state.progression.find((candidate) => candidate.missionId === id);
+  const reflection = state.reflections.find((candidate) => candidate.missionId === id);
   const [celebration, setCelebration] = useState<CelebrationKind | null>(null);
 
   useEffect(() => {
     if (!ready || !event) return;
     const kind: CelebrationKind = event.titleAfter && event.titleAfter !== event.titleBefore ? "title" : event.levelAfter && event.levelAfter > (event.levelBefore ?? event.levelAfter) ? "level" : event.comboAfter && event.comboAfter > (event.comboBefore ?? event.comboAfter) ? "combo" : "mission";
     setCelebration(kind);
-    const role = kind === "mission" ? "missionWin" : "extended";
+    const role = kind === "title" ? "titleUnlock" : kind === "level" ? "levelUp" : kind === "combo" ? "extended" : reflection?.miniAchievement ? "achievement" : "missionWin";
     void playFocusRole(role, state.profile.soundEnabled, state.profile.soundRoles[role]);
-  }, [event, ready, state.profile.soundEnabled, state.profile.soundRoles]);
+  }, [event, ready, reflection?.miniAchievement, state.profile.soundEnabled, state.profile.soundRoles]);
 
   if (!ready) return <LoadingScreen label="Calculating mission result…" />;
 
@@ -39,7 +40,6 @@ export default function MissionResultScreen() {
     );
   }
 
-  const reflection = state.reflections.find((candidate) => candidate.missionId === mission.id);
   const duration = getMissionInvestedMilliseconds(mission);
   const totalPower = getTotalPower(state);
   const awardedPower = event ? getProgressionPower(event) : 0;

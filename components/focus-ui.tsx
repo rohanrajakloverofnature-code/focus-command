@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  PressableProps,
   StyleProp,
   StyleSheet,
   Text,
@@ -93,6 +94,25 @@ export function ScreenTitle({
       {right}
     </View>
   );
+}
+
+export function FeedbackPressable({
+  onPress,
+  disabled = false,
+  sound = true,
+  haptic = true,
+  accessibilityState,
+  ...props
+}: PressableProps & { sound?: boolean; haptic?: boolean }) {
+  const { state } = useFocusCommand();
+  const isDisabled = disabled === true;
+  const handlePress: NonNullable<PressableProps["onPress"]> = (event) => {
+    if (isDisabled) return;
+    if (sound) playFocusTap(state.profile.soundEnabled, state.profile.soundRoles.tap);
+    if (haptic && state.profile.hapticsEnabled && Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    onPress?.(event);
+  };
+  return <Pressable {...props} accessibilityState={{ ...accessibilityState, disabled: isDisabled }} disabled={isDisabled} onPress={handlePress} />;
 }
 
 export function IconAction({
@@ -309,7 +329,10 @@ export function TapFeedback({
   const scale = useSharedValue(1);
   const tapStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const handlePress = () => {
+    if (disabled) return;
     if (!state.profile.reduceMotion) scale.value = withSequence(withTiming(0.972, { duration: 45 }), withTiming(1.012, { duration: 90 }), withTiming(1, { duration: 110 }));
+    playFocusTap(state.profile.soundEnabled, state.profile.soundRoles.tap);
+    if (state.profile.hapticsEnabled && Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     onPress();
   };
   return (
@@ -317,6 +340,7 @@ export function TapFeedback({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
+        accessibilityState={{ disabled }}
         disabled={disabled}
         onPress={handlePress}
         style={({ pressed }) => ({ opacity: disabled ? 0.45 : pressed ? 0.76 : 1 })}

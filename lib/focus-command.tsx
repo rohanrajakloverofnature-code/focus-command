@@ -17,7 +17,22 @@ export type RewardCategory = "life" | "gear" | "power" | "multiplier";
 export type SyncPhase = "local" | "ready" | "authorized" | "syncing" | "synced" | "needs_setup" | "error";
 export type PaletteToken = "primary" | "background" | "surface" | "foreground" | "muted" | "border" | "success" | "warning" | "error";
 export type EmotionalChartId = "energy_shift" | "focus_friction" | "stress_clarity" | "motivation_distraction";
-export type SoundRoleId = "missionWin" | "tap" | "notification" | "extended";
+export const SOUND_ROLE_IDS = [
+  "tap",
+  "missionWin",
+  "titleUnlock",
+  "levelUp",
+  "achievement",
+  "reward",
+  "notification",
+  "dailyReminder",
+  "revisionReminder",
+  "multiplierReminder",
+  "achievementReminder",
+  "extended",
+  "system",
+] as const;
+export type SoundRoleId = typeof SOUND_ROLE_IDS[number];
 export type SoundStyle = "crisp" | "soft" | "ceremonial";
 export type ForecastOutlook = "momentum" | "steady" | "recovery" | "fragile" | "warming_up";
 
@@ -541,10 +556,19 @@ function defaultProfile(): PlayerProfile {
     titles: DEFAULT_TITLES,
     soundEnabled: true,
     soundRoles: {
-      missionWin: { enabled: true, style: "ceremonial", customUri: null, customName: null },
       tap: { enabled: true, style: "crisp", customUri: null, customName: null },
+      missionWin: { enabled: true, style: "ceremonial", customUri: null, customName: null },
+      titleUnlock: { enabled: true, style: "ceremonial", customUri: null, customName: null },
+      levelUp: { enabled: true, style: "ceremonial", customUri: null, customName: null },
+      achievement: { enabled: true, style: "ceremonial", customUri: null, customName: null },
+      reward: { enabled: true, style: "crisp", customUri: null, customName: null },
       notification: { enabled: true, style: "soft", customUri: null, customName: null },
+      dailyReminder: { enabled: true, style: "soft", customUri: null, customName: null },
+      revisionReminder: { enabled: true, style: "soft", customUri: null, customName: null },
+      multiplierReminder: { enabled: true, style: "soft", customUri: null, customName: null },
+      achievementReminder: { enabled: true, style: "ceremonial", customUri: null, customName: null },
       extended: { enabled: true, style: "soft", customUri: null, customName: null },
+      system: { enabled: true, style: "soft", customUri: null, customName: null },
     },
     hapticsEnabled: true,
     notificationsEnabled: true,
@@ -771,13 +795,42 @@ export function getTodayMissions(state: FocusState): Mission[] {
   return state.missions.filter((mission) => mission.completedAt && toLocalDate(mission.completedAt, state.profile.timezone) === today);
 }
 
-export function getEnergy(state: FocusState): { remaining: number; used: number; maximum: number } {
-  const used = getTodayMissions(state).reduce((total, mission) => {
-    const minutes = getMissionInvestedMilliseconds(mission) / 60_000;
-    return total + minutes * state.profile.energyCostPerMinute[mission.difficulty];
+export interface EnergyStatus {
+  maximum: number;
+  used: number;
+  rawUsed: number;
+  remaining: number;
+  percentage: number;
+  percent: number;
+}
+
+function roundEnergy(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
+/**
+ * Energy is a daily capacity meter. Its percentage is always derived from the
+ * current remaining units divided by the configured maximum, then clamped.
+ */
+export function getEnergy(state: FocusState): EnergyStatus {
+  const maximum = Math.max(1, Math.round(Number(state.profile.energyMaximum) || 1));
+  const rawUsed = getTodayMissions(state).reduce((total, mission) => {
+    const minutes = Math.max(0, getMissionInvestedMilliseconds(mission) / 60_000);
+    const configuredCost = Number(state.profile.energyCostPerMinute[mission.difficulty]);
+    const costPerMinute = Number.isFinite(configuredCost) ? Math.max(0, configuredCost) : 0;
+    return total + minutes * costPerMinute;
   }, 0);
-  const maximum = state.profile.energyMaximum;
-  return { remaining: Math.max(0, Math.round(maximum - used)), used: Math.round(used), maximum };
+  const used = Math.min(maximum, Math.max(0, rawUsed));
+  const remaining = Math.min(maximum, Math.max(0, maximum - used));
+  const percentage = Math.min(1, Math.max(0, remaining / maximum));
+  return {
+    maximum: roundEnergy(maximum),
+    used: roundEnergy(used),
+    rawUsed: roundEnergy(rawUsed),
+    remaining: roundEnergy(remaining),
+    percentage,
+    percent: Math.round(percentage * 100),
+  };
 }
 
 export function getDailyProgress(state: FocusState): { earned: number; target: number; progress: number } {
@@ -1117,10 +1170,12 @@ function withQueuedOperation(state: FocusState, operationCount = 1): FocusState 
 
 type Action =
   | { type: "hydrate"; state: FocusState }
-  | { type: "replace"; state: FocusState };
+  | { type: "replace"; state: FocusState }
+  | { type: "update_profile"; patch: Partial<PlayerProfile> };
 
 function reducer(state: FocusState, action: Action): FocusState {
   if (action.type === "hydrate") return { ...action.state, hydrated: true };
+  if (action.type === "update_profile") return withQueuedOperation({ ...state, profile: mergePlayerProfile(state.profile, action.patch) });
   return action.state;
 }
 
@@ -1160,25 +1215,68 @@ interface FocusCommandContextValue {
 
 const FocusCommandContext = createContext<FocusCommandContextValue | null>(null);
 
+const LEGACY_SOUND_ROLE_FALLBACK: Partial<Record<SoundRoleId, SoundRoleId>> = {
+  titleUnlock: "extended",
+  levelUp: "extended",
+  achievement: "extended",
+  reward: "missionWin",
+  dailyReminder: "notification",
+  revisionReminder: "notification",
+  multiplierReminder: "notification",
+  achievementReminder: "notification",
+  system: "extended",
+};
+
+export function normalizeSoundRoles(
+  defaults: Record<SoundRoleId, SoundRoleSettings>,
+  stored?: Partial<Record<SoundRoleId, Partial<SoundRoleSettings>>>,
+): Record<SoundRoleId, SoundRoleSettings> {
+  return Object.fromEntries(SOUND_ROLE_IDS.map((role) => {
+    const fallbackRole = LEGACY_SOUND_ROLE_FALLBACK[role];
+    const saved = stored?.[role] ?? (fallbackRole ? stored?.[fallbackRole] : undefined);
+    return [role, { ...defaults[role], ...(saved ?? {}) }];
+  })) as Record<SoundRoleId, SoundRoleSettings>;
+}
+
+function clampFinite(value: number, minimum: number, maximum = Number.POSITIVE_INFINITY) {
+  return Number.isFinite(value) ? Math.min(maximum, Math.max(minimum, value)) : minimum;
+}
+
+/** Merge nested settings role-by-role so one Dashboard control never erases unrelated preferences. */
+export function mergePlayerProfile(current: PlayerProfile, patch: Partial<PlayerProfile>): PlayerProfile {
+  const next = {
+    ...current,
+    ...patch,
+    palette: patch.palette ? { ...current.palette, ...patch.palette } : current.palette,
+    notificationRules: patch.notificationRules ? { ...current.notificationRules, ...patch.notificationRules } : current.notificationRules,
+    energyCostPerMinute: patch.energyCostPerMinute ? { ...current.energyCostPerMinute, ...patch.energyCostPerMinute } : current.energyCostPerMinute,
+    soundRoles: patch.soundRoles ? normalizeSoundRoles(current.soundRoles, patch.soundRoles) : current.soundRoles,
+    emotionalCharts: patch.emotionalCharts?.length ? patch.emotionalCharts : current.emotionalCharts,
+    dashboardWidgets: patch.dashboardWidgets ?? current.dashboardWidgets,
+  };
+  return {
+    ...next,
+    dailyTargetXp: Math.round(clampFinite(Number(next.dailyTargetXp), 1)),
+    lootChancePercent: clampFinite(Number(next.lootChancePercent), 0, 100),
+    energyMaximum: Math.round(clampFinite(Number(next.energyMaximum), 1)),
+    energyCostPerMinute: {
+      easy: clampFinite(Number(next.energyCostPerMinute.easy), 0),
+      medium: clampFinite(Number(next.energyCostPerMinute.medium), 0),
+      hard: clampFinite(Number(next.energyCostPerMinute.hard), 0),
+    },
+    maxLevel: Math.round(clampFinite(Number(next.maxLevel), 1)),
+    powerPerLevel: Math.round(clampFinite(Number(next.powerPerLevel), 1)),
+    titleChangeInterval: Math.round(clampFinite(Number(next.titleChangeInterval), 1)),
+  };
+}
+
 function normalizeHydratedState(input: FocusState): FocusState {
   const defaults = createInitialState();
   return {
     ...defaults,
     ...input,
     hydrated: true,
-    profile: {
-      ...defaults.profile,
-      ...(input.profile ?? {}),
-      palette: { ...defaults.profile.palette, ...(input.profile?.palette ?? {}) },
-      notificationRules: { ...defaults.profile.notificationRules, ...(input.profile?.notificationRules ?? {}) },
-      soundRoles: {
-        missionWin: { ...defaults.profile.soundRoles.missionWin, ...(input.profile?.soundRoles?.missionWin ?? {}) },
-        tap: { ...defaults.profile.soundRoles.tap, ...(input.profile?.soundRoles?.tap ?? {}) },
-        notification: { ...defaults.profile.soundRoles.notification, ...(input.profile?.soundRoles?.notification ?? {}) },
-        extended: { ...defaults.profile.soundRoles.extended, ...(input.profile?.soundRoles?.extended ?? {}) },
-      },
-      emotionalCharts: input.profile?.emotionalCharts?.length ? input.profile.emotionalCharts : defaults.profile.emotionalCharts,
-    },
+    profile: mergePlayerProfile(defaults.profile, input.profile ?? {}),
     combo: { ...defaults.combo, ...(input.combo ?? {}) },
     missions: (input.missions ?? []).map((mission) => ({ ...mission, frequency: mission.frequency ?? "once" })),
     googleSheet: { ...defaults.googleSheet, ...(input.googleSheet ?? {}) },
@@ -1233,6 +1331,20 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   const commit = useCallback((producer: (current: FocusState) => FocusState) => {
     dispatch({ type: "replace", state: producer(state) });
   }, [state]);
+
+  useEffect(() => {
+    if (!state.hydrated) return;
+    const expiredIds = state.inventory
+      .filter((item) => item.active && !item.consumedAt && item.effectiveOn && item.effectiveOn < localDay)
+      .filter((item) => Boolean(state.rewards.find((reward) => reward.id === item.rewardId)?.goldMultiplier))
+      .map((item) => item.id);
+    if (!expiredIds.length) return;
+    const expiredAt = nowIso();
+    commit((current) => withQueuedOperation({
+      ...current,
+      inventory: current.inventory.map((item) => expiredIds.includes(item.id) ? { ...item, active: false, consumedAt: expiredAt } : item),
+    }));
+  }, [commit, localDay, state.hydrated, state.inventory, state.rewards]);
 
   const createMission = useCallback((draft: MissionDraft) => {
     const id = createId("mission");
@@ -1724,8 +1836,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   }, [commit, state]);
 
   const updateProfile = useCallback((patch: Partial<PlayerProfile>) => {
-    commit((current) => withQueuedOperation({ ...current, profile: { ...current.profile, ...patch } }));
-  }, [commit]);
+    dispatch({ type: "update_profile", patch });
+  }, []);
 
   const updateComboTiers = useCallback((tiers: ComboTier[]) => {
     commit((current) => {

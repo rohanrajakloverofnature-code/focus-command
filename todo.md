@@ -107,3 +107,12 @@
 - [x] Fix notification sound selections so they persist permanently after being set, even after app redirects.
 
 - [x] Audit and fix XP and Power calculation system: separate raw XP from multiplier-adjusted Power, add Today's XP to Home, and verify no-multiplier, combo, gold-expiry, combo-change, and multiple-award scenarios with unit tests.
+
+- [x] Audit and repair unresponsive click and tap targets across shared controls, navigation, cards, filters, dialogs, and direct press handlers.
+- [x] Expand sound customization into individually persisted roles for title unlocks, notifications, rewards, level-ups, achievements, button taps, mission completion, extended feedback, and remaining system events.
+- [x] Ensure every event and notification uses its selected sound immediately and preserves the selection after rehydration or restart.
+- [x] Keep energy units and percentage dynamically synchronized with the configured maximum, clamped from 0% to 100%, and add a clear Dashboard explanation.
+- [x] Verify Dashboard settings update immediately, persist after restart, and do not overwrite unrelated nested preferences.
+- [x] Audit XP, Power, combo, gold, rewards, achievements, notifications, animations, navigation, and state synchronization for hidden logic or runtime defects.
+- [x] Add deterministic final-release regressions for sound-role persistence and routing, energy bounds, settings rehydration, and critical gameplay calculations.
+- [x] Complete final type, lint, test, export, runtime-log, and native-compatible release validation.

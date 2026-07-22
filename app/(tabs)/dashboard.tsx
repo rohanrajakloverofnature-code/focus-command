@@ -3,11 +3,11 @@ import { useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { BarsChart, ChartPoint, DonutChart, LineTrendChart, MultiLineTrendChart, RadarChart } from "@/components/focus-charts";
-import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, StatusPill, TapFeedback } from "@/components/focus-ui";
+import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, ProgressBar, ScreenTitle, SectionHeader, StatusPill, TapFeedback } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getMissionInvestedMilliseconds, getProgressionPower, getTotalPower, getWellbeingInsight, toLocalDate, useFocusCommand } from "@/lib/focus-command";
+import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getEnergy, getMissionInvestedMilliseconds, getProgressionPower, getTotalPower, getWellbeingInsight, toLocalDate, useFocusCommand } from "@/lib/focus-command";
 
 function createDaySeries(days: number, profileTimezone: string) {
   return Array.from({ length: days }, (_, index) => {
@@ -34,6 +34,7 @@ export default function DashboardScreen() {
   const dashboard = useMemo(() => getDashboardStats(state), [state]);
   const forecast = useMemo(() => getEmotionalPatternForecast(state), [state]);
   const wellbeing = useMemo(() => getWellbeingInsight(state), [state]);
+  const energy = useMemo(() => getEnergy(state), [state]);
 
   if (!ready) return <LoadingScreen label="Compiling command analytics…" />;
 
@@ -131,7 +132,7 @@ export default function DashboardScreen() {
           eyebrow="Analytics suite"
           title="Command intelligence"
           detail="Every graph is calculated from your missions, reflections, rewards, and journal—not sample data."
-          right={<IconAction icon="line.3.horizontal" label="Open settings" onPress={() => router.push("/settings")} />}
+          right={<IconAction icon="line.3.horizontal" label="Open sound and command settings" onPress={() => router.push("/settings?section=sounds" as never)} />}
         />
 
         <View style={styles.metrics}>
@@ -140,6 +141,21 @@ export default function DashboardScreen() {
           <MetricTile label="Weekly average" value={`${timeAverages.weekDailyAverageHours.toFixed(1)} h`} detail="Tap for week detail" icon="chart.xyaxis.line" accent={colors.success} onPress={() => router.push("/analytics?metric=weekly" as never)} />
           <MetricTile label="Monthly average" value={`${timeAverages.monthDailyAverageHours.toFixed(1)} h`} detail="Tap for month detail" icon="target" accent={colors.warning} onPress={() => router.push("/analytics?metric=monthly" as never)} />
         </View>
+
+        <SectionHeader title="Energy reserve" />
+        <CommandCard accent={energy.percent > 50 ? colors.success : energy.percent > 20 ? colors.warning : colors.error} style={styles.energyCard}>
+          <View style={styles.energyHeading}>
+            <View style={styles.energyCopy}>
+              <Text style={[styles.energyTitle, { color: colors.foreground }]}>Daily energy capacity</Text>
+              <Text style={[styles.energyDetail, { color: colors.muted }]}>{energy.remaining.toFixed(1)} of {energy.maximum.toFixed(1)} units remain today.</Text>
+            </View>
+            <StatusPill label={`${energy.percent}% REMAINING`} tone={energy.percent > 50 ? "success" : energy.percent > 20 ? "warning" : "danger"} icon="bolt.fill" />
+          </View>
+          <ProgressBar value={energy.percentage} color={energy.percent > 50 ? colors.success : energy.percent > 20 ? colors.warning : colors.error} trackColor={colors.border} height={9} />
+          <Text style={[styles.energyFormula, { color: colors.muted }]}>Energy % = remaining units ÷ configured maximum. Today’s use is focused minutes × your difficulty cost, capped at the maximum so the meter stays between 0% and 100%.</Text>
+          <Text style={[styles.energyFormula, { color: colors.muted }]}>Used today: {energy.used.toFixed(1)} units{energy.rawUsed > energy.used ? ` (${energy.rawUsed.toFixed(1)} logged; display capped at capacity)` : ""}.</Text>
+          <CommandButton label="Adjust energy capacity" variant="secondary" icon="gearshape.fill" onPress={() => router.push("/settings" as never)} />
+        </CommandCard>
 
         <SectionHeader title="Recognition window" />
         <View style={styles.recognitionGrid}>
@@ -350,6 +366,12 @@ function Legend({ points, formatter }: { points: ChartPoint[]; formatter: (value
 const styles = StyleSheet.create({
   content: { gap: 16, paddingTop: 12, paddingBottom: 28 },
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  energyCard: { gap: 11 },
+  energyHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  energyCopy: { flex: 1, minWidth: 0, gap: 2 },
+  energyTitle: { fontSize: 16, lineHeight: 21, fontWeight: "900" },
+  energyDetail: { fontSize: 12, lineHeight: 17, fontWeight: "600" },
+  energyFormula: { fontSize: 11, lineHeight: 16, fontWeight: "500" },
   behavioralIntro: { fontSize: 12, lineHeight: 17, fontWeight: "600", marginTop: -7 },
   wellbeingCard: { gap: 10 },
   wellbeingHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
