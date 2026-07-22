@@ -35,7 +35,7 @@ export default function JournalScreen() {
       return;
     }
     addJournal({ betterThanYesterday: better, points: amount, note });
-    void playFocusRole("extended", state.profile.soundEnabled, state.profile.soundRoles.extended);
+    void playFocusRole("achievement", state.profile.soundEnabled, state.profile.soundRoles.achievement);
     setShowComposer(false);
     setJournalCelebration(true);
   };

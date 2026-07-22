@@ -17,7 +17,23 @@ export type RewardCategory = "life" | "gear" | "power" | "multiplier";
 export type SyncPhase = "local" | "ready" | "authorized" | "syncing" | "synced" | "needs_setup" | "error";
 export type PaletteToken = "primary" | "background" | "surface" | "foreground" | "muted" | "border" | "success" | "warning" | "error";
 export type EmotionalChartId = "energy_shift" | "focus_friction" | "stress_clarity" | "motivation_distraction";
-export type SoundRoleId = "missionWin" | "tap" | "notification" | "extended";
+export const SOUND_ROLE_IDS = [
+  "missionWin",
+  "titleUnlock",
+  "levelUp",
+  "achievement",
+  "comboTier",
+  "reward",
+  "tap",
+  "system",
+  "dailyMissionReminder",
+  "revisionReminder",
+  "multiplierReminder",
+  "achievementRecap",
+  "notification",
+  "extended",
+] as const;
+export type SoundRoleId = (typeof SOUND_ROLE_IDS)[number];
 export type SoundStyle = "crisp" | "soft" | "ceremonial";
 export type ForecastOutlook = "momentum" | "steady" | "recovery" | "fragile" | "warming_up";
 
@@ -542,7 +558,17 @@ function defaultProfile(): PlayerProfile {
     soundEnabled: true,
     soundRoles: {
       missionWin: { enabled: true, style: "ceremonial", customUri: null, customName: null },
+      titleUnlock: { enabled: true, style: "ceremonial", customUri: null, customName: null },
+      levelUp: { enabled: true, style: "ceremonial", customUri: null, customName: null },
+      achievement: { enabled: true, style: "ceremonial", customUri: null, customName: null },
+      comboTier: { enabled: true, style: "crisp", customUri: null, customName: null },
+      reward: { enabled: true, style: "ceremonial", customUri: null, customName: null },
       tap: { enabled: true, style: "crisp", customUri: null, customName: null },
+      system: { enabled: true, style: "soft", customUri: null, customName: null },
+      dailyMissionReminder: { enabled: true, style: "soft", customUri: null, customName: null },
+      revisionReminder: { enabled: true, style: "soft", customUri: null, customName: null },
+      multiplierReminder: { enabled: true, style: "soft", customUri: null, customName: null },
+      achievementRecap: { enabled: true, style: "ceremonial", customUri: null, customName: null },
       notification: { enabled: true, style: "soft", customUri: null, customName: null },
       extended: { enabled: true, style: "soft", customUri: null, customName: null },
     },
@@ -1128,7 +1154,7 @@ interface FocusCommandContextValue {
 
 const FocusCommandContext = createContext<FocusCommandContextValue | null>(null);
 
-function normalizeHydratedState(input: FocusState): FocusState {
+export function normalizeHydratedState(input: FocusState): FocusState {
   const defaults = createInitialState();
   return {
     ...defaults,
@@ -1139,12 +1165,34 @@ function normalizeHydratedState(input: FocusState): FocusState {
       ...(input.profile ?? {}),
       palette: { ...defaults.profile.palette, ...(input.profile?.palette ?? {}) },
       notificationRules: { ...defaults.profile.notificationRules, ...(input.profile?.notificationRules ?? {}) },
-      soundRoles: {
-        missionWin: { ...defaults.profile.soundRoles.missionWin, ...(input.profile?.soundRoles?.missionWin ?? {}) },
-        tap: { ...defaults.profile.soundRoles.tap, ...(input.profile?.soundRoles?.tap ?? {}) },
-        notification: { ...defaults.profile.soundRoles.notification, ...(input.profile?.soundRoles?.notification ?? {}) },
-        extended: { ...defaults.profile.soundRoles.extended, ...(input.profile?.soundRoles?.extended ?? {}) },
-      },
+      soundRoles: (() => {
+        const persisted = input.profile?.soundRoles;
+        const legacyFallback: Record<SoundRoleId, SoundRoleId> = {
+          missionWin: "missionWin",
+          titleUnlock: "extended",
+          levelUp: "extended",
+          achievement: "extended",
+          comboTier: "extended",
+          reward: "extended",
+          tap: "tap",
+          system: "extended",
+          dailyMissionReminder: "notification",
+          revisionReminder: "notification",
+          multiplierReminder: "notification",
+          achievementRecap: "notification",
+          notification: "notification",
+          extended: "extended",
+        };
+        return Object.fromEntries(
+          SOUND_ROLE_IDS.map((role) => [
+            role,
+            {
+              ...defaults.profile.soundRoles[role],
+              ...(persisted?.[role] ?? persisted?.[legacyFallback[role]] ?? {}),
+            },
+          ]),
+        ) as Record<SoundRoleId, SoundRoleSettings>;
+      })(),
       emotionalCharts: input.profile?.emotionalCharts?.length ? input.profile.emotionalCharts : defaults.profile.emotionalCharts,
     },
     combo: { ...defaults.combo, ...(input.combo ?? {}) },

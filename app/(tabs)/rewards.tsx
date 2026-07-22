@@ -8,7 +8,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { formatCompactNumber, getGoldBalance, getLifetimeGold, RewardCategory, useFocusCommand } from "@/lib/focus-command";
 import { scheduleMultiplierReminder } from "@/lib/focus-reminders";
-import { playFocusConfirmCue } from "@/lib/focus-audio";
+import { playFocusRole } from "@/lib/focus-audio";
 
 const categories: { value: RewardCategory | "all"; label: string; icon: "gift.fill" | "shield.fill" | "bolt.fill" | "star.fill" }[] = [
   { value: "all", label: "All", icon: "gift.fill" },
@@ -92,9 +92,9 @@ export default function RewardsScreen() {
   const buy = async (rewardId: string) => {
     const reward = state.rewards.find((candidate) => candidate.id === rewardId);
     const result = purchaseReward(rewardId);
-    if (result.ok) await playFocusConfirmCue(state.profile.soundEnabled, state.profile.soundRoles.extended);
+    if (result.ok) await playFocusRole("reward", state.profile.soundEnabled, state.profile.soundRoles.reward);
     if (result.ok && reward?.goldMultiplier && state.profile.notificationsEnabled) {
-      await scheduleMultiplierReminder(reward.title, state.profile.notificationRules, state.profile.soundRoles.notification);
+      await scheduleMultiplierReminder(reward.title, state.profile.notificationRules, state.profile.soundRoles.multiplierReminder);
     }
     Alert.alert(result.ok ? "Reward secured" : "Not enough gold", result.message);
   };

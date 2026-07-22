@@ -110,15 +110,25 @@ export default function SettingsScreen() {
     const notificationRules = { ...state.profile.notificationRules, ...patch };
     updateProfile({ notificationRules });
     if (state.profile.notificationsEnabled && ("dailyMissionEnabled" in patch || "dailyMissionTime" in patch)) {
-      await configureDailyMissionReminder(notificationRules.dailyMissionEnabled, notificationRules.dailyMissionTime, state.profile.soundRoles.notification);
+      await configureDailyMissionReminder(notificationRules.dailyMissionEnabled, notificationRules.dailyMissionTime, state.profile.soundRoles.dailyMissionReminder);
     }
   };
 
   const soundRoles: { id: SoundRoleId; title: string; detail: string }[] = [
-    { id: "missionWin", title: "Mission win", detail: "Plays when a mission is completed." },
-    { id: "tap", title: "Tap / click", detail: "Short feedback for command buttons and controls." },
-    { id: "notification", title: "Notification", detail: "Preview cue for reminder and alert style." },
-    { id: "extended", title: "Extended feedback", detail: "Longer confirmation for vault and special actions." },
+    { id: "missionWin", title: "Mission win", detail: "Plays after a standard mission completion." },
+    { id: "titleUnlock", title: "Title unlock", detail: "Plays when a new command title is earned or revealed." },
+    { id: "levelUp", title: "Level-up", detail: "Plays when your command level increases." },
+    { id: "achievement", title: "Achievement", detail: "Plays for journal, rank, and achievement celebrations." },
+    { id: "comboTier", title: "Combo tier", detail: "Plays when a new streak multiplier tier is reached." },
+    { id: "reward", title: "Reward / vault", detail: "Plays when a reward is redeemed or an armory item is activated." },
+    { id: "tap", title: "Tap / click", detail: "Short feedback for buttons, controls, and navigation." },
+    { id: "system", title: "System confirmation", detail: "Plays after import, sync, and other successful system actions." },
+    { id: "dailyMissionReminder", title: "Daily mission reminder", detail: "Dedicated sound for your daily mission notification." },
+    { id: "revisionReminder", title: "Revision reminder", detail: "Dedicated sound for scheduled revision notifications." },
+    { id: "multiplierReminder", title: "Multiplier reminder", detail: "Dedicated sound for next-day multiplier notifications." },
+    { id: "achievementRecap", title: "Achievement recap", detail: "Dedicated sound for post-mission achievement recap notifications." },
+    { id: "notification", title: "General notification fallback", detail: "Fallback cue for generic alert-style notifications." },
+    { id: "extended", title: "Extended feedback fallback", detail: "Fallback cue for legacy or uncategorized longer feedback." },
   ];
   const soundStyles: { value: SoundStyle; label: string }[] = [
     { value: "crisp", label: "Crisp" },
@@ -166,6 +176,7 @@ export default function SettingsScreen() {
       await saveSelectedFocusWorkbook(workbook);
       setGoogleSheetConnection({ ...workbook, phase: "synced", pendingOperations: 0, lastSyncedAt: new Date().toISOString(), errorMessage: null });
       markSynced();
+      void playFocusRole("system", state.profile.soundEnabled, state.profile.soundRoles.system);
       Alert.alert("Spreadsheet ready", "Focus Command created its data tabs and exported the current command log.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Google Sheets could not create the spreadsheet.";
@@ -207,6 +218,7 @@ export default function SettingsScreen() {
       await saveSelectedFocusWorkbook(workbook);
       setGoogleSheetConnection({ ...workbook, phase: "synced", pendingOperations: 0, lastSyncedAt: new Date().toISOString(), errorMessage: null });
       markSynced();
+      void playFocusRole("system", state.profile.soundEnabled, state.profile.soundRoles.system);
       Alert.alert("Sync complete", "The selected Google Sheet now contains the latest Focus Command snapshot and data tabs.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Google Sheets could not sync the selected spreadsheet.";
@@ -255,6 +267,7 @@ export default function SettingsScreen() {
       setSheetId(workbook.spreadsheetId);
       setSheetName(workbook.spreadsheetName);
       await saveSelectedFocusWorkbook(workbook);
+      void playFocusRole("system", state.profile.soundEnabled, state.profile.soundRoles.system);
       Alert.alert("Import complete", "The local command system has been refreshed from the selected Google Sheet snapshot.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Google Sheets could not import this spreadsheet.";
@@ -349,7 +362,7 @@ export default function SettingsScreen() {
               }
             }
             updateProfile({ notificationsEnabled });
-            await configureDailyMissionReminder(notificationsEnabled && state.profile.notificationRules.dailyMissionEnabled, state.profile.notificationRules.dailyMissionTime, state.profile.soundRoles.notification);
+            await configureDailyMissionReminder(notificationsEnabled && state.profile.notificationRules.dailyMissionEnabled, state.profile.notificationRules.dailyMissionTime, state.profile.soundRoles.dailyMissionReminder);
           }} />
           <Divider />
           <SwitchRow label="Reduce motion" detail="Prefer still, immediate state changes over animation." value={state.profile.reduceMotion} onValueChange={(reduceMotion) => updateProfile({ reduceMotion })} />

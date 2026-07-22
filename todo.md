@@ -107,3 +107,6 @@
 - [x] Fix notification sound selections so they persist permanently after being set, even after app redirects.
 
 - [x] Keep the Home Title Achievement modal shown after tapping the character active for exactly 10 seconds in normal-motion mode, with its circular halo animation running for the same duration.
+
+- [x] Restore the full granular sound-role catalog in the Sound Command Center, including every previously available title, notification, reward, level, achievement, tap, and system event category.
+- [x] Verify the complete sound-role catalog remains visible, individually customizable, previewable, and persisted after restart.

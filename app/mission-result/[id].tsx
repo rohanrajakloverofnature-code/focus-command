@@ -22,7 +22,7 @@ export default function MissionResultScreen() {
     if (!ready || !event) return;
     const kind: CelebrationKind = event.titleAfter && event.titleAfter !== event.titleBefore ? "title" : event.levelAfter && event.levelAfter > (event.levelBefore ?? event.levelAfter) ? "level" : event.comboAfter && event.comboAfter > (event.comboBefore ?? event.comboAfter) ? "combo" : "mission";
     setCelebration(kind);
-    const role = kind === "mission" ? "missionWin" : "extended";
+    const role = kind === "title" ? "titleUnlock" : kind === "level" ? "levelUp" : kind === "combo" ? "comboTier" : "missionWin";
     void playFocusRole(role, state.profile.soundEnabled, state.profile.soundRoles[role]);
   }, [event, ready, state.profile.soundEnabled, state.profile.soundRoles]);
 

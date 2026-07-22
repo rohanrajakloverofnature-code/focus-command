@@ -13,7 +13,17 @@ const sources = {
 
 const cueByRoleAndStyle: Record<SoundRoleId, Record<SoundStyle, CueName>> = {
   missionWin: { crisp: "confirm", soft: "notification", ceremonial: "achievement" },
+  titleUnlock: { crisp: "confirm", soft: "achievement", ceremonial: "achievement" },
+  levelUp: { crisp: "confirm", soft: "achievement", ceremonial: "achievement" },
+  achievement: { crisp: "confirm", soft: "achievement", ceremonial: "achievement" },
+  comboTier: { crisp: "tap", soft: "confirm", ceremonial: "achievement" },
+  reward: { crisp: "confirm", soft: "achievement", ceremonial: "achievement" },
   tap: { crisp: "tap", soft: "confirm", ceremonial: "achievement" },
+  system: { crisp: "confirm", soft: "notification", ceremonial: "achievement" },
+  dailyMissionReminder: { crisp: "tap", soft: "notification", ceremonial: "confirm" },
+  revisionReminder: { crisp: "tap", soft: "notification", ceremonial: "confirm" },
+  multiplierReminder: { crisp: "tap", soft: "notification", ceremonial: "confirm" },
+  achievementRecap: { crisp: "confirm", soft: "notification", ceremonial: "achievement" },
   notification: { crisp: "tap", soft: "notification", ceremonial: "confirm" },
   extended: { crisp: "confirm", soft: "notification", ceremonial: "achievement" },
 };
