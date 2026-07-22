@@ -116,3 +116,6 @@
 - [x] Audit XP, Power, combo, gold, rewards, achievements, notifications, animations, navigation, and state synchronization for hidden logic or runtime defects.
 - [x] Add deterministic final-release regressions for sound-role persistence and routing, energy bounds, settings rehydration, and critical gameplay calculations.
 - [x] Complete final type, lint, test, export, runtime-log, and native-compatible release validation.
+
+- [x] Repair the custom notification-sound picker end-to-end: copy the chosen audio durably, persist and rehydrate the role assignment, show its file name, preview the custom file, retain it until removed, and route it to every notification category.
+- [x] Add regression coverage for durable custom-sound persistence, selected-name display data, preview resolution, removal behavior, and category-specific notification sound routing.

@@ -87,6 +87,34 @@ describe("final stability guards", () => {
     expect(saved.dailyReminder).toEqual(state.profile.soundRoles.dailyReminder);
   });
 
+  it("preserves every notification category’s custom file through later profile changes and removes only the requested role", () => {
+    const state = createInitialState();
+    const notificationRoles = ["dailyReminder", "revisionReminder", "multiplierReminder", "achievementReminder"] as const;
+    const assigned = mergePlayerProfile(state.profile, {
+      soundRoles: {
+        ...state.profile.soundRoles,
+        ...Object.fromEntries(notificationRoles.map((role) => [role, {
+          ...state.profile.soundRoles[role],
+          customUri: `file:///focus-command-sounds/${role}.m4a`,
+          customName: `${role}.m4a`,
+        }])),
+      },
+    });
+    const afterUnrelatedSetting = mergePlayerProfile(assigned, { dailyTargetXp: 180 });
+    const afterRemoval = mergePlayerProfile(afterUnrelatedSetting, {
+      soundRoles: {
+        ...afterUnrelatedSetting.soundRoles,
+        revisionReminder: { ...afterUnrelatedSetting.soundRoles.revisionReminder, customUri: null, customName: null },
+      },
+    });
+
+    expect(notificationRoles.map((role) => afterUnrelatedSetting.soundRoles[role].customName)).toEqual(notificationRoles.map((role) => `${role}.m4a`));
+    expect(afterRemoval.soundRoles.revisionReminder.customUri).toBeNull();
+    expect(afterRemoval.soundRoles.dailyReminder.customUri).toContain("dailyReminder.m4a");
+    expect(afterRemoval.soundRoles.multiplierReminder.customUri).toContain("multiplierReminder.m4a");
+    expect(afterRemoval.soundRoles.achievementReminder.customUri).toContain("achievementReminder.m4a");
+  });
+
   it("merges nested Dashboard settings without erasing existing sounds, reminder rules, or palette values", () => {
     const state = createInitialState();
     const updated = mergePlayerProfile(state.profile, {

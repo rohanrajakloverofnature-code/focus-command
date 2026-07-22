@@ -34,6 +34,7 @@ export default function SettingsScreen() {
   const [newTierMultiplier, setNewTierMultiplier] = useState("");
   const [sheetId, setSheetId] = useState(state.googleSheet.spreadsheetId ?? "");
   const [sheetName, setSheetName] = useState(state.googleSheet.spreadsheetName || "Focus Command Data");
+  const [savingSoundRole, setSavingSoundRole] = useState<SoundRoleId | null>(null);
   const onGoogleAuthorized = useCallback((_token: string, email: string | null) => {
     setGoogleSheetConnection({ phase: "authorized", connectedEmail: email ?? "", errorMessage: null });
   }, [setGoogleSheetConnection]);
@@ -144,14 +145,21 @@ export default function SettingsScreen() {
   };
 
   const selectSoundFile = async (role: SoundRoleId) => {
+    if (savingSoundRole) return;
+    setSavingSoundRole(role);
     try {
       const previousUri = state.profile.soundRoles[role].customUri;
       const selected = await pickAndPersistFocusSound(role);
       if (!selected) return;
-      patchSoundRole(role, { customUri: selected.uri, customName: selected.name }, true);
+      patchSoundRole(role, { customUri: selected.uri, customName: selected.name }, false);
+      await playFocusRole(role, state.profile.soundEnabled, { ...state.profile.soundRoles[role], customUri: selected.uri, customName: selected.name });
       if (previousUri && previousUri !== selected.uri) await removePersistedFocusSound(previousUri);
+      const label = soundRoles.find((item) => item.id === role)?.title ?? "this sound";
+      Alert.alert("Custom sound saved", `${selected.name} is now saved for ${label}. It will remain selected until you replace or remove it.`);
     } catch {
-      Alert.alert("Sound file unavailable", "Choose a standard audio file such as MP3, M4A, AAC, or WAV and try again.");
+      Alert.alert("Sound file unavailable", "Focus Command could not copy that audio file. Choose a standard MP3, M4A, AAC, or WAV file and try again.");
+    } finally {
+      setSavingSoundRole(null);
     }
   };
 
@@ -358,8 +366,8 @@ export default function SettingsScreen() {
                 <View style={styles.soundRoleActions}>
                   <View style={styles.soundStyleChoices}>{soundStyles.map((option) => <FeedbackPressable key={option.value} sound={false} onPress={() => selectBundledSound(role.id, option.value)} style={({ pressed }) => [styles.soundStyleChoice, { backgroundColor: !setting.customUri && setting.style === option.value ? `${colors.primary}1B` : colors.surface, borderColor: !setting.customUri && setting.style === option.value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.soundStyleText, { color: !setting.customUri && setting.style === option.value ? colors.primary : colors.muted }]}>{option.label}</Text></FeedbackPressable>)}</View>
                   <View style={styles.soundFileRow}>
-                    <View style={styles.soundFileCopy}><Text numberOfLines={1} style={[styles.soundFileName, { color: setting.customUri ? colors.success : colors.muted }]}>{setting.customName ? `Custom: ${setting.customName}` : "Bundled cue selected"}</Text><Text style={[styles.soundFileHint, { color: colors.muted }]}>{reminderSoundRoles.includes(role.id) ? "Custom files preview and play while Focus Command is open. Background reminders use the platform-compatible notification channel." : "Pick an MP3, M4A, AAC, or WAV from your device."}</Text></View>
-                    <FeedbackPressable accessibilityRole="button" onPress={() => { void selectSoundFile(role.id); }} style={({ pressed }) => [styles.soundFileButton, { borderColor: colors.primary, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.soundFileButtonText, { color: colors.primary }]}>CHOOSE</Text></FeedbackPressable>
+                    <View style={styles.soundFileCopy}><Text numberOfLines={1} style={[styles.soundFileName, { color: setting.customUri ? colors.success : colors.muted }]}>{setting.customUri ? `Custom: ${setting.customName ?? "Saved audio file"}` : "Bundled cue selected"}</Text><Text style={[styles.soundFileHint, { color: colors.muted }]}>{reminderSoundRoles.includes(role.id) ? "Custom files preview and play while Focus Command is open. Background reminders use the platform-compatible notification channel." : "Pick an MP3, M4A, AAC, or WAV from your device."}</Text></View>
+                    <FeedbackPressable accessibilityRole="button" disabled={savingSoundRole === role.id} onPress={() => { void selectSoundFile(role.id); }} style={({ pressed }) => [styles.soundFileButton, { borderColor: colors.primary, opacity: savingSoundRole === role.id ? 0.5 : pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.soundFileButtonText, { color: colors.primary }]}>{savingSoundRole === role.id ? "SAVING…" : "CHOOSE"}</Text></FeedbackPressable>
                   </View>
                   {setting.customUri ? <FeedbackPressable accessibilityRole="button" onPress={() => { void clearSoundFile(role.id); }} style={({ pressed }) => [styles.restoreCue, { opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.restoreCueText, { color: colors.muted }]}>Use bundled cue instead</Text></FeedbackPressable> : null}
                   <FeedbackPressable sound={false} accessibilityRole="button" onPress={() => { void playFocusRole(role.id, state.profile.soundEnabled, setting); }} style={({ pressed }) => [styles.soundPreview, { backgroundColor: `${colors.primary}18`, borderColor: colors.primary, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><IconSymbol name="play.fill" size={14} color={colors.primary} /><Text style={[styles.soundPreviewText, { color: colors.primary }]}>Preview selected sound</Text></FeedbackPressable>

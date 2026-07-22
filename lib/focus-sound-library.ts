@@ -44,5 +44,7 @@ export async function pickAndPersistFocusSound(role: SoundRoleId): Promise<Selec
   const extension = safeExtension(asset.name, asset.mimeType);
   const targetUri = `${targetDirectory}${role}-${Date.now()}.${extension}`;
   await FileSystem.copyAsync({ from: asset.uri, to: targetUri });
+  const copied = await FileSystem.getInfoAsync(targetUri);
+  if (!copied.exists) throw new Error("The selected audio file could not be stored on this device.");
   return { uri: targetUri, name: asset.name || `${role}.${extension}` };
 }

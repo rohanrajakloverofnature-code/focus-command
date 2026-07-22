@@ -6,6 +6,7 @@ import React, {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
 } from "react";
 
@@ -1288,6 +1289,7 @@ function normalizeHydratedState(input: FocusState): FocusState {
 export function FocusCommandProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
   const [localDay, setLocalDay] = useState(() => toLocalDate(nowIso()));
+  const persistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     let active = true;
@@ -1315,7 +1317,11 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!state.hydrated) return;
     const { hydrated, ...persistable } = state;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(persistable)).catch(() => undefined);
+    const serialized = JSON.stringify(persistable);
+    persistenceQueueRef.current = persistenceQueueRef.current
+      .catch(() => undefined)
+      .then(() => AsyncStorage.setItem(STORAGE_KEY, serialized))
+      .catch(() => undefined);
   }, [state]);
 
   useEffect(() => {
