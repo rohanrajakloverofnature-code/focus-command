@@ -127,7 +127,6 @@ export default function HomeScreen() {
     { id: "xp", label: "Total XP", value: formatCompactNumber(totalXp), detail: "Raw experience only", icon: "bolt.fill" as const, accent: colors.primary },
     { id: "gold", label: "Gold Balance", value: formatCompactNumber(goldBalance), detail: `${formatCompactNumber(lifetimeGold)} earned`, icon: "star.fill" as const, accent: "#F4C95D", onPress: () => router.push("/rewards" as never) },
     { id: "target", label: "Mission Target", value: `${daily.earned}/${daily.target}`, detail: `${Math.round(daily.progress * 100)}% deployed`, icon: "target" as const, accent: colors.success, onPress: () => router.push("/missions" as never) },
-    { id: "today_xp", label: "Today's XP", value: formatCompactNumber(todayXp), detail: "Raw XP with per-award combo & gold", icon: "bolt.fill" as const, accent: colors.primary },
     { id: "time", label: "Invested Today", value: formatHours(getTodayInvestedMilliseconds(state)), detail: goldMultiplier > 1 ? `${goldMultiplier}× gold cache active` : "Exact active time", icon: "timer" as const, accent: colors.warning },
     { id: "combo", label: "Next combo tier", value: combo.daysToNext ? `${combo.daysToNext}d` : "MAX", detail: `${combo.multiplier.toFixed(2)}× is live`, icon: "flame.fill" as const, accent: "#F4C95D" },
     { id: "level", label: "XP to level", value: formatCompactNumber(level.powerForNextLevel), detail: `${formatCompactNumber(level.currentLevelPower)} at current level`, icon: "shield.fill" as const, accent: colors.primary },
