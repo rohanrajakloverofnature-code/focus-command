@@ -18,6 +18,16 @@ export interface SelectedSoundFile {
   name: string;
 }
 
+export async function removePersistedFocusSound(uri: string): Promise<void> {
+  const documentsDirectory = FileSystem.documentDirectory;
+  if (!documentsDirectory || !uri.startsWith(`${documentsDirectory}focus-command-sounds/`)) return;
+  try {
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+  } catch {
+    // Removing a local file must never block returning to the bundled cue.
+  }
+}
+
 export async function pickAndPersistFocusSound(role: SoundRoleId): Promise<SelectedSoundFile | null> {
   const result = await DocumentPicker.getDocumentAsync({
     type: AUDIO_TYPES,
@@ -32,8 +42,19 @@ export async function pickAndPersistFocusSound(role: SoundRoleId): Promise<Selec
 
   const targetDirectory = `${documentsDirectory}focus-command-sounds/`;
   await FileSystem.makeDirectoryAsync(targetDirectory, { intermediates: true });
+  const sourceInfo = await FileSystem.getInfoAsync(asset.uri);
+  if (!sourceInfo.exists) throw new Error("The selected audio file is no longer available. Please choose it again.");
+
   const extension = safeExtension(asset.name, asset.mimeType);
   const targetUri = `${targetDirectory}${role}-${Date.now()}.${extension}`;
-  await FileSystem.copyAsync({ from: asset.uri, to: targetUri });
-  return { uri: targetUri, name: asset.name || `${role}.${extension}` };
+  try {
+    await FileSystem.copyAsync({ from: asset.uri, to: targetUri });
+    const copiedInfo = await FileSystem.getInfoAsync(targetUri);
+    if (!copiedInfo.exists || !copiedInfo.size) throw new Error("The selected audio file could not be copied into Focus Command.");
+    return { uri: targetUri, name: asset.name || `${role}.${extension}` };
+  } catch (error) {
+    const copiedInfo = await FileSystem.getInfoAsync(targetUri);
+    if (copiedInfo.exists) await FileSystem.deleteAsync(targetUri, { idempotent: true });
+    throw error;
+  }
 }

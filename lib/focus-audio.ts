@@ -78,6 +78,17 @@ export async function playFocusRole(role: SoundRoleId, masterEnabled: boolean, s
   }
 }
 
+export function releaseFocusCustomSound(uri: string) {
+  const player = customPlayers[uri];
+  if (!player) return;
+  try {
+    player.release();
+  } catch {
+    // Releasing an already-disposed player should never affect settings changes.
+  }
+  delete customPlayers[uri];
+}
+
 export function playFocusTap(masterEnabled: boolean, settings?: SoundRoleSettings) {
   return playFocusRole("tap", masterEnabled, settings ?? { ...defaultRoleSettings, style: "crisp" });
 }

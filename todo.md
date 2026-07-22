@@ -110,3 +110,6 @@
 
 - [x] Restore the full granular sound-role catalog in the Sound Command Center, including every previously available title, notification, reward, level, achievement, tap, and system event category.
 - [x] Verify the complete sound-role catalog remains visible, individually customizable, previewable, and persisted after restart.
+
+- [x] Permanently repair the native custom-sound lifecycle for every notification category: picker result, verified durable copy, immediate profile save, rehydration, selected filename, preview, removal, and category-specific playback.
+- [x] Add native-safe lifecycle regression coverage and validate the repair on the current app build without reverting the complete sound catalog.

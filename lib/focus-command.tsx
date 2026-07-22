@@ -6,6 +6,7 @@ import React, {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
 } from "react";
 
@@ -1111,10 +1112,12 @@ function withQueuedOperation(state: FocusState, operationCount = 1): FocusState 
 
 type Action =
   | { type: "hydrate"; state: FocusState }
-  | { type: "replace"; state: FocusState };
+  | { type: "replace"; state: FocusState }
+  | { type: "update"; producer: (current: FocusState) => FocusState };
 
 function reducer(state: FocusState, action: Action): FocusState {
   if (action.type === "hydrate") return { ...action.state, hydrated: true };
+  if (action.type === "update") return action.producer(state);
   return action.state;
 }
 
@@ -1206,6 +1209,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
 export function FocusCommandProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
   const [localDay, setLocalDay] = useState(() => toLocalDate(nowIso()));
+  const persistenceQueue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     let active = true;
@@ -1233,7 +1237,11 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!state.hydrated) return;
     const { hydrated, ...persistable } = state;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(persistable)).catch(() => undefined);
+    const serialized = JSON.stringify(persistable);
+    persistenceQueue.current = persistenceQueue.current
+      .catch(() => undefined)
+      .then(() => AsyncStorage.setItem(STORAGE_KEY, serialized))
+      .catch(() => undefined);
   }, [state]);
 
   useEffect(() => {
@@ -1247,8 +1255,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   }, [state.profile.timezone]);
 
   const commit = useCallback((producer: (current: FocusState) => FocusState) => {
-    dispatch({ type: "replace", state: producer(state) });
-  }, [state]);
+    dispatch({ type: "update", producer });
+  }, []);
 
   const createMission = useCallback((draft: MissionDraft) => {
     const id = createId("mission");
@@ -1741,7 +1749,22 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   }, [commit, state]);
 
   const updateProfile = useCallback((patch: Partial<PlayerProfile>) => {
-    commit((current) => withQueuedOperation({ ...current, profile: { ...current.profile, ...patch } }));
+    commit((current) => withQueuedOperation({
+      ...current,
+      profile: {
+        ...current.profile,
+        ...patch,
+        soundRoles: patch.soundRoles
+          ? { ...current.profile.soundRoles, ...patch.soundRoles }
+          : current.profile.soundRoles,
+        notificationRules: patch.notificationRules
+          ? { ...current.profile.notificationRules, ...patch.notificationRules }
+          : current.profile.notificationRules,
+        palette: patch.palette
+          ? { ...current.profile.palette, ...patch.palette }
+          : current.profile.palette,
+      },
+    }));
   }, [commit]);
 
   const updateComboTiers = useCallback((tiers: ComboTier[]) => {

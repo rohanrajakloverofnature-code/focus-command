@@ -10,10 +10,10 @@ import { useColors } from "@/hooks/use-colors";
 import { useGoogleSheetsAuth } from "@/hooks/use-google-sheets-auth";
 import { ComboTier, getComboTiers, PaletteToken, SoundRoleId, SoundStyle, useFocusCommand } from "@/lib/focus-command";
 import { clearSelectedFocusWorkbook, createFocusWorkbook, getFocusWorkbookMetadata, getGoogleAccessToken, getSelectedFocusWorkbook, getSpreadsheet, readFocusWorkbook, saveSelectedFocusWorkbook, writeFocusWorkbook } from "@/lib/google-sheets";
-import { configureDailyMissionReminder, enableFocusReminders } from "@/lib/focus-reminders";
+import { configureDailyMissionReminder, enableFocusReminders, refreshScheduledReminderSounds } from "@/lib/focus-reminders";
 import { useThemeContext } from "@/lib/theme-provider";
-import { playFocusRole } from "@/lib/focus-audio";
-import { pickAndPersistFocusSound } from "@/lib/focus-sound-library";
+import { playFocusRole, releaseFocusCustomSound } from "@/lib/focus-audio";
+import { pickAndPersistFocusSound, removePersistedFocusSound } from "@/lib/focus-sound-library";
 
 export default function SettingsScreen() {
   const colors = useColors();
@@ -34,6 +34,7 @@ export default function SettingsScreen() {
   const [newTierMultiplier, setNewTierMultiplier] = useState("");
   const [sheetId, setSheetId] = useState(state.googleSheet.spreadsheetId ?? "");
   const [sheetName, setSheetName] = useState(state.googleSheet.spreadsheetName || "Focus Command Data");
+  const [savingSoundRole, setSavingSoundRole] = useState<SoundRoleId | null>(null);
   const onGoogleAuthorized = useCallback((_token: string, email: string | null) => {
     setGoogleSheetConnection({ phase: "authorized", connectedEmail: email ?? "", errorMessage: null });
   }, [setGoogleSheetConnection]);
@@ -136,15 +137,50 @@ export default function SettingsScreen() {
     { value: "ceremonial", label: "Ceremonial" },
   ];
   const patchSoundRole = (role: SoundRoleId, patch: Partial<typeof state.profile.soundRoles[SoundRoleId]>) => {
-    updateProfile({ soundRoles: { ...state.profile.soundRoles, [role]: { ...state.profile.soundRoles[role], ...patch } } });
+    const nextRole = { ...state.profile.soundRoles[role], ...patch };
+    const nextRoles = { ...state.profile.soundRoles, [role]: nextRole };
+    updateProfile({
+      soundRoles: {
+        [role]: nextRole,
+      } as typeof state.profile.soundRoles,
+    });
+    if (role === "dailyMissionReminder" || role === "revisionReminder" || role === "multiplierReminder" || role === "achievementRecap") {
+      void refreshScheduledReminderSounds({
+        dailyMissionReminder: nextRoles.dailyMissionReminder,
+        revisionReminder: nextRoles.revisionReminder,
+        multiplierReminder: nextRoles.multiplierReminder,
+        achievementRecap: nextRoles.achievementRecap,
+      });
+    }
   };
 
   const selectSoundFile = async (role: SoundRoleId) => {
+    if (savingSoundRole) return;
+    setSavingSoundRole(role);
     try {
       const selected = await pickAndPersistFocusSound(role);
-      if (selected) patchSoundRole(role, { customUri: selected.uri, customName: selected.name });
-    } catch {
-      Alert.alert("Sound file unavailable", "Choose a standard audio file such as MP3, M4A, AAC, or WAV and try again.");
+      if (!selected) return;
+      const previousUri = state.profile.soundRoles[role].customUri;
+      patchSoundRole(role, { customUri: selected.uri, customName: selected.name });
+      if (previousUri && previousUri !== selected.uri) {
+        releaseFocusCustomSound(previousUri);
+        await removePersistedFocusSound(previousUri);
+      }
+      Alert.alert("Custom sound saved", `${selected.name} is now assigned to this sound category and will remain selected until you replace or remove it.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Choose a standard audio file such as MP3, M4A, AAC, or WAV and try again.";
+      Alert.alert("Sound file unavailable", message);
+    } finally {
+      setSavingSoundRole(null);
+    }
+  };
+
+  const removeSoundFile = async (role: SoundRoleId) => {
+    const currentUri = state.profile.soundRoles[role].customUri;
+    patchSoundRole(role, { customUri: null, customName: null });
+    if (currentUri) {
+      releaseFocusCustomSound(currentUri);
+      await removePersistedFocusSound(currentUri);
     }
   };
 
@@ -340,9 +376,9 @@ export default function SettingsScreen() {
                   <View style={styles.soundStyleChoices}>{soundStyles.map((option) => <Pressable key={option.value} onPress={() => patchSoundRole(role.id, { style: option.value, customUri: null, customName: null })} style={({ pressed }) => [styles.soundStyleChoice, { backgroundColor: !setting.customUri && setting.style === option.value ? `${colors.primary}1B` : colors.surface, borderColor: !setting.customUri && setting.style === option.value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.soundStyleText, { color: !setting.customUri && setting.style === option.value ? colors.primary : colors.muted }]}>{option.label}</Text></Pressable>)}</View>
                   <View style={styles.soundFileRow}>
                     <View style={styles.soundFileCopy}><Text numberOfLines={1} style={[styles.soundFileName, { color: setting.customUri ? colors.success : colors.muted }]}>{setting.customName ? `Custom: ${setting.customName}` : "Bundled cue selected"}</Text><Text style={[styles.soundFileHint, { color: colors.muted }]}>Pick an MP3, M4A, AAC, or WAV from your device.</Text></View>
-                    <Pressable accessibilityRole="button" onPress={() => { void selectSoundFile(role.id); }} style={({ pressed }) => [styles.soundFileButton, { borderColor: colors.primary, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.soundFileButtonText, { color: colors.primary }]}>CHOOSE</Text></Pressable>
+                    <Pressable accessibilityRole="button" disabled={savingSoundRole !== null} onPress={() => { void selectSoundFile(role.id); }} style={({ pressed }) => [styles.soundFileButton, { borderColor: colors.primary, opacity: savingSoundRole !== null ? 0.5 : pressed ? 0.72 : 1, transform: [{ scale: pressed && savingSoundRole === null ? 0.97 : 1 }] }]}><Text style={[styles.soundFileButtonText, { color: colors.primary }]}>{savingSoundRole === role.id ? "SAVING…" : "CHOOSE"}</Text></Pressable>
                   </View>
-                  {setting.customUri ? <Pressable accessibilityRole="button" onPress={() => patchSoundRole(role.id, { customUri: null, customName: null })} style={({ pressed }) => [styles.restoreCue, { opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.restoreCueText, { color: colors.muted }]}>Use bundled cue instead</Text></Pressable> : null}
+                  {setting.customUri ? <Pressable accessibilityRole="button" disabled={savingSoundRole !== null} onPress={() => { void removeSoundFile(role.id); }} style={({ pressed }) => [styles.restoreCue, { opacity: savingSoundRole !== null ? 0.5 : pressed ? 0.7 : 1 }]}><Text style={[styles.restoreCueText, { color: colors.muted }]}>Remove custom sound · use bundled cue</Text></Pressable> : null}
                   <Pressable accessibilityRole="button" onPress={() => { void playFocusRole(role.id, state.profile.soundEnabled, setting); }} style={({ pressed }) => [styles.soundPreview, { backgroundColor: `${colors.primary}18`, borderColor: colors.primary, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><IconSymbol name="play.fill" size={14} color={colors.primary} /><Text style={[styles.soundPreviewText, { color: colors.primary }]}>Preview selected sound</Text></Pressable>
                 </View>
                 {index < soundRoles.length - 1 ? <View style={[styles.soundRoleDivider, { backgroundColor: colors.border }]} /> : null}
