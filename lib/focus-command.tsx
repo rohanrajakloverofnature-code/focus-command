@@ -9,6 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { calculateEquippedXpModifier } from "./equipment-modifiers";
 
 export type Difficulty = "easy" | "medium" | "hard";
 export type MissionStatus = "planned" | "active" | "paused" | "completed";
@@ -336,6 +337,12 @@ export interface GoogleSheetConnection {
   pendingOperations: number;
 }
 
+export interface EquippedGear {
+  head?: { id: string; name: string; xpModifier: number; energyConsumptionModifier: number };
+  body?: { id: string; name: string; xpModifier: number; energyConsumptionModifier: number };
+  accessory?: { id: string; name: string; xpModifier: number; energyConsumptionModifier: number };
+}
+
 export interface FocusState {
   schemaVersion: number;
   hydrated: boolean;
@@ -355,6 +362,7 @@ export interface FocusState {
   customGraphs: CustomGraph[];
   goldPowerCarry: number;
   googleSheet: GoogleSheetConnection;
+  equippedGear: EquippedGear;
 }
 
 export interface MissionDraft {
@@ -686,6 +694,7 @@ export function createInitialState(): FocusState {
       errorMessage: null,
       pendingOperations: 0,
     },
+    equippedGear: {},
   };
 }
 
@@ -1393,7 +1402,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       const completionDate = toLocalDate(endedAt, current.profile.timezone);
       const comboForAward = getCurrentCombo(current, completionDate);
       const goldMultiplier = getActiveGoldMultiplier(current, completionDate);
-      const basePower = completedMission.baseXp * comboForAward.multiplier;
+      const equipmentXpModifier = calculateEquippedXpModifier(current.equippedGear);
+      const basePower = completedMission.baseXp * comboForAward.multiplier * equipmentXpModifier;
       const adjustedPower = basePower * goldMultiplier;
       const carryTotal = current.goldPowerCarry + adjustedPower;
       const goldAwarded = Math.floor(carryTotal / 10);
