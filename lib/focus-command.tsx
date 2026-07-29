@@ -9,7 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { calculateEquippedXpModifier } from "./equipment-modifiers";
+import { calculateEquippedXpModifier, calculateEquippedEnergyModifier } from "./equipment-modifiers";
 
 export type Difficulty = "easy" | "medium" | "hard";
 export type MissionStatus = "planned" | "active" | "paused" | "completed";
@@ -337,10 +337,23 @@ export interface GoogleSheetConnection {
   pendingOperations: number;
 }
 
-export interface EquippedGear {
-  head?: { id: string; name: string; xpModifier: number; energyConsumptionModifier: number };
-  body?: { id: string; name: string; xpModifier: number; energyConsumptionModifier: number };
-  accessory?: { id: string; name: string; xpModifier: number; energyConsumptionModifier: number };
+export interface Equipment {
+  id: string; // Unique identifier
+  name: string;
+  description: string | null;
+  type: 'FocusDevice' | 'EnergyPack' | 'AuraGenerator'; // Corresponds to slot
+  rarity: 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
+  level: number;
+  xpModifier: number; // e.g., 110 for +10%
+  energyConsumptionModifier: number; // e.g., 95 for -5%
+  imageUrl: string | null; // Path to equipment icon
+}
+
+export interface UserEquipment {
+  id: string; // Unique identifier for user's owned equipment
+  equipmentId: string;
+  isEquipped: 'head' | 'body' | 'accessory' | 'false'; // Stores the slot if equipped, 'false' if in inventory
+  acquiredAt: string; // ISO date string
 }
 
 export interface FocusState {
@@ -362,7 +375,8 @@ export interface FocusState {
   customGraphs: CustomGraph[];
   goldPowerCarry: number;
   googleSheet: GoogleSheetConnection;
-  equippedGear: EquippedGear;
+  allEquipment: Equipment[]; // All available equipment in the game
+  userEquipment: UserEquipment[]; // Equipment owned by the user
 }
 
 export interface MissionDraft {
@@ -694,7 +708,8 @@ export function createInitialState(): FocusState {
       errorMessage: null,
       pendingOperations: 0,
     },
-    equippedGear: {},
+    allEquipment: [],
+    userEquipment: [],
   };
 }
 
@@ -1162,6 +1177,14 @@ interface FocusCommandContextValue {
   removeCustomQuestion: (questionId: string) => void;
   updateCustomGraph: (graphId: string, patch: Partial<CustomGraph>) => void;
   resetLocalData: () => Promise<void>;
+  addEquipment: (equipment: Omit<Equipment, "id">) => string;
+  updateEquipment: (equipmentId: string, patch: Partial<Omit<Equipment, "id">>) => void;
+  removeEquipment: (equipmentId: string) => void;
+  addToInventory: (equipmentId: string) => string;
+  removeFromInventory: (userEquipmentId: string) => void;
+  equipItem: (userEquipmentId: string, slot: "head" | "body" | "accessory") => void;
+  unequipItem: (userEquipmentId: string) => void;
+  getEquippedItems: () => { head?: Equipment; body?: Equipment; accessory?: Equipment };
 }
 
 const FocusCommandContext = createContext<FocusCommandContextValue | null>(null);
@@ -1402,7 +1425,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       const completionDate = toLocalDate(endedAt, current.profile.timezone);
       const comboForAward = getCurrentCombo(current, completionDate);
       const goldMultiplier = getActiveGoldMultiplier(current, completionDate);
-      const equipmentXpModifier = calculateEquippedXpModifier(current.equippedGear);
+      const equipmentXpModifier = calculateEquippedXpModifier(current.userEquipment, current.allEquipment);
       const basePower = completedMission.baseXp * comboForAward.multiplier * equipmentXpModifier;
       const adjustedPower = basePower * goldMultiplier;
       const carryTotal = current.goldPowerCarry + adjustedPower;
@@ -1860,6 +1883,81 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     dispatch({ type: "replace", state: { ...createInitialState(), hydrated: true } });
   }, []);
 
+  const addEquipment = useCallback((equipment: Omit<Equipment, "id">) => {
+    const id = createId("equipment");
+    commit((current) => withQueuedOperation({
+      ...current,
+      allEquipment: [...current.allEquipment, { ...equipment, id }],
+    }));
+    return id;
+  }, [commit]);
+
+  const updateEquipment = useCallback((equipmentId: string, patch: Partial<Omit<Equipment, "id">>) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      allEquipment: current.allEquipment.map((eq) => eq.id === equipmentId ? { ...eq, ...patch } : eq),
+    }));
+  }, [commit]);
+
+  const removeEquipment = useCallback((equipmentId: string) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      allEquipment: current.allEquipment.filter((eq) => eq.id !== equipmentId),
+      userEquipment: current.userEquipment.filter((ue) => ue.equipmentId !== equipmentId),
+    }));
+  }, [commit]);
+
+  const addToInventory = useCallback((equipmentId: string) => {
+    const id = createId("user_equipment");
+    commit((current) => withQueuedOperation({
+      ...current,
+      userEquipment: [...current.userEquipment, { id, equipmentId, isEquipped: "false", acquiredAt: nowIso() }],
+    }));
+    return id;
+  }, [commit]);
+
+  const removeFromInventory = useCallback((userEquipmentId: string) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      userEquipment: current.userEquipment.filter((ue) => ue.id !== userEquipmentId),
+    }));
+  }, [commit]);
+
+  const equipItem = useCallback((userEquipmentId: string, slot: "head" | "body" | "accessory") => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      userEquipment: current.userEquipment.map((ue) => {
+        if (ue.id === userEquipmentId) {
+          return { ...ue, isEquipped: slot };
+        }
+        if (ue.isEquipped === slot) {
+          return { ...ue, isEquipped: "false" };
+        }
+        return ue;
+      }),
+    }));
+  }, [commit]);
+
+  const unequipItem = useCallback((userEquipmentId: string) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      userEquipment: current.userEquipment.map((ue) => ue.id === userEquipmentId ? { ...ue, isEquipped: "false" } : ue),
+    }));
+  }, [commit]);
+
+  const getEquippedItems = useCallback(() => {
+    const equipped: { head?: Equipment; body?: Equipment; accessory?: Equipment } = {};
+    for (const userEq of state.userEquipment) {
+      if (userEq.isEquipped !== "false") {
+        const equipment = state.allEquipment.find((eq) => eq.id === userEq.equipmentId);
+        if (equipment) {
+          equipped[userEq.isEquipped as "head" | "body" | "accessory"] = equipment;
+        }
+      }
+    }
+    return equipped;
+  }, [state.userEquipment, state.allEquipment]);
+
   const value = useMemo<FocusCommandContextValue>(() => ({
     state,
     ready: state.hydrated,
@@ -1892,6 +1990,14 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     removeCustomQuestion,
     updateCustomGraph,
     resetLocalData,
+    addEquipment,
+    updateEquipment,
+    removeEquipment,
+    addToInventory,
+    removeFromInventory,
+    equipItem,
+    unequipItem,
+    getEquippedItems,
   }), [
     state,
     localDay,
@@ -1923,6 +2029,14 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     removeCustomQuestion,
     updateCustomGraph,
     resetLocalData,
+    addEquipment,
+    updateEquipment,
+    removeEquipment,
+    addToInventory,
+    removeFromInventory,
+    equipItem,
+    unequipItem,
+    getEquippedItems,
   ]);
 
   return <FocusCommandContext.Provider value={value}>{children}</FocusCommandContext.Provider>;

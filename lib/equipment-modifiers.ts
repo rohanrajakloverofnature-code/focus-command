@@ -1,22 +1,26 @@
-import { EquippedGear } from "./focus-command";
+import { Equipment, UserEquipment } from "./focus-command";
+
+/**
+ * Helper to get equipment details from allEquipment array
+ */
+function getEquipmentDetails(equipmentId: string, allEquipment: Equipment[]): Equipment | undefined {
+  return allEquipment.find(eq => eq.id === equipmentId);
+}
 
 /**
  * Calculate the combined XP modifier from all equipped gear
  * Returns a multiplier (e.g., 1.1 for +10% XP)
  */
-export function calculateEquippedXpModifier(equippedGear: EquippedGear): number {
+export function calculateEquippedXpModifier(userEquipment: UserEquipment[], allEquipment: Equipment[]): number {
   let totalModifier = 1.0;
 
-  if (equippedGear.head) {
-    totalModifier *= equippedGear.head.xpModifier / 100;
-  }
+  const equippedItems = userEquipment.filter(item => item.isEquipped !== "false");
 
-  if (equippedGear.body) {
-    totalModifier *= equippedGear.body.xpModifier / 100;
-  }
-
-  if (equippedGear.accessory) {
-    totalModifier *= equippedGear.accessory.xpModifier / 100;
+  for (const userItem of equippedItems) {
+    const details = getEquipmentDetails(userItem.equipmentId, allEquipment);
+    if (details) {
+      totalModifier *= details.xpModifier / 100;
+    }
   }
 
   return totalModifier;
@@ -26,19 +30,16 @@ export function calculateEquippedXpModifier(equippedGear: EquippedGear): number 
  * Calculate the combined energy consumption modifier from all equipped gear
  * Returns a multiplier (e.g., 0.95 for -5% energy consumption)
  */
-export function calculateEquippedEnergyModifier(equippedGear: EquippedGear): number {
+export function calculateEquippedEnergyModifier(userEquipment: UserEquipment[], allEquipment: Equipment[]): number {
   let totalModifier = 1.0;
 
-  if (equippedGear.head) {
-    totalModifier *= equippedGear.head.energyConsumptionModifier / 100;
-  }
+  const equippedItems = userEquipment.filter(item => item.isEquipped !== "false");
 
-  if (equippedGear.body) {
-    totalModifier *= equippedGear.body.energyConsumptionModifier / 100;
-  }
-
-  if (equippedGear.accessory) {
-    totalModifier *= equippedGear.accessory.energyConsumptionModifier / 100;
+  for (const userItem of equippedItems) {
+    const details = getEquipmentDetails(userItem.equipmentId, allEquipment);
+    if (details) {
+      totalModifier *= details.energyConsumptionModifier / 100;
+    }
   }
 
   return totalModifier;
@@ -47,9 +48,9 @@ export function calculateEquippedEnergyModifier(equippedGear: EquippedGear): num
 /**
  * Get a human-readable description of equipped gear effects
  */
-export function getEquippedGearDescription(equippedGear: EquippedGear): string {
-  const xpModifier = calculateEquippedXpModifier(equippedGear);
-  const energyModifier = calculateEquippedEnergyModifier(equippedGear);
+export function getEquippedGearDescription(userEquipment: UserEquipment[], allEquipment: Equipment[]): string {
+  const xpModifier = calculateEquippedXpModifier(userEquipment, allEquipment);
+  const energyModifier = calculateEquippedEnergyModifier(userEquipment, allEquipment);
 
   const xpBonus = ((xpModifier - 1) * 100).toFixed(0);
   const energyReduction = ((1 - energyModifier) * 100).toFixed(0);

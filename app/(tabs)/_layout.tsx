@@ -68,6 +68,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={22} name="chart.xyaxis.line" color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="equipment"
+        options={{
+          title: "Equipment",
+          tabBarIcon: ({ color }) => <IconSymbol size={22} name="star.fill" color={color} />,
+        }}
+      />
     </Tabs>
   );
 }
