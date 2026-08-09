@@ -113,3 +113,9 @@
 
 - [x] Permanently repair the native custom-sound lifecycle for every notification category: picker result, verified durable copy, immediate profile save, rehydration, selected filename, preview, removal, and category-specific playback.
 - [x] Add native-safe lifecycle regression coverage and validate the repair on the current app build without reverting the complete sound catalog.
+
+- [x] Examine current forecast/insight logic and design dynamic insight generator.
+- [x] Create large library of varied insight templates and sentence structures.
+- [x] Implement insight analysis engine to identify main patterns from data.
+- [x] Integrate dynamic insights into Home screen Insight Area.
+- [x] Test with various data scenarios and validate wording variety.
