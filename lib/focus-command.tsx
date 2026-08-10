@@ -188,6 +188,10 @@ export interface Mission {
   completedAt: string | null;
   revisionTopicIds: string[];
   progressionEventId: string | null;
+  /** Allow this mission to be completed multiple times per day. */
+  allowMultipleDailyCompletions: boolean;
+  /** Track all completion timestamps for missions with multiple daily completions. */
+  completionHistory: string[];
 }
 
 export interface Reflection {
@@ -390,6 +394,7 @@ export interface MissionDraft {
   revisionEnabled: boolean;
   dueAt: string | null;
   frequency: MissionFrequency;
+  allowMultipleDailyCompletions?: boolean;
 }
 
 export interface ReflectionDraft {
@@ -1316,6 +1321,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
           completedAt: null,
           revisionTopicIds: [],
           progressionEventId: null,
+          allowMultipleDailyCompletions: false,
+          completionHistory: [],
         },
         ...current.missions,
       ],
@@ -1407,7 +1414,18 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
 
   const finishMission = useCallback((missionId: string, reflectionDraft: ReflectionDraft) => {
     const sourceMission = state.missions.find((mission) => mission.id === missionId);
-    if (!sourceMission || !sourceMission.startedAt || sourceMission.status === "completed") return null;
+    if (!sourceMission || !sourceMission.startedAt) return null;
+    
+    // Check if mission can be completed again today
+    const completionDate = toLocalDate(nowIso(), state.profile.timezone);
+    const completedToday = sourceMission.completionHistory.filter(
+      (timestamp) => toLocalDate(timestamp, state.profile.timezone) === completionDate
+    ).length;
+    
+    // If mission doesn't allow multiple completions and is already completed today, reject
+    if (!sourceMission.allowMultipleDailyCompletions && sourceMission.status === "completed" && completedToday > 0) {
+      return null;
+    }
     const endedAt = nowIso();
     const pausedMilliseconds = sourceMission.pausedMilliseconds + (sourceMission.pausedAt ? Math.max(0, Date.now() - Date.parse(sourceMission.pausedAt)) : 0);
     const completedMission: Mission = {
@@ -1417,6 +1435,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       pausedMilliseconds,
       endedAt,
       completedAt: endedAt,
+      completionHistory: [...sourceMission.completionHistory, endedAt],
     };
     const durationMs = getMissionInvestedMilliseconds(completedMission);
     let lootReward: Reward | null = null;
@@ -1568,6 +1587,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         completedAt: null,
         revisionTopicIds: [],
         progressionEventId: null,
+        completionHistory: [],
+        allowMultipleDailyCompletions: completedMission.allowMultipleDailyCompletions,
       } : null;
       return withQueuedOperation({
         ...current,

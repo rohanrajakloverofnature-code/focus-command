@@ -26,6 +26,8 @@ function mission(overrides: Partial<Mission> = {}): Mission {
     completedAt: now,
     revisionTopicIds: [],
     progressionEventId: "workspace_progress",
+    allowMultipleDailyCompletions: false,
+    completionHistory: [],
     ...overrides,
   };
 }

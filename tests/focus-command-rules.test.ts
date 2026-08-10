@@ -45,6 +45,8 @@ function completedMission(overrides: Partial<Mission> = {}): Mission {
     completedAt: endedAt,
     revisionTopicIds: [],
     progressionEventId: null,
+    allowMultipleDailyCompletions: false,
+    completionHistory: [],
     ...overrides,
   };
 }

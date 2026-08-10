@@ -119,3 +119,9 @@
 - [x] Implement insight analysis engine to identify main patterns from data.
 - [x] Integrate dynamic insights into Home screen Insight Area.
 - [x] Test with various data scenarios and validate wording variety.
+
+- [x] Analyze current mission completion logic and design multi-completion system.
+- [x] Add repeatability configuration to mission data model.
+- [x] Update mission completion logic to support multiple daily completions.
+- [x] Update UI to show completion count and allow repeated completions.
+- [x] Test multi-completion scenarios and validate XP/rewards.

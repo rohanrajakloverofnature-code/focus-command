@@ -26,6 +26,7 @@ export default function MissionsScreen() {
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [revisionEnabled, setRevisionEnabled] = useState(true);
   const [frequency, setFrequency] = useState<MissionFrequency>("once");
+  const [allowMultipleDailyCompletions, setAllowMultipleDailyCompletions] = useState(false);
   const [bossId, setBossId] = useState<string | null>(requestedBossId ?? null);
   const [showBossDraft, setShowBossDraft] = useState(false);
   const [bossTitle, setBossTitle] = useState("");
@@ -87,6 +88,7 @@ export default function MissionsScreen() {
       revisionEnabled,
       dueAt: null,
       frequency,
+      allowMultipleDailyCompletions,
     });
     setTitle("");
     setSubject("");
@@ -96,6 +98,7 @@ export default function MissionsScreen() {
     setDifficulty("medium");
     setRevisionEnabled(true);
     setFrequency("once");
+    setAllowMultipleDailyCompletions(false);
     setBossId(null);
     setShowComposer(false);
   };
@@ -244,6 +247,7 @@ function MissionCard({ mission, onStart }: { mission: ReturnType<typeof useFocus
           <View style={styles.missionFooterCopy}>
             <View style={styles.missionBadges}>
               {mission.frequency === "daily" ? <StatusPill label="DAILY" tone="success" icon="arrow.clockwise" /> : null}
+              {mission.allowMultipleDailyCompletions ? <StatusPill label="REPEATABLE" tone="primary" icon="arrow.clockwise" /> : null}
               {mission.revisionEnabled ? <StatusPill label="SRS READY" tone="primary" icon="arrow.clockwise" /> : <StatusPill label="STANDARD" tone="neutral" />}
             </View>
           </View>
