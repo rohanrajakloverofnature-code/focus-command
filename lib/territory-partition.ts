@@ -15,6 +15,17 @@ export interface DynamicTerritory {
   labelY: number;
 }
 
+export function getTerritoryLabelLines(value: string): string[] {
+  const words = value.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) return [value.trim()];
+  const lines = ["", ""];
+  words.forEach((word) => {
+    const target = lines[0].length <= lines[1].length ? 0 : 1;
+    lines[target] = lines[target] ? `${lines[target]} ${word}` : word;
+  });
+  return lines.filter(Boolean);
+}
+
 interface Cell {
   x: number;
   y: number;

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { calculateEquippedXpModifier, calculateEquippedEnergyModifier, getEquippedGearDescription } from "../lib/equipment-modifiers";
-import { Equipment, UserEquipment } from "../lib/focus-command";
+import { Equipment, UserEquipment, getEquipmentSlotForType, reconcileEquipmentInventory } from "../lib/focus-command";
 
 describe("Equipment System - Offline", () => {
   let testEquipment: Equipment[];
@@ -194,6 +194,27 @@ describe("Equipment System - Offline", () => {
       const slotTypes = ["head", "body", "accessory", "false"];
       const allSlots = userEquipment.every((ue) => slotTypes.includes(ue.isEquipped));
       expect(allSlots).toBe(true);
+    });
+  });
+
+  describe("Offline inventory acquisition and slot rules", () => {
+    it("recovers every legacy created item that was missing from inventory exactly once", () => {
+      const reconciled = reconcileEquipmentInventory(testEquipment, [userEquipment[0]], "2026-08-11T00:00:00.000Z");
+
+      expect(reconciled).toHaveLength(3);
+      expect(reconciled.map((item) => item.equipmentId).sort()).toEqual(["eq1", "eq2", "eq3"]);
+      expect(reconciled.find((item) => item.equipmentId === "eq2")).toMatchObject({
+        id: "user_equipment_recovered_eq2",
+        isEquipped: "false",
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+      });
+      expect(reconcileEquipmentInventory(testEquipment, reconciled, "2026-08-12T00:00:00.000Z")).toBe(reconciled);
+    });
+
+    it("maps each equipment type to its one compatible equip slot", () => {
+      expect(getEquipmentSlotForType("FocusDevice")).toBe("head");
+      expect(getEquipmentSlotForType("EnergyPack")).toBe("body");
+      expect(getEquipmentSlotForType("AuraGenerator")).toBe("accessory");
     });
   });
 });

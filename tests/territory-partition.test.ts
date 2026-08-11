@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DYNAMIC_TERRITORY_INTERIOR_CELL_COUNT, getDynamicTerritories } from "../lib/territory-partition";
+import { DYNAMIC_TERRITORY_INTERIOR_CELL_COUNT, getDynamicTerritories, getTerritoryLabelLines } from "../lib/territory-partition";
 
 describe("dynamic India subject territories", () => {
   it("partitions every available India interior cell exactly once while preserving a visible region for every subject", () => {
@@ -46,5 +46,11 @@ describe("dynamic India subject territories", () => {
     expect(progressedMath.path).not.toBe(baselineMath.path);
     expect(progressed.reduce((sum, territory) => sum + territory.cellCount, 0)).toBe(DYNAMIC_TERRITORY_INTERIOR_CELL_COUNT);
     expect(getDynamicTerritories([{ subject: "Math", capture: 1 }, { subject: "Physics", capture: 0.8 }, { subject: "Chemistry", capture: 0 }])).toEqual(progressed);
+  });
+
+  it("keeps every subject label intact by balancing multi-word names across visible lines", () => {
+    expect(getTerritoryLabelLines("Maths")).toEqual(["Maths"]);
+    expect(getTerritoryLabelLines("Spoken English").join(" ")).toBe("Spoken English");
+    expect(getTerritoryLabelLines("Modern Maths Practice").join(" ")).toBe("Modern Maths Practice");
   });
 });

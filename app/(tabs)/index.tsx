@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { CelebrationKind, CelebrationOverlay } from "@/components/celebration-overlay";
@@ -58,6 +58,7 @@ export default function HomeScreen() {
   const colors = useColors();
   const { width } = useWindowDimensions();
   const { state, ready } = useFocusCommand();
+  const { journals, missions, srsTopics } = state;
   const level = getLevelInfo(state);
   const title = getCurrentTitle(state);
   const combo = getCurrentCombo(state);
@@ -93,31 +94,34 @@ export default function HomeScreen() {
     return () => clearInterval(rotation);
   }, [forecast.available, forecast.outlook, forecast.sampleSize, motivationMessages.length]);
 
-  if (!ready) return <LoadingScreen />;
-  const motivation = motivationMessages[motivationIndex % motivationMessages.length] ?? motivationMessages[0];
-  const openRankAchievement = () => {
-    setShowRankAchievement(true);
-    void playFocusRole("achievement", state.profile.soundEnabled, state.profile.soundRoles.achievement);
-  };
   const energy = getEnergy(state);
   const daily = getDailyProgress(state);
   const pendingRevisions = getPendingRevisions(state);
   const activeBosses = state.bosses.filter((boss) => boss.status === "active");
-  const subjectCapture = getSubjectCapture(state);
+  const subjectCapture = useMemo(() => getSubjectCapture({ missions, srsTopics }), [missions, srsTopics]);
   const totalPower = getTotalPower(state);
   const totalXp = getTotalXp(state);
   const goldBalance = getGoldBalance(state);
   const lifetimeGold = getLifetimeGold(state);
   const goldMultiplier = activeGoldMultiplier(state);
   const operatorScale = Math.min(1.2, 0.9 + totalPower / 5_000);
-  const journalByDate = new Map(state.journals.map((entry) => [entry.localDate, entry.points]));
-  const journalBars = Array.from({ length: 30 }, (_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (29 - index));
-    const localDate = date.toISOString().slice(0, 10);
-    return { localDate, points: journalByDate.get(localDate) ?? 0 };
-  });
-  const maxJournalPoints = Math.max(1, ...journalBars.map((bar) => bar.points));
+  const { journalBars, maxJournalPoints } = useMemo(() => {
+    const journalByDate = new Map(journals.map((entry) => [entry.localDate, entry.points]));
+    const bars = Array.from({ length: 30 }, (_, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (29 - index));
+      const localDate = date.toISOString().slice(0, 10);
+      return { localDate, points: journalByDate.get(localDate) ?? 0 };
+    });
+    return { journalBars: bars, maxJournalPoints: Math.max(1, ...bars.map((bar) => bar.points)) };
+  }, [journals]);
+  const openSubjectMissionBoard = useCallback(() => router.push("/missions?filter=open" as never), []);
+  if (!ready) return <LoadingScreen />;
+  const motivation = motivationMessages[motivationIndex % motivationMessages.length] ?? motivationMessages[0];
+  const openRankAchievement = () => {
+    setShowRankAchievement(true);
+    void playFocusRole("achievement", state.profile.soundEnabled, state.profile.soundRoles.achievement);
+  };
   const metricColumns = width < 600 ? 2 : 3;
   const metrics = [
     { id: "xp", label: "Total XP", value: formatCompactNumber(totalXp), detail: combo.multiplier > 1 ? "Combo amplified" : "Base experience", icon: "bolt.fill" as const, accent: colors.primary },
@@ -257,7 +261,7 @@ export default function HomeScreen() {
             muted={colors.muted}
             surface={colors.background}
             border={colors.border}
-            onOpenSubject={() => router.push("/missions?filter=open" as never)}
+            onOpenSubject={openSubjectMissionBoard}
           />
           <View style={styles.journalSignalHeader}>
             <Text style={[styles.mapDetail, { color: colors.muted }]}>JOURNAL SIGNAL · LAST 30 DAYS</Text>

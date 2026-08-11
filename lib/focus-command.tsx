@@ -375,6 +375,38 @@ export interface UserEquipment {
   acquiredAt: string; // ISO date string
 }
 
+export const EQUIPMENT_SLOT_BY_TYPE = {
+  FocusDevice: "head",
+  EnergyPack: "body",
+  AuraGenerator: "accessory",
+} as const;
+
+export function getEquipmentSlotForType(type: Equipment["type"]): "head" | "body" | "accessory" {
+  return EQUIPMENT_SLOT_BY_TYPE[type];
+}
+
+/**
+ * Equipment created before inventory ownership was automatic existed only in
+ * the local catalogue. Reconcile those legacy records into one owned item per
+ * equipment definition without duplicating already-owned gear.
+ */
+export function reconcileEquipmentInventory(
+  allEquipment: Equipment[],
+  userEquipment: UserEquipment[],
+  recoveredAt: string,
+): UserEquipment[] {
+  const ownedEquipmentIds = new Set(userEquipment.map((item) => item.equipmentId));
+  const recoveredItems = allEquipment
+    .filter((equipment) => !ownedEquipmentIds.has(equipment.id))
+    .map((equipment) => ({
+      id: `user_equipment_recovered_${equipment.id}`,
+      equipmentId: equipment.id,
+      isEquipped: "false" as const,
+      acquiredAt: recoveredAt,
+    }));
+  return recoveredItems.length ? [...userEquipment, ...recoveredItems] : userEquipment;
+}
+
 export interface FocusState {
   schemaVersion: number;
   hydrated: boolean;
@@ -936,7 +968,7 @@ export function getActiveGoldMultiplier(state: FocusState, localDate = toLocalDa
     .reduce((maximum, multiplier) => Math.max(maximum, multiplier), 1);
 }
 
-export function getSubjectCapture(state: FocusState): Array<{ subject: string; capture: number; completed: number; total: number; active: number; planned: number }> {
+export function getSubjectCapture(state: Pick<FocusState, "missions" | "srsTopics">): Array<{ subject: string; capture: number; completed: number; total: number; active: number; planned: number }> {
   const bySubject = new Map<string, { missions: Mission[]; reviews: SrsTopic[] }>();
   state.missions.forEach((mission) => {
     const subject = mission.subject.trim() || "General";
@@ -1232,6 +1264,8 @@ const FocusCommandContext = createContext<FocusCommandContextValue | null>(null)
 
 export function normalizeHydratedState(input: FocusState): FocusState {
   const defaults = createInitialState();
+  const allEquipment = input.allEquipment ?? defaults.allEquipment;
+  const userEquipment = reconcileEquipmentInventory(allEquipment, input.userEquipment ?? defaults.userEquipment, nowIso());
   return {
     ...defaults,
     ...input,
@@ -1292,6 +1326,8 @@ export function normalizeHydratedState(input: FocusState): FocusState {
     googleSheet: { ...defaults.googleSheet, ...(input.googleSheet ?? {}) },
     rewards: input.rewards?.length ? input.rewards : defaults.rewards,
     customGraphs: input.customGraphs?.length ? input.customGraphs : defaults.customGraphs,
+    allEquipment,
+    userEquipment,
   };
 }
 
@@ -1977,9 +2013,11 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
 
   const addEquipment = useCallback((equipment: Omit<Equipment, "id">) => {
     const id = createId("equipment");
+    const inventoryId = createId("user_equipment");
     commit((current) => withQueuedOperation({
       ...current,
       allEquipment: [...current.allEquipment, { ...equipment, id }],
+      userEquipment: [...current.userEquipment, { id: inventoryId, equipmentId: id, isEquipped: "false", acquiredAt: nowIso() }],
     }));
     return id;
   }, [commit]);
@@ -2016,18 +2054,23 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   }, [commit]);
 
   const equipItem = useCallback((userEquipmentId: string, slot: "head" | "body" | "accessory") => {
-    commit((current) => withQueuedOperation({
-      ...current,
-      userEquipment: current.userEquipment.map((ue) => {
-        if (ue.id === userEquipmentId) {
-          return { ...ue, isEquipped: slot };
-        }
-        if (ue.isEquipped === slot) {
-          return { ...ue, isEquipped: "false" };
-        }
-        return ue;
-      }),
-    }));
+    commit((current) => {
+      const ownedItem = current.userEquipment.find((item) => item.id === userEquipmentId);
+      const equipment = current.allEquipment.find((item) => item.id === ownedItem?.equipmentId);
+      if (!ownedItem || !equipment || getEquipmentSlotForType(equipment.type) !== slot) return current;
+      return withQueuedOperation({
+        ...current,
+        userEquipment: current.userEquipment.map((ue) => {
+          if (ue.id === userEquipmentId) {
+            return { ...ue, isEquipped: slot };
+          }
+          if (ue.isEquipped === slot) {
+            return { ...ue, isEquipped: "false" };
+          }
+          return ue;
+        }),
+      });
+    });
   }, [commit]);
 
   const unequipItem = useCallback((userEquipmentId: string) => {

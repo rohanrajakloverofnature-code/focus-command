@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { ClipPath, Defs, G, LinearGradient, Path, Stop, Text as SvgText } from "react-native-svg";
 
 import { INDIA_BOUNDARY_PATH, INDIA_BOUNDARY_VIEWBOX } from "@/components/india-boundary";
-import { getDynamicTerritories, type DynamicTerritory } from "@/lib/territory-partition";
+import { getDynamicTerritories, getTerritoryLabelLines, type DynamicTerritory } from "@/lib/territory-partition";
 
 export interface SubjectTerritory {
   subject: string;
@@ -32,38 +32,27 @@ function hashSubject(value: string) {
   return [...value.toLocaleLowerCase()].reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0) >>> 0;
 }
 
-function shortLabel(value: string) {
-  return value.length > 7 ? `${value.slice(0, 6)}…` : value;
-}
-
 function TerritoryLayer({
   territories,
   selectedSubject,
   interactive = false,
-  showLabels = false,
   onSelect,
 }: {
   territories: PositionedTerritory[];
   selectedSubject: string | null;
   interactive?: boolean;
-  showLabels?: boolean;
   onSelect?: (subject: string) => void;
 }) {
   return (
     <>
       {territories.map(({ subject, capture, path, labelX, labelY, color }) => {
         const selectedNow = selectedSubject === subject;
-        const percentage = Math.round(capture * 100);
         const depth = Math.max(2, Math.round(capture * 5));
         return (
           <G key={subject} onPress={interactive ? () => onSelect?.(subject) : undefined}>
             <Path d={path} fill="#060914" opacity={0.7} transform={`translate(1.5 ${depth + 2})`} />
             <Path d={path} fill={`${color}${selectedNow ? "F2" : "C4"}`} stroke={selectedNow ? "#FFFFFF" : `${color}F2`} strokeWidth={selectedNow ? 1.9 : 1.2} strokeLinejoin="round" strokeLinecap="round" />
             {selectedNow ? <Path d={path} fill="none" stroke="#FFFFFF88" strokeWidth={0.65} transform="translate(-0.8 -0.8)" /> : null}
-            {showLabels ? <>
-              <SvgText x={labelX} y={labelY - 3} fill="#FFFFFF" fontSize="6.6" fontWeight="800" textAnchor="middle">{shortLabel(subject)}</SvgText>
-              <SvgText x={labelX} y={labelY + 8} fill="#0B1221" fontSize="9.8" fontWeight="900" textAnchor="middle">{percentage}%</SvgText>
-            </> : null}
           </G>
         );
       })}
@@ -71,7 +60,22 @@ function TerritoryLayer({
   );
 }
 
-export function IndiaSubjectMap({ subjects, accent, foreground, muted, surface, border, onOpenSubject }: IndiaSubjectMapProps) {
+function TerritoryLabels({ territories }: { territories: PositionedTerritory[] }) {
+  return <G pointerEvents="none">
+    {territories.map(({ subject, capture, labelX, labelY }) => {
+      const lines = getTerritoryLabelLines(subject);
+      const longestLine = Math.max(...lines.map((line) => line.length));
+      const fontSize = longestLine > 12 ? 5.1 : longestLine > 8 ? 5.8 : 6.6;
+      const firstLineY = labelY - (lines.length === 2 ? 8 : 3);
+      return <G key={`label-${subject}`}>
+        {lines.map((line, index) => <SvgText key={`${subject}-${index}`} x={labelX} y={firstLineY + index * 7} fill="#FFFFFF" fontSize={fontSize} fontWeight="800" textAnchor="middle">{line}</SvgText>)}
+        <SvgText x={labelX} y={labelY + (lines.length === 2 ? 10 : 8)} fill="#0B1221" fontSize="9.8" fontWeight="900" textAnchor="middle">{Math.round(capture * 100)}%</SvgText>
+      </G>;
+    })}
+  </G>;
+}
+
+export const IndiaSubjectMap = memo(function IndiaSubjectMap({ subjects, accent, foreground, muted, surface, border, onOpenSubject }: IndiaSubjectMapProps) {
   const [selected, setSelected] = useState<string | null>(subjects[0]?.subject ?? null);
   const [previousTerritories, setPreviousTerritories] = useState<PositionedTerritory[]>([]);
   const reflowOpacity = useRef(new Animated.Value(0)).current;
@@ -130,8 +134,9 @@ export function IndiaSubjectMap({ subjects, accent, foreground, muted, surface, 
         <Path d={INDIA_BOUNDARY_PATH} fill="url(#india-terrain)" stroke={`${accent}99`} strokeWidth={2.2} />
         <G clipPath="url(#india-geographic-boundary)">
           <Path d="M0 72 H320 M0 145 H320 M0 218 H320 M0 291 H320 M64 0 V380 M128 0 V380 M192 0 V380 M256 0 V380" stroke="#FFFFFF12" strokeWidth={0.8} strokeDasharray="3 6" />
-          <TerritoryLayer territories={positioned} selectedSubject={selectedTerritory?.subject ?? null} interactive showLabels onSelect={setSelected} />
+          <TerritoryLayer territories={positioned} selectedSubject={selectedTerritory?.subject ?? null} interactive onSelect={setSelected} />
         </G>
+        <TerritoryLabels territories={positioned} />
         <Path d={INDIA_BOUNDARY_PATH} fill="none" stroke="#FFF8" strokeWidth={0.7} pointerEvents="none" />
         <Path d={INDIA_BOUNDARY_PATH} fill="none" stroke={`${accent}99`} strokeWidth={2.2} pointerEvents="none" />
       </Svg>
@@ -156,7 +161,7 @@ export function IndiaSubjectMap({ subjects, accent, foreground, muted, surface, 
       <Text style={[styles.detailPercent, { color: accent }]}>{Math.round(selectedTerritory.capture * 100)}%</Text>
     </Pressable> : null}
   </View>;
-}
+});
 
 const styles = StyleSheet.create({
   wrap: { gap: 10 },

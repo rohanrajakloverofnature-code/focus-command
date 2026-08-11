@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { ScrollView, View, Text, Pressable, FlatList } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { useFocusCommand, Equipment, UserEquipment } from "@/lib/focus-command";
+import { useFocusCommand, Equipment, UserEquipment, getEquipmentSlotForType } from "@/lib/focus-command";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
@@ -21,6 +21,8 @@ const typeEmojis: Record<string, string> = {
   AuraGenerator: "✨",
 };
 
+const EQUIPMENT_SLOTS = ["head", "body", "accessory"] as const;
+
 export default function EquipmentScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -28,11 +30,10 @@ export default function EquipmentScreen() {
   const [selectedItem, setSelectedItem] = useState<UserEquipment | null>(null);
 
   const equippedItems = getEquippedItems();
-  const inventoryItems = state.userEquipment.filter((ue) => ue.isEquipped === "false");
+  const inventoryItems = state.userEquipment;
 
-  const getEquipmentDetails = (equipmentId: string): Equipment | undefined => {
-    return state.allEquipment.find((eq) => eq.id === equipmentId);
-  };
+  const equipmentById = useMemo(() => new Map(state.allEquipment.map((equipment) => [equipment.id, equipment])), [state.allEquipment]);
+  const getEquipmentDetails = useCallback((equipmentId: string): Equipment | undefined => equipmentById.get(equipmentId), [equipmentById]);
 
   const handleEquip = (userEquipmentId: string, slot: "head" | "body" | "accessory") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -61,7 +62,7 @@ export default function EquipmentScreen() {
             <View className="flex-row items-center justify-between">
               <View className="flex-1">
                 <Text className="text-3xl font-bold text-foreground">Equipment</Text>
-                <Text className="text-sm text-muted">Manage your gear and inventory</Text>
+                <Text className="text-sm text-muted">Created gear is added to Inventory automatically. Tap an item to equip it.</Text>
               </View>
               <Pressable
                 onPress={() => router.push("/equipment-creator")}
@@ -76,12 +77,12 @@ export default function EquipmentScreen() {
           <View className="gap-3">
             <Text className="text-lg font-semibold text-foreground">Equipped</Text>
             <View className="gap-2">
-              {["head", "body", "accessory"].map((slot) => {
+              {EQUIPMENT_SLOTS.map((slot) => {
                 const equipment = equippedItems[slot as keyof typeof equippedItems];
                 return (
                   <Pressable
                     key={slot}
-                    onPress={() => equipment && setSelectedItem(state.userEquipment.find((ue) => ue.equipmentId === equipment.id) || null)}
+                    onPress={() => equipment && setSelectedItem(state.userEquipment.find((ue) => ue.equipmentId === equipment.id && ue.isEquipped === slot) || null)}
                     style={({ pressed }) => [
                       {
                         backgroundColor: colors.surface,
@@ -122,10 +123,10 @@ export default function EquipmentScreen() {
           <View className="gap-3">
             <View className="flex-row items-center justify-between">
               <Text className="text-lg font-semibold text-foreground">Inventory</Text>
-              <Text className="text-sm text-muted">{inventoryItems.length} items</Text>
+              <Text className="text-sm text-muted">{inventoryItems.length} owned</Text>
             </View>
             {inventoryItems.length === 0 ? (
-              <Text className="text-sm text-muted italic">No items in inventory</Text>
+              <Text className="text-sm text-muted italic">No items in inventory. Create equipment to add it here automatically.</Text>
             ) : (
               <FlatList
                 data={inventoryItems}
@@ -155,7 +156,7 @@ export default function EquipmentScreen() {
                             <Text className="text-xl">{typeEmojis[equipment.type]}</Text>
                             <View className="flex-1">
                               <Text className="text-sm font-semibold text-foreground">{equipment.name}</Text>
-                              <Text className="text-xs text-muted">+{((equipment.xpModifier - 100) * 100).toFixed(0)}% XP</Text>
+                              <Text className="text-xs text-muted">{item.isEquipped === "false" ? "Ready to equip" : `Equipped to ${item.isEquipped}`} · +{((equipment.xpModifier - 100) * 100).toFixed(0)}% XP</Text>
                             </View>
                           </View>
                           <Text
@@ -241,8 +242,9 @@ export default function EquipmentScreen() {
                 <View className="gap-2 border-t border-border pt-4">
                   {selectedItem.isEquipped === "false" ? (
                     <>
+                      <Text className="text-xs text-muted text-center">{equipment.type} gear equips to your {getEquipmentSlotForType(equipment.type)} slot.</Text>
                       <Pressable
-                        onPress={() => handleEquip(selectedItem.id, "head")}
+                        onPress={() => handleEquip(selectedItem.id, getEquipmentSlotForType(equipment.type))}
                         style={({ pressed }) => [
                           {
                             backgroundColor: colors.primary,
@@ -252,33 +254,7 @@ export default function EquipmentScreen() {
                           },
                         ]}
                       >
-                        <Text className="text-center font-semibold text-white">Equip to Head</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => handleEquip(selectedItem.id, "body")}
-                        style={({ pressed }) => [
-                          {
-                            backgroundColor: colors.primary,
-                            borderRadius: 8,
-                            padding: 12,
-                            opacity: pressed ? 0.8 : 1,
-                          },
-                        ]}
-                      >
-                        <Text className="text-center font-semibold text-white">Equip to Body</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => handleEquip(selectedItem.id, "accessory")}
-                        style={({ pressed }) => [
-                          {
-                            backgroundColor: colors.primary,
-                            borderRadius: 8,
-                            padding: 12,
-                            opacity: pressed ? 0.8 : 1,
-                          },
-                        ]}
-                      >
-                        <Text className="text-center font-semibold text-white">Equip to Accessory</Text>
+                        <Text className="text-center font-semibold text-white">Equip to {getEquipmentSlotForType(equipment.type)}</Text>
                       </Pressable>
                     </>
                   ) : (

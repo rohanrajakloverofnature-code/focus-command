@@ -49,7 +49,7 @@ export default function EquipmentCreatorScreen() {
     setLevel("1");
     setXpModifier("100");
     setEnergyModifier("100");
-    alert("Equipment created successfully!");
+    alert("Equipment created and added to your Inventory. Open Equipment to equip it in its matching slot.");
   };
 
   return (
@@ -59,7 +59,7 @@ export default function EquipmentCreatorScreen() {
           {/* Header */}
           <View className="gap-2">
             <Text className="text-3xl font-bold text-foreground">Create Equipment</Text>
-            <Text className="text-sm text-muted">Add new gear to your collection</Text>
+            <Text className="text-sm text-muted">Create gear and add it directly to your inventory</Text>
           </View>
 
           {/* Form */}
@@ -234,6 +234,7 @@ export default function EquipmentCreatorScreen() {
           {/* All Equipment List */}
           <View className="gap-3 border-t border-border pt-6">
             <Text className="text-lg font-semibold text-foreground">All Equipment ({state.allEquipment.length})</Text>
+            <Text className="text-xs text-muted">Every item created here is already owned and ready to equip.</Text>
             {state.allEquipment.length === 0 ? (
               <Text className="text-sm text-muted italic">No equipment created yet</Text>
             ) : (

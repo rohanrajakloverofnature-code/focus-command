@@ -154,3 +154,9 @@
 - [x] Preserve next-day rescheduling for non-repeatable daily missions and all existing independent completion records.
 - [x] Add same-day restart regression coverage and restore a client-only production build script.
 - [x] Run type, lint, build, and full regression validation for the repeatable-mission repair.
+
+- [x] Audit the equipment creator, inventory, equipment slots, map-label layout, rendering hot paths, and the reported client build failure.
+- [x] Repair created-equipment synchronization into offline inventory and clarify the direct equip flow by slot type.
+- [x] Correct territory-map label centering and overflow without changing any other map mechanics or appearance.
+- [x] Apply targeted performance improvements that preserve all current screens, workflows, and visual design.
+- [x] Add regression coverage, restore a reliable client build, and validate the equipment, map, and performance repairs.
