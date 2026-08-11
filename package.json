@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm dev:metro",
     "dev:metro": "cross-env EXPO_USE_METRO_WORKSPACE_ROOT=1 npx expo start --web --port ${EXPO_PORT:-8081}",
-    "build": "expo export --platform web",
+    "build": "expo export --platform web && node scripts/prepare-deploy.mjs",
     "start": "node scripts/serve-static.mjs",
     "check": "tsc --noEmit",
     "lint": "expo lint",

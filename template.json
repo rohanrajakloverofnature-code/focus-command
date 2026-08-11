@@ -1,11 +1,8 @@
 {
   "id": "app",
-  "name": "Expo App (server, db, user)",
-  "description": "Expo Router mobile + Express/TRPC/Drizzle backend with Manus OAuth. Ships web preview + QR friendly Expo dev server scripts so webdev_init_project can satisfy \"build an app\" requests.",
+  "name": "Focus Command Offline Expo App",
+  "description": "Offline-first Expo Router mobile application with local AsyncStorage gameplay and optional direct Google Sheets synchronization.",
   "capabilities": [
-    "server",
-    "db",
-    "user",
     "mobile",
     "app"
   ],

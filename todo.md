@@ -179,3 +179,8 @@
 - [x] Design the launch-only flame, contextual quote, sound, and final glaze sequence without changing the existing interface after it ends.
 - [x] Implement interruption-safe, accessibility-aware, responsive, mobile-efficient launch playback with quote variety and no navigation restart.
 - [x] Add deterministic lifecycle, quote, sizing, audio-fallback, and animation safeguards; validate the build and deployment startup path.
+
+- [x] Audit the current flame, quote, glaze, audio composition, and the renewed deployment-start failure.
+- [x] Replace the stylized flame and glaze treatment with a cinematic, layered, realistic composition that stays within the launch viewport.
+- [x] Add a subtle synchronized quote-reveal sound while retaining the existing approved fire crackle and launch-only lifecycle safeguards.
+- [x] Add deterministic rendering and audio coverage; validate performance, static build, production-start configuration, and deployment readiness.
