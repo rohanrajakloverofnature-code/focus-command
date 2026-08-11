@@ -528,6 +528,25 @@ export function toLocalDate(iso: string, timeZone?: string): string {
   }
 }
 
+/**
+ * Daily missions that are intentionally repeatable remain eligible for another
+ * start on the same local day, even if an older scheduled date is present.
+ * Non-repeatable daily missions retain the existing next-day schedule gate.
+ */
+export function isMissionStartEligible(
+  mission: Pick<Mission, "frequency" | "dueAt" | "allowMultipleDailyCompletions">,
+  localDate: string,
+  timeZone?: string,
+): boolean {
+  const isDeferredNonRepeatableDaily =
+    mission.frequency === "daily" &&
+    !mission.allowMultipleDailyCompletions &&
+    mission.dueAt !== null &&
+    toLocalDate(mission.dueAt, timeZone) > localDate;
+
+  return !isDeferredNonRepeatableDaily;
+}
+
 function addDays(localDate: string, days: number): string {
   const [year, month, day] = localDate.split("-").map(Number);
   const calendarDate = new Date(Date.UTC(year, month - 1, day + days));
@@ -1393,8 +1412,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       return withQueuedOperation({
         ...current,
         missions: current.missions.map((mission) => {
-          const scheduledForFutureDay = mission.frequency === "daily" && mission.dueAt && toLocalDate(mission.dueAt, current.profile.timezone) > today;
-          if (mission.id !== missionId || scheduledForFutureDay) return mission;
+          if (mission.id !== missionId || !isMissionStartEligible(mission, today, current.profile.timezone)) return mission;
           return { ...mission, status: "active", startedAt: mission.startedAt ?? nowIso(), pausedAt: null };
         }),
       });

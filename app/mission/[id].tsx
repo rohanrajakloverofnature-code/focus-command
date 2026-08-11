@@ -35,6 +35,7 @@ export default function MissionDetailScreen() {
   const [editTopic, setEditTopic] = useState("");
   const [editXp, setEditXp] = useState("");
   const [editDueAt, setEditDueAt] = useState("");
+  const [editAllowMultipleDailyCompletions, setEditAllowMultipleDailyCompletions] = useState(false);
   const [editBossId, setEditBossId] = useState<string | null>(null);
   const [isSubmittingResult, setIsSubmittingResult] = useState(false);
   const submissionLock = useRef(false);
@@ -110,6 +111,7 @@ export default function MissionDetailScreen() {
     setEditTopic(mission.specificTopic);
     setEditXp(String(mission.baseXp));
     setEditDueAt(mission.dueAt?.slice(0, 10) ?? "");
+    setEditAllowMultipleDailyCompletions(mission.allowMultipleDailyCompletions);
     setEditBossId(mission.bossId);
     setShowEditor(true);
   };
@@ -132,6 +134,7 @@ export default function MissionDetailScreen() {
       specificTopic: editTopic.trim(),
       baseXp: Math.max(1, Math.round(Number(editXp) || mission.baseXp)),
       dueAt: dueAt ? new Date(`${dueAt}T12:00:00`).toISOString() : null,
+      allowMultipleDailyCompletions: editAllowMultipleDailyCompletions,
       bossId: editBossId,
     });
     setShowEditor(false);
@@ -177,6 +180,13 @@ export default function MissionDetailScreen() {
             <TextInput value={editXp} onChangeText={setEditXp} keyboardType="number-pad" placeholder="Base XP" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
             <TextInput value={editDueAt} onChangeText={setEditDueAt} autoCapitalize="none" placeholder="Deadline YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
           </View>
+          {mission.frequency === "daily" ? <Pressable onPress={() => setEditAllowMultipleDailyCompletions((value) => !value)} style={({ pressed }) => [styles.repeatabilityToggle, { borderColor: editAllowMultipleDailyCompletions ? colors.primary : colors.border, backgroundColor: editAllowMultipleDailyCompletions ? `${colors.primary}16` : colors.background, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+            <IconSymbol name={editAllowMultipleDailyCompletions ? "checklist" : "xmark"} size={17} color={editAllowMultipleDailyCompletions ? colors.primary : colors.muted} />
+            <View style={styles.repeatabilityCopy}>
+              <Text style={[styles.repeatabilityTitle, { color: colors.foreground }]}>{editAllowMultipleDailyCompletions ? "Run more than once today" : "Limit to one run today"}</Text>
+              <Text style={[styles.repeatabilityDetail, { color: colors.muted }]}>{editAllowMultipleDailyCompletions ? "After every valid completion, this mission returns to Planned and can be started again today." : "After completion, the next daily mission stays scheduled for tomorrow."}</Text>
+            </View>
+          </Pressable> : null}
           <Text style={[styles.editorLabel, { color: colors.muted }]}>CAMPAIGN LINK</Text>
           <View style={styles.bossPicker}>
             <Pressable onPress={() => setEditBossId(null)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: editBossId === null ? `${colors.primary}18` : colors.background, borderColor: editBossId === null ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.bossChoiceText, { color: editBossId === null ? colors.primary : colors.muted }]}>No boss</Text></Pressable>
@@ -344,6 +354,10 @@ const styles = StyleSheet.create({
   editorInput: { minHeight: 45, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 11, fontSize: 13, lineHeight: 17, fontWeight: "600" },
   editorRow: { flexDirection: "row", gap: 8 },
   editorHalf: { flex: 1 },
+  repeatabilityToggle: { minHeight: 56, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 11, flexDirection: "row", alignItems: "center", gap: 10 },
+  repeatabilityCopy: { flex: 1 },
+  repeatabilityTitle: { fontSize: 13, lineHeight: 18, fontWeight: "800" },
+  repeatabilityDetail: { fontSize: 11, lineHeight: 15, marginTop: 1, fontWeight: "500" },
   editorLabel: { fontSize: 10, lineHeight: 13, letterSpacing: 0.8, fontWeight: "900" },
   bossPicker: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   bossChoice: { minHeight: 33, maxWidth: "100%", paddingHorizontal: 10, borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, justifyContent: "center" },

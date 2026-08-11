@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createInitialState, normalizeHydratedState, type FocusState, type Mission, type MissionCompletion, type ProgressionEvent } from "../lib/focus-command";
+import { createInitialState, isMissionStartEligible, normalizeHydratedState, type FocusState, type Mission, type MissionCompletion, type ProgressionEvent } from "../lib/focus-command";
 
 function createTestMission(overrides: Partial<Mission> = {}): Mission {
   const now = new Date().toISOString();
@@ -134,6 +134,32 @@ describe("Independent Multi-Completion System", () => {
   });
 
   describe("Mission State Management", () => {
+    it("allows a repeatable daily mission to start again today even if a legacy scheduled date is tomorrow", () => {
+      const repeatableDailyMission = createTestMission({
+        frequency: "daily",
+        status: "planned",
+        startedAt: null,
+        dueAt: "2026-08-12T00:00:00.000Z",
+        allowMultipleDailyCompletions: true,
+        completionHistory: ["2026-08-11T09:00:00.000Z"],
+      });
+
+      expect(isMissionStartEligible(repeatableDailyMission, "2026-08-11", "UTC")).toBe(true);
+    });
+
+    it("keeps a non-repeatable daily mission deferred until its next scheduled day", () => {
+      const nextDayDailyMission = createTestMission({
+        frequency: "daily",
+        status: "planned",
+        startedAt: null,
+        dueAt: "2026-08-12T00:00:00.000Z",
+        allowMultipleDailyCompletions: false,
+      });
+
+      expect(isMissionStartEligible(nextDayDailyMission, "2026-08-11", "UTC")).toBe(false);
+      expect(isMissionStartEligible(nextDayDailyMission, "2026-08-12", "UTC")).toBe(true);
+    });
+
     it("keeps repeatable mission in active state after completion", () => {
       const mission = createTestMission({
         allowMultipleDailyCompletions: true,

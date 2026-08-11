@@ -162,13 +162,20 @@ export default function MissionsScreen() {
               <View style={styles.frequencyOptions}>
                 {(["once", "daily"] as MissionFrequency[]).map((value) => {
                   const selected = frequency === value;
-                  return <Pressable key={value} onPress={() => setFrequency(value)} style={({ pressed }) => [styles.frequencyChoice, { backgroundColor: selected ? `${colors.primary}18` : colors.background, borderColor: selected ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+                  return <Pressable key={value} onPress={() => { setFrequency(value); setAllowMultipleDailyCompletions(value === "daily"); }} style={({ pressed }) => [styles.frequencyChoice, { backgroundColor: selected ? `${colors.primary}18` : colors.background, borderColor: selected ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                     <Text style={[styles.frequencyChoiceTitle, { color: selected ? colors.primary : colors.foreground }]}>{value === "daily" ? "Daily" : "One time"}</Text>
-                    <Text style={[styles.frequencyChoiceDetail, { color: selected ? colors.primary : colors.muted }]}>{value === "daily" ? "Re-deploys tomorrow" : "Completes once"}</Text>
+                    <Text style={[styles.frequencyChoiceDetail, { color: selected ? colors.primary : colors.muted }]}>{value === "daily" ? "Repeatable by default" : "Completes once"}</Text>
                   </Pressable>;
                 })}
               </View>
-              {frequency === "daily" ? <Text style={[styles.frequencyHint, { color: colors.muted }]}>After completion, a fresh copy returns to Planned at the next local midnight. Today’s XP and time totals reset automatically at midnight.</Text> : null}
+              {frequency === "daily" ? <Pressable onPress={() => setAllowMultipleDailyCompletions((value) => !value)} style={({ pressed }) => [styles.repeatabilityToggle, { borderColor: allowMultipleDailyCompletions ? colors.primary : colors.border, backgroundColor: allowMultipleDailyCompletions ? `${colors.primary}16` : colors.background, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+                <IconSymbol name={allowMultipleDailyCompletions ? "checklist" : "xmark"} size={17} color={allowMultipleDailyCompletions ? colors.primary : colors.muted} />
+                <View style={styles.repeatabilityCopy}>
+                  <Text style={[styles.revisionTitle, { color: colors.foreground }]}>{allowMultipleDailyCompletions ? "Run more than once today" : "Limit to one run today"}</Text>
+                  <Text style={[styles.revisionDetail, { color: colors.muted }]}>{allowMultipleDailyCompletions ? "Each completion returns this mission to Planned so you can start it again before midnight." : "A fresh daily mission will be scheduled for tomorrow after completion."}</Text>
+                </View>
+              </Pressable> : null}
+              {frequency === "daily" ? <Text style={[styles.frequencyHint, { color: colors.muted }]}>{allowMultipleDailyCompletions ? "Every valid run receives its own time, XP, reflection, and history record." : "Today’s XP and time totals reset automatically at midnight."}</Text> : null}
             </View>
             <View style={styles.bossSection}>
               <Text style={[styles.inputLabel, { color: colors.muted }]}>MISSION CAMPAIGN</Text>
@@ -280,6 +287,8 @@ const styles = StyleSheet.create({
   revisionCopy: { flex: 1 },
   revisionTitle: { fontSize: 13, lineHeight: 18, fontWeight: "800" },
   revisionDetail: { fontSize: 11, lineHeight: 15, marginTop: 1, fontWeight: "500" },
+  repeatabilityToggle: { minHeight: 56, borderRadius: 15, borderWidth: StyleSheet.hairlineWidth, padding: 11, flexDirection: "row", alignItems: "center", gap: 10 },
+  repeatabilityCopy: { flex: 1 },
   frequencySection: { gap: 7 },
   frequencyOptions: { flexDirection: "row", gap: 8 },
   frequencyChoice: { flex: 1, minHeight: 58, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 11, paddingVertical: 9, justifyContent: "center" },

@@ -148,3 +148,9 @@
 - [x] Remove obsolete server, database, schema, and migration infrastructure and stop starting a backend service in development.
 - [x] Verify no backend imports or calls remain while Google Sheets authorization and manual sync continue to work.
 - [x] Run full checks and regression tests for the backend-free local-first build.
+
+- [x] Trace the reported repeatable-mission completion, rescheduling, and same-day start flow against the supplied recording.
+- [x] Fix repeatable missions so completion does not move their eligible scheduled date to tomorrow before the day ends.
+- [x] Preserve next-day rescheduling for non-repeatable daily missions and all existing independent completion records.
+- [x] Add same-day restart regression coverage and restore a client-only production build script.
+- [x] Run type, lint, build, and full regression validation for the repeatable-mission repair.
