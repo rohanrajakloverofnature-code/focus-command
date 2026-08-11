@@ -138,3 +138,13 @@
 - [x] Ensure each same-day repeatable completion persists as an independent instance through history, rewards, analytics, and restart.
 - [x] Add regression tests for confirmation, duplicate taps, independent repeated completions, persistence, and limited missions.
 - [x] Validate the complete repaired mission lifecycle without changing the existing interface or unrelated features.
+
+- [x] Audit active Focus Command runtime imports, startup wiring, and network usage for backend dependencies.
+- [x] Distinguish unused template/server files from code actually bundled into the mobile app.
+- [x] Report whether all gameplay persistence is local and identify every remaining optional external path.
+
+- [x] Protect and verify the direct Google Sheets authorization and manual-sync paths before removing legacy infrastructure.
+- [x] Remove legacy backend OAuth routing, auth/tRPC/query runtime wiring, and unused mobile dependencies.
+- [x] Remove obsolete server, database, schema, and migration infrastructure and stop starting a backend service in development.
+- [x] Verify no backend imports or calls remain while Google Sheets authorization and manual sync continue to work.
+- [x] Run full checks and regression tests for the backend-free local-first build.

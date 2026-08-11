@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -36,5 +36,34 @@ describe("Google Sheets OAuth configuration", () => {
     expect(rootLayout).toContain('<Stack.Screen name="oauthredirect" />');
     expect(redirectRoute).toContain("Completing secure Google connection");
     expect(redirectRoute).toContain("router.back()");
+  });
+
+  it("keeps Google Sheets sync direct while excluding legacy backend infrastructure", () => {
+    const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as {
+      scripts: Record<string, string | undefined>;
+      dependencies: Record<string, string | undefined>;
+    };
+    const rootLayout = readFileSync(resolve(process.cwd(), "app/_layout.tsx"), "utf8");
+    const webCallback = readFileSync(resolve(process.cwd(), "app/oauth/callback.tsx"), "utf8");
+    const authHook = readFileSync(resolve(process.cwd(), "hooks/use-google-sheets-auth.ts"), "utf8");
+    const settingsScreen = readFileSync(resolve(process.cwd(), "app/settings.tsx"), "utf8");
+
+    expect(packageJson.scripts.dev).toBe("pnpm dev:metro");
+    expect(packageJson.scripts["dev:server"]).toBeUndefined();
+    expect(packageJson.scripts["db:push"]).toBeUndefined();
+    expect(rootLayout).not.toContain("QueryClientProvider");
+    expect(webCallback).not.toMatch(/exchangeOAuthCode|sessionToken|@\/lib\/_core\/(api|auth)/);
+    expect(authHook).toContain("expo-auth-session/providers/google");
+    expect(authHook).toContain("https://www.googleapis.com/auth/spreadsheets");
+    expect(settingsScreen).toContain("useGoogleSheetsAuth");
+    expect(settingsScreen).toContain("writeFocusWorkbook");
+    expect(settingsScreen).toContain("readFocusWorkbook");
+
+    for (const dependency of ["@tanstack/react-query", "@trpc/client", "@trpc/react-query", "@trpc/server", "drizzle-orm", "express", "mysql2"]) {
+      expect(packageJson.dependencies[dependency]).toBeUndefined();
+    }
+    for (const path of ["server", "drizzle", "shared", "drizzle.config.ts", "lib/trpc.ts", "hooks/use-auth.ts", "lib/_core/api.ts", "lib/_core/auth.ts"]) {
+      expect(existsSync(resolve(process.cwd(), path))).toBe(false);
+    }
   });
 });
