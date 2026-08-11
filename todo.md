@@ -174,3 +174,8 @@
 - [x] Show the qualifying mini achievement as the Wall of Fame card title and the parent mission as secondary context.
 - [x] Add regression coverage and validate the Wall of Fame data-binding correction.
 - [x] Diagnose and restore the client deployment startup path after the failed rollout.
+
+- [x] Audit the supplied launch reference, app launch lifecycle, wellbeing insight sources, audio system, visual composition, and deployment startup failure.
+- [x] Design the launch-only flame, contextual quote, sound, and final glaze sequence without changing the existing interface after it ends.
+- [x] Implement interruption-safe, accessibility-aware, responsive, mobile-efficient launch playback with quote variety and no navigation restart.
+- [x] Add deterministic lifecycle, quote, sizing, audio-fallback, and animation safeguards; validate the build and deployment startup path.

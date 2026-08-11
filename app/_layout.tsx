@@ -11,6 +11,7 @@ import { ThemeProvider } from "@/lib/theme-provider";
 import { FocusCommandProvider } from "@/lib/focus-command";
 import { FocusThemeBridge } from "@/components/focus-theme-bridge";
 import { FocusNotificationAudioBridge } from "@/components/focus-notification-audio-bridge";
+import { LaunchAnimation } from "@/components/launch-animation";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -89,6 +90,7 @@ export default function RootLayout() {
           <Stack.Screen name="oauth/callback" />
           <Stack.Screen name="oauthredirect" />
         </Stack>
+        <LaunchAnimation />
         <StatusBar style="auto" />
       </FocusCommandProvider>
     </GestureHandlerRootView>

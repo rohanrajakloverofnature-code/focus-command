@@ -1,0 +1,41 @@
+Starting video analysis...
+Submitting video analysis task...
+Task submitted (ID: video-analysis-e4e1a0a2-fab9-40c3-91d2-4e0bbfdc1f43)
+[8s] Status: Analyzing video content with AI...
+[17s] Status: Analysis completed
+[17s] Analysis completed!
+Full analysis result saved to: /home/ubuntu/video_gemini_generated_video_9f053d7b_analysis_20260811_175131.md
+Note: This tool performs AI-based visual and audio analysis, not verbatim transcription. For detailed speech transcription, use `manus-speech-to-text` instead.
+Analysis result:
+
+Here's a detailed breakdown of the fire overlay effect, structured to help you recreate it in React Native:
+
+### 1. Visual Timing & Transitions
+*   **00:00 - 00:01 (Entrance):** The effect triggers abruptly. There is no slow build-up; the flames and the text appear almost instantly at full intensity.
+*   **00:01 - 00:07 (Sustained State):** The fire loops dynamically. The flames flicker, rise, and fall, while the text remains completely static.
+*   **00:08 - 00:09 (Exit):** The transition out is rapid. The flames quickly shrink downwards towards the bottom edge while simultaneously fading in opacity. The text disappears at the same time.
+
+### 2. Flame Placement & Height
+*   **Anchor:** The fire effect is firmly anchored to the absolute bottom edge of the screen, spanning 100% of the viewport width.
+*   **Base Height:** The dense, continuous base of the fire occupies roughly the bottom 25-30% of the screen.
+*   **Peak Height:** Individual flame licks and bursts shoot up higher, reaching approximately 50-60% up the screen. These peaks frequently touch or slightly overlap the bottom edge of the central text.
+
+### 3. Opacity & Background Visibility
+*   **Bottom Edge (0-15% height):** Nearly 100% opaque. The underlying app UI is completely obscured.
+*   **Mid-Section (15-40% height):** Semi-transparent. The app UI (like the "Total XP" and "Gold Balance" cards) is visible through the flames but is heavily tinted by the orange/yellow glow.
+*   **Upper Reaches (40%+ height):** Highly transparent. The flame tips are wispy, allowing clear visibility of the UI behind them.
+*   **Overall:** The effect acts as a gradient mask, solid at the bottom and fading to transparent at the top.
+
+### 4. Color Palette
+*   **Core/Hottest Areas (Bottom center):** Bright, almost pure white-yellow (`#FFFFE0` to `#FFFACD` range).
+*   **Main Body:** Vibrant, saturated orange (`#FFA500` to `#FF8C00`).
+*   **Edges & Tips:** Darker, burnt orange to reddish-brown (`#FF4500` to `#8B0000`).
+
+### 5. Smoke & Ember Details (Particle Effects)
+*   **Embers:** Small, glowing particles (yellow/orange dots) constantly detach from the main fire body and float upwards. They move at varying speeds and fade out completely before reaching the top third of the screen.
+*   **Smoke:** Very subtle. There are faint, dark, semi-transparent wisps that appear near the top edges of the flames, adding texture but not obscuring the background significantly.
+
+### 6. Quote Placement & Styling
+*   **Text:** "RISE ABOVE THE LIMITS" (All caps).
+*   **Position:** Centered horizontally. Vertically, it sits just above the dense base of the fire, roughly in the middle of the screen, allowing the taller flame peaks to lick at its bottom edge.
+*   **Styling:** Bold, sans-serif font, pure white (`#FFFFFF`). It appears to have a very subtle, tight drop shadow or dark outline to ensure it remains legible even when bright flames pass behind it.
