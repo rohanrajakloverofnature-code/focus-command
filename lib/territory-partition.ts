@@ -13,6 +13,8 @@ export interface DynamicTerritory {
   path: string;
   labelX: number;
   labelY: number;
+  /** Half of the guaranteed square interior area available around the label. */
+  labelClearance: number;
 }
 
 export function getTerritoryLabelLines(value: string): string[] {
@@ -168,6 +170,60 @@ function territoryPath(cellIndexes: number[], cells: Cell[]) {
 }
 
 /**
+ * Selects the center of the largest all-owned square in a territory rather than
+ * the arithmetic mean of its cells. A mean can fall against a concave edge or a
+ * neighbouring territory; this anchor is surrounded by the same territory on
+ * every side, giving label text an explicit geometric safety margin.
+ */
+function safeInteriorLabelAnchor(
+  regionCells: number[],
+  cells: Cell[],
+  assignments: number[],
+  owner: number,
+  indexByPoint: Map<string, number>,
+) {
+  const mean = regionCells.reduce((sum, cellIndex) => ({
+    x: sum.x + cells[cellIndex]!.x + INDIA_INTERIOR_CELL_SIZE / 2,
+    y: sum.y + cells[cellIndex]!.y + INDIA_INTERIOR_CELL_SIZE / 2,
+  }), { x: 0, y: 0 });
+  const meanX = mean.x / regionCells.length;
+  const meanY = mean.y / regionCells.length;
+
+  const squareBelongsToOwner = (cell: Cell, radius: number) => {
+    for (let row = -radius; row <= radius; row += 1) {
+      for (let column = -radius; column <= radius; column += 1) {
+        const candidate = indexByPoint.get(pointKey(
+          cell.x + column * INDIA_INTERIOR_CELL_SIZE,
+          cell.y + row * INDIA_INTERIOR_CELL_SIZE,
+        ));
+        if (candidate === undefined || assignments[candidate] !== owner) return false;
+      }
+    }
+    return true;
+  };
+
+  let best: { cell: Cell; radius: number; distanceToMean: number } | null = null;
+  regionCells.forEach((cellIndex) => {
+    const cell = cells[cellIndex]!;
+    let radius = 0;
+    while (squareBelongsToOwner(cell, radius + 1)) radius += 1;
+    const center = { x: cell.x + INDIA_INTERIOR_CELL_SIZE / 2, y: cell.y + INDIA_INTERIOR_CELL_SIZE / 2 };
+    const distanceToMean = (center.x - meanX) ** 2 + (center.y - meanY) ** 2;
+    if (!best || radius > best.radius || (radius === best.radius && distanceToMean < best.distanceToMean)) {
+      best = { cell, radius, distanceToMean };
+    }
+  });
+
+  const anchor = best ?? { cell: cells[regionCells[0]!]!, radius: 0 };
+  return {
+    labelX: anchor.cell.x + INDIA_INTERIOR_CELL_SIZE / 2,
+    labelY: anchor.cell.y + INDIA_INTERIOR_CELL_SIZE / 2,
+    // A small buffer protects glyph antialiasing from the closest region edge.
+    labelClearance: Math.max(0, (anchor.radius + 0.5) * INDIA_INTERIOR_CELL_SIZE - 1),
+  };
+}
+
+/**
  * Produces a compact, contiguous and completion-weighted land partition. Every
  * available India cell belongs to exactly one subject; all visible regions are
  * constrained again by the geographic SVG clip at render time.
@@ -229,15 +285,14 @@ export function getDynamicTerritories(subjects: TerritoryPartitionSubject[]): Dy
 
   return normalized.map((subject, owner) => {
     const regionCells = owned[owner]!;
-    const center = regionCells.reduce((sum, cellIndex) => ({ x: sum.x + cells[cellIndex]!.x + INDIA_INTERIOR_CELL_SIZE / 2, y: sum.y + cells[cellIndex]!.y + INDIA_INTERIOR_CELL_SIZE / 2 }), { x: 0, y: 0 });
+    const labelAnchor = safeInteriorLabelAnchor(regionCells, cells, assignments, owner, indexByPoint);
     return {
       subject: subject.subject,
       capture: subject.capture,
       cellCount: regionCells.length,
       targetCellCount: targets[owner]!,
       path: territoryPath(regionCells, cells),
-      labelX: center.x / regionCells.length,
-      labelY: center.y / regionCells.length,
+      ...labelAnchor,
     };
   });
 }

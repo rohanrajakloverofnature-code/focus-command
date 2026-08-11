@@ -2,7 +2,7 @@ import { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
 import { PlatformPressable } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
-import { Platform } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 
 import { useFocusCommand } from "@/lib/focus-command";
 
@@ -21,8 +21,12 @@ export function HapticTab(props: BottomTabBarButtonProps) {
   };
 
   return (
-    <Animated.View style={scaleStyle}>
-      <PlatformPressable {...props} onPressIn={pressIn} onPressOut={pressOut} />
+    <Animated.View pointerEvents="box-none" style={[styles.touchArea, scaleStyle]}>
+      <PlatformPressable {...props} hitSlop={6} onPressIn={pressIn} onPressOut={pressOut} />
     </Animated.View>
   );
 }
+
+const styles = StyleSheet.create({
+  touchArea: { flex: 1 },
+});

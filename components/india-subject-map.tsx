@@ -62,14 +62,30 @@ function TerritoryLayer({
 
 function TerritoryLabels({ territories }: { territories: PositionedTerritory[] }) {
   return <G pointerEvents="none">
-    {territories.map(({ subject, capture, labelX, labelY }) => {
+    {territories.map(({ subject, capture, labelX, labelY, labelClearance }) => {
       const lines = getTerritoryLabelLines(subject);
       const longestLine = Math.max(...lines.map((line) => line.length));
-      const fontSize = longestLine > 12 ? 5.1 : longestLine > 8 ? 5.8 : 6.6;
-      const firstLineY = labelY - (lines.length === 2 ? 8 : 3);
+      const maximumTitleFont = longestLine > 12 ? 5.1 : longestLine > 8 ? 5.8 : 6.6;
+      const widthSafeTitleFont = Math.max(0, (labelClearance * 2) / Math.max(1, longestLine * 0.74));
+      const widthSafePercentFont = Math.max(0, (labelClearance * 2) / (3 * 0.78));
+      const unscaledTitleFont = Math.min(maximumTitleFont, widthSafeTitleFont);
+      const unscaledPercentFont = Math.min(9.8, widthSafePercentFont);
+      const unscaledHeight = lines.length * unscaledTitleFont * 1.2 + unscaledPercentFont * 1.2 + Math.max(1.4, unscaledTitleFont * 0.3);
+      const verticalScale = unscaledHeight > 0 ? Math.min(1, (labelClearance * 2) / unscaledHeight) : 0;
+      const titleFont = unscaledTitleFont * verticalScale;
+      const percentFont = unscaledPercentFont * verticalScale;
+      // A territory without enough geometric room shows no in-map text rather
+      // than allowing a label to cross a border. Its full name remains in the
+      // selected territory card directly below the map.
+      if (titleFont < 3.4 || percentFont < 4.2) return null;
+      const titleLineHeight = titleFont * 1.2;
+      const gap = Math.max(1.4, titleFont * 0.3);
+      const contentHeight = lines.length * titleLineHeight + gap + percentFont * 1.2;
+      const firstLineY = labelY - contentHeight / 2 + titleFont;
+      const percentY = firstLineY + (lines.length - 1) * titleLineHeight + gap + percentFont;
       return <G key={`label-${subject}`}>
-        {lines.map((line, index) => <SvgText key={`${subject}-${index}`} x={labelX} y={firstLineY + index * 7} fill="#FFFFFF" fontSize={fontSize} fontWeight="800" textAnchor="middle">{line}</SvgText>)}
-        <SvgText x={labelX} y={labelY + (lines.length === 2 ? 10 : 8)} fill="#0B1221" fontSize="9.8" fontWeight="900" textAnchor="middle">{Math.round(capture * 100)}%</SvgText>
+        {lines.map((line, index) => <SvgText key={`${subject}-${index}`} x={labelX} y={firstLineY + index * titleLineHeight} fill="#FFFFFF" fontSize={titleFont} fontWeight="800" textAnchor="middle">{line}</SvgText>)}
+        <SvgText x={labelX} y={percentY} fill="#0B1221" fontSize={percentFont} fontWeight="900" textAnchor="middle">{Math.round(capture * 100)}%</SvgText>
       </G>;
     })}
   </G>;

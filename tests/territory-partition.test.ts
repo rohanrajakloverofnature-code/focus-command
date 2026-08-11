@@ -53,4 +53,21 @@ describe("dynamic India subject territories", () => {
     expect(getTerritoryLabelLines("Spoken English").join(" ")).toBe("Spoken English");
     expect(getTerritoryLabelLines("Modern Maths Practice").join(" ")).toBe("Modern Maths Practice");
   });
+
+  it("anchors each displayed label in a territory-owned interior square rather than at a boundary average", () => {
+    const territories = getDynamicTerritories([
+      { subject: "Maths", capture: 0.75 },
+      { subject: "Spoken English", capture: 0.71 },
+      { subject: "Physics", capture: 0.35 },
+    ]);
+
+    expect(territories.every((territory) => territory.labelClearance > 0)).toBe(true);
+    expect(territories.map((territory) => ({ subject: territory.subject, labelX: territory.labelX, labelY: territory.labelY, labelClearance: territory.labelClearance }))).toEqual(
+      getDynamicTerritories([
+        { subject: "Maths", capture: 0.75 },
+        { subject: "Spoken English", capture: 0.71 },
+        { subject: "Physics", capture: 0.35 },
+      ]).map((territory) => ({ subject: territory.subject, labelX: territory.labelX, labelY: territory.labelY, labelClearance: territory.labelClearance })),
+    );
+  });
 });

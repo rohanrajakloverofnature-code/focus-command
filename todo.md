@@ -160,3 +160,8 @@
 - [x] Correct territory-map label centering and overflow without changing any other map mechanics or appearance.
 - [x] Apply targeted performance improvements that preserve all current screens, workflows, and visual design.
 - [x] Add regression coverage, restore a reliable client build, and validate the equipment, map, and performance repairs.
+
+- [x] Audit the current territory label anchor geometry, map interaction layer, missed-tap reports, render hot paths, and deployment startup configuration.
+- [x] Recalculate every territory label from a verified safe interior point with boundary clearance, without changing map mechanics or visuals.
+- [x] Remove missed-tap and lag bottlenecks through under-the-hood interaction and rendering improvements only.
+- [x] Add deterministic safe-anchor and touch-response safeguards; validate the application and deployment build before checkpointing.
