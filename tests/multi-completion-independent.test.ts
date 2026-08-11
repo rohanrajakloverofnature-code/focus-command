@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { Mission } from "../lib/focus-command";
+import { createInitialState, normalizeHydratedState, type FocusState, type Mission, type MissionCompletion, type ProgressionEvent } from "../lib/focus-command";
 
 function createTestMission(overrides: Partial<Mission> = {}): Mission {
   const now = new Date().toISOString();
@@ -261,6 +261,52 @@ describe("Independent Multi-Completion System", () => {
       // First completion should still be there
       expect(mission.completionHistory[0]).toBe(firstCompletion);
       expect(mission.completionHistory).toHaveLength(2);
+    });
+  });
+
+  describe("Durable completion instances", () => {
+    it("preserves three independently linked outcomes for the same repeatable mission", () => {
+      const base = createInitialState();
+      const mission = createTestMission({ completionHistory: ["2026-08-11T09:00:00Z", "2026-08-11T14:00:00Z", "2026-08-11T20:00:00Z"] });
+      const completions: MissionCompletion[] = mission.completionHistory.map((completedAt, index) => ({
+        id: `completion_${index + 1}`,
+        missionId: mission.id,
+        startedAt: completedAt,
+        completedAt,
+        durationMs: 20 * 60_000,
+        reflectionId: `reflection_${index + 1}`,
+        progressionEventId: `progress_${index + 1}`,
+      }));
+      const normalized = normalizeHydratedState({ ...base, missions: [mission], missionCompletions: completions });
+
+      expect(normalized.missionCompletions).toHaveLength(3);
+      expect(new Set(normalized.missionCompletions.map((completion) => completion.id)).size).toBe(3);
+      expect(normalized.missionCompletions.map((completion) => completion.progressionEventId)).toEqual(["progress_1", "progress_2", "progress_3"]);
+      expect(normalized.missionCompletions.map((completion) => completion.reflectionId)).toEqual(["reflection_1", "reflection_2", "reflection_3"]);
+    });
+
+    it("migrates legacy progression outcomes into independent completion records without discarding any", () => {
+      const base = createInitialState();
+      const mission = createTestMission();
+      const progression: ProgressionEvent[] = ["09:00:00", "14:00:00", "20:00:00"].map((time, index) => ({
+        id: `legacy_progress_${index + 1}`,
+        missionId: mission.id,
+        baseXp: 50,
+        comboMultiplier: 1,
+        goldMultiplier: 1,
+        powerAwarded: 50,
+        goldAwarded: 5,
+        occurredAt: `2026-08-11T${time}Z`,
+        note: "Completed: Read for 20 minutes",
+      }));
+      const legacyState = { ...base, missions: [mission], progression } as FocusState;
+      delete (legacyState as Partial<FocusState>).missionCompletions;
+
+      const normalized = normalizeHydratedState(legacyState);
+
+      expect(normalized.missionCompletions).toHaveLength(3);
+      expect(normalized.missionCompletions.map((completion) => completion.progressionEventId)).toEqual(progression.map((event) => event.id));
+      expect(normalized.missionCompletions.every((completion) => completion.missionId === mission.id)).toBe(true);
     });
   });
 });

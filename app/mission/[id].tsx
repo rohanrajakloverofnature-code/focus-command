@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ProgressBar, ScreenTitle, StatusPill } from "@/components/focus-ui";
@@ -36,6 +36,8 @@ export default function MissionDetailScreen() {
   const [editXp, setEditXp] = useState("");
   const [editDueAt, setEditDueAt] = useState("");
   const [editBossId, setEditBossId] = useState<string | null>(null);
+  const [isSubmittingResult, setIsSubmittingResult] = useState(false);
+  const submissionLock = useRef(false);
 
   useEffect(() => {
     if (mission?.status !== "active") return;
@@ -59,14 +61,40 @@ export default function MissionDetailScreen() {
   }
 
   const finish = async () => {
-    const result = finishMission(mission.id, { ...reflection, skills: skillsText.split(",").map((value) => value.trim()).filter(Boolean) });
-    if (!result) {
-      Alert.alert("Mission cannot be finalized", "Start the mission before ending it.");
+    if (submissionLock.current) return;
+    const miniAchievement = reflection.miniAchievement?.trim() ?? "";
+    if (!miniAchievement) {
+      Alert.alert("Add your mission win", "Write a short mini achievement before confirming the mission result.");
       return;
     }
-    await playFocusSuccessCue(state.profile.soundEnabled, state.profile.soundRoles.missionWin);
-    if (state.profile.notificationsEnabled) await scheduleAchievementRecap(mission.title, state.profile.notificationRules, state.profile.soundRoles.achievementRecap);
-    router.replace({ pathname: "/mission-result/[id]" as never, params: { id: mission.id } });
+    if (!reflection.miniAchievementRating || reflection.miniAchievementRating < 1 || reflection.miniAchievementRating > 5) {
+      Alert.alert("Rate the mission win", "Choose a rating from 1 to 5 before confirming the mission result.");
+      return;
+    }
+    if (isLongMission) {
+      const requiredRatings = [reflection.energyBefore, reflection.energyAfter, reflection.focusQuality, reflection.stressLevel, reflection.clarityLevel, reflection.motivationLevel, reflection.distractionLevel];
+      if (!reflection.feelingBefore || !reflection.feelingAfter || requiredRatings.some((rating) => !rating || rating < 1 || rating > 5)) {
+        Alert.alert("Complete the mission debrief", "Select both feelings and every behavioral rating before confirming this longer mission.");
+        return;
+      }
+    }
+    submissionLock.current = true;
+    setIsSubmittingResult(true);
+    try {
+      const result = finishMission(mission.id, { ...reflection, miniAchievement, skills: skillsText.split(",").map((value) => value.trim()).filter(Boolean) });
+      if (!result) {
+        Alert.alert("Mission cannot be finalized", "This mission is no longer active. Return to the mission board, start it again if it is repeatable, then submit a new result.");
+        return;
+      }
+      await playFocusSuccessCue(state.profile.soundEnabled, state.profile.soundRoles.missionWin);
+      if (state.profile.notificationsEnabled) await scheduleAchievementRecap(mission.title, state.profile.notificationRules, state.profile.soundRoles.achievementRecap);
+      router.replace({ pathname: "/mission-result/[id]" as never, params: { id: mission.id } });
+    } catch {
+      Alert.alert("Could not save mission result", "Your result was not confirmed. Please try again. If this continues, reopen the app and submit the active mission once more.");
+    } finally {
+      submissionLock.current = false;
+      setIsSubmittingResult(false);
+    }
   };
 
   const logTopic = () => {
@@ -238,7 +266,7 @@ export default function MissionDetailScreen() {
 
             <TextInput value={reflection.miniAchievement ?? ""} onChangeText={(miniAchievement) => setReflection((current) => ({ ...current, miniAchievement }))} placeholder="Your mini achievement" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
             <RatingSelector label="How powerful was this win?" value={reflection.miniAchievementRating ?? 3} onChange={(miniAchievementRating) => setReflection((current) => ({ ...current, miniAchievementRating }))} />
-            <CommandButton label="Confirm mission result" icon="trophy.fill" onPress={finish} />
+            <CommandButton label={isSubmittingResult ? "Saving mission result…" : "Confirm mission result"} icon="trophy.fill" onPress={finish} disabled={isSubmittingResult} />
           </CommandCard>
         ) : null}
       </ScrollView>

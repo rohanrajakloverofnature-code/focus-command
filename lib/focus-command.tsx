@@ -197,6 +197,8 @@ export interface Mission {
 export interface Reflection {
   id: string;
   missionId: string;
+  /** Links this debrief to one exact mission completion instance. */
+  completionId?: string;
   createdAt: string;
   feelingBefore: Feeling | null;
   feelingAfter: Feeling | null;
@@ -284,6 +286,8 @@ export interface InventoryItem {
 export interface ProgressionEvent {
   id: string;
   missionId: string | null;
+  /** Links this award to one exact mission completion instance. */
+  completionId?: string;
   baseXp: number;
   comboMultiplier: number;
   goldMultiplier: number;
@@ -297,6 +301,17 @@ export interface ProgressionEvent {
   titleAfter?: string;
   comboBefore?: number;
   comboAfter?: number;
+}
+
+/** Immutable record of one valid mission completion. */
+export interface MissionCompletion {
+  id: string;
+  missionId: string;
+  startedAt: string;
+  completedAt: string;
+  durationMs: number;
+  reflectionId: string;
+  progressionEventId: string;
 }
 
 export interface LifelinePoint {
@@ -366,6 +381,7 @@ export interface FocusState {
   profile: PlayerProfile;
   combo: ComboState;
   missions: Mission[];
+  missionCompletions: MissionCompletion[];
   reflections: Reflection[];
   srsTopics: SrsTopic[];
   bosses: Boss[];
@@ -639,6 +655,7 @@ export function createInitialState(): FocusState {
       missedDays: 0,
     },
     missions: [],
+    missionCompletions: [],
     reflections: [],
     srsTopics: [],
     bosses: [],
@@ -1236,7 +1253,23 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       emotionalCharts: input.profile?.emotionalCharts?.length ? input.profile.emotionalCharts : defaults.profile.emotionalCharts,
     },
     combo: { ...defaults.combo, ...(input.combo ?? {}) },
-    missions: (input.missions ?? []).map((mission) => ({ ...mission, frequency: mission.frequency ?? "once" })),
+    missions: (input.missions ?? []).map((mission) => ({
+      ...mission,
+      frequency: mission.frequency ?? "once",
+      allowMultipleDailyCompletions: mission.allowMultipleDailyCompletions ?? false,
+      completionHistory: mission.completionHistory ?? (mission.completedAt ? [mission.completedAt] : []),
+    })),
+    missionCompletions: input.missionCompletions ?? (input.progression ?? [])
+      .filter((event) => Boolean(event.missionId))
+      .map((event) => ({
+        id: event.completionId ?? `completion_legacy_${event.id}`,
+        missionId: event.missionId as string,
+        startedAt: event.occurredAt,
+        completedAt: event.occurredAt,
+        durationMs: 0,
+        reflectionId: (input.reflections ?? []).find((reflection) => reflection.missionId === event.missionId && reflection.createdAt === event.occurredAt)?.id ?? "",
+        progressionEventId: event.id,
+      })),
     googleSheet: { ...defaults.googleSheet, ...(input.googleSheet ?? {}) },
     rewards: input.rewards?.length ? input.rewards : defaults.rewards,
     customGraphs: input.customGraphs?.length ? input.customGraphs : defaults.customGraphs,
@@ -1321,7 +1354,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
           completedAt: null,
           revisionTopicIds: [],
           progressionEventId: null,
-          allowMultipleDailyCompletions: false,
+          allowMultipleDailyCompletions: draft.allowMultipleDailyCompletions ?? false,
           completionHistory: [],
         },
         ...current.missions,
@@ -1345,6 +1378,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       return withQueuedOperation({
         ...current,
         missions: current.missions.filter((candidate) => candidate.id !== missionId),
+        missionCompletions: current.missionCompletions.filter((completion) => completion.missionId !== missionId),
         reflections: current.reflections.filter((reflection) => reflection.missionId !== missionId),
         srsTopics: current.srsTopics.filter((topic) => topic.missionId !== missionId),
         progression: current.progression.filter((event) => event.missionId !== missionId),
@@ -1416,23 +1450,22 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     const sourceMission = state.missions.find((mission) => mission.id === missionId);
     if (!sourceMission || !sourceMission.startedAt) return null;
     
-    // Check if mission allows multiple completions
+    // A non-repeatable mission has a single completion. Repeatable missions are
+    // restarted as fresh planned instances after every valid result.
     if (!sourceMission.allowMultipleDailyCompletions && sourceMission.status === "completed") {
-      return null; // Cannot complete again if not marked as repeatable
+      return null;
     }
     const endedAt = nowIso();
     const pausedMilliseconds = sourceMission.pausedMilliseconds + (sourceMission.pausedAt ? Math.max(0, Date.now() - Date.parse(sourceMission.pausedAt)) : 0);
-    // For repeatable missions, keep mission in active state so it can be completed again
-    // For non-repeatable missions, mark as completed
     const completedMission: Mission = {
       ...sourceMission,
-      status: sourceMission.allowMultipleDailyCompletions ? "active" : "completed",
+      status: "completed",
       pausedAt: null,
       pausedMilliseconds,
       endedAt,
       completedAt: endedAt,
       completionHistory: [...sourceMission.completionHistory, endedAt],
-      startedAt: sourceMission.allowMultipleDailyCompletions ? null : sourceMission.startedAt, // Reset for re-start if repeatable
+      startedAt: sourceMission.startedAt,
     };
     const durationMs = getMissionInvestedMilliseconds(completedMission);
     let lootReward: Reward | null = null;
@@ -1448,11 +1481,13 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       const goldAwarded = Math.floor(carryTotal / 10);
       const goldPowerCarry = carryTotal - goldAwarded * 10;
       // Each completion gets its own progression event with independent XP calculation
+      const completionId = createId("completion");
       const progressionId = createId("progress");
       const reflectionId = createId("reflection");
       const reflection: Reflection = {
         id: reflectionId,
         missionId,
+        completionId,
         createdAt: endedAt,
         feelingBefore: reflectionDraft.feelingBefore ?? null,
         feelingAfter: reflectionDraft.feelingAfter ?? null,
@@ -1476,10 +1511,20 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       const titleBefore = getCurrentTitle(current);
       const comboBefore = getCurrentCombo(current, completionDate);
       const updatedCombo = resolveCurrentComboAfterActivity(current, completionDate);
-      const updatedMission = { ...completedMission, progressionEventId: progressionId };
+      const updatedMission: Mission = sourceMission.allowMultipleDailyCompletions
+        ? {
+            ...completedMission,
+            status: "planned",
+            startedAt: null,
+            pausedAt: null,
+            pausedMilliseconds: 0,
+            progressionEventId: progressionId,
+          }
+        : { ...completedMission, progressionEventId: progressionId };
       const provisionalProgression: ProgressionEvent = {
         id: progressionId,
         missionId,
+        completionId,
         baseXp: completedMission.baseXp,
         comboMultiplier: comboForAward.multiplier,
         goldMultiplier,
@@ -1572,7 +1617,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         }
       }
 
-      const nextDailyMission = completedMission.frequency === "daily" ? {
+      const nextDailyMission = completedMission.frequency === "daily" && !completedMission.allowMultipleDailyCompletions ? {
         ...completedMission,
         id: createId("mission"),
         status: "planned" as MissionStatus,
@@ -1588,12 +1633,22 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         completionHistory: [],
         allowMultipleDailyCompletions: completedMission.allowMultipleDailyCompletions,
       } : null;
+      const completion: MissionCompletion = {
+        id: completionId,
+        missionId,
+        startedAt: completedMission.startedAt ?? endedAt,
+        completedAt: endedAt,
+        durationMs,
+        reflectionId,
+        progressionEventId: progressionId,
+      };
       return withQueuedOperation({
         ...current,
         missions: [
           ...(nextDailyMission ? [nextDailyMission] : []),
           ...current.missions.map((mission) => mission.id === missionId ? updatedMission : mission),
         ],
+        missionCompletions: [...current.missionCompletions, completion],
         reflections: [...current.reflections, reflection],
         srsTopics,
         progression: [...current.progression, progression],
