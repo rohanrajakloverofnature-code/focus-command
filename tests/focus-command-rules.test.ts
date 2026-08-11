@@ -188,7 +188,15 @@ describe("Focus Command deterministic gameplay rules", () => {
 
     expect(getBossProgress(state, "boss_1")).toBe(0.5);
     const dashboard = getDashboardStats(state);
-    expect(dashboard.wallOfFame.map((item) => item.id)).toEqual([mission.id]);
+    expect(dashboard.wallOfFame).toEqual([
+      expect.objectContaining({
+        id: "r1",
+        missionId: mission.id,
+        missionTitle: mission.title,
+        miniAchievement: "Finished",
+        miniAchievementRating: 5,
+      }),
+    ]);
     expect(dashboard.achievementRadar.map((item) => item.id)).toEqual([mission.id]);
     expect(dashboard.subjectDistribution[0]?.label).toBe("Math");
     expect(dashboard.averageDailyHours).toBeCloseTo(50 / 60, 6);

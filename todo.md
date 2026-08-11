@@ -169,3 +169,8 @@
 - [x] Audit equipment modifier storage, reward calculations, and creator/detail percentage presentation against the reported baseline mismatch.
 - [x] Correct the modifier presentation and any calculation discrepancy while preserving the existing equipment effects and inventory flow.
 - [x] Add modifier-baseline regression coverage and run complete validation for the equipment percentage correction.
+
+- [x] Audit Wall of Fame data derivation, qualifying mini-achievement records, and current card fields.
+- [x] Show the qualifying mini achievement as the Wall of Fame card title and the parent mission as secondary context.
+- [x] Add regression coverage and validate the Wall of Fame data-binding correction.
+- [x] Diagnose and restore the client deployment startup path after the failed rollout.

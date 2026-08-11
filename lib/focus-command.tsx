@@ -346,6 +346,16 @@ export interface CustomGraph {
   enabled: boolean;
 }
 
+/** A seven-day recognition record tied to one rated mini achievement. */
+export interface WallOfFameEntry {
+  id: string;
+  missionId: string;
+  missionTitle: string;
+  miniAchievement: string;
+  miniAchievementRating: number;
+  occurredAt: string;
+}
+
 export interface GoogleSheetConnection {
   spreadsheetId: string;
   spreadsheetName: string;
@@ -1156,7 +1166,20 @@ export function getDashboardStats(state: FocusState) {
   const sevenDaysAgo = addDays(today, -6);
   const recentCompleted = state.missions.filter((mission) => mission.completedAt && toLocalDate(mission.completedAt, state.profile.timezone) >= sevenDaysAgo);
   const reflectionsByMission = new Map(state.reflections.map((reflection) => [reflection.missionId, reflection]));
-  const wallOfFame = recentCompleted.filter((mission) => (reflectionsByMission.get(mission.id)?.miniAchievementRating ?? 0) > 3);
+  const wallOfFame: WallOfFameEntry[] = recentCompleted.flatMap((mission) => {
+    const reflection = reflectionsByMission.get(mission.id);
+    const rating = reflection?.miniAchievementRating ?? 0;
+    if (rating <= 3 || !reflection) return [];
+
+    return [{
+      id: reflection.id,
+      missionId: mission.id,
+      missionTitle: mission.title,
+      miniAchievement: reflection.miniAchievement.trim() || "Mini achievement not recorded",
+      miniAchievementRating: rating,
+      occurredAt: mission.completedAt ?? mission.createdAt,
+    }];
+  });
   const achievementRadar = recentCompleted.filter((mission) => reflectionsByMission.get(mission.id)?.feelingAfter === "great");
 
   const bySubject = new Map<string, number>();

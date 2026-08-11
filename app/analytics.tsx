@@ -112,7 +112,7 @@ export default function AnalyticsDetailScreen() {
         : metric === "time"
           ? completedMissions.map((mission) => ({ id: mission.id, title: mission.title, detail: `${formatHours(getMissionInvestedMilliseconds(mission))} · ${mission.subject} · ${mission.category}`, date: toLocalDate(mission.completedAt!, state.profile.timezone), tone: "primary" as const }))
           : metric === "fame"
-            ? dashboard.wallOfFame.map((mission) => ({ id: mission.id, title: mission.title, detail: "Mini achievement score above 3/5 · visible for 7 days", date: toLocalDate(mission.completedAt ?? mission.createdAt, state.profile.timezone), tone: "gold" as const }))
+            ? dashboard.wallOfFame.map((entry) => ({ id: entry.id, title: entry.miniAchievement, detail: `${entry.missionTitle} · ${entry.miniAchievementRating}/5 mini achievement · visible for 7 days`, date: toLocalDate(entry.occurredAt, state.profile.timezone), tone: "gold" as const }))
             : metric === "radar"
               ? dashboard.achievementRadar.map((mission) => ({ id: mission.id, title: mission.title, detail: "After-feeling logged as Great · visible for 7 days", date: toLocalDate(mission.completedAt ?? mission.createdAt, state.profile.timezone), tone: "success" as const }))
               : metric === "emotion"

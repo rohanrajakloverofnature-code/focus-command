@@ -143,7 +143,7 @@ export default function DashboardScreen() {
 
         <SectionHeader title="Recognition window" />
         <View style={styles.recognitionGrid}>
-          <RecognitionCard title="Wall of Fame" subtitle="Mini achievements rated above 3/5 remain here for 7 days." items={dashboard.wallOfFame.map((mission) => mission.title)} icon="trophy.fill" accent="#F4C95D" onPress={() => router.push("/analytics?metric=fame" as never)} />
+          <RecognitionCard title="Wall of Fame" subtitle="Mini achievements rated above 3/5 remain here for 7 days." items={dashboard.wallOfFame.map((entry) => entry.miniAchievement)} icon="trophy.fill" accent="#F4C95D" onPress={() => router.push("/analytics?metric=fame" as never)} />
           <RecognitionCard title="Achievement Radar" subtitle="Tasks finishing with a Great feeling remain visible for 7 days." items={dashboard.achievementRadar.map((mission) => mission.title)} icon="star.fill" accent={colors.success} onPress={() => router.push("/analytics?metric=radar" as never)} />
         </View>
 
