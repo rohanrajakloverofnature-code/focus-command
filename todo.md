@@ -184,3 +184,10 @@
 - [x] Replace the stylized flame and glaze treatment with a cinematic, layered, realistic composition that stays within the launch viewport.
 - [x] Add a subtle synchronized quote-reveal sound while retaining the existing approved fire crackle and launch-only lifecycle safeguards.
 - [x] Add deterministic rendering and audio coverage; validate performance, static build, production-start configuration, and deployment readiness.
+
+- [x] Restore the stopped development service and verify the current Focus Command checkpoint accepts preview connections.
+
+- [x] Audit the current fire placement, app-background visibility, quote styling, audio overlap, sequence timing, and active rendering warnings.
+- [x] Refine only the launch composition so photorealistic fire fills the lower screen naturally while the underlying app remains visible.
+- [x] Separate fire playback from the quote reveal with a deliberate pause, balanced audio ducking, an elegant non-horror transition cue, and minimal typography-only quote treatment.
+- [x] Add deterministic timing and audio-balance safeguards; validate responsive bounds, full regression coverage, static output, and launch lifecycle.

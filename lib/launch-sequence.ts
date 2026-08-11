@@ -1,15 +1,29 @@
-export const LAUNCH_SEQUENCE_DURATION_MS = 4_600;
-export const REDUCED_MOTION_LAUNCH_DURATION_MS = 900;
-export const LAUNCH_QUOTE_CUE_DELAY_MS = 790;
-export const REDUCED_MOTION_QUOTE_CUE_DELAY_MS = 80;
+export const LAUNCH_SEQUENCE_DURATION_MS = 6_100;
+export const REDUCED_MOTION_LAUNCH_DURATION_MS = 1_200;
+export const LAUNCH_FIRE_SOUND_STOP_DELAY_MS = 1_750;
+export const REDUCED_MOTION_FIRE_SOUND_STOP_DELAY_MS = 360;
+export const LAUNCH_QUOTE_CUE_DELAY_MS = 2_480;
+export const REDUCED_MOTION_QUOTE_CUE_DELAY_MS = 650;
+export const LAUNCH_QUOTE_VISIBLE_DELAY_MS = 2_640;
+export const REDUCED_MOTION_QUOTE_VISIBLE_DELAY_MS = 740;
 
 export function getLaunchSequenceDuration(reduceMotion: boolean) {
   return reduceMotion ? REDUCED_MOTION_LAUNCH_DURATION_MS : LAUNCH_SEQUENCE_DURATION_MS;
 }
 
-/** Keeps the nonverbal quote-reveal cue aligned with the quote's first visible frame. */
+/** Ends the fire phase before the deliberate quiet transition into the quote. */
+export function getLaunchFireSoundStopDelay(reduceMotion: boolean) {
+  return reduceMotion ? REDUCED_MOTION_FIRE_SOUND_STOP_DELAY_MS : LAUNCH_FIRE_SOUND_STOP_DELAY_MS;
+}
+
+/** Starts the single refined transition cue after the fire has completely settled. */
 export function getLaunchQuoteCueDelay(reduceMotion: boolean) {
   return reduceMotion ? REDUCED_MOTION_QUOTE_CUE_DELAY_MS : LAUNCH_QUOTE_CUE_DELAY_MS;
+}
+
+/** Delays the visible quote slightly after the transition cue begins. */
+export function getLaunchQuoteVisibleDelay(reduceMotion: boolean) {
+  return reduceMotion ? REDUCED_MOTION_QUOTE_VISIBLE_DELAY_MS : LAUNCH_QUOTE_VISIBLE_DELAY_MS;
 }
 
 /** Limits the full flame field to the lower half of any available viewport. */

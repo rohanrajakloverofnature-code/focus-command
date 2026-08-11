@@ -10,7 +10,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
-  withRepeat,
   withSequence,
   withTiming,
 } from "react-native-reanimated";
@@ -18,47 +17,13 @@ import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from "rea
 
 import { getEmotionalPatternForecast, getWellbeingInsight, useFocusCommand } from "@/lib/focus-command";
 import { LAUNCH_QUOTE_HISTORY_KEY, nextLaunchQuoteHistory, parseLaunchQuoteHistory, selectLaunchQuote, type LaunchQuote } from "@/lib/launch-quotes";
-import { getLaunchFireStageHeight, getLaunchQuoteCueDelay, getLaunchSequenceDuration } from "@/lib/launch-sequence";
+import { getLaunchFireSoundStopDelay, getLaunchFireStageHeight, getLaunchQuoteCueDelay, getLaunchQuoteVisibleDelay, getLaunchSequenceDuration } from "@/lib/launch-sequence";
 import { claimLaunchSequence } from "@/lib/launch-session";
 
 const launchFireAudio = require("../assets/sounds/launch-fire-crackle.mp3");
-const launchQuoteAudio = require("../assets/sounds/launch-quote-reveal.m4a");
+const launchQuoteTransitionAudio = require("../assets/sounds/launch-quote-transition.m4a");
 const cinematicFirePlate = require("../assets/videos/cinematic-launch-fire.mp4");
-
-const EMBERS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const;
-const SMOKE_WISPS = [0, 1, 2, 3] as const;
-
-type SharedProgress = ReturnType<typeof useSharedValue<number>>;
 type LaunchAudioPlayer = ReturnType<typeof createAudioPlayer>;
-
-function Ember({ index, progress, drift, stageWidth, reduceMotion }: { index: number; progress: SharedProgress; drift: SharedProgress; stageWidth: number; reduceMotion: boolean }) {
-  const style = useAnimatedStyle(() => {
-    const phase = (drift.value + index * 0.113) % 1;
-    const horizontal = reduceMotion ? 0 : Math.sin(phase * Math.PI * 4 + index) * (4 + (index % 5) * 2.2);
-    return {
-      opacity: progress.value * Math.max(0, 0.62 - phase * 0.62),
-      transform: [{ translateX: horizontal }, { translateY: -phase * (78 + (index % 4) * 34) }, { scale: 0.5 + (1 - phase) * 0.75 }],
-    };
-  });
-  const left = stageWidth * ((index + 0.45) / (EMBERS.length + 0.1));
-  const size = index % 3 === 0 ? 3 : 2;
-  return <Animated.View style={[styles.ember, { left, bottom: 18 + (index % 4) * 10, width: size, height: size }, style]} />;
-}
-
-function SmokeWisp({ index, progress, drift, stageWidth, reduceMotion }: { index: number; progress: SharedProgress; drift: SharedProgress; stageWidth: number; reduceMotion: boolean }) {
-  const style = useAnimatedStyle(() => {
-    const phase = (drift.value + index * 0.218) % 1;
-    return {
-      opacity: progress.value * Math.max(0, 0.13 - phase * 0.1),
-      transform: [
-        { translateX: reduceMotion ? 0 : Math.sin(phase * Math.PI * 2.2 + index) * 15 },
-        { translateY: -phase * (76 + index * 9) },
-        { scale: 0.72 + phase * 0.76 },
-      ],
-    };
-  });
-  return <Animated.View style={[styles.smoke, { left: stageWidth * (0.1 + index * 0.23), bottom: 80 + (index % 2) * 22 }, style]} />;
-}
 
 export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   const { state, ready } = useFocusCommand();
@@ -74,11 +39,8 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
 
   const backdrop = useSharedValue(0);
   const fireOpacity = useSharedValue(0);
-  const fireFlicker = useSharedValue(0);
-  const emberDrift = useSharedValue(0);
   const quoteOpacity = useSharedValue(0);
   const quoteScale = useSharedValue(0.95);
-  const quoteBloom = useSharedValue(0);
   const glazeOpacity = useSharedValue(0);
   const glazeProgress = useSharedValue(-1);
 
@@ -136,8 +98,8 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     }
   }, [state.profile.soundEnabled]);
 
-  const playFireAudio = useCallback(() => void playAudioCue(launchFireAudio, fireAudioPlayerRef, 0.34), [playAudioCue]);
-  const playQuoteAudio = useCallback(() => void playAudioCue(launchQuoteAudio, quoteAudioPlayerRef, 0.22), [playAudioCue]);
+  const playFireAudio = useCallback(() => void playAudioCue(launchFireAudio, fireAudioPlayerRef, 0.48), [playAudioCue]);
+  const playQuoteTransitionAudio = useCallback(() => void playAudioCue(launchQuoteTransitionAudio, quoteAudioPlayerRef, 0.16), [playAudioCue]);
 
   const finish = useCallback(() => {
     if (hasFinishedRef.current) return;
@@ -151,16 +113,13 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     }
     cancelAnimation(backdrop);
     cancelAnimation(fireOpacity);
-    cancelAnimation(fireFlicker);
-    cancelAnimation(emberDrift);
     cancelAnimation(quoteOpacity);
     cancelAnimation(quoteScale);
-    cancelAnimation(quoteBloom);
     cancelAnimation(glazeOpacity);
     cancelAnimation(glazeProgress);
     setVisible(false);
     onFinished?.();
-  }, [backdrop, clearTimers, emberDrift, fireFlicker, fireOpacity, fireVideoPlayer, glazeOpacity, glazeProgress, onFinished, quoteBloom, quoteOpacity, quoteScale, stopLaunchAudio]);
+  }, [backdrop, clearTimers, fireOpacity, fireVideoPlayer, glazeOpacity, glazeProgress, onFinished, quoteOpacity, quoteScale, stopLaunchAudio]);
 
   useEffect(() => {
     if (!ready) return;
@@ -199,11 +158,8 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     fireOpacity.value = 0;
     quoteOpacity.value = 0;
     quoteScale.value = 0.95;
-    quoteBloom.value = 0;
     glazeOpacity.value = 0;
     glazeProgress.value = -1;
-    fireFlicker.value = 0;
-    emberDrift.value = 0;
 
     try {
       fireVideoPlayer.currentTime = 0;
@@ -213,29 +169,26 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     }
 
     if (reduceMotion) {
-      backdrop.value = withSequence(withTiming(0.72, { duration: 120 }), withDelay(590, withTiming(0, { duration: 160 })));
-      fireOpacity.value = withSequence(withDelay(55, withTiming(0.52, { duration: 140 })), withDelay(430, withTiming(0, { duration: 160 })));
-      quoteOpacity.value = withSequence(withDelay(80, withTiming(1, { duration: 150 })), withDelay(460, withTiming(0, { duration: 150 })));
-      quoteScale.value = withSequence(withDelay(80, withTiming(1, { duration: 150, easing: Easing.out(Easing.cubic) })), withDelay(460, withTiming(0.99, { duration: 150 })));
-      quoteBloom.value = withSequence(withDelay(80, withTiming(0.32, { duration: 160 })), withDelay(380, withTiming(0, { duration: 200 })));
-      glazeOpacity.value = withSequence(withDelay(620, withTiming(0.58, { duration: 100 })), withTiming(0, { duration: 130 }));
-      glazeProgress.value = withDelay(620, withTiming(1, { duration: 210, easing: Easing.inOut(Easing.quad) }));
+      backdrop.value = withSequence(withTiming(0.36, { duration: 100 }), withDelay(880, withTiming(0, { duration: 180 })));
+      fireOpacity.value = withSequence(withDelay(45, withTiming(0.72, { duration: 130 })), withDelay(140, withTiming(0, { duration: 190 })));
+      quoteOpacity.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(true), withTiming(1, { duration: 150 })), withDelay(170, withTiming(0, { duration: 150 })));
+      quoteScale.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(true), withTiming(1, { duration: 160, easing: Easing.out(Easing.cubic) })), withDelay(160, withTiming(0.99, { duration: 140 })));
+      glazeOpacity.value = withSequence(withDelay(900, withTiming(0.12, { duration: 100 })), withTiming(0, { duration: 140 }));
+      glazeProgress.value = withDelay(900, withTiming(1, { duration: 230, easing: Easing.inOut(Easing.quad) }));
     } else {
-      backdrop.value = withSequence(withTiming(0.76, { duration: 300, easing: Easing.out(Easing.cubic) }), withDelay(3_880, withTiming(0, { duration: 420, easing: Easing.inOut(Easing.quad) })));
-      fireOpacity.value = withSequence(withDelay(160, withTiming(1, { duration: 1_080, easing: Easing.out(Easing.cubic) })), withDelay(1_640, withTiming(0, { duration: 940, easing: Easing.inOut(Easing.cubic) })));
-      quoteOpacity.value = withSequence(withDelay(790, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) })), withDelay(1_570, withTiming(0, { duration: 620, easing: Easing.inOut(Easing.quad) })));
-      quoteScale.value = withSequence(withDelay(790, withTiming(1, { duration: 540, easing: Easing.out(Easing.cubic) })), withDelay(1_500, withTiming(0.985, { duration: 690, easing: Easing.inOut(Easing.quad) })));
-      quoteBloom.value = withSequence(withDelay(760, withTiming(0.42, { duration: 620, easing: Easing.out(Easing.quad) })), withDelay(1_430, withTiming(0, { duration: 820, easing: Easing.inOut(Easing.cubic) })));
-      glazeOpacity.value = withSequence(withDelay(3_340, withTiming(0.78, { duration: 300, easing: Easing.out(Easing.quad) })), withDelay(120, withTiming(0, { duration: 520, easing: Easing.inOut(Easing.cubic) })));
-      glazeProgress.value = withDelay(3_250, withTiming(1, { duration: 920, easing: Easing.inOut(Easing.cubic) }));
-      fireFlicker.value = withRepeat(withSequence(withTiming(1, { duration: 920, easing: Easing.inOut(Easing.sin) }), withTiming(0, { duration: 1_130, easing: Easing.inOut(Easing.sin) })), -1, true);
-      emberDrift.value = withRepeat(withTiming(1, { duration: 2_050, easing: Easing.linear }), -1, false);
+      backdrop.value = withSequence(withTiming(0.42, { duration: 260, easing: Easing.out(Easing.cubic) }), withDelay(5_180, withTiming(0, { duration: 560, easing: Easing.inOut(Easing.cubic) })));
+      fireOpacity.value = withSequence(withDelay(130, withTiming(1, { duration: 1_080, easing: Easing.out(Easing.cubic) })), withDelay(540, withTiming(0, { duration: 920, easing: Easing.inOut(Easing.cubic) })));
+      quoteOpacity.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(false), withTiming(1, { duration: 430, easing: Easing.out(Easing.cubic) })), withDelay(1_650, withTiming(0, { duration: 590, easing: Easing.inOut(Easing.cubic) })));
+      quoteScale.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(false), withTiming(1, { duration: 470, easing: Easing.out(Easing.cubic) })), withDelay(1_600, withTiming(0.99, { duration: 620, easing: Easing.inOut(Easing.cubic) })));
+      glazeOpacity.value = withSequence(withDelay(5_030, withTiming(0.16, { duration: 280, easing: Easing.out(Easing.quad) })), withDelay(120, withTiming(0, { duration: 540, easing: Easing.inOut(Easing.cubic) })));
+      glazeProgress.value = withDelay(4_940, withTiming(1, { duration: 980, easing: Easing.inOut(Easing.cubic) }));
     }
 
-    const fireTimer = setTimeout(playFireAudio, reduceMotion ? 60 : 210);
-    const quoteTimer = setTimeout(playQuoteAudio, getLaunchQuoteCueDelay(reduceMotion));
+    const fireTimer = setTimeout(playFireAudio, reduceMotion ? 50 : 180);
+    const fireStopTimer = setTimeout(() => stopPlayer(fireAudioPlayerRef), getLaunchFireSoundStopDelay(reduceMotion));
+    const quoteTimer = setTimeout(playQuoteTransitionAudio, getLaunchQuoteCueDelay(reduceMotion));
     const endTimer = setTimeout(finish, launchDuration);
-    timersRef.current = [fireTimer, quoteTimer, endTimer];
+    timersRef.current = [fireTimer, fireStopTimer, quoteTimer, endTimer];
     return () => {
       clearTimers();
       stopLaunchAudio();
@@ -245,7 +198,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
         // Native video cleanup can race with an app-state interruption.
       }
     };
-  }, [backdrop, clearTimers, emberDrift, finish, fireFlicker, fireOpacity, fireVideoPlayer, glazeOpacity, glazeProgress, launchDuration, playFireAudio, playQuoteAudio, quoteBloom, quoteOpacity, quoteScale, reduceMotion, stopLaunchAudio, visible]);
+  }, [backdrop, clearTimers, finish, fireOpacity, fireVideoPlayer, glazeOpacity, glazeProgress, launchDuration, playFireAudio, playQuoteTransitionAudio, quoteOpacity, quoteScale, reduceMotion, stopLaunchAudio, stopPlayer, visible]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
@@ -256,12 +209,10 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
 
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value }));
   const firePlateStyle = useAnimatedStyle(() => {
-    const swell = reduceMotion ? 0 : Math.sin(fireFlicker.value * Math.PI * 2) * 0.018;
-    return { opacity: fireOpacity.value * (0.95 + swell), transform: [{ translateY: (1 - fireOpacity.value) * stageHeight * 0.18 }, { scaleX: 1 + swell }] };
+    return { opacity: fireOpacity.value * 0.86, transform: [{ translateY: (1 - fireOpacity.value) * stageHeight * 0.16 }, { scaleX: 1.34 }] };
   });
-  const fireGradeStyle = useAnimatedStyle(() => ({ opacity: fireOpacity.value * 0.82 }));
+  const fireGradeStyle = useAnimatedStyle(() => ({ opacity: fireOpacity.value * 0.5 }));
   const quoteStyle = useAnimatedStyle(() => ({ opacity: quoteOpacity.value, transform: [{ scale: quoteScale.value }] }));
-  const quoteBloomStyle = useAnimatedStyle(() => ({ opacity: quoteBloom.value, transform: [{ scale: 0.9 + quoteBloom.value * 0.14 }] }));
   const glazeStyle = useAnimatedStyle(() => ({ opacity: glazeOpacity.value, transform: [{ translateX: interpolate(glazeProgress.value, [-1, 1], [-width * 1.3, width * 1.3]) }] }));
 
   if (!visible || !quote) return null;
@@ -269,55 +220,38 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   return (
     <View accessibilityViewIsModal accessible accessibilityLabel={`Focus Command launch sequence. ${quote.text}`} style={styles.stage}>
       <Animated.View style={[styles.darkVeil, backdropStyle]} />
-      <View style={[styles.fireStage, { height: stageHeight }]}>
-        <Animated.View style={[styles.cinematicFirePlate, { width, height: stageHeight }, firePlateStyle]}>
-          <VideoView contentFit="cover" nativeControls={false} player={fireVideoPlayer} surfaceType="textureView" style={styles.cinematicFireVideo} />
+      <View style={[styles.fireStage, { height: stageHeight }]}> 
+        <Animated.View style={[styles.cinematicFirePlate, { width, height: stageHeight * 1.16, bottom: -stageHeight * 0.12 }, firePlateStyle]}>
+          <VideoView contentFit="contain" nativeControls={false} player={fireVideoPlayer} surfaceType="textureView" style={styles.cinematicFireVideo} />
         </Animated.View>
         <Animated.View style={[styles.fireGrade, fireGradeStyle]}>
           <Svg height={stageHeight} width={width} viewBox={`0 0 ${Math.max(1, width)} ${Math.max(1, stageHeight)}`}>
             <Defs>
               <RadialGradient id="launch-fire-ember-bed" cx="50%" cy="100%" rx="74%" ry="66%">
-                <Stop offset="0" stopColor="#E83712" stopOpacity="0.52" />
-                <Stop offset="0.46" stopColor="#89200D" stopOpacity="0.28" />
+                <Stop offset="0" stopColor="#F06A2C" stopOpacity="0.36" />
+                <Stop offset="0.46" stopColor="#B13E1D" stopOpacity="0.14" />
                 <Stop offset="1" stopColor="#05070A" stopOpacity="0" />
               </RadialGradient>
-              <LinearGradient id="launch-fire-vignette" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="#00050A" stopOpacity="0.82" />
-                <Stop offset="0.52" stopColor="#08090C" stopOpacity="0.12" />
-                <Stop offset="1" stopColor="#160804" stopOpacity="0.1" />
-              </LinearGradient>
             </Defs>
             <Rect x="0" y="0" width={width} height={stageHeight} fill="url(#launch-fire-ember-bed)" />
-            <Rect x="0" y="0" width={width} height={stageHeight} fill="url(#launch-fire-vignette)" />
           </Svg>
         </Animated.View>
-        {EMBERS.map((index) => <Ember key={index} index={index} progress={fireOpacity} drift={emberDrift} stageWidth={width} reduceMotion={reduceMotion} />)}
-        {SMOKE_WISPS.map((index) => <SmokeWisp key={index} index={index} progress={fireOpacity} drift={emberDrift} stageWidth={width} reduceMotion={reduceMotion} />)}
       </View>
-      <Animated.View style={[styles.quoteBloom, quoteBloomStyle]} />
       <Animated.View style={[styles.quoteFrame, quoteStyle]}>
-        <View style={styles.quoteRule} />
         <Text accessibilityRole="header" maxFontSizeMultiplier={1.2} style={[styles.quote, highContrast && styles.quoteHighContrast]}>{quote.text}</Text>
-        <View style={styles.quoteRule} />
       </Animated.View>
       <Animated.View style={[styles.glaze, { width: Math.max(width * 0.94, 320), height }, glazeStyle]}>
         <Svg height={height} width={Math.max(width * 0.94, 320)} viewBox={`0 0 ${Math.max(width * 0.94, 320)} ${Math.max(1, height)}`}>
           <Defs>
             <LinearGradient id="launch-glaze-primary" x1="0" y1="0" x2="1" y2="0">
-              <Stop offset="0" stopColor="#F8D78C" stopOpacity="0" />
-              <Stop offset="0.38" stopColor="#F8D78C" stopOpacity="0.04" />
-              <Stop offset="0.5" stopColor="#FFF5D9" stopOpacity="0.88" />
-              <Stop offset="0.59" stopColor="#FFCC71" stopOpacity="0.25" />
-              <Stop offset="1" stopColor="#FFCC71" stopOpacity="0" />
-            </LinearGradient>
-            <LinearGradient id="launch-glaze-secondary" x1="0" y1="0" x2="1" y2="0">
-              <Stop offset="0" stopColor="#E5B55A" stopOpacity="0" />
-              <Stop offset="0.5" stopColor="#FFE1A2" stopOpacity="0.38" />
-              <Stop offset="1" stopColor="#E5B55A" stopOpacity="0" />
+              <Stop offset="0" stopColor="#F7F2E8" stopOpacity="0" />
+              <Stop offset="0.32" stopColor="#F7F2E8" stopOpacity="0.02" />
+              <Stop offset="0.52" stopColor="#FFFDF7" stopOpacity="0.34" />
+              <Stop offset="0.68" stopColor="#F7E6C7" stopOpacity="0.05" />
+              <Stop offset="1" stopColor="#F7E6C7" stopOpacity="0" />
             </LinearGradient>
           </Defs>
-          <Path d={`M${width * 0.18} 0H${width * 0.66}L${width * 0.42} ${height}H-${width * 0.06}Z`} fill="url(#launch-glaze-primary)" />
-          <Path d={`M${width * 0.54} 0H${width * 0.72}L${width * 0.49} ${height}H${width * 0.31}Z`} fill="url(#launch-glaze-secondary)" opacity="0.72" />
+          <Path d={`M${width * 0.14} 0H${width * 0.72}L${width * 0.5} ${height}H-${width * 0.08}Z`} fill="url(#launch-glaze-primary)" />
         </Svg>
       </Animated.View>
     </View>
@@ -326,17 +260,13 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
 
 const styles = StyleSheet.create({
   stage: { ...StyleSheet.absoluteFillObject, zIndex: 10_000, elevation: 10_000, overflow: "hidden", justifyContent: "center" },
-  darkVeil: { ...StyleSheet.absoluteFillObject, backgroundColor: "#02050A" },
-  fireStage: { position: "absolute", left: 0, right: 0, bottom: 0, overflow: "hidden", backgroundColor: "#030508" },
+  darkVeil: { ...StyleSheet.absoluteFillObject, backgroundColor: "#071019" },
+  fireStage: { position: "absolute", left: 0, right: 0, bottom: 0, overflow: "hidden" },
   cinematicFirePlate: { position: "absolute", left: 0, bottom: 0 },
-  cinematicFireVideo: { flex: 1, backgroundColor: "#030508" },
+  cinematicFireVideo: { flex: 1, backgroundColor: "transparent" },
   fireGrade: { ...StyleSheet.absoluteFillObject },
-  ember: { position: "absolute", borderRadius: 8, backgroundColor: "#FFE0A0", shadowColor: "#FF7426", shadowOpacity: 0.95, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
-  smoke: { position: "absolute", width: 54, height: 18, borderRadius: 24, backgroundColor: "#17191D" },
-  quoteBloom: { position: "absolute", top: "19%", alignSelf: "center", width: 290, height: 190, borderRadius: 145, backgroundColor: "#D77A2A", shadowColor: "#F5A34D", shadowOpacity: 0.75, shadowRadius: 44, shadowOffset: { width: 0, height: 0 } },
-  quoteFrame: { position: "absolute", left: 32, right: 32, top: "26%", alignItems: "center", gap: 16 },
-  quoteRule: { height: 1, width: 42, backgroundColor: "#F6C46C", shadowColor: "#FFD993", shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
-  quote: { color: "#FFF9E9", textAlign: "center", fontSize: 29, lineHeight: 39, fontWeight: "800", letterSpacing: 0.2, textShadowColor: "#05070DDD", textShadowRadius: 14, textShadowOffset: { width: 0, height: 3 } },
+  quoteFrame: { position: "absolute", left: 38, right: 38, top: "34%", alignItems: "center" },
+  quote: { color: "#FFFDF8", textAlign: "center", fontSize: 27, lineHeight: 38, fontWeight: "700", letterSpacing: 0.12, textShadowColor: "#06101AE6", textShadowRadius: 10, textShadowOffset: { width: 0, height: 2 } },
   quoteHighContrast: { color: "#FFFFFF", textShadowColor: "#000000", textShadowRadius: 3, textShadowOffset: { width: 1, height: 1 } },
   glaze: { position: "absolute", top: 0 },
 });
