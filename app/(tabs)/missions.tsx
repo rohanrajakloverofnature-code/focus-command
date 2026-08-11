@@ -242,7 +242,7 @@ function MissionCard({ mission, onStart }: { mission: ReturnType<typeof useFocus
           {active ? <StatusPill label={mission.status === "paused" ? "PAUSED" : "LIVE"} tone={mission.status === "paused" ? "warning" : "primary"} icon={mission.status === "paused" ? "pause.fill" : "timer"} /> : null}
         </View>
         <Text style={[styles.missionTitle, { color: colors.foreground }]}>{mission.title}</Text>
-        <Text style={[styles.missionMeta, { color: colors.muted }]}>{mission.subject} · {mission.category} · {mission.baseXp} base XP{active ? ` · ${(duration / 3_600_000).toFixed(2)} h` : ""}</Text>
+        <Text style={[styles.missionMeta, { color: colors.muted }]}>{mission.subject} · {mission.category} · {mission.baseXp} base XP{mission.allowMultipleDailyCompletions && mission.completionHistory.length > 0 ? ` · ${mission.completionHistory.length} completions` : ""}{active ? ` · ${(duration / 3_600_000).toFixed(2)} h` : ""}</Text>
         <View style={styles.missionFooter}>
           <View style={styles.missionFooterCopy}>
             <View style={styles.missionBadges}>

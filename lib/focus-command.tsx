@@ -1416,26 +1416,23 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     const sourceMission = state.missions.find((mission) => mission.id === missionId);
     if (!sourceMission || !sourceMission.startedAt) return null;
     
-    // Check if mission can be completed again today
-    const completionDate = toLocalDate(nowIso(), state.profile.timezone);
-    const completedToday = sourceMission.completionHistory.filter(
-      (timestamp) => toLocalDate(timestamp, state.profile.timezone) === completionDate
-    ).length;
-    
-    // If mission doesn't allow multiple completions and is already completed today, reject
-    if (!sourceMission.allowMultipleDailyCompletions && sourceMission.status === "completed" && completedToday > 0) {
-      return null;
+    // Check if mission allows multiple completions
+    if (!sourceMission.allowMultipleDailyCompletions && sourceMission.status === "completed") {
+      return null; // Cannot complete again if not marked as repeatable
     }
     const endedAt = nowIso();
     const pausedMilliseconds = sourceMission.pausedMilliseconds + (sourceMission.pausedAt ? Math.max(0, Date.now() - Date.parse(sourceMission.pausedAt)) : 0);
+    // For repeatable missions, keep mission in active state so it can be completed again
+    // For non-repeatable missions, mark as completed
     const completedMission: Mission = {
       ...sourceMission,
-      status: "completed",
+      status: sourceMission.allowMultipleDailyCompletions ? "active" : "completed",
       pausedAt: null,
       pausedMilliseconds,
       endedAt,
       completedAt: endedAt,
       completionHistory: [...sourceMission.completionHistory, endedAt],
+      startedAt: sourceMission.allowMultipleDailyCompletions ? null : sourceMission.startedAt, // Reset for re-start if repeatable
     };
     const durationMs = getMissionInvestedMilliseconds(completedMission);
     let lootReward: Reward | null = null;
@@ -1450,6 +1447,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       const carryTotal = current.goldPowerCarry + adjustedPower;
       const goldAwarded = Math.floor(carryTotal / 10);
       const goldPowerCarry = carryTotal - goldAwarded * 10;
+      // Each completion gets its own progression event with independent XP calculation
       const progressionId = createId("progress");
       const reflectionId = createId("reflection");
       const reflection: Reflection = {
