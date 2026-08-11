@@ -8,6 +8,17 @@ function getEquipmentDetails(equipmentId: string, allEquipment: Equipment[]): Eq
 }
 
 /**
+ * Converts a stored percentage multiplier into the user-facing change from
+ * the documented 100% baseline. For example, 101 becomes +1% and 99 becomes
+ * -1%; the stored multiplier itself remains unchanged for gameplay math.
+ */
+export function formatEquipmentModifierDelta(modifier: number): string {
+  const delta = Math.round((modifier - 100) * 10) / 10;
+  const formatted = Number.isInteger(delta) ? delta.toFixed(0) : delta.toFixed(1);
+  return `${delta > 0 ? "+" : ""}${formatted}%`;
+}
+
+/**
  * Calculate the combined XP modifier from all equipped gear
  * Returns a multiplier (e.g., 1.1 for +10% XP)
  */

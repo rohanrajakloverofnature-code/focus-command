@@ -3,6 +3,7 @@ import { ScrollView, View, Text, TextInput, Pressable, FlatList } from "react-na
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useFocusCommand } from "@/lib/focus-command";
+import { formatEquipmentModifierDelta } from "@/lib/equipment-modifiers";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 
@@ -250,7 +251,7 @@ export default function EquipmentCreatorScreen() {
                     <Text className="text-sm font-semibold text-foreground">{item.name}</Text>
                     <Text className="text-xs text-muted">{item.type} • {item.rarity}</Text>
                     <Text className="text-xs text-primary mt-1">
-                      XP: +{((item.xpModifier - 100) * 100).toFixed(0)}% • Energy: {((item.energyConsumptionModifier - 100) * 100).toFixed(0)}%
+                      XP: {formatEquipmentModifierDelta(item.xpModifier)} • Energy use: {formatEquipmentModifierDelta(item.energyConsumptionModifier)}
                     </Text>
                   </View>
                 )}

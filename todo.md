@@ -165,3 +165,7 @@
 - [x] Recalculate every territory label from a verified safe interior point with boundary clearance, without changing map mechanics or visuals.
 - [x] Remove missed-tap and lag bottlenecks through under-the-hood interaction and rendering improvements only.
 - [x] Add deterministic safe-anchor and touch-response safeguards; validate the application and deployment build before checkpointing.
+
+- [x] Audit equipment modifier storage, reward calculations, and creator/detail percentage presentation against the reported baseline mismatch.
+- [x] Correct the modifier presentation and any calculation discrepancy while preserving the existing equipment effects and inventory flow.
+- [x] Add modifier-baseline regression coverage and run complete validation for the equipment percentage correction.

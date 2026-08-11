@@ -3,6 +3,7 @@ import { ScrollView, View, Text, Pressable, FlatList } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useFocusCommand, Equipment, UserEquipment, getEquipmentSlotForType } from "@/lib/focus-command";
+import { formatEquipmentModifierDelta } from "@/lib/equipment-modifiers";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
@@ -156,7 +157,7 @@ export default function EquipmentScreen() {
                             <Text className="text-xl">{typeEmojis[equipment.type]}</Text>
                             <View className="flex-1">
                               <Text className="text-sm font-semibold text-foreground">{equipment.name}</Text>
-                              <Text className="text-xs text-muted">{item.isEquipped === "false" ? "Ready to equip" : `Equipped to ${item.isEquipped}`} · +{((equipment.xpModifier - 100) * 100).toFixed(0)}% XP</Text>
+                              <Text className="text-xs text-muted">{item.isEquipped === "false" ? "Ready to equip" : `Equipped to ${item.isEquipped}`} · {formatEquipmentModifierDelta(equipment.xpModifier)} XP</Text>
                             </View>
                           </View>
                           <Text
@@ -225,15 +226,15 @@ export default function EquipmentScreen() {
 
                 <View className="gap-2 border-t border-border pt-4">
                   <View className="flex-row justify-between">
-                    <Text className="text-sm text-muted">XP Bonus:</Text>
+                    <Text className="text-sm text-muted">XP change:</Text>
                     <Text className="text-sm font-semibold text-primary">
-                      +{((equipment.xpModifier - 100) * 100).toFixed(0)}%
+                      {formatEquipmentModifierDelta(equipment.xpModifier)}
                     </Text>
                   </View>
                   <View className="flex-row justify-between">
-                    <Text className="text-sm text-muted">Energy Reduction:</Text>
+                    <Text className="text-sm text-muted">Energy use change:</Text>
                     <Text className="text-sm font-semibold text-primary">
-                      -{((100 - equipment.energyConsumptionModifier) * 100).toFixed(0)}%
+                      {formatEquipmentModifierDelta(equipment.energyConsumptionModifier)}
                     </Text>
                   </View>
                 </View>

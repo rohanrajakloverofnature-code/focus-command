@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { calculateEquippedXpModifier, calculateEquippedEnergyModifier, getEquippedGearDescription } from "../lib/equipment-modifiers";
+import { calculateEquippedXpModifier, calculateEquippedEnergyModifier, formatEquipmentModifierDelta, getEquippedGearDescription } from "../lib/equipment-modifiers";
 import { Equipment, UserEquipment, getEquipmentSlotForType, reconcileEquipmentInventory } from "../lib/focus-command";
 
 describe("Equipment System - Offline", () => {
@@ -141,6 +141,21 @@ describe("Equipment System - Offline", () => {
       const description = getEquippedGearDescription(xpOnlyEquipped, testEquipment);
       expect(description).toContain("+10% XP");
       expect(description).not.toContain("Energy");
+    });
+  });
+
+  describe("Modifier percentage baseline", () => {
+    it("shows a stored multiplier as the exact change from the documented 100% baseline", () => {
+      expect(formatEquipmentModifierDelta(100)).toBe("0%");
+      expect(formatEquipmentModifierDelta(110)).toBe("+10%");
+      expect(formatEquipmentModifierDelta(95)).toBe("-5%");
+      expect(formatEquipmentModifierDelta(200)).toBe("+100%");
+      expect(formatEquipmentModifierDelta(0)).toBe("-100%");
+    });
+
+    it("does not multiply a percentage delta by one hundred a second time", () => {
+      expect(formatEquipmentModifierDelta(101)).toBe("+1%");
+      expect(formatEquipmentModifierDelta(99)).toBe("-1%");
     });
   });
 
