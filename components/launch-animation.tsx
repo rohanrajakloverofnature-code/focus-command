@@ -48,6 +48,9 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   const glazeOpacity = useSharedValue(0);
   const glazeProgress = useSharedValue(-1);
   const flameMotion = useSharedValue(0);
+  const flameLift = useSharedValue(0);
+  const flameSway = useSharedValue(0);
+  const flameFlicker = useSharedValue(0);
   const reduceMotion = state.profile.reduceMotion;
   const highContrast = state.profile.highContrast;
   const forecast = useMemo(() => getEmotionalPatternForecast(state), [state]);
@@ -116,9 +119,13 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     cancelAnimation(quoteScale);
     cancelAnimation(glazeOpacity);
     cancelAnimation(glazeProgress);
+    cancelAnimation(flameMotion);
+    cancelAnimation(flameLift);
+    cancelAnimation(flameSway);
+    cancelAnimation(flameFlicker);
     setVisible(false);
     onFinished?.();
-  }, [backdrop, clearTimers, fireOpacity, glazeOpacity, glazeProgress, onFinished, quoteOpacity, quoteScale, stopLaunchAudio]);
+  }, [backdrop, clearTimers, fireOpacity, flameFlicker, flameLift, flameMotion, flameSway, glazeOpacity, glazeProgress, onFinished, quoteOpacity, quoteScale, stopLaunchAudio]);
 
   useEffect(() => {
     if (!ready) return;
@@ -163,6 +170,9 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     glazeOpacity.value = 0;
     glazeProgress.value = -1;
     flameMotion.value = 0;
+    flameLift.value = 0;
+    flameSway.value = 0;
+    flameFlicker.value = 0;
     if (reduceMotion) {
       backdrop.value = withSequence(withTiming(0.08, { duration: 100 }), withDelay(880, withTiming(0, { duration: 180 })));
       fireOpacity.value = withSequence(withDelay(45, withTiming(0.72, { duration: 130 })), withDelay(140, withTiming(0, { duration: 190 })));
@@ -176,6 +186,9 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       quoteOpacity.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(false), withTiming(1, { duration: 430, easing: Easing.out(Easing.cubic) })), withDelay(getLaunchQuoteHoldDuration(false), withTiming(0, { duration: 590, easing: Easing.inOut(Easing.cubic) })));
       quoteScale.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(false), withTiming(1, { duration: 470, easing: Easing.out(Easing.cubic) })), withDelay(getLaunchQuoteHoldDuration(false) - 50, withTiming(0.99, { duration: 620, easing: Easing.inOut(Easing.cubic) })));
       flameMotion.value = withRepeat(withSequence(withTiming(1, { duration: 780, easing: Easing.inOut(Easing.sin) }), withTiming(0, { duration: 850, easing: Easing.inOut(Easing.sin) })), 4, false);
+      flameLift.value = withRepeat(withSequence(withTiming(1, { duration: 1_060, easing: Easing.out(Easing.cubic) }), withTiming(0.12, { duration: 1_380, easing: Easing.inOut(Easing.quad) })), 3, false);
+      flameSway.value = withRepeat(withSequence(withTiming(1, { duration: 720, easing: Easing.inOut(Easing.sin) }), withTiming(-0.7, { duration: 970, easing: Easing.inOut(Easing.sin) }), withTiming(0.25, { duration: 780, easing: Easing.inOut(Easing.sin) })), 3, false);
+      flameFlicker.value = withRepeat(withSequence(withTiming(0.9, { duration: 260, easing: Easing.inOut(Easing.quad) }), withTiming(0.2, { duration: 370, easing: Easing.inOut(Easing.quad) }), withTiming(0.65, { duration: 310, easing: Easing.inOut(Easing.quad) })), 7, false);
       glazeOpacity.value = withSequence(withDelay(10_180, withTiming(0.58, { duration: 360, easing: Easing.out(Easing.quad) })), withDelay(170, withTiming(0, { duration: 760, easing: Easing.inOut(Easing.cubic) })));
       glazeProgress.value = withDelay(10_240, withTiming(1, { duration: 1_150, easing: Easing.inOut(Easing.cubic) }));
     }
@@ -190,7 +203,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       stopLaunchAudio();
       setLaunchSequenceActive(false);
     };
-  }, [backdrop, clearTimers, finish, fireOpacity, flameMotion, glazeOpacity, glazeProgress, launchDuration, playFireAudio, playQuoteTransitionAudio, quoteOpacity, quoteScale, reduceMotion, stopLaunchAudio, stopPlayer, visible]);
+  }, [backdrop, clearTimers, finish, fireOpacity, flameFlicker, flameLift, flameMotion, flameSway, glazeOpacity, glazeProgress, launchDuration, playFireAudio, playQuoteTransitionAudio, quoteOpacity, quoteScale, reduceMotion, stopLaunchAudio, stopPlayer, visible]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
@@ -205,13 +218,14 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       opacity: fireOpacity.value,
       transform: [
         { translateY: (1 - fireOpacity.value) * stageHeight * 0.14 - flameMotion.value * stageHeight * 0.025 },
-        { translateX: (flameMotion.value - 0.5) * width * 0.012 },
-        { scaleX: 1.08 + flameMotion.value * 0.035 },
-        { scaleY: 1 + flameMotion.value * 0.045 },
+        { translateY: -flameLift.value * stageHeight * 0.09 },
+        { translateX: flameSway.value * width * 0.013 },
+        { scaleX: 1.08 + flameMotion.value * 0.035 + flameFlicker.value * 0.025 },
+        { scaleY: 1 + flameMotion.value * 0.045 + flameFlicker.value * 0.06 },
       ],
     };
   });
-  const fireGradeStyle = useAnimatedStyle(() => ({ opacity: fireOpacity.value * 0.5 }));
+  const fireGradeStyle = useAnimatedStyle(() => ({ opacity: fireOpacity.value * (0.32 + flameFlicker.value * 0.28) }));
   const quoteStyle = useAnimatedStyle(() => ({ opacity: quoteOpacity.value, transform: [{ scale: quoteScale.value }] }));
   const glazeStyle = useAnimatedStyle(() => ({ opacity: glazeOpacity.value, transform: [{ translateX: interpolate(glazeProgress.value, [-1, 1], [-width * 1.3, width * 1.3]) }] }));
 
@@ -238,6 +252,18 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
         </Animated.View>
       </View>
       <Animated.View style={[styles.quoteFrame, quoteStyle]}>
+        <View pointerEvents="none" style={styles.quoteVignette}>
+          <Svg height="100%" width="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <Defs>
+              <RadialGradient id="launch-quote-vignette" cx="50%" cy="50%" rx="64%" ry="58%">
+                <Stop offset="0" stopColor="#05080D" stopOpacity="0.28" />
+                <Stop offset="0.54" stopColor="#05080D" stopOpacity="0.18" />
+                <Stop offset="1" stopColor="#05080D" stopOpacity="0" />
+              </RadialGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100" height="100" fill="url(#launch-quote-vignette)" />
+          </Svg>
+        </View>
         <Text accessibilityRole="header" maxFontSizeMultiplier={1.2} style={[styles.quote, highContrast && styles.quoteHighContrast]}>{quote.text}</Text>
       </Animated.View>
       <Animated.View style={[styles.glaze, { width: Math.max(width * 0.94, 320), height }, glazeStyle]}>
@@ -268,8 +294,9 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   fireGrade: { ...StyleSheet.absoluteFillObject },
-  quoteFrame: { position: "absolute", left: 38, right: 38, top: "34%", alignItems: "center" },
-  quote: { color: "#FFFDF8", textAlign: "center", fontSize: 27, lineHeight: 38, fontWeight: "700", letterSpacing: 0.12, textShadowColor: "#06101AE6", textShadowRadius: 10, textShadowOffset: { width: 0, height: 2 } },
+  quoteFrame: { position: "absolute", left: 38, right: 38, top: "34%", minHeight: 126, justifyContent: "center", alignItems: "center" },
+  quoteVignette: { position: "absolute", left: -42, right: -42, top: -46, bottom: -46 },
+  quote: { color: "#FFFDF8", textAlign: "center", fontSize: 27, lineHeight: 38, fontWeight: "700", letterSpacing: 0.12, textShadowColor: "#020407E6", textShadowRadius: 8, textShadowOffset: { width: 0, height: 2 } },
   quoteHighContrast: { color: "#FFFFFF", textShadowColor: "#000000", textShadowRadius: 3, textShadowOffset: { width: 1, height: 1 } },
   glaze: { position: "absolute", top: 0 },
 });

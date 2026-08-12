@@ -213,3 +213,8 @@
 - [x] Extend the unchanged fire plus sound phase to 5–7 seconds and hold the motivational quote for 3–4 seconds without breaking launch-only arbitration.
 - [x] Correct the residual black matte while retaining the approved fire frames, sound priority, animation exclusion, and existing glaze.
 - [x] Validate timing, sound lifecycle, transparency, responsiveness, launch-only behavior, static output, and production startup before checkpointing.
+
+- [x] Review the supplied recording and audit transparent fire motion, glow, quote collision, contrast, and launch rendering constraints.
+- [x] Design natural layered rise/flicker motion and a subtle integrated quote vignette without changing existing app UI or other animations.
+- [x] Implement organic transparent fire movement, cinematic glow, smooth entrance/exit, and quote contrast treatment only.
+- [x] Validate multiple launch states for movement, transparency, readability, lifecycle, responsiveness, and production build behavior.
