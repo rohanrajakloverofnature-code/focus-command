@@ -227,3 +227,9 @@
 - [x] Audit why the restored approved fire footage still renders a visible black matte despite the current compositing style.
 - [x] Remove the black matte through a transparent compositing path that preserves every approved fire frame, launch guard, sound timing, and unrelated app behavior.
 - [x] Validate matte-free rendering and complete lifecycle, audio, and production checks before checkpointing.
+
+- [x] Review the current managed configuration, native prebuild requirements, GitHub repository readiness, and immutable app-name, identifier, and branding constraints.
+- [x] Generate the native Android Gradle project without altering the Focus Command name, identifiers, launcher branding, existing features, or runtime behavior.
+- [x] Add a GitHub Actions workflow that builds an Android APK artifact without Expo’s hosted build service.
+- [x] Validate the native project and workflow configuration and document the GitHub build steps.
+- [ ] Checkpoint the GitHub APK build preparation.
