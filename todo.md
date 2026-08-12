@@ -161,6 +161,8 @@
 - [x] Obtain and integrate a distinct user-generated Ascendant armor-materialization clip, then repeat final pre-publication verification before publishing.
 - [x] Select and trim the strongest continuous five-second armor-construction segment from the supplied ten-second Ascendant source before mobile integration.
 
+- [x] Repeat the final exhaustive pre-publication verification of all title-family video assets, full-tap cinematic replay, audio synchronization, lifecycle cleanup, regression coverage, and production export.
+
 - [x] Trace the reported repeatable-mission completion, rescheduling, and same-day start flow against the supplied recording.
 - [x] Fix repeatable missions so completion does not move their eligible scheduled date to tomorrow before the day ends.
 - [x] Preserve next-day rescheduling for non-repeatable daily missions and all existing independent completion records.
