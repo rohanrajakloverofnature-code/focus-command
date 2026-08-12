@@ -200,3 +200,7 @@
 - [x] Design mutually exclusive launch, quote, and level-up animation/audio phases that preserve existing gameplay and screen behavior.
 - [x] Make the launch fire fully transparent, enhance the cinematic glaze, restrict level-up playback to genuine level changes, and enforce audio priority with cleanup.
 - [x] Add deterministic lifecycle and audio-arbitration coverage; validate launch, level-up, interruption, resize, build, and production-start scenarios.
+
+- [x] Identify and restore the previously approved fire animation, removing only the unintended replacement asset and code path.
+- [x] Retain the requested launch-only guard, exclusive animation/audio priority, genuine level-up gate, transparent layering, and stronger glaze around the restored fire.
+- [x] Revalidate the narrow restoration without changing other features, then checkpoint the corrected version.

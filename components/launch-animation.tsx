@@ -1,7 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
+import { VideoView, useVideoPlayer } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, Image, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { AppState, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -22,7 +23,7 @@ import { claimLaunchSequence, setLaunchSequenceActive } from "@/lib/launch-sessi
 
 const launchFireAudio = require("../assets/sounds/launch-fire-crackle.mp3");
 const launchQuoteTransitionAudio = require("../assets/sounds/launch-quote-transition.m4a");
-const transparentFireAsset = require("../assets/images/launch-fire-transparent.png");
+const cinematicFirePlate = require("../assets/videos/cinematic-launch-fire.mp4");
 type LaunchAudioPlayer = ReturnType<typeof createAudioPlayer>;
 
 export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
@@ -45,6 +46,10 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   const glazeOpacity = useSharedValue(0);
   const glazeProgress = useSharedValue(-1);
   const flameMotion = useSharedValue(0);
+  const fireVideoPlayer = useVideoPlayer(cinematicFirePlate, (player) => {
+    player.loop = true;
+    player.muted = true;
+  });
 
   const reduceMotion = state.profile.reduceMotion;
   const highContrast = state.profile.highContrast;
@@ -106,6 +111,11 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     hasFinishedRef.current = true;
     clearTimers();
     stopLaunchAudio();
+    try {
+      fireVideoPlayer.pause();
+    } catch {
+      // The native decoder can already be released during an app-state interruption.
+    }
     setLaunchSequenceActive(false);
     cancelAnimation(backdrop);
     cancelAnimation(fireOpacity);
@@ -115,7 +125,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     cancelAnimation(glazeProgress);
     setVisible(false);
     onFinished?.();
-  }, [backdrop, clearTimers, fireOpacity, glazeOpacity, glazeProgress, onFinished, quoteOpacity, quoteScale, stopLaunchAudio]);
+  }, [backdrop, clearTimers, fireOpacity, fireVideoPlayer, glazeOpacity, glazeProgress, onFinished, quoteOpacity, quoteScale, stopLaunchAudio]);
 
   useEffect(() => {
     if (!ready) return;
@@ -160,6 +170,12 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     glazeOpacity.value = 0;
     glazeProgress.value = -1;
     flameMotion.value = 0;
+    try {
+      fireVideoPlayer.currentTime = 0;
+      fireVideoPlayer.play();
+    } catch {
+      // The rest of the staged transition remains stable if a device video decoder is unavailable.
+    }
 
     if (reduceMotion) {
       backdrop.value = withSequence(withTiming(0.08, { duration: 100 }), withDelay(880, withTiming(0, { duration: 180 })));
@@ -186,9 +202,14 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     return () => {
       clearTimers();
       stopLaunchAudio();
+      try {
+        fireVideoPlayer.pause();
+      } catch {
+        // Native cleanup may race an app-state transition.
+      }
       setLaunchSequenceActive(false);
     };
-  }, [backdrop, clearTimers, finish, fireOpacity, flameMotion, glazeOpacity, glazeProgress, launchDuration, playFireAudio, playQuoteTransitionAudio, quoteOpacity, quoteScale, reduceMotion, stopLaunchAudio, stopPlayer, visible]);
+  }, [backdrop, clearTimers, finish, fireOpacity, fireVideoPlayer, flameMotion, glazeOpacity, glazeProgress, launchDuration, playFireAudio, playQuoteTransitionAudio, quoteOpacity, quoteScale, reduceMotion, stopLaunchAudio, stopPlayer, visible]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
@@ -219,8 +240,8 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     <View accessibilityViewIsModal accessible accessibilityLabel={`Focus Command launch sequence. ${quote.text}`} style={styles.stage}>
       <Animated.View pointerEvents="none" style={[styles.darkVeil, backdropStyle]} />
       <View style={[styles.fireStage, { height: stageHeight }]}> 
-        <Animated.View style={[styles.cinematicFirePlate, { width, height: stageHeight * 1.22, bottom: -stageHeight * 0.05 }, firePlateStyle]}>
-          <Image resizeMode="stretch" source={transparentFireAsset} style={styles.cinematicFireImage} />
+        <Animated.View style={[styles.cinematicFirePlate, { width, height: stageHeight * 1.16, bottom: -stageHeight * 0.12 }, firePlateStyle]}>
+          <VideoView contentFit="contain" nativeControls={false} player={fireVideoPlayer} surfaceType="textureView" style={styles.cinematicFireVideo} />
         </Animated.View>
         <Animated.View style={[styles.fireGrade, fireGradeStyle]}>
           <Svg height={stageHeight} width={width} viewBox={`0 0 ${Math.max(1, width)} ${Math.max(1, stageHeight)}`}>
@@ -261,7 +282,7 @@ const styles = StyleSheet.create({
   darkVeil: { ...StyleSheet.absoluteFillObject, backgroundColor: "#1A0A04" },
   fireStage: { position: "absolute", left: 0, right: 0, bottom: 0, overflow: "hidden" },
   cinematicFirePlate: { position: "absolute", left: 0, bottom: 0 },
-  cinematicFireImage: { width: "100%", height: "100%" },
+  cinematicFireVideo: { flex: 1, backgroundColor: "transparent" },
   fireGrade: { ...StyleSheet.absoluteFillObject },
   quoteFrame: { position: "absolute", left: 38, right: 38, top: "34%", alignItems: "center" },
   quote: { color: "#FFFDF8", textAlign: "center", fontSize: 27, lineHeight: 38, fontWeight: "700", letterSpacing: 0.12, textShadowColor: "#06101AE6", textShadowRadius: 10, textShadowOffset: { width: 0, height: 2 } },
