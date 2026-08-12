@@ -235,12 +235,16 @@
 - [x] Checkpoint the GitHub APK build preparation.
 
 - [x] Verify GitHub repository access, branch status, and availability of the Focus Command APK workflow; GitHub authentication is available, but the project currently has no GitHub remote.
-- [ ] Confirm the external GitHub push and workflow-run operation immediately before publishing.
+- [x] Confirm the external GitHub push and workflow-run operation immediately before publishing.
 - [ ] Push the validated checkpoint to the selected GitHub repository and trigger the Android APK workflow.
 - [ ] Monitor the workflow and retrieve the resulting APK artifact for delivery.
 
 - [x] Verify the current GitHub free-tier limits for a private repository and Android APK workflow, then proceed only without paid spending enabled.
 
-- [ ] Create the confirmed private Focus Command repository without changing app naming, identifiers, branding, features, or runtime behavior.
+- [x] Create the confirmed private Focus Command repository without changing app naming, identifiers, branding, features, or runtime behavior.
 - [ ] Push the validated project and GitHub Actions APK workflow to the private repository using only the free-tier route.
 - [ ] Trigger the Android APK workflow, monitor its completion, and retrieve the resulting artifact.
+
+- [x] Grant the connected GitHub integration access to the user-created private `focus-command` repository before publication.
+
+- [x] Request and obtain renewed GitHub connector permission for private repository contents and Actions workflows.
