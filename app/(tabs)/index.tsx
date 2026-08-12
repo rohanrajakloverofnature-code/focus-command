@@ -20,7 +20,7 @@ import { HomeFire } from "@/components/home-fire";
 import { HomeAmbientScene, HomeFloat } from "@/components/home-motion";
 import { IndiaSubjectMap } from "@/components/india-subject-map";
 import { MiniAchievementTicker } from "@/components/mini-achievement-ticker";
-import { RankCharacter, RankCharacterAchievement } from "@/components/rank-character";
+import { RankCharacter, RankCharacterAchievement, type CharacterPresentationMode } from "@/components/rank-character";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { playFocusRole } from "@/lib/focus-audio";
@@ -52,7 +52,7 @@ import {
   useFocusCommand,
 } from "@/lib/focus-command";
 import { getMiniAchievementHeadlines } from "@/lib/mini-achievement-headlines";
-import { canStartPowerUp } from "@/lib/power-up-profile";
+import { canStartPowerUp, getCharacterTapPresentation } from "@/lib/power-up-profile";
 
 function syncLabel(phase: string, pending: number): string {
   if (phase === "needs_setup") return "Connect your sheet";
@@ -76,6 +76,7 @@ export default function HomeScreen() {
   const [showRankAchievement, setShowRankAchievement] = useState(false);
   const [characterEvolutionPending, setCharacterEvolutionPending] = useState(false);
   const [characterAcknowledgement, setCharacterAcknowledgement] = useState(0);
+  const [characterPresentationMode, setCharacterPresentationMode] = useState<CharacterPresentationMode>("acknowledgement");
   const [motivationIndex, setMotivationIndex] = useState(0);
 
   useEffect(() => {
@@ -150,12 +151,11 @@ export default function HomeScreen() {
       launchSequenceActive: isLaunchSequenceActive(),
       competingPresentationActive: Boolean(homeCelebration),
     })) return;
-    if (characterEvolutionPending) {
-      setCharacterEvolutionPending(false);
-      setShowRankAchievement(true);
-      return;
-    }
+    const presentation = getCharacterTapPresentation(characterEvolutionPending);
+    setCharacterPresentationMode(presentation);
+    if (presentation === "evolution") setCharacterEvolutionPending(false);
     setCharacterAcknowledgement((current) => current + 1);
+    setShowRankAchievement(true);
   };
   const metricColumns = width < 600 ? 2 : 3;
   const metrics = [
@@ -386,7 +386,7 @@ export default function HomeScreen() {
         </HomeFloat>
       </ScrollView>
       {homeCelebration ? <CelebrationOverlay kind={homeCelebration} reduceMotion={state.profile.reduceMotion} onDone={() => setHomeCelebration(null)} /> : null}
-      <RankCharacterAchievement title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} soundEnabled={state.profile.soundEnabled && state.profile.soundRoles.achievement.enabled} equipment={equippedCharacterGear} mode="evolution" visible={showRankAchievement} onDismiss={() => setShowRankAchievement(false)} />
+      <RankCharacterAchievement title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} soundEnabled={state.profile.soundEnabled && state.profile.soundRoles.achievement.enabled} equipment={equippedCharacterGear} mode={characterPresentationMode} visible={showRankAchievement} onDismiss={() => setShowRankAchievement(false)} />
     </ScreenContainer>
   );
 }

@@ -283,3 +283,11 @@
 - [x] Create a unique data-driven visual development and equipment-unlock path for each existing title and level milestone using only progression state.
 - [x] Add dedicated synchronized cinematic effects and sound for meaningful progression events, with subtle non-event idle character behavior and no generic repeated sequence.
 - [x] Add safety, trigger, equipment-state, audio-priority, cleanup, and non-regression coverage before validating and building a replacement APK.
+
+- [x] Inspect and synchronize the latest validated character-development checkpoint to the configured private GitHub repository.
+
+- [x] Trigger GitHub Actions APK #8 for the validated character-development checkpoint and deliver the successful artifact for phone testing.
+
+- [x] Diagnose and restore durable direct GitHub repository and Actions access after the completed device authorization fails to reach workflow commands.
+
+- [x] Diagnose and repair the installed-APK Home character-logo tap that currently gives no visible interaction.

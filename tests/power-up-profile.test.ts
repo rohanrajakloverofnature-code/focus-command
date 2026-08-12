@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   canStartPowerUp,
+  getCharacterTapPresentation,
   getPowerUpProfile,
   getPowerUpTier,
   POWER_UP_AUDIO_CUES,
@@ -129,5 +130,10 @@ describe("title and level cinematic power-up profiles", () => {
     expect(CHARACTER_EVOLUTION_TIMELINE_MS.impact).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.reveal);
     expect(CHARACTER_EVOLUTION_TIMELINE_MS.reveal).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.finish);
     expect(CHARACTER_EVOLUTION_TIMELINE_MS.acknowledgementFinish).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.finish);
+  });
+
+  it("gives every permitted character tap a visible presentation without replaying the cinematic for stable progress", () => {
+    expect(getCharacterTapPresentation(false)).toBe("acknowledgement");
+    expect(getCharacterTapPresentation(true)).toBe("evolution");
   });
 });

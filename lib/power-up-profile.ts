@@ -19,6 +19,8 @@ export type PowerUpAvailability = {
   competingPresentationActive: boolean;
 };
 
+export type CharacterTapPresentation = "evolution" | "acknowledgement";
+
 export const POWER_UP_TIMELINE_MS = {
   activation: CHARACTER_EVOLUTION_TIMELINE_MS.activation,
   build: CHARACTER_EVOLUTION_TIMELINE_MS.build,
@@ -77,4 +79,13 @@ export function canStartPowerUp({
   competingPresentationActive,
 }: PowerUpAvailability) {
   return !alreadyVisible && !launchSequenceActive && !competingPresentationActive;
+}
+
+/**
+ * Every permitted explicit character tap receives visible feedback. The
+ * cinematic evolution and its sound cues remain reserved for genuine
+ * progression, while a stable character receives the shorter silent form view.
+ */
+export function getCharacterTapPresentation(evolutionPending: boolean): CharacterTapPresentation {
+  return evolutionPending ? "evolution" : "acknowledgement";
 }
