@@ -45,6 +45,14 @@ const PORTRAITS = {
   evolutionAscendant: require("@/assets/images/characters/evolution/ascendant.png"),
 } as const;
 
+const CHARACTER_EVOLUTION_AUDIO_SOURCES = [
+  require("@/assets/sounds/evolution-energy-build.mp3"),
+  require("@/assets/sounds/evolution-armor-materialize.mp3"),
+  require("@/assets/sounds/evolution-weapon-portal.mp3"),
+  require("@/assets/sounds/evolution-impact-flash.mp3"),
+  require("@/assets/sounds/evolution-title-reward.mp3"),
+] as const;
+
 function getBasePortrait(title: string, level: number): ImageSourcePropType {
   const normalized = title.toLowerCase();
   if (level >= 350 || /infinity|void|quantum|celestial|galactic|mythic|divine|solar/.test(normalized)) return PORTRAITS.ascendant;
@@ -145,22 +153,25 @@ export function RankCharacter({ title, level, reduceMotion, compact = false, onP
   );
 }
 
-const CHARACTER_EVOLUTION_AUDIO_SOURCES = [
-  require("@/assets/sounds/character-evolution-activation.mp3"),
-  require("@/assets/sounds/character-evolution-impact.mp3"),
-  require("@/assets/sounds/character-evolution-reveal.mp3"),
-] as const;
-
-type PowerUpPhase = "activation" | "build" | "materialize" | "impact" | "revealed" | "acknowledgement";
+type PowerUpPhase = "activation" | "build" | "visor" | "armor" | "weapon" | "ring" | "impact" | "revealed" | "reward" | "acknowledgement";
 
 const PHASE_COPY: Record<PowerUpPhase, string> = {
-  activation: "PROGRESSION DETECTED",
-  build: "ENERGY SYNCHRONIZING",
-  materialize: "LOADOUT MATERIALIZING",
+  activation: "EVOLUTION PROTOCOL",
+  build: "ENERGY MATRIX ONLINE",
+  visor: "HEAD SYSTEMS LOCKING",
+  armor: "ARMOR MATERIALIZING",
+  weapon: "WEAPON SYSTEM DEPLOYING",
+  ring: "PORTAL FIELD STABLE",
   impact: "POWER SURGE",
-  revealed: "DEVELOPMENT CONFIRMED",
+  revealed: "FORM CONFIRMED",
+  reward: "PROGRESSION SYNCHRONIZED",
   acknowledgement: "CURRENT FORM STABLE",
 };
+
+function EquipmentReadout({ gear, accent, secondaryAccent, foreground }: { gear: { slot: "HEAD" | "BODY" | "AUX"; item: { id: string; name: string } }[]; accent: string; secondaryAccent: string; foreground: string }) {
+  if (!gear.length) return <Text style={[styles.cinematicReadout, { color: secondaryAccent }]}>DEVELOPMENT ARMOR · WEAPON ARRAY</Text>;
+  return <View style={styles.cinematicGearRow}>{gear.map(({ slot, item }) => <View key={`${slot}-${item.id}`} style={[styles.cinematicGearChip, { borderColor: `${accent}99`, backgroundColor: `${accent}15` }]}><Text style={[styles.cinematicGearSlot, { color: secondaryAccent }]}>{slot}</Text><Text numberOfLines={1} style={[styles.cinematicGearName, { color: foreground }]}>{item.name}</Text></View>)}</View>;
+}
 
 export function RankCharacterAchievement({
   title,
@@ -171,6 +182,8 @@ export function RankCharacterAchievement({
   soundEnabled = true,
   equipment = {},
   mode = "evolution",
+  totalXp = 0,
+  goldBalance = 0,
 }: {
   title: string;
   level: number;
@@ -180,6 +193,8 @@ export function RankCharacterAchievement({
   soundEnabled?: boolean;
   equipment?: EquippedCharacterGear;
   mode?: CharacterPresentationMode;
+  totalXp?: number;
+  goldBalance?: number;
 }) {
   const colors = useColors();
   const profile = getRankProfile(title, level);
@@ -187,14 +202,21 @@ export function RankCharacterAchievement({
   const gear = useMemo(() => getEquippedGearLabels(equipment), [equipment]);
   const [phase, setPhase] = useState<PowerUpPhase>("activation");
   const fade = useSharedValue(0);
-  const camera = useSharedValue(1);
-  const portraitScale = useSharedValue(0.68);
-  const portraitY = useSharedValue(32);
-  const halo = useSharedValue(0);
-  const ring = useSharedValue(0.42);
+  const camera = useSharedValue(0.92);
+  const portraitScale = useSharedValue(0.48);
+  const portraitY = useSharedValue(44);
+  const portal = useSharedValue(0);
+  const ribbon = useSharedValue(0);
+  const particles = useSharedValue(0);
+  const visor = useSharedValue(0);
+  const armor = useSharedValue(0);
+  const weapon = useSharedValue(0);
   const flash = useSharedValue(0);
+  const shockwave = useSharedValue(0);
   const reveal = useSharedValue(0);
-  const equipmentReveal = useSharedValue(0);
+  const reward = useSharedValue(0);
+  const spin = useSharedValue(0);
+  const counterSpin = useSharedValue(0);
   const shakeX = useSharedValue(0);
   const shakeY = useSharedValue(0);
   const dismissRef = useRef(onDismiss);
@@ -215,57 +237,68 @@ export function RankCharacterAchievement({
   useEffect(() => {
     if (!visible) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    const scaled = (duration: number) => (reduceMotion ? Math.min(220, duration) : duration);
+    const scaled = (duration: number) => reduceMotion ? Math.min(220, duration) : duration;
     const schedule = (callback: () => void, delay: number) => timers.push(setTimeout(callback, scaled(delay)));
     const releasePlayers = () => {
       for (const player of playersRef.current) {
         try {
           player.remove();
         } catch {
-          // Android can release a player while app state changes; the visual must still clean up.
+          // Native audio cleanup must never obstruct the visual dismissal path.
         }
       }
       playersRef.current = [];
     };
-    const cue = (sourceIndex: number) => {
-      const player = playersRef.current[sourceIndex];
+    const prepareEffects = () => {
+      if (!soundEnabled || mode !== "evolution") return;
+      try {
+        playersRef.current = CHARACTER_EVOLUTION_AUDIO_SOURCES.map((source) => createAudioPlayer(source));
+        void setAudioModeAsync({ playsInSilentMode: true });
+      } catch {
+        releasePlayers();
+      }
+    };
+    const playEffect = (index: number) => {
+      const player = playersRef.current[index];
       if (!player) return;
       try {
         player.seekTo(0);
         player.play();
       } catch {
-        // Dedicated cinematic sound is additive and never blocks the sequence.
+        // A missing cue must never disrupt the visual progression result.
       }
+    };
+    const pulse = (strength = 0.78) => {
+      flash.value = strength;
+      flash.value = withTiming(0, { duration: 260, easing: Easing.out(Easing.quad) });
     };
 
     releasePlayers();
-    if (mode === "evolution" && soundEnabled) {
-      try {
-        playersRef.current = CHARACTER_EVOLUTION_AUDIO_SOURCES.map((source) => createAudioPlayer(source));
-        void setAudioModeAsync({ playsInSilentMode: true });
-      } catch {
-        playersRef.current = [];
-      }
-    }
-
     fade.value = 0;
-    camera.value = 1;
-    portraitScale.value = reduceMotion ? 0.98 : 0.68;
-    portraitY.value = reduceMotion ? 0 : 32;
-    halo.value = 0;
-    ring.value = 0.42;
+    camera.value = 0.92;
+    portraitScale.value = reduceMotion ? 1 : 0.48;
+    portraitY.value = reduceMotion ? 0 : 44;
+    portal.value = 0;
+    ribbon.value = 0;
+    particles.value = 0;
+    visor.value = 0;
+    armor.value = 0;
+    weapon.value = 0;
     flash.value = 0;
+    shockwave.value = 0;
     reveal.value = 0;
-    equipmentReveal.value = 0;
+    reward.value = 0;
+    spin.value = 0;
+    counterSpin.value = 0;
+    shakeX.value = 0;
+    shakeY.value = 0;
 
     if (mode === "acknowledgement") {
       setPhase("acknowledgement");
       fade.value = withTiming(1, { duration: 180 });
-      portraitScale.value = withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) });
-      halo.value = withTiming(0.72, { duration: 300 });
-      ring.value = withTiming(0.9, { duration: 300 });
-      reveal.value = withTiming(1, { duration: 240 });
-      equipmentReveal.value = withTiming(1, { duration: 240 });
+      portraitScale.value = withTiming(0.82, { duration: 260, easing: Easing.out(Easing.cubic) });
+      portal.value = withTiming(0.5, { duration: 260 });
+      reveal.value = withTiming(1, { duration: 230 });
       schedule(() => dismissRef.current(), CHARACTER_EVOLUTION_TIMELINE_MS.acknowledgementFinish);
       return () => {
         timers.forEach(clearTimeout);
@@ -274,16 +307,22 @@ export function RankCharacterAchievement({
     }
 
     setPhase("activation");
+    fade.value = withTiming(1, { duration: scaled(180), easing: Easing.out(Easing.quad) });
+    prepareEffects();
+    playEffect(0);
+
     if (reduceMotion) {
-      fade.value = 1;
       portraitScale.value = 1;
       portraitY.value = 0;
-      halo.value = 0.82;
-      ring.value = 1;
-      equipmentReveal.value = 1;
+      portal.value = 0.9;
+      ribbon.value = 1;
+      particles.value = 1;
+      visor.value = 1;
+      armor.value = 1;
+      weapon.value = 1;
       reveal.value = 1;
-      setPhase("revealed");
-      cue(0);
+      reward.value = 1;
+      setPhase("reward");
       schedule(() => dismissRef.current(), CHARACTER_EVOLUTION_TIMELINE_MS.acknowledgementFinish);
       return () => {
         timers.forEach(clearTimeout);
@@ -291,81 +330,122 @@ export function RankCharacterAchievement({
       };
     }
 
-    fade.value = withTiming(1, { duration: 190 });
-    portraitScale.value = withTiming(0.88, { duration: CHARACTER_EVOLUTION_TIMELINE_MS.build, easing: Easing.out(Easing.cubic) });
+    portraitScale.value = withTiming(0.9, { duration: CHARACTER_EVOLUTION_TIMELINE_MS.build, easing: Easing.out(Easing.cubic) });
     portraitY.value = withTiming(0, { duration: CHARACTER_EVOLUTION_TIMELINE_MS.build, easing: Easing.out(Easing.cubic) });
-    halo.value = withTiming(0.62 + evolution.stage * 0.06, { duration: CHARACTER_EVOLUTION_TIMELINE_MS.build, easing: Easing.inOut(Easing.quad) });
-    cue(0);
     schedule(() => {
       setPhase("build");
-      ring.value = withRepeat(withSequence(withTiming(1.25, { duration: 430, easing: Easing.out(Easing.quad) }), withTiming(0.76, { duration: 510, easing: Easing.inOut(Easing.sin) })), 2, false);
-      camera.value = withTiming(1.035, { duration: 1_100, easing: Easing.inOut(Easing.quad) });
+      portal.value = withTiming(0.88, { duration: 640, easing: Easing.out(Easing.cubic) });
+      ribbon.value = withTiming(1, { duration: 780, easing: Easing.out(Easing.cubic) });
+      particles.value = withTiming(1, { duration: 780, easing: Easing.out(Easing.quad) });
+      spin.value = withRepeat(withTiming(1, { duration: 3_400, easing: Easing.linear }), -1, false);
+      counterSpin.value = withRepeat(withTiming(-1, { duration: 2_200, easing: Easing.linear }), -1, false);
     }, CHARACTER_EVOLUTION_TIMELINE_MS.build);
     schedule(() => {
-      setPhase("materialize");
-      equipmentReveal.value = withTiming(1, { duration: 760, easing: Easing.out(Easing.exp) });
-      portraitScale.value = withTiming(1.06, { duration: 850, easing: Easing.out(Easing.exp) });
-      halo.value = withTiming(1, { duration: 760, easing: Easing.in(Easing.quad) });
+      setPhase("visor");
+      visor.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.exp) });
+      pulse(0.34);
+    }, CHARACTER_EVOLUTION_TIMELINE_MS.visor);
+    schedule(() => {
+      setPhase("armor");
+      playEffect(1);
+      armor.value = withTiming(1, { duration: 720, easing: Easing.out(Easing.exp) });
+      portraitScale.value = withTiming(1.06, { duration: 660, easing: Easing.out(Easing.exp) });
+      pulse(0.48);
     }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize);
     schedule(() => {
+      setPhase("weapon");
+      playEffect(2);
+      weapon.value = withTiming(1, { duration: 560, easing: Easing.out(Easing.exp) });
+      portal.value = withTiming(1.14, { duration: 650, easing: Easing.out(Easing.quad) });
+      pulse(0.62);
+    }, CHARACTER_EVOLUTION_TIMELINE_MS.weapon);
+    schedule(() => {
+      setPhase("ring");
+      shockwave.value = 0;
+      shockwave.value = withTiming(1, { duration: 620, easing: Easing.out(Easing.cubic) });
+    }, CHARACTER_EVOLUTION_TIMELINE_MS.ringActivation);
+    schedule(() => {
       setPhase("impact");
-      flash.value = 0.94;
-      flash.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
-      shakeX.value = withSequence(withTiming(7, { duration: 52 }), withTiming(-6, { duration: 52 }), withTiming(4, { duration: 52 }), withTiming(0, { duration: 90 }));
-      shakeY.value = withSequence(withTiming(-4, { duration: 52 }), withTiming(4, { duration: 52 }), withTiming(-2, { duration: 52 }), withTiming(0, { duration: 90 }));
-      cue(1);
+      playEffect(3);
+      pulse(0.96);
+      shakeX.value = withSequence(withTiming(9, { duration: 48 }), withTiming(-8, { duration: 52 }), withTiming(5, { duration: 48 }), withTiming(0, { duration: 90 }));
+      shakeY.value = withSequence(withTiming(-5, { duration: 48 }), withTiming(5, { duration: 52 }), withTiming(-3, { duration: 48 }), withTiming(0, { duration: 90 }));
+      portraitScale.value = withSequence(withTiming(1.15, { duration: 120 }), withTiming(1, { duration: 430, easing: Easing.out(Easing.cubic) }));
     }, CHARACTER_EVOLUTION_TIMELINE_MS.impact);
     schedule(() => {
       setPhase("revealed");
-      camera.value = withTiming(1, { duration: 610, easing: Easing.out(Easing.cubic) });
-      portraitScale.value = withTiming(1, { duration: 560, easing: Easing.out(Easing.cubic) });
-      ring.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) });
-      reveal.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) });
-      cue(2);
+      playEffect(4);
+      camera.value = withTiming(1, { duration: 560, easing: Easing.out(Easing.cubic) });
+      reveal.value = withTiming(1, { duration: 430, easing: Easing.out(Easing.cubic) });
     }, CHARACTER_EVOLUTION_TIMELINE_MS.reveal);
+    schedule(() => {
+      setPhase("reward");
+      reward.value = withTiming(1, { duration: 480, easing: Easing.out(Easing.cubic) });
+    }, CHARACTER_EVOLUTION_TIMELINE_MS.reward);
     schedule(() => dismissRef.current(), CHARACTER_EVOLUTION_TIMELINE_MS.finish);
 
     return () => {
       timers.forEach(clearTimeout);
       releasePlayers();
     };
-  }, [camera, equipmentReveal, evolution.stage, fade, flash, halo, mode, portraitScale, portraitY, reduceMotion, reveal, ring, shakeX, shakeY, soundEnabled, visible]);
+  }, [armor, camera, counterSpin, fade, flash, mode, particles, portal, portraitScale, portraitY, reduceMotion, reveal, reward, ribbon, shakeX, shakeY, shockwave, soundEnabled, spin, visor, visible, weapon]);
 
   const backdropStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
-  const cameraStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shakeX.value }, { translateY: shakeY.value }, { scale: camera.value }] }));
+  const stageStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shakeX.value }, { translateY: shakeY.value }, { scale: camera.value }] }));
   const portraitStyle = useAnimatedStyle(() => ({ transform: [{ translateY: portraitY.value }, { scale: portraitScale.value }] }));
-  const haloStyle = useAnimatedStyle(() => ({ opacity: halo.value, transform: [{ scale: 0.68 + halo.value * 0.6 }] }));
-  const ringStyle = useAnimatedStyle(() => ({ opacity: Math.min(1, ring.value), transform: [{ scale: ring.value }] }));
+  const portalStyle = useAnimatedStyle(() => ({ opacity: portal.value, transform: [{ rotate: `${spin.value * 360}deg` }, { scale: 0.72 + portal.value * 0.38 }] }));
+  const innerPortalStyle = useAnimatedStyle(() => ({ opacity: portal.value * 0.86, transform: [{ rotate: `${counterSpin.value * 360}deg` }, { scale: 0.6 + portal.value * 0.31 }] }));
+  const ribbonStyle = useAnimatedStyle(() => ({ opacity: ribbon.value, transform: [{ scale: 0.78 + ribbon.value * 0.25 }, { rotate: `${-13 + ribbon.value * 12}deg` }] }));
+  const particleStyle = useAnimatedStyle(() => ({ opacity: particles.value, transform: [{ scale: 0.7 + particles.value * 0.35 }] }));
+  const visorStyle = useAnimatedStyle(() => ({ opacity: visor.value, transform: [{ translateY: 22 * (1 - visor.value) }, { scaleX: 0.65 + visor.value * 0.35 }] }));
+  const armorStyle = useAnimatedStyle(() => ({ opacity: armor.value, transform: [{ translateY: 40 * (1 - armor.value) }, { scale: 0.78 + armor.value * 0.22 }] }));
+  const weaponStyle = useAnimatedStyle(() => ({ opacity: weapon.value, transform: [{ translateX: 86 * (1 - weapon.value) }, { rotate: `${-34 + weapon.value * 26}deg` }, { scale: 0.72 + weapon.value * 0.28 }] }));
   const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
-  const revealStyle = useAnimatedStyle(() => ({ opacity: reveal.value, transform: [{ translateY: 14 * (1 - reveal.value) }] }));
-  const equipmentStyle = useAnimatedStyle(() => ({ opacity: equipmentReveal.value, transform: [{ translateY: 12 * (1 - equipmentReveal.value) }, { scale: 0.92 + equipmentReveal.value * 0.08 }] }));
+  const shockwaveStyle = useAnimatedStyle(() => ({ opacity: 1 - shockwave.value, transform: [{ scale: 0.45 + shockwave.value * 2.25 }] }));
+  const revealStyle = useAnimatedStyle(() => ({ opacity: reveal.value, transform: [{ translateY: 20 * (1 - reveal.value) }] }));
+  const rewardStyle = useAnimatedStyle(() => ({ opacity: reward.value, transform: [{ translateY: 14 * (1 - reward.value) }, { scale: 0.94 + reward.value * 0.06 }] }));
+
+  const tierText = `${evolution.formName.toUpperCase()} · LEVEL ${level} · STAGE ${evolution.stage + 1}`;
+  const xpText = Math.max(0, Math.round(totalXp)).toLocaleString("en-IN");
+  const goldText = Math.max(0, Math.round(goldBalance)).toLocaleString("en-IN");
 
   return (
     <Modal transparent visible={visible} animationType="none" statusBarTranslucent onRequestClose={onDismiss}>
       <Animated.View style={[styles.modalBackdrop, backdropStyle]}>
-        <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss character development" style={styles.modalPressable}>
-          <Animated.View accessibilityRole="alert" accessibilityLabel={`${title} level ${level} ${mode === "evolution" ? "character development sequence" : "current character form"}`} style={[styles.powerUpStage, cameraStyle]}>
-            <Animated.View pointerEvents="none" style={[styles.powerUpFlash, { backgroundColor: evolution.accent }, flashStyle]} />
-            <View pointerEvents="none" style={styles.powerUpParticles}>{Array.from({ length: 16 }, (_, index) => <View key={index} style={[styles.powerUpParticle, { backgroundColor: index % 3 === 0 ? evolution.secondaryAccent : evolution.accent, transform: [{ rotate: `${index * 22.5}deg` }, { translateY: -132 - (index % 4) * 17 }] }]} />)}</View>
-            <View style={styles.powerUpTopline}>
-              <Text style={[styles.powerUpEyebrow, { color: evolution.accent }]}>{PHASE_COPY[phase]}</Text>
-              <Text style={[styles.powerUpDismiss, { color: colors.muted }]}>TAP TO DISMISS</Text>
-            </View>
-            <View style={styles.powerUpCore}>
-              <Animated.View pointerEvents="none" style={[styles.powerUpHalo, { backgroundColor: `${evolution.accent}36` }, haloStyle]} />
-              <Animated.View pointerEvents="none" style={[styles.powerUpRing, { borderColor: `${evolution.secondaryAccent}B8` }, ringStyle]} />
-              <Animated.View style={[styles.powerUpPortraitFrame, { borderColor: evolution.accent }, portraitStyle]}>
-                <Image source={profile.portrait} resizeMode="cover" style={styles.powerUpPortrait} />
-                <CharacterGrowthLayers stage={profile.stage} accent={evolution.accent} secondaryAccent={evolution.secondaryAccent} equipment={equipment} />
+        <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss character evolution" style={styles.modalPressable}>
+          <Animated.View accessibilityRole="alert" accessibilityLabel={`${title} level ${level} ${mode === "evolution" ? "character evolution sequence" : "current character form"}`} style={[styles.cinematicStage, stageStyle]}>
+            <Animated.View pointerEvents="none" style={[styles.cinematicFlash, { backgroundColor: evolution.accent }, flashStyle]} />
+            <View pointerEvents="none" style={styles.cinematicNoise} />
+            <View pointerEvents="none" style={styles.cinematicTopline}><Text style={[styles.cinematicProtocol, { color: evolution.accent }]}>{PHASE_COPY[phase]}</Text><Text style={styles.cinematicDismiss}>TAP TO DISMISS</Text></View>
+            <Animated.View pointerEvents="none" style={[styles.cinematicPortal, { borderColor: `${evolution.accent}D8` }, portalStyle]} />
+            <Animated.View pointerEvents="none" style={[styles.cinematicPortalInner, { borderColor: `${evolution.secondaryAccent}A8` }, innerPortalStyle]} />
+            <Animated.View pointerEvents="none" style={[styles.cinematicShockwave, { borderColor: `${evolution.accent}B8` }, shockwaveStyle]} />
+            <Animated.View pointerEvents="none" style={[styles.cinematicRibbon, { backgroundColor: evolution.accent, shadowColor: evolution.accent }, ribbonStyle]}><View style={[styles.cinematicRibbonCore, { backgroundColor: evolution.secondaryAccent }]} /></Animated.View>
+            <Animated.View pointerEvents="none" style={[styles.cinematicParticles, particleStyle]}>{Array.from({ length: 22 }, (_, index) => <View key={index} style={[styles.cinematicParticle, { backgroundColor: index % 4 === 0 ? evolution.secondaryAccent : evolution.accent, transform: [{ rotate: `${index * 16.35}deg` }, { translateY: -92 - (index % 5) * 29 }] }]} />)}</Animated.View>
+            <Animated.View style={[styles.cinematicAvatarSystem, portraitStyle]}>
+              <View pointerEvents="none" style={[styles.cinematicAvatarAura, { backgroundColor: `${evolution.accent}28`, shadowColor: evolution.accent }]} />
+              <Image source={profile.portrait} resizeMode="contain" style={styles.cinematicPortrait} />
+              <Animated.View pointerEvents="none" style={[styles.cinematicVisor, { borderColor: evolution.accent, shadowColor: evolution.accent }, visorStyle]}><View style={[styles.cinematicVisorBeam, { backgroundColor: evolution.accent }]} /></Animated.View>
+              <Animated.View pointerEvents="none" style={[styles.cinematicArmorSystem, armorStyle]}>
+                <View style={[styles.cinematicPauldron, styles.cinematicLeftPauldron, { borderColor: evolution.secondaryAccent, shadowColor: evolution.secondaryAccent }]} />
+                <View style={[styles.cinematicPauldron, styles.cinematicRightPauldron, { borderColor: evolution.secondaryAccent, shadowColor: evolution.secondaryAccent }]} />
+                <View style={[styles.cinematicBreastplate, { borderColor: evolution.accent, shadowColor: evolution.accent }]}><View style={[styles.cinematicChestCore, { backgroundColor: evolution.secondaryAccent, shadowColor: evolution.secondaryAccent }]} /><View style={[styles.cinematicArmorLine, { backgroundColor: evolution.accent }]} /></View>
+                <View style={[styles.cinematicHipPlate, { borderColor: evolution.accent }]} />
               </Animated.View>
-            </View>
-            <Animated.View style={[styles.powerUpReveal, revealStyle]}>
-              <Text style={[styles.powerUpTitle, { color: colors.foreground }]}>{title}</Text>
-              <Text style={[styles.powerUpRank, { color: evolution.accent }]}>{evolution.formName.toUpperCase()} · LEVEL {level} · STAGE {evolution.stage + 1}</Text>
-              <Animated.View style={[styles.equipmentReveal, equipmentStyle]}>
-                <Text style={[styles.equipmentRevealLabel, { color: evolution.secondaryAccent }]}>{gear.length ? "EQUIPPED SYSTEMS MATERIALIZED" : "DEVELOPMENT ARMOR MATERIALIZED"}</Text>
-                {gear.length ? <View style={styles.powerUpLoadoutRow}>{gear.map(({ slot, item }) => <View key={`${slot}-${item.id}`} style={[styles.powerUpChip, { borderColor: `${evolution.accent}80`, backgroundColor: `${evolution.accent}13` }]}><Text style={[styles.powerUpChipSlot, { color: evolution.secondaryAccent }]}>{slot}</Text><Text numberOfLines={1} style={[styles.powerUpChipText, { color: colors.foreground }]}>{item.name}</Text></View>)}</View> : <View style={[styles.powerUpAbility, { borderColor: `${evolution.accent}88`, backgroundColor: `${evolution.accent}16` }]}><Text style={[styles.powerUpAbilityLabel, { color: evolution.accent }]}>{evolution.armor.toUpperCase()}</Text><Text numberOfLines={1} style={[styles.powerUpAbilityText, { color: colors.foreground }]}>{evolution.weaponSystem}</Text></View>}</Animated.View>
-              <Text style={[styles.powerUpAura, { color: colors.muted }]}>{evolution.aura}</Text>
+              <Animated.View pointerEvents="none" style={[styles.cinematicWeaponSystem, weaponStyle]}><View style={[styles.cinematicWeaponBody, { borderColor: evolution.secondaryAccent, shadowColor: evolution.accent }]}><View style={[styles.cinematicWeaponRail, { backgroundColor: evolution.accent }]} /><View style={[styles.cinematicWeaponCore, { backgroundColor: evolution.secondaryAccent, shadowColor: evolution.secondaryAccent }]} /><View style={[styles.cinematicWeaponTip, { backgroundColor: evolution.accent }]} /></View></Animated.View>
+            </Animated.View>
+            <Animated.View style={[styles.cinematicReveal, revealStyle]}>
+              <Text style={[styles.cinematicTitle, { color: colors.foreground }]}>{title}</Text>
+              <Text style={[styles.cinematicRank, { color: evolution.accent }]}>{tierText}</Text>
+              <EquipmentReadout gear={gear} accent={evolution.accent} secondaryAccent={evolution.secondaryAccent} foreground={colors.foreground} />
+              <Text style={[styles.cinematicAura, { color: colors.muted }]}>{evolution.aura.toUpperCase()}</Text>
+            </Animated.View>
+            <Animated.View style={[styles.cinematicReward, { borderColor: `${evolution.accent}9E`, backgroundColor: `${evolution.accent}14` }, rewardStyle]}>
+              <View><Text style={[styles.cinematicRewardEyebrow, { color: evolution.secondaryAccent }]}>LEVEL REACHED</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>LEVEL {level}</Text></View>
+              <View style={styles.cinematicRewardDivider} />
+              <View><Text style={[styles.cinematicRewardEyebrow, { color: evolution.secondaryAccent }]}>TOTAL XP</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>{xpText}</Text></View>
+              <View style={styles.cinematicRewardDivider} />
+              <View><Text style={[styles.cinematicRewardEyebrow, { color: evolution.secondaryAccent }]}>GOLD CACHE</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>{goldText}</Text></View>
             </Animated.View>
           </Animated.View>
         </Pressable>
@@ -395,31 +475,50 @@ const styles = StyleSheet.create({
   detailText: { fontSize: 8, lineHeight: 11, fontWeight: "800", maxWidth: 120, textAlign: "center" },
   gearPips: { flexDirection: "row", gap: 3, marginTop: 1 },
   gearPip: { width: 4, height: 4, borderRadius: 2 },
-  modalBackdrop: { flex: 1, backgroundColor: "#06101BD6", alignItems: "center", justifyContent: "center", padding: 24 },
+  modalBackdrop: { flex: 1, backgroundColor: "#020914EE", alignItems: "center", justifyContent: "center" },
   modalPressable: { width: "100%", alignItems: "center", justifyContent: "center", flex: 1 },
-  powerUpStage: { width: "100%", maxWidth: 390, minHeight: 540, paddingHorizontal: 20, paddingVertical: 22, alignItems: "center", justifyContent: "center", overflow: "hidden" },
-  powerUpFlash: { ...StyleSheet.absoluteFillObject },
-  powerUpParticles: { position: "absolute", width: 8, height: 8, alignItems: "center", justifyContent: "center" },
-  powerUpParticle: { position: "absolute", width: 3, height: 15, borderRadius: 4, opacity: 0.78 },
-  powerUpTopline: { position: "absolute", top: 24, left: 20, right: 20, flexDirection: "row", justifyContent: "space-between", gap: 10 },
-  powerUpEyebrow: { flex: 1, fontSize: 10, lineHeight: 13, fontWeight: "900", letterSpacing: 1.05 },
-  powerUpDismiss: { fontSize: 8, lineHeight: 12, fontWeight: "800", letterSpacing: 0.55 },
-  powerUpCore: { width: 266, height: 266, alignItems: "center", justifyContent: "center", marginTop: 22 },
-  powerUpHalo: { position: "absolute", width: 238, height: 238, borderRadius: 119 },
-  powerUpRing: { position: "absolute", width: 220, height: 220, borderRadius: 110, borderWidth: 2, borderStyle: "dashed" },
-  powerUpPortraitFrame: { width: 192, height: 192, overflow: "hidden", borderRadius: 96, borderWidth: 3, backgroundColor: "#111B29", shadowColor: "#000", shadowOpacity: 0.48, shadowRadius: 22, shadowOffset: { width: 0, height: 10 }, elevation: 11 },
-  powerUpPortrait: { width: "100%", height: "100%" },
-  powerUpReveal: { width: "100%", alignItems: "center", gap: 7, marginTop: 2 },
-  powerUpTitle: { fontSize: 29, lineHeight: 34, fontWeight: "900", textAlign: "center", letterSpacing: -0.45 },
-  powerUpRank: { fontSize: 10, lineHeight: 14, fontWeight: "900", letterSpacing: 0.85, textAlign: "center" },
-  equipmentReveal: { width: "100%", alignItems: "center", gap: 7 },
-  equipmentRevealLabel: { fontSize: 8, lineHeight: 11, fontWeight: "900", letterSpacing: 0.8, textAlign: "center" },
-  powerUpLoadoutRow: { width: "100%", flexDirection: "row", gap: 7 },
-  powerUpChip: { flex: 1, minHeight: 44, borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, alignItems: "center", justifyContent: "center", paddingHorizontal: 6, paddingVertical: 5, gap: 1 },
-  powerUpChipSlot: { fontSize: 7, lineHeight: 9, fontWeight: "900", letterSpacing: 0.75 },
-  powerUpChipText: { fontSize: 8, lineHeight: 11, fontWeight: "900", letterSpacing: 0.25, textAlign: "center" },
-  powerUpAbility: { width: "100%", borderWidth: StyleSheet.hairlineWidth, borderRadius: 13, paddingHorizontal: 12, paddingVertical: 8, alignItems: "center", gap: 2 },
-  powerUpAbilityLabel: { fontSize: 8, lineHeight: 11, fontWeight: "900", letterSpacing: 0.72, textAlign: "center" },
-  powerUpAbilityText: { fontSize: 13, lineHeight: 17, fontWeight: "900", textAlign: "center" },
-  powerUpAura: { fontSize: 9, lineHeight: 13, fontWeight: "800", textAlign: "center", letterSpacing: 0.35 },
+  cinematicStage: { width: "100%", maxWidth: 440, height: "100%", minHeight: 600, paddingHorizontal: 18, paddingTop: 48, paddingBottom: 34, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  cinematicFlash: { ...StyleSheet.absoluteFillObject },
+  cinematicNoise: { position: "absolute", width: "136%", height: "136%", borderRadius: 999, backgroundColor: "#0A234650" },
+  cinematicTopline: { position: "absolute", top: 55, left: 22, right: 22, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  cinematicProtocol: { flex: 1, fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 1.45 },
+  cinematicDismiss: { color: "#9CAFBE", fontSize: 8, lineHeight: 11, fontWeight: "800", letterSpacing: 0.75 },
+  cinematicPortal: { position: "absolute", width: 334, height: 334, borderRadius: 167, borderWidth: 1.6, borderStyle: "dashed", shadowOpacity: 0.7, shadowRadius: 14, elevation: 8 },
+  cinematicPortalInner: { position: "absolute", width: 256, height: 256, borderRadius: 128, borderWidth: 1.3, borderStyle: "dotted" },
+  cinematicShockwave: { position: "absolute", width: 170, height: 170, borderRadius: 85, borderWidth: 2 },
+  cinematicRibbon: { position: "absolute", width: 36, height: 450, borderRadius: 42, opacity: 0.72, shadowOpacity: 0.95, shadowRadius: 24, elevation: 10, transform: [{ rotate: "-16deg" }] },
+  cinematicRibbonCore: { width: 9, height: "100%", alignSelf: "center", borderRadius: 10, opacity: 0.82 },
+  cinematicParticles: { position: "absolute", width: 8, height: 8, alignItems: "center", justifyContent: "center" },
+  cinematicParticle: { position: "absolute", width: 3, height: 20, borderRadius: 4, opacity: 0.9 },
+  cinematicAvatarSystem: { width: 300, height: 365, alignItems: "center", justifyContent: "flex-end", position: "relative" },
+  cinematicAvatarAura: { position: "absolute", width: 230, height: 230, borderRadius: 115, bottom: 55, shadowOpacity: 0.9, shadowRadius: 30, elevation: 6 },
+  cinematicPortrait: { width: 294, height: 352, zIndex: 1 },
+  cinematicVisor: { position: "absolute", width: 92, height: 18, top: 93, borderRadius: 11, borderWidth: 2, backgroundColor: "#04142699", zIndex: 4, shadowOpacity: 0.95, shadowRadius: 11, elevation: 14, overflow: "hidden" },
+  cinematicVisorBeam: { position: "absolute", left: 9, right: 9, top: 6, height: 3, borderRadius: 2 },
+  cinematicArmorSystem: { ...StyleSheet.absoluteFillObject, zIndex: 3 },
+  cinematicPauldron: { position: "absolute", top: 144, width: 72, height: 40, borderWidth: 2, backgroundColor: "#071421C7", shadowOpacity: 0.8, shadowRadius: 12, elevation: 11 },
+  cinematicLeftPauldron: { left: 47, borderTopLeftRadius: 26, borderBottomLeftRadius: 12, transform: [{ rotate: "-12deg" }] },
+  cinematicRightPauldron: { right: 47, borderTopRightRadius: 26, borderBottomRightRadius: 12, transform: [{ rotate: "12deg" }] },
+  cinematicBreastplate: { position: "absolute", top: 170, left: 88, right: 88, height: 111, borderWidth: 2, borderTopLeftRadius: 34, borderTopRightRadius: 34, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, backgroundColor: "#061421C4", alignItems: "center", paddingTop: 25, shadowOpacity: 0.76, shadowRadius: 13, elevation: 12 },
+  cinematicChestCore: { width: 16, height: 16, borderRadius: 8, shadowOpacity: 0.94, shadowRadius: 12, elevation: 13 },
+  cinematicArmorLine: { marginTop: 12, width: 75, height: 2, borderRadius: 1, opacity: 0.85 },
+  cinematicHipPlate: { position: "absolute", top: 275, left: 112, right: 112, height: 31, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, borderWidth: 1.5, borderTopWidth: 0, backgroundColor: "#061421B0" },
+  cinematicWeaponSystem: { position: "absolute", right: 17, top: 152, zIndex: 5 },
+  cinematicWeaponBody: { width: 40, height: 157, borderRadius: 18, borderWidth: 2, backgroundColor: "#071B2DE8", alignItems: "center", shadowOpacity: 0.95, shadowRadius: 13, elevation: 16 },
+  cinematicWeaponRail: { width: 5, height: 104, marginTop: 16, borderRadius: 5 },
+  cinematicWeaponCore: { position: "absolute", width: 14, height: 14, borderRadius: 7, top: 63, shadowOpacity: 0.95, shadowRadius: 12, elevation: 17 },
+  cinematicWeaponTip: { position: "absolute", bottom: -14, width: 16, height: 32, borderRadius: 9 },
+  cinematicReveal: { position: "absolute", left: 22, right: 22, bottom: 114, alignItems: "center", gap: 6 },
+  cinematicTitle: { fontSize: 30, lineHeight: 35, fontWeight: "900", textAlign: "center", letterSpacing: -0.45 },
+  cinematicRank: { fontSize: 9, lineHeight: 13, fontWeight: "900", letterSpacing: 1.05, textAlign: "center" },
+  cinematicReadout: { fontSize: 8, lineHeight: 11, fontWeight: "900", letterSpacing: 0.85, textAlign: "center" },
+  cinematicGearRow: { width: "100%", flexDirection: "row", gap: 5, marginTop: 1 },
+  cinematicGearChip: { flex: 1, minWidth: 0, borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 4, paddingVertical: 4, alignItems: "center", gap: 1 },
+  cinematicGearSlot: { fontSize: 6, lineHeight: 8, fontWeight: "900", letterSpacing: 0.65 },
+  cinematicGearName: { width: "100%", fontSize: 7, lineHeight: 9, fontWeight: "800", textAlign: "center" },
+  cinematicAura: { fontSize: 8, lineHeight: 11, fontWeight: "700", letterSpacing: 0.55, textAlign: "center" },
+  cinematicReward: { position: "absolute", bottom: 29, left: 18, right: 18, borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, minHeight: 54, paddingHorizontal: 12, paddingVertical: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  cinematicRewardDivider: { width: StyleSheet.hairlineWidth, height: 29, backgroundColor: "#6B91A866" },
+  cinematicRewardEyebrow: { fontSize: 6, lineHeight: 9, fontWeight: "900", letterSpacing: 0.75 },
+  cinematicRewardValue: { fontSize: 13, lineHeight: 16, fontWeight: "900", letterSpacing: -0.1, marginTop: 1 },
 });

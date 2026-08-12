@@ -33,11 +33,15 @@ export type CharacterEvolutionProfile = {
 
 export const CHARACTER_EVOLUTION_TIMELINE_MS = {
   activation: 0,
-  build: 720,
-  materialize: 1_980,
-  impact: 3_780,
-  reveal: 4_260,
-  finish: 7_450,
+  build: 650,
+  visor: 1_250,
+  materialize: 1_900,
+  weapon: 3_350,
+  ringActivation: 4_350,
+  impact: 5_250,
+  reveal: 5_850,
+  reward: 7_050,
+  finish: 9_100,
   acknowledgementFinish: 1_550,
 } as const;
 
@@ -138,8 +142,7 @@ export function createCharacterEvolutionMilestone(title: string, level: number, 
 /** The first hydrated state is only a baseline; a cinematic needs a genuine change after it. */
 export function hasMeaningfulCharacterEvolution(previous: CharacterEvolutionMilestone | null, current: CharacterEvolutionMilestone) {
   if (!previous) return false;
-  return previous.level !== current.level
-    || previous.title !== current.title
+  return previous.title !== current.title
     || previous.stage !== current.stage
     || previous.family !== current.family
     || previous.equipmentSignature !== current.equipmentSignature;

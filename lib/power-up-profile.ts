@@ -24,16 +24,26 @@ export type CharacterTapPresentation = "evolution" | "acknowledgement";
 export const POWER_UP_TIMELINE_MS = {
   activation: CHARACTER_EVOLUTION_TIMELINE_MS.activation,
   build: CHARACTER_EVOLUTION_TIMELINE_MS.build,
+  visor: CHARACTER_EVOLUTION_TIMELINE_MS.visor,
   transformation: CHARACTER_EVOLUTION_TIMELINE_MS.materialize,
+  weapon: CHARACTER_EVOLUTION_TIMELINE_MS.weapon,
+  ringActivation: CHARACTER_EVOLUTION_TIMELINE_MS.ringActivation,
   impact: CHARACTER_EVOLUTION_TIMELINE_MS.impact,
   reveal: CHARACTER_EVOLUTION_TIMELINE_MS.reveal,
+  reward: CHARACTER_EVOLUTION_TIMELINE_MS.reward,
   finish: CHARACTER_EVOLUTION_TIMELINE_MS.finish,
 } as const;
 
 export const POWER_UP_AUDIO_CUES = [
   { sourceIndex: 0, phase: "activation", at: POWER_UP_TIMELINE_MS.activation },
   { sourceIndex: 1, phase: "build", at: POWER_UP_TIMELINE_MS.build },
-  { sourceIndex: 2, phase: "impact", at: POWER_UP_TIMELINE_MS.impact },
+  { sourceIndex: 2, phase: "visor", at: POWER_UP_TIMELINE_MS.visor },
+  { sourceIndex: 3, phase: "armor", at: POWER_UP_TIMELINE_MS.transformation },
+  { sourceIndex: 4, phase: "weapon", at: POWER_UP_TIMELINE_MS.weapon },
+  { sourceIndex: 5, phase: "ring", at: POWER_UP_TIMELINE_MS.ringActivation },
+  { sourceIndex: 6, phase: "impact", at: POWER_UP_TIMELINE_MS.impact },
+  { sourceIndex: 7, phase: "reveal", at: POWER_UP_TIMELINE_MS.reveal },
+  { sourceIndex: 8, phase: "reward", at: POWER_UP_TIMELINE_MS.reward },
 ] as const;
 
 const SIGNATURES = [

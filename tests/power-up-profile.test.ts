@@ -47,22 +47,32 @@ describe("title and level cinematic power-up profiles", () => {
     }
   });
 
-  it("orders activation, build, transformation, impact, reveal, and cleanup without overlap", () => {
+  it("orders activation, build, visor, armor, weapon, ring, impact, reveal, reward, and cleanup without overlap", () => {
     expect(POWER_UP_TIMELINE_MS.activation).toBe(0);
     expect(POWER_UP_TIMELINE_MS.build).toBeGreaterThan(POWER_UP_TIMELINE_MS.activation);
-    expect(POWER_UP_TIMELINE_MS.transformation).toBeGreaterThan(POWER_UP_TIMELINE_MS.build);
-    expect(POWER_UP_TIMELINE_MS.impact).toBeGreaterThan(POWER_UP_TIMELINE_MS.transformation);
+    expect(POWER_UP_TIMELINE_MS.visor).toBeGreaterThan(POWER_UP_TIMELINE_MS.build);
+    expect(POWER_UP_TIMELINE_MS.transformation).toBeGreaterThan(POWER_UP_TIMELINE_MS.visor);
+    expect(POWER_UP_TIMELINE_MS.weapon).toBeGreaterThan(POWER_UP_TIMELINE_MS.transformation);
+    expect(POWER_UP_TIMELINE_MS.ringActivation).toBeGreaterThan(POWER_UP_TIMELINE_MS.weapon);
+    expect(POWER_UP_TIMELINE_MS.impact).toBeGreaterThan(POWER_UP_TIMELINE_MS.ringActivation);
     expect(POWER_UP_TIMELINE_MS.reveal).toBeGreaterThan(POWER_UP_TIMELINE_MS.impact);
-    expect(POWER_UP_TIMELINE_MS.finish).toBeGreaterThan(POWER_UP_TIMELINE_MS.reveal);
+    expect(POWER_UP_TIMELINE_MS.reward).toBeGreaterThan(POWER_UP_TIMELINE_MS.reveal);
+    expect(POWER_UP_TIMELINE_MS.finish).toBeGreaterThan(POWER_UP_TIMELINE_MS.reward);
   });
 
-  it("aligns each cinematic audio cue with a distinct active phase and clears all cues before cleanup", () => {
-    expect(POWER_UP_AUDIO_CUES).toEqual([
-      { sourceIndex: 0, phase: "activation", at: POWER_UP_TIMELINE_MS.activation },
-      { sourceIndex: 1, phase: "build", at: POWER_UP_TIMELINE_MS.build },
-      { sourceIndex: 2, phase: "impact", at: POWER_UP_TIMELINE_MS.impact },
+  it("maps each dedicated cinematic sound event to its matching visual phase and clears all cues before cleanup", () => {
+    expect(POWER_UP_AUDIO_CUES.map((cue) => cue.phase)).toEqual(["activation", "build", "visor", "armor", "weapon", "ring", "impact", "reveal", "reward"]);
+    expect(POWER_UP_AUDIO_CUES.map((cue) => cue.at)).toEqual([
+      POWER_UP_TIMELINE_MS.activation,
+      POWER_UP_TIMELINE_MS.build,
+      POWER_UP_TIMELINE_MS.visor,
+      POWER_UP_TIMELINE_MS.transformation,
+      POWER_UP_TIMELINE_MS.weapon,
+      POWER_UP_TIMELINE_MS.ringActivation,
+      POWER_UP_TIMELINE_MS.impact,
+      POWER_UP_TIMELINE_MS.reveal,
+      POWER_UP_TIMELINE_MS.reward,
     ]);
-
     expect(new Set(POWER_UP_AUDIO_CUES.map((cue) => cue.sourceIndex)).size).toBe(POWER_UP_AUDIO_CUES.length);
     expect(POWER_UP_AUDIO_CUES.every((cue) => cue.at < POWER_UP_TIMELINE_MS.finish)).toBe(true);
   });
@@ -118,6 +128,7 @@ describe("title and level cinematic power-up profiles", () => {
     const baseline = createCharacterEvolutionMilestone("Recruit", 29, {});
     expect(hasMeaningfulCharacterEvolution(null, baseline)).toBe(false);
     expect(hasMeaningfulCharacterEvolution(baseline, createCharacterEvolutionMilestone("Recruit", 29, {}))).toBe(false);
+    expect(hasMeaningfulCharacterEvolution(baseline, createCharacterEvolutionMilestone("Recruit", 28, {}))).toBe(false);
     expect(hasMeaningfulCharacterEvolution(baseline, createCharacterEvolutionMilestone("Recruit", 30, {}))).toBe(true);
     expect(hasMeaningfulCharacterEvolution(baseline, createCharacterEvolutionMilestone("Recruit", 29, {
       accessory: { id: "aura-1", name: "Aura Node", description: null, type: "AuraGenerator", rarity: "Rare", level: 1, xpModifier: 105, energyConsumptionModifier: 98, imageUrl: null },
@@ -128,7 +139,8 @@ describe("title and level cinematic power-up profiles", () => {
     expect(CHARACTER_EVOLUTION_TIMELINE_MS.build).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.materialize);
     expect(CHARACTER_EVOLUTION_TIMELINE_MS.materialize).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.impact);
     expect(CHARACTER_EVOLUTION_TIMELINE_MS.impact).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.reveal);
-    expect(CHARACTER_EVOLUTION_TIMELINE_MS.reveal).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.finish);
+    expect(CHARACTER_EVOLUTION_TIMELINE_MS.reveal).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.reward);
+    expect(CHARACTER_EVOLUTION_TIMELINE_MS.reward).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.finish);
     expect(CHARACTER_EVOLUTION_TIMELINE_MS.acknowledgementFinish).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.finish);
   });
 

@@ -299,3 +299,11 @@
 - [x] Trace and repair live mission active-time persistence across pause, resume, app reload, and completion.
 - [x] Restore the original 45-minute actual-active-time trigger for emotion and reflection questions, including correct saved results.
 - [x] Add regression coverage for active-time, pause handling, persistence, completion, and the 45-minute reflection threshold.
+
+- [x] Compare the supplied reference and current character-evolution recordings, then provide a candid feasibility decision before making any animation changes.
+
+- [x] Audit the existing character-evolution sequence, real progression triggers, visual assets, audio lifecycle, and regression coverage against the supplied reference.
+- [x] Create optimized original evolution artwork, visual-effect layers, and dedicated synchronized sound cues for the complete cinematic sequence.
+- [x] Replace the basic character overlay with the staged reference-driven avatar transition, armor and weapon materialization, energy rings, ribbon, particles, flashes, impact, title, and reward reveal.
+- [x] Preserve genuine progression-only triggering, real level/title/equipment data, launch and celebration exclusions, app-background cleanup, and all existing functionality.
+- [x] Add deterministic regression coverage and validate the full cinematic sequence, sound timing, visual layering, trigger safety, and project quality gates.

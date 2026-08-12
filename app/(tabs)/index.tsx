@@ -386,7 +386,7 @@ export default function HomeScreen() {
         </HomeFloat>
       </ScrollView>
       {homeCelebration ? <CelebrationOverlay kind={homeCelebration} reduceMotion={state.profile.reduceMotion} onDone={() => setHomeCelebration(null)} /> : null}
-      <RankCharacterAchievement title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} soundEnabled={state.profile.soundEnabled && state.profile.soundRoles.achievement.enabled} equipment={equippedCharacterGear} mode={characterPresentationMode} visible={showRankAchievement} onDismiss={() => setShowRankAchievement(false)} />
+      <RankCharacterAchievement title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} soundEnabled={state.profile.soundEnabled && state.profile.soundRoles.achievement.enabled} equipment={equippedCharacterGear} mode={characterPresentationMode} totalXp={totalXp} goldBalance={goldBalance} visible={showRankAchievement} onDismiss={() => setShowRankAchievement(false)} />
     </ScreenContainer>
   );
 }
