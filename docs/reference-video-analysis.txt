@@ -1,0 +1,65 @@
+Starting video analysis...
+Submitting video analysis task...
+Task submitted (ID: video-analysis-92354b6a-b5af-4678-a9ff-7d862ebf2ba5)
+[8s] Status: Analyzing video content with AI...
+[32s] Status: Analysis completed
+[32s] Analysis completed!
+Full analysis result saved to: /home/ubuntu/video_gemini_generated_video_66773fcc_analysis_20260812_143737.md
+Note: This tool performs AI-based visual and audio analysis, not verbatim transcription. For detailed speech transcription, use `manus-speech-to-text` instead.
+Analysis result:
+
+This is an analysis of the provided video as a reference for a mobile RPG character progression cinematic.
+
+**Duration:** 00:09
+
+### Timestamped Sequence Analysis
+
+**00:00 - 00:01 | Recognition Anticipation & Trigger**
+*   **HUD Hierarchy:** The sequence begins on a standard character status dashboard. The primary focus is the circular character avatar (Recruit, L3).
+*   **Recognition Anticipation:** A bright, four-pointed cyan starburst flashes directly over the character's avatar, signaling an event trigger.
+*   **HUD:** A small "Achievement Logged" toast notification appears briefly.
+*   **Audible Sound Cues:** A sharp, high-pitched "ping" or "shing" notification sound plays, typical for an achievement unlock.
+
+**00:01 - 00:03 | Energy Build-up & Title Reveal**
+*   **Transitions:** The background UI darkens, and a cinematic overlay takes over the screen.
+*   **Character Focus & Pose:** The character expands from a small circular avatar into a larger, waist-up portrait in the center of the screen. The pose is static, facing forward. He is initially wearing a dark sci-fi jacket.
+*   **Particles/Light:** A large, circular, glowing cyan portal or energy ring forms behind the character. Cyan light streaks begin to swirl around him.
+*   **Title/Status Reveal:** The text "TITLE ACHIEVEMENT" appears prominently below the character in bold white letters.
+*   **Camera Moves:** A slow, subtle zoom-in on the character begins.
+*   **Audible Sound Cues:** A low, continuous rumbling sound begins, indicating energy building up.
+
+**00:03 - 00:06 | Transformation & Armor Reveal**
+*   **Transformation/Power Surge:** The core of the cinematic. The character's base outfit dynamically changes.
+*   **Armor Reveal:** The dark jacket is replaced by a heavy, metallic silver and grey sci-fi armor suit featuring a glowing cyan chest core and intricate paneling.
+*   **Particles/Light:** The swirling cyan energy lines intensify, wrapping around the character like ribbons. The background energy ring pulses brighter.
+*   **Colors:** The palette is dominated by dark blues and blacks, contrasted sharply by bright, neon cyan (energy) and metallic silver (armor).
+*   **Audible Sound Cues:** The rumbling builds in intensity, culminating in a whooshing, zapping sound as the new armor materializes.
+
+**00:06 - 00:07 | Weapon Reveal & Climax**
+*   **Weapon/Equipment Reveal:** The transformation completes with the appearance of a futuristic cyan visor over the character's eyes and the deployment of two dual-barrel cannons mounted on his shoulders.
+*   **Title/Status Reveal:** The text "ENERGY UNLOCKED" flashes at the bottom of the screen in bright cyan.
+*   **Audible Sound Cues:** A resonant, heavy "thud" or impact sound plays, marking the finality of the upgrade.
+*   **Screen Shake:** There is no noticeable screen shake; the impact is conveyed entirely through audio and visual flashes.
+
+**00:07 - 00:09 | Resolution & UI Update**
+*   **Transitions:** The cinematic overlay scales down and fades out, smoothly returning the user to the main UI dashboard.
+*   **HUD Hierarchy:** The UI has been updated to reflect the progression. The avatar now displays the new armored portrait. The character's name "ROHAN" is revealed above the avatar. New UI elements, such as a "Deploy Mission" button and a "Gold Balance" indicator, slide into view.
+*   **Audible Sound Cues:** A subtle, clean UI sliding/fading sound accompanies the return to the dashboard.
+
+***
+
+### React Native/Expo Translation Feasibility
+
+Creating this exact sequence in a React Native/Expo environment requires separating the standard UI from the complex visual effects.
+
+**Highly Performant (Native UI & Animations):**
+*   **UI Layout & Hierarchy:** The initial and final dashboard layouts (text, stats, progress bars, buttons) are standard UI components and will perform flawlessly.
+*   **Basic Transitions:** Darkening the background (using an animated absolute view with opacity), scaling up the character portrait, and fading in/out text elements ("TITLE ACHIEVEMENT", "ENERGY UNLOCKED") can be handled very smoothly using `react-native-reanimated`.
+*   **Audio:** Triggering the sequence of sound effects (ping, rumble, thud) is easily managed and performant using `expo-av`.
+
+**Challenging (Requires Specific Workarounds):**
+*   **Complex Particles & Glows (The Transformation):** React Native's native rendering cannot handle the complex, swirling cyan energy lines, the pulsing background portal, and the dynamic armor materialization performantly.
+    *   *Recommended Solution:* The most performant and visually accurate way to achieve the 00:01 - 00:07 sequence in an Expo app is to pre-render the cinematic (the portal, energy swirls, and character transformation) as a **transparent video** (e.g., HEVC with alpha channel for iOS, WebM for Android) or a high-quality **Lottie animation** (if the effects can be vectorized).
+    *   *Implementation:* You would use `expo-video` to play this transparent asset over the darkened UI layer, syncing the "ENERGY UNLOCKED" text and audio cues to the video's playback progress.
+*   **Starburst Anticipation:** The initial starburst at 00:00 can be achieved performantly using a short Lottie animation overlaid on the avatar component.
+*   **Glow Effects:** True, soft outer glows (like on the cyan text or portal) are notoriously difficult to render consistently across iOS and Android using standard shadow props. You will likely need to use pre-rendered blurred image assets placed behind the text/elements to achieve the neon look without performance drops.

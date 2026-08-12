@@ -24,6 +24,7 @@ import { RankCharacter, RankCharacterAchievement } from "@/components/rank-chara
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { playFocusRole } from "@/lib/focus-audio";
+import { createCharacterEvolutionMilestone, hasMeaningfulCharacterEvolution } from "@/lib/character-development";
 import { getEligibleCelebration, type CelebrationMilestone } from "@/lib/celebration-lifecycle";
 import { getForecastMotivationMessages } from "@/lib/home-motivation";
 import { MINI_ACHIEVEMENT_TICKER_LAYOUT, MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE } from "@/lib/focus-layout";
@@ -64,14 +65,17 @@ function syncLabel(phase: string, pending: number): string {
 export default function HomeScreen() {
   const colors = useColors();
   const { width } = useWindowDimensions();
-  const { state, ready } = useFocusCommand();
+  const { state, ready, getEquippedItems } = useFocusCommand();
   const { journals, missions, srsTopics } = state;
   const level = getLevelInfo(state);
   const title = getCurrentTitle(state);
   const combo = getCurrentCombo(state);
   const milestones = useRef<CelebrationMilestone | null>(null);
+  const characterMilestone = useRef<ReturnType<typeof createCharacterEvolutionMilestone> | null>(null);
   const [homeCelebration, setHomeCelebration] = useState<CelebrationKind | null>(null);
   const [showRankAchievement, setShowRankAchievement] = useState(false);
+  const [characterEvolutionPending, setCharacterEvolutionPending] = useState(false);
+  const [characterAcknowledgement, setCharacterAcknowledgement] = useState(0);
   const [motivationIndex, setMotivationIndex] = useState(0);
 
   useEffect(() => {
@@ -103,6 +107,19 @@ export default function HomeScreen() {
   }, [forecast.available, forecast.outlook, forecast.sampleSize, motivationMessages.length]);
 
   const energy = getEnergy(state);
+  const equippedCharacterGear = useMemo(() => getEquippedItems(), [getEquippedItems]);
+  const currentCharacterMilestone = useMemo(
+    () => createCharacterEvolutionMilestone(title.title, level.level, equippedCharacterGear),
+    [equippedCharacterGear, level.level, title.title],
+  );
+
+  useEffect(() => {
+    if (!ready) return;
+    if (hasMeaningfulCharacterEvolution(characterMilestone.current, currentCharacterMilestone)) {
+      setCharacterEvolutionPending(true);
+    }
+    characterMilestone.current = currentCharacterMilestone;
+  }, [currentCharacterMilestone, ready]);
   const daily = getDailyProgress(state);
   const pendingRevisions = getPendingRevisions(state);
   const activeBosses = state.bosses.filter((boss) => boss.status === "active");
@@ -133,7 +150,12 @@ export default function HomeScreen() {
       launchSequenceActive: isLaunchSequenceActive(),
       competingPresentationActive: Boolean(homeCelebration),
     })) return;
-    setShowRankAchievement(true);
+    if (characterEvolutionPending) {
+      setCharacterEvolutionPending(false);
+      setShowRankAchievement(true);
+      return;
+    }
+    setCharacterAcknowledgement((current) => current + 1);
   };
   const metricColumns = width < 600 ? 2 : 3;
   const metrics = [
@@ -180,7 +202,7 @@ export default function HomeScreen() {
           <View style={styles.heroContent}>
             <HomeFloat reduceMotion={state.profile.reduceMotion} distance={8} sway={2} duration={2_800} delay={180}>
               <View style={[styles.operatorColumn, { transform: [{ scale: operatorScale }] }]}>
-              <RankCharacter title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} compact onPress={openRankAchievement} />
+              <RankCharacter title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} compact onPress={openRankAchievement} equipment={equippedCharacterGear} acknowledgementNonce={characterAcknowledgement} />
               <HomeFire reduceMotion={state.profile.reduceMotion} />
               <Text numberOfLines={1} style={styles.operatorPlayerName}>{state.profile.firstName.toUpperCase()}</Text>
                 <Text numberOfLines={1} style={styles.operatorName}>{title.title.toUpperCase()}</Text>
@@ -364,7 +386,7 @@ export default function HomeScreen() {
         </HomeFloat>
       </ScrollView>
       {homeCelebration ? <CelebrationOverlay kind={homeCelebration} reduceMotion={state.profile.reduceMotion} onDone={() => setHomeCelebration(null)} /> : null}
-      <RankCharacterAchievement title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} soundEnabled={state.profile.soundEnabled && state.profile.soundRoles.achievement.enabled} visible={showRankAchievement} onDismiss={() => setShowRankAchievement(false)} />
+      <RankCharacterAchievement title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} soundEnabled={state.profile.soundEnabled && state.profile.soundRoles.achievement.enabled} equipment={equippedCharacterGear} mode="evolution" visible={showRankAchievement} onDismiss={() => setShowRankAchievement(false)} />
     </ScreenContainer>
   );
 }

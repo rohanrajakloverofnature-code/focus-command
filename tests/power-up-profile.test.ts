@@ -7,6 +7,13 @@ import {
   POWER_UP_AUDIO_CUES,
   POWER_UP_TIMELINE_MS,
 } from "../lib/power-up-profile";
+import {
+  CHARACTER_EVOLUTION_TIMELINE_MS,
+  createCharacterEvolutionMilestone,
+  getCharacterEvolutionProfile,
+  getEquippedGearLabels,
+  hasMeaningfulCharacterEvolution,
+} from "../lib/character-development";
 
 describe("title and level cinematic power-up profiles", () => {
   it("maps every level band to the intended deterministic power tier", () => {
@@ -83,5 +90,44 @@ describe("title and level cinematic power-up profiles", () => {
       launchSequenceActive: false,
       competingPresentationActive: true,
     })).toBe(false);
+  });
+
+  it("uses visibly distinct existing-title families and keeps development stages aligned to level thresholds", () => {
+    expect(getCharacterEvolutionProfile("Recruit", 1)).toMatchObject({ family: "tactical", stage: 0, formName: "Initiate" });
+    expect(getCharacterEvolutionProfile("Captain", 90)).toMatchObject({ family: "command", stage: 2, formName: "Armored Specialist" });
+    expect(getCharacterEvolutionProfile("Shadow Phantom", 180)).toMatchObject({ family: "shadow", stage: 3, formName: "Elite Operator" });
+    expect(getCharacterEvolutionProfile("Celestial Sovereign", 450)).toMatchObject({ family: "ascendant", stage: 5, formName: "Sovereign Form" });
+  });
+
+  it("uses the equipped local head, body, and accessory state as the only equipment-reveal source", () => {
+    const equipment = {
+      head: { id: "head-1", name: "Focus Visor", description: null, type: "FocusDevice" as const, rarity: "Epic" as const, level: 4, xpModifier: 112, energyConsumptionModifier: 95, imageUrl: null },
+      body: { id: "body-1", name: "Cognitive Amplifier", description: null, type: "EnergyPack" as const, rarity: "Rare" as const, level: 3, xpModifier: 108, energyConsumptionModifier: 94, imageUrl: null },
+      accessory: { id: "aura-1", name: "Aura Node", description: null, type: "AuraGenerator" as const, rarity: "Legendary" as const, level: 7, xpModifier: 125, energyConsumptionModifier: 90, imageUrl: null },
+    };
+
+    expect(getEquippedGearLabels(equipment)).toEqual([
+      expect.objectContaining({ slot: "HEAD", item: expect.objectContaining({ name: "Focus Visor" }) }),
+      expect.objectContaining({ slot: "BODY", item: expect.objectContaining({ name: "Cognitive Amplifier" }) }),
+      expect.objectContaining({ slot: "AUX", item: expect.objectContaining({ name: "Aura Node" }) }),
+    ]);
+  });
+
+  it("treats first hydration as a baseline and permits a full cinematic only after real progression or a gear change", () => {
+    const baseline = createCharacterEvolutionMilestone("Recruit", 29, {});
+    expect(hasMeaningfulCharacterEvolution(null, baseline)).toBe(false);
+    expect(hasMeaningfulCharacterEvolution(baseline, createCharacterEvolutionMilestone("Recruit", 29, {}))).toBe(false);
+    expect(hasMeaningfulCharacterEvolution(baseline, createCharacterEvolutionMilestone("Recruit", 30, {}))).toBe(true);
+    expect(hasMeaningfulCharacterEvolution(baseline, createCharacterEvolutionMilestone("Recruit", 29, {
+      accessory: { id: "aura-1", name: "Aura Node", description: null, type: "AuraGenerator", rarity: "Rare", level: 1, xpModifier: 105, energyConsumptionModifier: 98, imageUrl: null },
+    }))).toBe(true);
+  });
+
+  it("keeps asset/audio stages ordered and reserves a short no-audio acknowledgement for ordinary taps", () => {
+    expect(CHARACTER_EVOLUTION_TIMELINE_MS.build).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.materialize);
+    expect(CHARACTER_EVOLUTION_TIMELINE_MS.materialize).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.impact);
+    expect(CHARACTER_EVOLUTION_TIMELINE_MS.impact).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.reveal);
+    expect(CHARACTER_EVOLUTION_TIMELINE_MS.reveal).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.finish);
+    expect(CHARACTER_EVOLUTION_TIMELINE_MS.acknowledgementFinish).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.finish);
   });
 });

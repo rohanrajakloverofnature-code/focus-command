@@ -278,3 +278,8 @@
 - [x] Build only the requested data-driven title-and-level anime power-up overlay for the existing Home character interaction, with coordinated cinematic sound and no unrelated UI or workflow changes.
 - [x] Add safe repeated-tap, interruption, title-level selection, cleanup, and sound-timing coverage for the power-up interaction.
 - [x] Validate the focused power-up feature across supported title and level states before building a replacement APK.
+
+- [x] Analyze the supplied recording, reference video, and detailed specifications against the existing Home character, title, level, equipment, animation, and audio systems.
+- [x] Create a unique data-driven visual development and equipment-unlock path for each existing title and level milestone using only progression state.
+- [x] Add dedicated synchronized cinematic effects and sound for meaningful progression events, with subtle non-event idle character behavior and no generic repeated sequence.
+- [x] Add safety, trigger, equipment-state, audio-priority, cleanup, and non-regression coverage before validating and building a replacement APK.

@@ -1,5 +1,7 @@
 export type PowerUpTier = 0 | 1 | 2 | 3 | 4 | 5;
 
+import { CHARACTER_EVOLUTION_TIMELINE_MS, getCharacterEvolutionProfile, getDevelopmentStage } from "./character-development";
+
 export type PowerUpProfile = {
   tier: PowerUpTier;
   titleSignature: string;
@@ -18,12 +20,12 @@ export type PowerUpAvailability = {
 };
 
 export const POWER_UP_TIMELINE_MS = {
-  activation: 0,
-  build: 850,
-  transformation: 2_750,
-  impact: 4_650,
-  reveal: 5_100,
-  finish: 8_100,
+  activation: CHARACTER_EVOLUTION_TIMELINE_MS.activation,
+  build: CHARACTER_EVOLUTION_TIMELINE_MS.build,
+  transformation: CHARACTER_EVOLUTION_TIMELINE_MS.materialize,
+  impact: CHARACTER_EVOLUTION_TIMELINE_MS.impact,
+  reveal: CHARACTER_EVOLUTION_TIMELINE_MS.reveal,
+  finish: CHARACTER_EVOLUTION_TIMELINE_MS.finish,
 } as const;
 
 export const POWER_UP_AUDIO_CUES = [
@@ -48,17 +50,13 @@ function stableTitleIndex(title: string) {
 }
 
 export function getPowerUpTier(level: number): PowerUpTier {
-  if (level >= 450) return 5;
-  if (level >= 300) return 4;
-  if (level >= 180) return 3;
-  if (level >= 90) return 2;
-  if (level >= 30) return 1;
-  return 0;
+  return getDevelopmentStage(level);
 }
 
 export function getPowerUpProfile(title: string, level: number): PowerUpProfile {
   const signature = SIGNATURES[stableTitleIndex(title || "Recruit")];
   const tier = getPowerUpTier(level);
+  const evolution = getCharacterEvolutionProfile(title, level);
   const amplification = ["Pulse", "Charged", "Overclocked", "Ascended", "Mythic", "Limit-break"] as const;
 
   return {
@@ -67,9 +65,9 @@ export function getPowerUpProfile(title: string, level: number): PowerUpProfile 
     equipment: `${amplification[tier]} ${signature.equipment}`,
     ammunition: tier === 0 ? "Training loadout" : signature.ammunition,
     ability: tier < 2 ? signature.ability : `${amplification[tier]} ${signature.ability}`,
-    aura: `${amplification[tier]} ${signature.aura}`,
-    intensity: 0.55 + tier * 0.09,
-    impactLabel: `${signature.impact} · TIER ${tier + 1}`,
+    aura: `${amplification[tier]} ${evolution.aura}`,
+    intensity: 0.5 + tier * 0.1,
+    impactLabel: `${signature.impact} · TIER ${tier + 1} · ${evolution.formName.toUpperCase()}`,
   };
 }
 
