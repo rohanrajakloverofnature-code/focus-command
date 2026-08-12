@@ -19,6 +19,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { HomeFire } from "@/components/home-fire";
 import { HomeAmbientScene, HomeFloat } from "@/components/home-motion";
 import { IndiaSubjectMap } from "@/components/india-subject-map";
+import { MiniAchievementTicker } from "@/components/mini-achievement-ticker";
 import { RankCharacter, RankCharacterAchievement } from "@/components/rank-character";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -34,6 +35,7 @@ import {
   getBossProgress,
   getCurrentCombo,
   getCurrentTitle,
+  getDashboardStats,
   getDailyProgress,
   getEmotionalPatternForecast,
   getEnergy,
@@ -47,6 +49,7 @@ import {
   getTotalXp,
   useFocusCommand,
 } from "@/lib/focus-command";
+import { getMiniAchievementHeadlines } from "@/lib/mini-achievement-headlines";
 
 function syncLabel(phase: string, pending: number): string {
   if (phase === "needs_setup") return "Connect your sheet";
@@ -102,6 +105,7 @@ export default function HomeScreen() {
   const pendingRevisions = getPendingRevisions(state);
   const activeBosses = state.bosses.filter((boss) => boss.status === "active");
   const subjectCapture = useMemo(() => getSubjectCapture({ missions, srsTopics }), [missions, srsTopics]);
+  const miniAchievementHeadlines = useMemo(() => getMiniAchievementHeadlines(getDashboardStats(state).wallOfFame), [state]);
   const totalPower = getTotalPower(state);
   const totalXp = getTotalXp(state);
   const goldBalance = getGoldBalance(state);
@@ -142,12 +146,15 @@ export default function HomeScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <ScreenTitle
-          eyebrow="Focus Command"
-          title={state.profile.firstName}
-          detail={title.title}
-          right={<IconAction icon="line.3.horizontal" label="Open command settings" onPress={() => router.push("/settings")} />}
-        />
+        <View style={styles.headerZone}>
+          <ScreenTitle
+            eyebrow="Focus Command"
+            title={state.profile.firstName}
+            detail={title.title}
+            right={<IconAction icon="line.3.horizontal" label="Open command settings" onPress={() => router.push("/settings")} />}
+          />
+          <MiniAchievementTicker achievements={miniAchievementHeadlines} reduceMotion={state.profile.reduceMotion} style={styles.miniAchievementTicker} />
+        </View>
 
         <CommandCard accent={colors.primary} style={[styles.heroCard, { backgroundColor: "#0E1D2E", borderColor: "#234865" }]}>
           <View style={[styles.heroGrid, { pointerEvents: "none" }]}>
@@ -358,6 +365,8 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: 18, paddingTop: 12, paddingBottom: 30 },
+  headerZone: { minHeight: 72, position: "relative" },
+  miniAchievementTicker: { position: "absolute", left: 126, right: 0, top: 38 },
   heroCard: { minHeight: 266, padding: 18, position: "relative", overflow: "hidden" },
   fullWidth: { width: "100%" },
   heroCopyFloat: { flex: 1, minWidth: 0 },

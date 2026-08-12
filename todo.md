@@ -259,3 +259,7 @@
 - [x] Build, checkpoint, and deliver the focused native launch-sequence repair through the private GitHub workflow.
 
 - [x] Recompress only the derived animated fire asset below the checkpoint size limit while proving that its full frame sequence and continuous native animation remain intact.
+
+- [x] Tighten native fire-crackle start timing so it begins with the first visible fire frame, and strengthen the motivational quote shadow without changing the launch sequence’s behavior.
+- [x] Add a bounded Home-screen Mini Achievements ticker that cycles only real mini achievements rated above 3.0 in the marked header space without moving or overlapping existing UI.
+- [x] Add deterministic zero-, one-, and multiple-eligible-achievement regression coverage and validate the focused mobile refinement before building a replacement APK.

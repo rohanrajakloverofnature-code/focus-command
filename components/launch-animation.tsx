@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { Image } from "expo-image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { AppState, Platform, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -26,6 +26,10 @@ const launchQuoteTransitionAudio = require("../assets/sounds/launch-quote-transi
 // transparent WebP. Android decodes this as a real animated image, unlike the former
 // single-frame PNG fallback, while the Home screen remains visible behind the fire.
 const cinematicFireAlphaPlate = require("../assets/images/launch-fire-alpha.webp");
+// Native players can take a few frames to become audible even when preloaded. Revealing
+// the alpha fire fractionally after playback begins keeps the first visible flame and
+// first audible crackle perceptually aligned on physical Android devices.
+const NATIVE_FIRE_AUDIO_VISUAL_LEAD_MS = 96;
 type LaunchAudioPlayer = ReturnType<typeof createAudioPlayer>;
 
 export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
@@ -214,8 +218,9 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       glazeOpacity.value = withSequence(withDelay(900, withTiming(0.34, { duration: 100 })), withTiming(0, { duration: 170 }));
       glazeProgress.value = withDelay(900, withTiming(1, { duration: 230, easing: Easing.inOut(Easing.quad) }));
     } else {
+      const nativeFireVisualLead = Platform.OS === "web" ? 0 : NATIVE_FIRE_AUDIO_VISUAL_LEAD_MS;
       backdrop.value = withSequence(withTiming(0.03, { duration: 260, easing: Easing.out(Easing.cubic) }), withDelay(10_520, withTiming(0, { duration: 620, easing: Easing.inOut(Easing.cubic) })));
-      fireOpacity.value = withSequence(withTiming(1, { duration: 160, easing: Easing.out(Easing.cubic) }), withDelay(5_390, withTiming(0, { duration: 650, easing: Easing.inOut(Easing.cubic) })));
+      fireOpacity.value = withSequence(withDelay(nativeFireVisualLead, withTiming(1, { duration: 160, easing: Easing.out(Easing.cubic) })), withDelay(5_390 - nativeFireVisualLead, withTiming(0, { duration: 650, easing: Easing.inOut(Easing.cubic) })));
       quoteOpacity.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(false), withTiming(1, { duration: 430, easing: Easing.out(Easing.cubic) })), withDelay(getLaunchQuoteHoldDuration(false), withTiming(0, { duration: 590, easing: Easing.inOut(Easing.cubic) })));
       quoteScale.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(false), withTiming(1, { duration: 470, easing: Easing.out(Easing.cubic) })), withDelay(getLaunchQuoteHoldDuration(false) - 50, withTiming(0.99, { duration: 620, easing: Easing.inOut(Easing.cubic) })));
       glazeOpacity.value = withSequence(withDelay(10_180, withTiming(0.58, { duration: 360, easing: Easing.out(Easing.quad) })), withDelay(170, withTiming(0, { duration: 760, easing: Easing.inOut(Easing.cubic) })));
@@ -321,7 +326,7 @@ const styles = StyleSheet.create({
   fireGrade: { ...StyleSheet.absoluteFillObject },
   quoteFrame: { position: "absolute", left: 38, right: 38, top: "34%", minHeight: 126, justifyContent: "center", alignItems: "center" },
   quoteVignette: { position: "absolute", left: -42, right: -42, top: -46, bottom: -46 },
-  quote: { color: "#FFFDF8", textAlign: "center", fontSize: 27, lineHeight: 38, fontWeight: "800", letterSpacing: 0.12, textShadowColor: "#000000", textShadowRadius: 26, textShadowOffset: { width: 0, height: 5 } },
-  quoteHighContrast: { color: "#FFFFFF", textShadowColor: "#000000", textShadowRadius: 30, textShadowOffset: { width: 0, height: 5 } },
+  quote: { color: "#FFFDF8", textAlign: "center", fontSize: 27, lineHeight: 38, fontWeight: "800", letterSpacing: 0.12, textShadowColor: "#000000", textShadowRadius: 32, textShadowOffset: { width: 0, height: 6 } },
+  quoteHighContrast: { color: "#FFFFFF", textShadowColor: "#000000", textShadowRadius: 36, textShadowOffset: { width: 0, height: 6 } },
   glaze: { position: "absolute", top: 0 },
 });
