@@ -1,8 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
-import { VideoView, useVideoPlayer } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { AppState, Image, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -10,6 +9,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withRepeat,
   withSequence,
   withTiming,
 } from "react-native-reanimated";
@@ -18,11 +18,11 @@ import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from "rea
 import { getEmotionalPatternForecast, getWellbeingInsight, useFocusCommand } from "@/lib/focus-command";
 import { LAUNCH_QUOTE_HISTORY_KEY, nextLaunchQuoteHistory, parseLaunchQuoteHistory, selectLaunchQuote, type LaunchQuote } from "@/lib/launch-quotes";
 import { getLaunchFireSoundStopDelay, getLaunchFireStageHeight, getLaunchQuoteCueDelay, getLaunchQuoteVisibleDelay, getLaunchSequenceDuration } from "@/lib/launch-sequence";
-import { claimLaunchSequence } from "@/lib/launch-session";
+import { claimLaunchSequence, setLaunchSequenceActive } from "@/lib/launch-session";
 
 const launchFireAudio = require("../assets/sounds/launch-fire-crackle.mp3");
 const launchQuoteTransitionAudio = require("../assets/sounds/launch-quote-transition.m4a");
-const cinematicFirePlate = require("../assets/videos/cinematic-launch-fire.mp4");
+const transparentFireAsset = require("../assets/images/launch-fire-transparent.png");
 type LaunchAudioPlayer = ReturnType<typeof createAudioPlayer>;
 
 export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
@@ -36,6 +36,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   const audioRunRef = useRef(0);
   const hasFinishedRef = useRef(false);
   const hasSessionClaimRef = useRef(false);
+  const hasStartedSelectionRef = useRef(false);
 
   const backdrop = useSharedValue(0);
   const fireOpacity = useSharedValue(0);
@@ -43,6 +44,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   const quoteScale = useSharedValue(0.95);
   const glazeOpacity = useSharedValue(0);
   const glazeProgress = useSharedValue(-1);
+  const flameMotion = useSharedValue(0);
 
   const reduceMotion = state.profile.reduceMotion;
   const highContrast = state.profile.highContrast;
@@ -50,11 +52,6 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   const wellbeing = useMemo(() => getWellbeingInsight(state), [state]);
   const stageHeight = getLaunchFireStageHeight(height);
   const launchDuration = getLaunchSequenceDuration(reduceMotion);
-  const fireVideoPlayer = useVideoPlayer(cinematicFirePlate, (player) => {
-    player.loop = true;
-    player.muted = true;
-  });
-
   const clearTimers = useCallback(() => {
     timersRef.current.forEach((timer) => clearTimeout(timer));
     timersRef.current = [];
@@ -99,18 +96,17 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   }, [state.profile.soundEnabled]);
 
   const playFireAudio = useCallback(() => void playAudioCue(launchFireAudio, fireAudioPlayerRef, 0.48), [playAudioCue]);
-  const playQuoteTransitionAudio = useCallback(() => void playAudioCue(launchQuoteTransitionAudio, quoteAudioPlayerRef, 0.16), [playAudioCue]);
+  const playQuoteTransitionAudio = useCallback(() => {
+    stopPlayer(fireAudioPlayerRef);
+    void playAudioCue(launchQuoteTransitionAudio, quoteAudioPlayerRef, 0.18);
+  }, [playAudioCue, stopPlayer]);
 
   const finish = useCallback(() => {
     if (hasFinishedRef.current) return;
     hasFinishedRef.current = true;
     clearTimers();
     stopLaunchAudio();
-    try {
-      fireVideoPlayer.pause();
-    } catch {
-      // A video decoder can already be released by the platform during an interruption.
-    }
+    setLaunchSequenceActive(false);
     cancelAnimation(backdrop);
     cancelAnimation(fireOpacity);
     cancelAnimation(quoteOpacity);
@@ -119,7 +115,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     cancelAnimation(glazeProgress);
     setVisible(false);
     onFinished?.();
-  }, [backdrop, clearTimers, fireOpacity, fireVideoPlayer, glazeOpacity, glazeProgress, onFinished, quoteOpacity, quoteScale, stopLaunchAudio]);
+  }, [backdrop, clearTimers, fireOpacity, glazeOpacity, glazeProgress, onFinished, quoteOpacity, quoteScale, stopLaunchAudio]);
 
   useEffect(() => {
     if (!ready) return;
@@ -127,6 +123,8 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       if (!claimLaunchSequence()) return;
       hasSessionClaimRef.current = true;
     }
+    if (hasStartedSelectionRef.current) return;
+    hasStartedSelectionRef.current = true;
     let active = true;
     const selectQuote = async () => {
       let history: string[] = [];
@@ -143,6 +141,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       }
       if (!active) return;
       setQuote(selected);
+      setLaunchSequenceActive(true);
       setVisible(true);
     };
     void selectQuote();
@@ -160,27 +159,22 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     quoteScale.value = 0.95;
     glazeOpacity.value = 0;
     glazeProgress.value = -1;
-
-    try {
-      fireVideoPlayer.currentTime = 0;
-      fireVideoPlayer.play();
-    } catch {
-      // The grade, ember, and smoke layers remain a graceful visual fallback if the video decoder is unavailable.
-    }
+    flameMotion.value = 0;
 
     if (reduceMotion) {
-      backdrop.value = withSequence(withTiming(0.36, { duration: 100 }), withDelay(880, withTiming(0, { duration: 180 })));
+      backdrop.value = withSequence(withTiming(0.08, { duration: 100 }), withDelay(880, withTiming(0, { duration: 180 })));
       fireOpacity.value = withSequence(withDelay(45, withTiming(0.72, { duration: 130 })), withDelay(140, withTiming(0, { duration: 190 })));
       quoteOpacity.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(true), withTiming(1, { duration: 150 })), withDelay(170, withTiming(0, { duration: 150 })));
       quoteScale.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(true), withTiming(1, { duration: 160, easing: Easing.out(Easing.cubic) })), withDelay(160, withTiming(0.99, { duration: 140 })));
-      glazeOpacity.value = withSequence(withDelay(900, withTiming(0.12, { duration: 100 })), withTiming(0, { duration: 140 }));
+      glazeOpacity.value = withSequence(withDelay(900, withTiming(0.34, { duration: 100 })), withTiming(0, { duration: 170 }));
       glazeProgress.value = withDelay(900, withTiming(1, { duration: 230, easing: Easing.inOut(Easing.quad) }));
     } else {
-      backdrop.value = withSequence(withTiming(0.42, { duration: 260, easing: Easing.out(Easing.cubic) }), withDelay(5_180, withTiming(0, { duration: 560, easing: Easing.inOut(Easing.cubic) })));
+      backdrop.value = withSequence(withTiming(0.08, { duration: 260, easing: Easing.out(Easing.cubic) }), withDelay(5_180, withTiming(0, { duration: 560, easing: Easing.inOut(Easing.cubic) })));
       fireOpacity.value = withSequence(withDelay(130, withTiming(1, { duration: 1_080, easing: Easing.out(Easing.cubic) })), withDelay(540, withTiming(0, { duration: 920, easing: Easing.inOut(Easing.cubic) })));
       quoteOpacity.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(false), withTiming(1, { duration: 430, easing: Easing.out(Easing.cubic) })), withDelay(1_650, withTiming(0, { duration: 590, easing: Easing.inOut(Easing.cubic) })));
       quoteScale.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(false), withTiming(1, { duration: 470, easing: Easing.out(Easing.cubic) })), withDelay(1_600, withTiming(0.99, { duration: 620, easing: Easing.inOut(Easing.cubic) })));
-      glazeOpacity.value = withSequence(withDelay(5_030, withTiming(0.16, { duration: 280, easing: Easing.out(Easing.quad) })), withDelay(120, withTiming(0, { duration: 540, easing: Easing.inOut(Easing.cubic) })));
+      flameMotion.value = withRepeat(withSequence(withTiming(1, { duration: 780, easing: Easing.inOut(Easing.sin) }), withTiming(0, { duration: 850, easing: Easing.inOut(Easing.sin) })), 3, false);
+      glazeOpacity.value = withSequence(withDelay(4_860, withTiming(0.52, { duration: 310, easing: Easing.out(Easing.quad) })), withDelay(150, withTiming(0, { duration: 600, easing: Easing.inOut(Easing.cubic) })));
       glazeProgress.value = withDelay(4_940, withTiming(1, { duration: 980, easing: Easing.inOut(Easing.cubic) }));
     }
 
@@ -192,13 +186,9 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     return () => {
       clearTimers();
       stopLaunchAudio();
-      try {
-        fireVideoPlayer.pause();
-      } catch {
-        // Native video cleanup can race with an app-state interruption.
-      }
+      setLaunchSequenceActive(false);
     };
-  }, [backdrop, clearTimers, finish, fireOpacity, fireVideoPlayer, glazeOpacity, glazeProgress, launchDuration, playFireAudio, playQuoteTransitionAudio, quoteOpacity, quoteScale, reduceMotion, stopLaunchAudio, stopPlayer, visible]);
+  }, [backdrop, clearTimers, finish, fireOpacity, flameMotion, glazeOpacity, glazeProgress, launchDuration, playFireAudio, playQuoteTransitionAudio, quoteOpacity, quoteScale, reduceMotion, stopLaunchAudio, stopPlayer, visible]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
@@ -209,7 +199,15 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
 
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value }));
   const firePlateStyle = useAnimatedStyle(() => {
-    return { opacity: fireOpacity.value * 0.86, transform: [{ translateY: (1 - fireOpacity.value) * stageHeight * 0.16 }, { scaleX: 1.34 }] };
+    return {
+      opacity: fireOpacity.value,
+      transform: [
+        { translateY: (1 - fireOpacity.value) * stageHeight * 0.14 - flameMotion.value * stageHeight * 0.025 },
+        { translateX: (flameMotion.value - 0.5) * width * 0.012 },
+        { scaleX: 1.08 + flameMotion.value * 0.035 },
+        { scaleY: 1 + flameMotion.value * 0.045 },
+      ],
+    };
   });
   const fireGradeStyle = useAnimatedStyle(() => ({ opacity: fireOpacity.value * 0.5 }));
   const quoteStyle = useAnimatedStyle(() => ({ opacity: quoteOpacity.value, transform: [{ scale: quoteScale.value }] }));
@@ -219,10 +217,10 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
 
   return (
     <View accessibilityViewIsModal accessible accessibilityLabel={`Focus Command launch sequence. ${quote.text}`} style={styles.stage}>
-      <Animated.View style={[styles.darkVeil, backdropStyle]} />
+      <Animated.View pointerEvents="none" style={[styles.darkVeil, backdropStyle]} />
       <View style={[styles.fireStage, { height: stageHeight }]}> 
-        <Animated.View style={[styles.cinematicFirePlate, { width, height: stageHeight * 1.16, bottom: -stageHeight * 0.12 }, firePlateStyle]}>
-          <VideoView contentFit="contain" nativeControls={false} player={fireVideoPlayer} surfaceType="textureView" style={styles.cinematicFireVideo} />
+        <Animated.View style={[styles.cinematicFirePlate, { width, height: stageHeight * 1.22, bottom: -stageHeight * 0.05 }, firePlateStyle]}>
+          <Image resizeMode="stretch" source={transparentFireAsset} style={styles.cinematicFireImage} />
         </Animated.View>
         <Animated.View style={[styles.fireGrade, fireGradeStyle]}>
           <Svg height={stageHeight} width={width} viewBox={`0 0 ${Math.max(1, width)} ${Math.max(1, stageHeight)}`}>
@@ -260,10 +258,10 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
 
 const styles = StyleSheet.create({
   stage: { ...StyleSheet.absoluteFillObject, zIndex: 10_000, elevation: 10_000, overflow: "hidden", justifyContent: "center" },
-  darkVeil: { ...StyleSheet.absoluteFillObject, backgroundColor: "#071019" },
+  darkVeil: { ...StyleSheet.absoluteFillObject, backgroundColor: "#1A0A04" },
   fireStage: { position: "absolute", left: 0, right: 0, bottom: 0, overflow: "hidden" },
   cinematicFirePlate: { position: "absolute", left: 0, bottom: 0 },
-  cinematicFireVideo: { flex: 1, backgroundColor: "transparent" },
+  cinematicFireImage: { width: "100%", height: "100%" },
   fireGrade: { ...StyleSheet.absoluteFillObject },
   quoteFrame: { position: "absolute", left: 38, right: 38, top: "34%", alignItems: "center" },
   quote: { color: "#FFFDF8", textAlign: "center", fontSize: 27, lineHeight: 38, fontWeight: "700", letterSpacing: 0.12, textShadowColor: "#06101AE6", textShadowRadius: 10, textShadowOffset: { width: 0, height: 2 } },

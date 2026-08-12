@@ -1,6 +1,7 @@
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 
 import type { SoundRoleId, SoundRoleSettings, SoundStyle } from "@/lib/focus-command";
+import { isLaunchSequenceActive } from "@/lib/launch-session";
 
 type CueName = "tap" | "confirm" | "notification" | "achievement";
 
@@ -56,7 +57,7 @@ async function playPlayer(player: ReturnType<typeof createAudioPlayer>) {
 }
 
 export async function playFocusCue(name: CueName, enabled: boolean) {
-  if (!enabled) return;
+  if (!enabled || isLaunchSequenceActive()) return;
   try {
     await playPlayer(getBundledPlayer(name));
   } catch {
@@ -66,7 +67,7 @@ export async function playFocusCue(name: CueName, enabled: boolean) {
 
 export async function playFocusRole(role: SoundRoleId, masterEnabled: boolean, settings?: SoundRoleSettings) {
   const resolved = settings ?? defaultRoleSettings;
-  if (!masterEnabled || !resolved.enabled) return;
+  if (!masterEnabled || !resolved.enabled || isLaunchSequenceActive()) return;
   try {
     if (resolved.customUri) {
       await playPlayer(getCustomPlayer(resolved.customUri));

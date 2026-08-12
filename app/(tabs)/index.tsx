@@ -23,7 +23,9 @@ import { RankCharacter, RankCharacterAchievement } from "@/components/rank-chara
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { playFocusRole } from "@/lib/focus-audio";
+import { getEligibleCelebration, type CelebrationMilestone } from "@/lib/celebration-lifecycle";
 import { getForecastMotivationMessages } from "@/lib/home-motivation";
+import { isLaunchSequenceActive } from "@/lib/launch-session";
 import {
   formatCompactNumber,
   formatHours,
@@ -62,7 +64,7 @@ export default function HomeScreen() {
   const level = getLevelInfo(state);
   const title = getCurrentTitle(state);
   const combo = getCurrentCombo(state);
-  const milestones = useRef({ level: level.level, title: title.title, combo: combo.multiplier });
+  const milestones = useRef<CelebrationMilestone | null>(null);
   const [homeCelebration, setHomeCelebration] = useState<CelebrationKind | null>(null);
   const [showRankAchievement, setShowRankAchievement] = useState(false);
   const [motivationIndex, setMotivationIndex] = useState(0);
@@ -70,13 +72,14 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!ready) return;
     const previous = milestones.current;
-    const nextKind: CelebrationKind | null = title.title !== previous.title ? "title" : level.level > previous.level ? "level" : combo.multiplier > previous.combo ? "combo" : null;
+    const current = { level: level.level, title: title.title, combo: combo.multiplier };
+    const nextKind = getEligibleCelebration(previous, current, isLaunchSequenceActive());
     if (nextKind) {
       setHomeCelebration(nextKind);
       const role = nextKind === "title" ? "titleUnlock" : nextKind === "level" ? "levelUp" : "comboTier";
       void playFocusRole(role, state.profile.soundEnabled, state.profile.soundRoles[role]);
     }
-    milestones.current = { level: level.level, title: title.title, combo: combo.multiplier };
+    milestones.current = current;
   }, [combo.multiplier, level.level, ready, state.profile.soundEnabled, state.profile.soundRoles, title.title]);
 
   const forecast = getEmotionalPatternForecast(state);

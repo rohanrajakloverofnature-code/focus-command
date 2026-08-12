@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { claimLaunchSequence, resetLaunchSequenceForTests } from "../lib/launch-session";
+import { claimLaunchSequence, isLaunchSequenceActive, resetLaunchSequenceForTests, setLaunchSequenceActive } from "../lib/launch-session";
 import {
   getLaunchFireSoundStopDelay,
   getLaunchFireStageHeight,
@@ -23,6 +23,14 @@ describe("Launch-only lifecycle guard", () => {
   it("claims the overlay once per JavaScript process so navigation cannot restart it", () => {
     expect(claimLaunchSequence()).toBe(true);
     expect(claimLaunchSequence()).toBe(false);
+  });
+
+  it("exposes a root-level active stage so competing celebrations and sounds can remain silent", () => {
+    expect(isLaunchSequenceActive()).toBe(false);
+    setLaunchSequenceActive(true);
+    expect(isLaunchSequenceActive()).toBe(true);
+    setLaunchSequenceActive(false);
+    expect(isLaunchSequenceActive()).toBe(false);
   });
 
   it("uses a brief reduced-motion alternative instead of the continuous sequence", () => {

@@ -191,3 +191,12 @@
 - [x] Refine only the launch composition so photorealistic fire fills the lower screen naturally while the underlying app remains visible.
 - [x] Separate fire playback from the quote reveal with a deliberate pause, balanced audio ducking, an elegant non-horror transition cue, and minimal typography-only quote treatment.
 - [x] Add deterministic timing and audio-balance safeguards; validate responsive bounds, full regression coverage, static output, and launch lifecycle.
+
+- [x] Review the supplied recording and audit launch transparency, animation overlap, level-up trigger state, audio concurrency, glaze visibility, and rendering pressure.
+
+- [x] Trace and eliminate any launch-animation replay caused by interaction, navigation, hydration, or re-render rather than a true app launch/open.
+- [x] Establish a root-level launch-only gate plus shared animation and audio arbitration for launch, quote, and level-up phases.
+- [x] Revalidate transparency, exclusive level-up triggering, cinematic glaze, sound priority, and all specified launch/reopen/interaction scenarios.
+- [x] Design mutually exclusive launch, quote, and level-up animation/audio phases that preserve existing gameplay and screen behavior.
+- [x] Make the launch fire fully transparent, enhance the cinematic glaze, restrict level-up playback to genuine level changes, and enforce audio priority with cleanup.
+- [x] Add deterministic lifecycle and audio-arbitration coverage; validate launch, level-up, interruption, resize, build, and production-start scenarios.
