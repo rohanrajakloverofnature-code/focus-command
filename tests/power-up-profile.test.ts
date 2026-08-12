@@ -135,7 +135,7 @@ describe("title and level cinematic power-up profiles", () => {
     }))).toBe(true);
   });
 
-  it("keeps asset/audio stages ordered and reserves a short no-audio acknowledgement for ordinary taps", () => {
+  it("keeps the full asset-and-audio sequence ordered for every permitted replay", () => {
     expect(CHARACTER_EVOLUTION_TIMELINE_MS.build).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.materialize);
     expect(CHARACTER_EVOLUTION_TIMELINE_MS.materialize).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.impact);
     expect(CHARACTER_EVOLUTION_TIMELINE_MS.impact).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.reveal);
@@ -144,8 +144,19 @@ describe("title and level cinematic power-up profiles", () => {
     expect(CHARACTER_EVOLUTION_TIMELINE_MS.acknowledgementFinish).toBeLessThan(CHARACTER_EVOLUTION_TIMELINE_MS.finish);
   });
 
-  it("gives every permitted character tap a visible presentation without replaying the cinematic for stable progress", () => {
-    expect(getCharacterTapPresentation(false)).toBe("acknowledgement");
+  it("replays the full current-level cinematic on every permitted character tap", () => {
+    expect(getCharacterTapPresentation(false)).toBe("evolution");
     expect(getCharacterTapPresentation(true)).toBe("evolution");
+  });
+
+  it("keeps current level stage and title family as deterministic sources of visual replay variation", () => {
+    const tactical = getCharacterEvolutionProfile("Recruit", 31);
+    const command = getCharacterEvolutionProfile("Brigadier", 91);
+    const ascendant = getCharacterEvolutionProfile("Celestial Sovereign", 451);
+
+    expect(tactical.family).not.toBe(command.family);
+    expect(command.family).not.toBe(ascendant.family);
+    expect(tactical.stage).toBeLessThan(command.stage);
+    expect(command.stage).toBeLessThan(ascendant.stage);
   });
 });

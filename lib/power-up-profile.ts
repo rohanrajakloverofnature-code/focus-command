@@ -92,10 +92,10 @@ export function canStartPowerUp({
 }
 
 /**
- * Every permitted explicit character tap receives visible feedback. The
- * cinematic evolution and its sound cues remain reserved for genuine
- * progression, while a stable character receives the shorter silent form view.
+ * Every permitted explicit character tap replays the full current-form
+ * cinematic. The caller still uses `canStartPowerUp` to keep the sequence
+ * isolated from launch, celebrations, and an already-visible presentation.
  */
-export function getCharacterTapPresentation(evolutionPending: boolean): CharacterTapPresentation {
-  return evolutionPending ? "evolution" : "acknowledgement";
+export function getCharacterTapPresentation(_evolutionPending: boolean): CharacterTapPresentation {
+  return "evolution";
 }

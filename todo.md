@@ -310,3 +310,8 @@
 
 - [x] Reproduce and repair the installed-APK live mission timer that remains at 0.0 h during an active session, including its persisted session-state compatibility path.
 - [x] Add installed-build-focused timer regression coverage, validate pause/resume and completion behavior, then publish the verified repair.
+
+- [x] Diagnose and repair the character interaction that only plays a full audible cinematic once at the Brigadier title.
+- [x] Make every permitted Home character-logo tap replay the full sound-enabled cinematic for the current real level, title, and equipped gear without conflicting with other presentation stages.
+- [x] Create richer, visibly varied level- and title-driven progression cinematics with stronger armor/suit formation, impact, shake, energy, and sound design.
+- [x] Add regression coverage and validate repeat taps, progression variations, audio lifecycle, interruption safety, and all project quality gates before checkpointing.
