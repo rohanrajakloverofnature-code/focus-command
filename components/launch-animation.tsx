@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
-import { VideoView, useVideoPlayer } from "expo-video";
+import { Image } from "expo-image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, {
@@ -22,9 +22,9 @@ import { claimLaunchSequence, setLaunchSequenceActive } from "@/lib/launch-sessi
 
 const launchFireAudio = require("../assets/sounds/launch-fire-crackle.mp3");
 const launchQuoteTransitionAudio = require("../assets/sounds/launch-quote-transition.m4a");
-// This is the user's approved 24 fps cinematic fire footage. It supplies the real flame motion;
-// the screen blend removes only its baked black matte while preserving those original frames.
-const cinematicFirePlate = require("../assets/videos/cinematic-launch-fire.mp4");
+// These are the original approved cinematic fire frames stored with a clean alpha channel.
+// The APNG keeps their native 24 fps movement while allowing the Home screen to remain fully visible.
+const cinematicFireAlphaPlate = require("../assets/images/launch-fire-alpha.png");
 type LaunchAudioPlayer = ReturnType<typeof createAudioPlayer>;
 
 export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
@@ -46,11 +46,6 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   const quoteScale = useSharedValue(0.95);
   const glazeOpacity = useSharedValue(0);
   const glazeProgress = useSharedValue(-1);
-  const fireVideoPlayer = useVideoPlayer(cinematicFirePlate, (player) => {
-    player.loop = true;
-    player.muted = true;
-    player.pause();
-  });
   const reduceMotion = state.profile.reduceMotion;
   const highContrast = state.profile.highContrast;
   const forecast = useMemo(() => getEmotionalPatternForecast(state), [state]);
@@ -146,14 +141,9 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     cancelAnimation(quoteScale);
     cancelAnimation(glazeOpacity);
     cancelAnimation(glazeProgress);
-    try {
-      fireVideoPlayer.pause();
-    } catch {
-      // Native decoder teardown can race an app-state interruption.
-    }
     setVisible(false);
     onFinished?.();
-  }, [backdrop, clearTimers, fireOpacity, fireVideoPlayer, glazeOpacity, glazeProgress, onFinished, quoteOpacity, quoteScale, stopLaunchAudio]);
+  }, [backdrop, clearTimers, fireOpacity, glazeOpacity, glazeProgress, onFinished, quoteOpacity, quoteScale, stopLaunchAudio]);
 
   useEffect(() => {
     if (!ready) return;
@@ -213,13 +203,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       glazeProgress.value = withDelay(10_240, withTiming(1, { duration: 1_150, easing: Easing.inOut(Easing.cubic) }));
     }
 
-    try {
-      fireVideoPlayer.currentTime = 0;
-      fireVideoPlayer.play();
-    } catch {
-      // The bundled fire plate may be unavailable on a constrained device; the launch still completes.
-    }
-    // Fire video and preloaded crackle begin in this same launch tick, before the first opacity frame.
+    // The alpha fire animation and preloaded crackle begin in this same launch tick, before the first opacity frame.
     playFireAudio();
     const fireStopTimer = setTimeout(() => stopPlayer(fireAudioPlayerRef), getLaunchFireSoundStopDelay(reduceMotion));
     const quoteTimer = setTimeout(playQuoteTransitionAudio, getLaunchQuoteCueDelay(reduceMotion));
@@ -228,14 +212,9 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     return () => {
       clearTimers();
       stopLaunchAudio();
-      try {
-        fireVideoPlayer.pause();
-      } catch {
-        // Native decoder cleanup can race the screen teardown.
-      }
       setLaunchSequenceActive(false);
     };
-  }, [backdrop, clearTimers, finish, fireOpacity, fireVideoPlayer, glazeOpacity, glazeProgress, launchDuration, playFireAudio, playQuoteTransitionAudio, quoteOpacity, quoteScale, reduceMotion, stopLaunchAudio, stopPlayer, visible]);
+  }, [backdrop, clearTimers, finish, fireOpacity, glazeOpacity, glazeProgress, launchDuration, playFireAudio, playQuoteTransitionAudio, quoteOpacity, quoteScale, reduceMotion, stopLaunchAudio, stopPlayer, visible]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
@@ -248,10 +227,6 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   const firePlateStyle = useAnimatedStyle(() => {
     return {
       opacity: fireOpacity.value,
-      transform: [
-        { scaleX: 1.08 },
-        { scaleY: 1.02 },
-      ],
     };
   });
   const fireGradeStyle = useAnimatedStyle(() => ({ opacity: fireOpacity.value * 0.4 }));
@@ -265,7 +240,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       <Animated.View pointerEvents="none" style={[styles.darkVeil, backdropStyle]} />
       <View style={[styles.fireStage, { height: stageHeight }]}> 
         <Animated.View style={[styles.cinematicFirePlate, { width, height: stageHeight * 1.16, bottom: -stageHeight * 0.12 }, firePlateStyle]}>
-          <VideoView contentFit="contain" nativeControls={false} player={fireVideoPlayer} surfaceType="textureView" style={styles.cinematicFireVideo} />
+          <Image autoplay cachePolicy="memory-disk" contentFit="contain" source={cinematicFireAlphaPlate} style={styles.cinematicFireImage} />
         </Animated.View>
         <Animated.View style={[styles.fireGrade, fireGradeStyle]}>
           <Svg height={stageHeight} width={width} viewBox={`0 0 ${Math.max(1, width)} ${Math.max(1, stageHeight)}`}>
@@ -318,10 +293,9 @@ const styles = StyleSheet.create({
   darkVeil: { ...StyleSheet.absoluteFillObject, backgroundColor: "#1A0A04" },
   fireStage: { position: "absolute", left: 0, right: 0, bottom: 0, overflow: "hidden" },
   cinematicFirePlate: { position: "absolute", left: 0, bottom: 0 },
-  cinematicFireVideo: {
+  cinematicFireImage: {
     flex: 1,
     backgroundColor: "transparent",
-    mixBlendMode: "screen",
   },
   fireGrade: { ...StyleSheet.absoluteFillObject },
   quoteFrame: { position: "absolute", left: 38, right: 38, top: "34%", minHeight: 126, justifyContent: "center", alignItems: "center" },

@@ -223,3 +223,7 @@
 - [x] Restore a non-bobbing cinematic fire presentation from the approved footage with crackle beginning at the first visible flame frame.
 - [x] Increase only the quote text shadow while retaining the existing transparent background, app UI, animation ownership, and all functionality.
 - [x] Validate motion quality, sound synchronization, quote readability, lifecycle safety, responsive bounds, and production output before checkpointing.
+
+- [x] Audit why the restored approved fire footage still renders a visible black matte despite the current compositing style.
+- [x] Remove the black matte through a transparent compositing path that preserves every approved fire frame, launch guard, sound timing, and unrelated app behavior.
+- [x] Validate matte-free rendering and complete lifecycle, audio, and production checks before checkpointing.
