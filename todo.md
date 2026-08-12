@@ -252,3 +252,10 @@
 - [x] Audit why the GitHub-built APK lacks the Google OAuth client configuration available to the Expo Go development environment; local validation confirms the Web Client ID exists, while the GitHub workflow injects no OAuth values.
 - [x] Add a secure GitHub Actions configuration path for the required Google OAuth build values without exposing credentials in the private repository.
 - [x] Build and validate a replacement APK with Google Sheets authorization enabled, then document the secure setup and delivery path.
+
+- [x] Analyze the supplied installed-APK launch recording and compare native fire playback, sound timing, quote cue, and quote readability against preview behavior; the installed APK receives a single static RGBA PNG, while preview behavior masked the missing native animated-frame implementation.
+- [x] Identify and correct the native-specific cause of static-looking fire, mismatched fire sound duration, absent quote sound, and unreadable quote contrast without changing other app behavior.
+- [x] Validate the corrected launch source locally through type checks, 86 regression tests, lint, and static export; native APK artifact validation remains required.
+- [ ] Build, checkpoint, and deliver the focused native launch-sequence repair through the private GitHub workflow.
+
+- [x] Recompress only the derived animated fire asset below the checkpoint size limit while proving that its full frame sequence and continuous native animation remain intact.

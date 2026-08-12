@@ -17,14 +17,15 @@ import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from "rea
 
 import { getEmotionalPatternForecast, getWellbeingInsight, useFocusCommand } from "@/lib/focus-command";
 import { LAUNCH_QUOTE_HISTORY_KEY, nextLaunchQuoteHistory, parseLaunchQuoteHistory, selectLaunchQuote, type LaunchQuote } from "@/lib/launch-quotes";
-import { getLaunchFireSoundStopDelay, getLaunchFireStageHeight, getLaunchQuoteCueDelay, getLaunchQuoteHoldDuration, getLaunchQuoteVisibleDelay, getLaunchSequenceDuration } from "@/lib/launch-sequence";
+import { getLaunchFireSoundStopDelay, getLaunchFireStageHeight, getLaunchQuoteHoldDuration, getLaunchQuoteVisibleDelay, getLaunchSequenceDuration } from "@/lib/launch-sequence";
 import { claimLaunchSequence, setLaunchSequenceActive } from "@/lib/launch-session";
 
 const launchFireAudio = require("../assets/sounds/launch-fire-crackle.mp3");
 const launchQuoteTransitionAudio = require("../assets/sounds/launch-quote-transition.m4a");
-// These are the original approved cinematic fire frames stored with a clean alpha channel.
-// The APNG keeps their native 24 fps movement while allowing the Home screen to remain fully visible.
-const cinematicFireAlphaPlate = require("../assets/images/launch-fire-alpha.png");
+// The original approved cinematic fire footage, converted frame-for-frame to animated
+// transparent WebP. Android decodes this as a real animated image, unlike the former
+// single-frame PNG fallback, while the Home screen remains visible behind the fire.
+const cinematicFireAlphaPlate = require("../assets/images/launch-fire-alpha.webp");
 type LaunchAudioPlayer = ReturnType<typeof createAudioPlayer>;
 
 export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
@@ -78,16 +79,24 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   useEffect(() => {
     if (!state.profile.soundEnabled) return;
     try {
-      // Preload before the sequence becomes visible so play() is not delayed by player creation.
-      const player = createAudioPlayer(launchFireAudio);
-      player.volume = 0.48;
-      player.loop = true;
-      fireAudioPlayerRef.current = player;
+      // Preload before the first fire frame becomes visible so neither player creation nor
+      // decoding can push audio behind its corresponding visual moment on Android.
+      const firePlayer = createAudioPlayer(launchFireAudio);
+      firePlayer.volume = 0.5;
+      firePlayer.loop = true;
+      fireAudioPlayerRef.current = firePlayer;
+
+      const quotePlayer = createAudioPlayer(launchQuoteTransitionAudio);
+      quotePlayer.volume = 0.44;
+      quoteAudioPlayerRef.current = quotePlayer;
     } catch {
-      // A deferred fallback remains available from playFireAudio if preloading is unavailable.
+      // Each cue has a deferred fallback below if preloading is unavailable.
     }
     void setAudioModeAsync({ playsInSilentMode: false });
-    return () => stopPlayer(fireAudioPlayerRef);
+    return () => {
+      stopPlayer(fireAudioPlayerRef);
+      stopPlayer(quoteAudioPlayerRef);
+    };
   }, [state.profile.soundEnabled, stopPlayer]);
 
   const playAudioCue = useCallback(async (source: number, target: { current: LaunchAudioPlayer | null }, volume: number, loop = false) => {
@@ -122,11 +131,21 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
         stopPlayer(fireAudioPlayerRef);
       }
     }
-    void playAudioCue(launchFireAudio, fireAudioPlayerRef, 0.48, true);
+    void playAudioCue(launchFireAudio, fireAudioPlayerRef, 0.5, true);
   }, [playAudioCue, stopPlayer]);
   const playQuoteTransitionAudio = useCallback(() => {
     stopPlayer(fireAudioPlayerRef);
-    void playAudioCue(launchQuoteTransitionAudio, quoteAudioPlayerRef, 0.18);
+    const player = quoteAudioPlayerRef.current;
+    if (player) {
+      try {
+        player.seekTo(0);
+        player.play();
+        return;
+      } catch {
+        stopPlayer(quoteAudioPlayerRef);
+      }
+    }
+    void playAudioCue(launchQuoteTransitionAudio, quoteAudioPlayerRef, 0.44);
   }, [playAudioCue, stopPlayer]);
 
   const finish = useCallback(() => {
@@ -206,7 +225,9 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     // The alpha fire animation and preloaded crackle begin in this same launch tick, before the first opacity frame.
     playFireAudio();
     const fireStopTimer = setTimeout(() => stopPlayer(fireAudioPlayerRef), getLaunchFireSoundStopDelay(reduceMotion));
-    const quoteTimer = setTimeout(playQuoteTransitionAudio, getLaunchQuoteCueDelay(reduceMotion));
+    // The quote cue begins with the first visible quote frame, rather than an earlier
+    // abstract timeline marker, so its sound is always perceptually attached to the text.
+    const quoteTimer = setTimeout(playQuoteTransitionAudio, getLaunchQuoteVisibleDelay(reduceMotion));
     const endTimer = setTimeout(finish, launchDuration);
     timersRef.current = [fireStopTimer, quoteTimer, endTimer];
     return () => {
@@ -260,8 +281,8 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
           <Svg height="100%" width="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
             <Defs>
               <RadialGradient id="launch-quote-vignette" cx="50%" cy="50%" rx="64%" ry="58%">
-                <Stop offset="0" stopColor="#05080D" stopOpacity="0.28" />
-                <Stop offset="0.54" stopColor="#05080D" stopOpacity="0.18" />
+                <Stop offset="0" stopColor="#05080D" stopOpacity="0.52" />
+                <Stop offset="0.54" stopColor="#05080D" stopOpacity="0.34" />
                 <Stop offset="1" stopColor="#05080D" stopOpacity="0" />
               </RadialGradient>
             </Defs>
@@ -300,7 +321,7 @@ const styles = StyleSheet.create({
   fireGrade: { ...StyleSheet.absoluteFillObject },
   quoteFrame: { position: "absolute", left: 38, right: 38, top: "34%", minHeight: 126, justifyContent: "center", alignItems: "center" },
   quoteVignette: { position: "absolute", left: -42, right: -42, top: -46, bottom: -46 },
-  quote: { color: "#FFFDF8", textAlign: "center", fontSize: 27, lineHeight: 38, fontWeight: "700", letterSpacing: 0.12, textShadowColor: "#020407F2", textShadowRadius: 16, textShadowOffset: { width: 0, height: 3 } },
-  quoteHighContrast: { color: "#FFFFFF", textShadowColor: "#000000", textShadowRadius: 8, textShadowOffset: { width: 0, height: 2 } },
+  quote: { color: "#FFFDF8", textAlign: "center", fontSize: 27, lineHeight: 38, fontWeight: "800", letterSpacing: 0.12, textShadowColor: "#000000", textShadowRadius: 26, textShadowOffset: { width: 0, height: 5 } },
+  quoteHighContrast: { color: "#FFFFFF", textShadowColor: "#000000", textShadowRadius: 30, textShadowOffset: { width: 0, height: 5 } },
   glaze: { position: "absolute", top: 0 },
 });
