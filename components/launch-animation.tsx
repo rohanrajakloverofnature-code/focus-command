@@ -282,7 +282,13 @@ const styles = StyleSheet.create({
   darkVeil: { ...StyleSheet.absoluteFillObject, backgroundColor: "#1A0A04" },
   fireStage: { position: "absolute", left: 0, right: 0, bottom: 0, overflow: "hidden" },
   cinematicFirePlate: { position: "absolute", left: 0, bottom: 0 },
-  cinematicFireVideo: { flex: 1, backgroundColor: "transparent" },
+  cinematicFireVideo: {
+    flex: 1,
+    backgroundColor: "transparent",
+    // Screen blending treats the source video’s black matte as visually transparent,
+    // while preserving every original flame frame above the existing app surface.
+    mixBlendMode: "screen",
+  },
   fireGrade: { ...StyleSheet.absoluteFillObject },
   quoteFrame: { position: "absolute", left: 38, right: 38, top: "34%", alignItems: "center" },
   quote: { color: "#FFFDF8", textAlign: "center", fontSize: 27, lineHeight: 38, fontWeight: "700", letterSpacing: 0.12, textShadowColor: "#06101AE6", textShadowRadius: 10, textShadowOffset: { width: 0, height: 2 } },

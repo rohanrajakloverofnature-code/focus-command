@@ -204,3 +204,7 @@
 - [x] Identify and restore the previously approved fire animation, removing only the unintended replacement asset and code path.
 - [x] Retain the requested launch-only guard, exclusive animation/audio priority, genuine level-up gate, transparent layering, and stronger glaze around the restored fire.
 - [x] Revalidate the narrow restoration without changing other features, then checkpoint the corrected version.
+
+- [x] Inspect the approved fire video’s black matte and select a transparency-preserving compositing path that does not alter the fire animation.
+- [x] Integrate the matte-free approved fire footage without changing its movement, launch-only behavior, animation arbitration, audio priority, or glaze.
+- [x] Validate transparent compositing, visual fidelity, lifecycle safeguards, rendering performance, and static production output before checkpointing.
