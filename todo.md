@@ -273,3 +273,8 @@
 - [x] Repair elapsed-time propagation and persistence so completed mission durations drive Home, History, Dashboard, and analytics consistently.
 - [x] Move the Mini Achievement ticker clear of the hamburger control and make its tap navigate to the existing Wall of Fame.
 - [x] Add regression coverage and run a broad existing-flow validation pass without adding or redesigning app features before building a replacement APK.
+
+- [x] Analyze both supplied videos and map their approved power-up interaction requirements to the existing title, character, level, animation, and sound systems.
+- [x] Build only the requested data-driven title-and-level anime power-up overlay for the existing Home character interaction, with coordinated cinematic sound and no unrelated UI or workflow changes.
+- [x] Add safe repeated-tap, interruption, title-level selection, cleanup, and sound-timing coverage for the power-up interaction.
+- [x] Validate the focused power-up feature across supported title and level states before building a replacement APK.

@@ -51,6 +51,7 @@ import {
   useFocusCommand,
 } from "@/lib/focus-command";
 import { getMiniAchievementHeadlines } from "@/lib/mini-achievement-headlines";
+import { canStartPowerUp } from "@/lib/power-up-profile";
 
 function syncLabel(phase: string, pending: number): string {
   if (phase === "needs_setup") return "Connect your sheet";
@@ -127,8 +128,12 @@ export default function HomeScreen() {
   if (!ready) return <LoadingScreen />;
   const motivation = motivationMessages[motivationIndex % motivationMessages.length] ?? motivationMessages[0];
   const openRankAchievement = () => {
+    if (!canStartPowerUp({
+      alreadyVisible: showRankAchievement,
+      launchSequenceActive: isLaunchSequenceActive(),
+      competingPresentationActive: Boolean(homeCelebration),
+    })) return;
     setShowRankAchievement(true);
-    void playFocusRole("achievement", state.profile.soundEnabled, state.profile.soundRoles.achievement);
   };
   const metricColumns = width < 600 ? 2 : 3;
   const metrics = [
@@ -359,7 +364,7 @@ export default function HomeScreen() {
         </HomeFloat>
       </ScrollView>
       {homeCelebration ? <CelebrationOverlay kind={homeCelebration} reduceMotion={state.profile.reduceMotion} onDone={() => setHomeCelebration(null)} /> : null}
-      <RankCharacterAchievement title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} visible={showRankAchievement} onDismiss={() => setShowRankAchievement(false)} />
+      <RankCharacterAchievement title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} soundEnabled={state.profile.soundEnabled && state.profile.soundRoles.achievement.enabled} visible={showRankAchievement} onDismiss={() => setShowRankAchievement(false)} />
     </ScreenContainer>
   );
 }
