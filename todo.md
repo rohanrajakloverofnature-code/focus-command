@@ -291,3 +291,11 @@
 - [x] Diagnose and restore durable direct GitHub repository and Actions access after the completed device authorization fails to reach workflow commands.
 
 - [x] Diagnose and repair the installed-APK Home character-logo tap that currently gives no visible interaction.
+
+- [x] Push the validated Home character-tap repair checkpoint to the private GitHub repository without triggering an APK build.
+
+- [x] Repair persistent GitHub authorization so approved repository access survives shell sessions and does not repeatedly request device codes.
+
+- [x] Trace and repair live mission active-time persistence across pause, resume, app reload, and completion.
+- [x] Restore the original 45-minute actual-active-time trigger for emotion and reflection questions, including correct saved results.
+- [x] Add regression coverage for active-time, pause handling, persistence, completion, and the 45-minute reflection threshold.

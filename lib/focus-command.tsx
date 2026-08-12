@@ -902,10 +902,36 @@ export function getCurrentTitle(state: FocusState): { title: string; index: numb
   return { title: state.profile.titles[titleIndex] ?? "Commander", index: titleIndex, progress };
 }
 
+export const LONG_MISSION_REFLECTION_THRESHOLD_MS = 45 * 60_000;
+
+function getFiniteTimestamp(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+/**
+ * Older locally persisted missions can predate the pausedMilliseconds field.
+ * Treat a missing or malformed saved value as no accumulated pause rather than
+ * allowing NaN to collapse the visible active timer and completion duration.
+ */
+function getMissionPausedMilliseconds(mission: Pick<Mission, "pausedMilliseconds">): number {
+  return Number.isFinite(mission.pausedMilliseconds) ? Math.max(0, mission.pausedMilliseconds) : 0;
+}
+
 export function getMissionInvestedMilliseconds(mission: Mission, referenceTime = Date.now()): number {
-  if (!mission.startedAt) return 0;
-  const endTime = mission.endedAt ? Date.parse(mission.endedAt) : mission.pausedAt ? Date.parse(mission.pausedAt) : referenceTime;
-  return Math.max(0, endTime - Date.parse(mission.startedAt) - mission.pausedMilliseconds);
+  const startedAt = getFiniteTimestamp(mission.startedAt);
+  if (startedAt === null) return 0;
+  const fallbackReferenceTime = Number.isFinite(referenceTime) ? referenceTime : Date.now();
+  const endTime = getFiniteTimestamp(mission.endedAt)
+    ?? getFiniteTimestamp(mission.completedAt)
+    ?? getFiniteTimestamp(mission.pausedAt)
+    ?? fallbackReferenceTime;
+  return Math.max(0, endTime - startedAt - getMissionPausedMilliseconds(mission));
+}
+
+export function isLongMissionReflectionEligible(mission: Mission, referenceTime = Date.now()): boolean {
+  return getMissionInvestedMilliseconds(mission, referenceTime) >= LONG_MISSION_REFLECTION_THRESHOLD_MS;
 }
 
 export function getMissionCompletionRecords(state: FocusState): MissionCompletionRecord[] {
@@ -1448,6 +1474,11 @@ export function normalizeHydratedState(input: FocusState): FocusState {
     combo: { ...defaults.combo, ...(input.combo ?? {}) },
     missions: (input.missions ?? []).map((mission) => ({
       ...mission,
+      startedAt: mission.startedAt ?? null,
+      pausedAt: mission.pausedAt ?? null,
+      pausedMilliseconds: getMissionPausedMilliseconds(mission),
+      endedAt: mission.endedAt ?? null,
+      completedAt: mission.completedAt ?? null,
       frequency: mission.frequency ?? "once",
       allowMultipleDailyCompletions: mission.allowMultipleDailyCompletions ?? false,
       completionHistory: mission.completionHistory ?? (mission.completedAt ? [mission.completedAt] : []),
@@ -1594,7 +1625,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
           return { ...mission, status: "paused", pausedAt: nowIso() };
         }
         if (mission.status === "paused" && mission.pausedAt) {
-          const pausedMilliseconds = mission.pausedMilliseconds + Math.max(0, Date.now() - Date.parse(mission.pausedAt));
+          const pausedMilliseconds = getMissionPausedMilliseconds(mission) + Math.max(0, Date.now() - Date.parse(mission.pausedAt));
           return { ...mission, status: "active", pausedAt: null, pausedMilliseconds };
         }
         return mission;
@@ -1634,7 +1665,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     const sourceMission = state.missions.find((mission) => mission.id === missionId);
     if (!sourceMission || !sourceMission.startedAt || (sourceMission.status !== "active" && sourceMission.status !== "paused")) return null;
     const endedAt = nowIso();
-    const pausedMilliseconds = sourceMission.pausedMilliseconds + (sourceMission.pausedAt ? Math.max(0, Date.now() - Date.parse(sourceMission.pausedAt)) : 0);
+    const pausedMilliseconds = getMissionPausedMilliseconds(sourceMission) + (sourceMission.pausedAt ? Math.max(0, Date.now() - Date.parse(sourceMission.pausedAt)) : 0);
     const completedMission: Mission = {
       ...sourceMission,
       status: "completed",

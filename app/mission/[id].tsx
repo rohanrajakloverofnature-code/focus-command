@@ -6,7 +6,7 @@ import { CommandButton, CommandCard, IconAction, LoadingScreen, ProgressBar, Scr
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { CustomQuestion, Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getMissionInvestedMilliseconds, ReflectionDraft, useFocusCommand } from "@/lib/focus-command";
+import { CustomQuestion, Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getMissionInvestedMilliseconds, isLongMissionReflectionEligible, ReflectionDraft, useFocusCommand } from "@/lib/focus-command";
 import { playFocusSuccessCue } from "@/lib/focus-audio";
 import { scheduleAchievementRecap } from "@/lib/focus-reminders";
 
@@ -47,7 +47,7 @@ export default function MissionDetailScreen() {
   }, [mission?.status]);
 
   const duration = useMemo(() => mission ? getMissionInvestedMilliseconds(mission, clock) : 0, [mission, clock]);
-  const isLongMission = duration >= 45 * 60_000;
+  const isLongMission = mission ? isLongMissionReflectionEligible(mission, clock) : false;
 
   if (!ready) return <LoadingScreen label="Opening mission…" />;
   if (!mission) {
