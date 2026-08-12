@@ -218,3 +218,8 @@
 - [x] Design natural layered rise/flicker motion and a subtle integrated quote vignette without changing existing app UI or other animations.
 - [x] Implement organic transparent fire movement, cinematic glow, smooth entrance/exit, and quote contrast treatment only.
 - [x] Validate multiple launch states for movement, transparency, readability, lifecycle, responsiveness, and production build behavior.
+
+- [x] Audit the approved fire’s prior smoother behavior, current bobbing transforms, crackle start delay, and quote-shadow contrast.
+- [x] Restore a non-bobbing cinematic fire presentation from the approved footage with crackle beginning at the first visible flame frame.
+- [x] Increase only the quote text shadow while retaining the existing transparent background, app UI, animation ownership, and all functionality.
+- [x] Validate motion quality, sound synchronization, quote readability, lifecycle safety, responsive bounds, and production output before checkpointing.
