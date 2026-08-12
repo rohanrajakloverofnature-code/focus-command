@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createInitialState, type Mission } from "../lib/focus-command";
+import { createInitialState, normalizeHydratedState, type Mission } from "../lib/focus-command";
 import { getDashboardWorkspaceResult } from "../lib/dashboard-workspace";
 
 function mission(overrides: Partial<Mission> = {}): Mission {
@@ -45,8 +45,9 @@ describe("Custom Analytics workspace", () => {
       { id: "workspace_physics_progress", missionId: physicsMission.id, baseXp: 50, comboMultiplier: 1, goldMultiplier: 1, powerAwarded: 80, goldAwarded: 5, occurredAt: now, note: "Physics ledger" },
     );
 
-    const widget = { ...state.profile.dashboardWidgets[0], metric: "power" as const, dateRange: "7d" as const, feature: "missions" as const, subject: "Math", category: "all", missionFrequency: "all" as const };
-    const result = getDashboardWorkspaceResult(state, widget);
+    const hydrated = normalizeHydratedState({ ...state, missionCompletions: undefined as never });
+    const widget = { ...hydrated.profile.dashboardWidgets[0], metric: "power" as const, dateRange: "7d" as const, feature: "missions" as const, subject: "Math", category: "all", missionFrequency: "all" as const };
+    const result = getDashboardWorkspaceResult(hydrated, widget);
 
     expect(result.total).toBe(120);
     expect(result.sampleCount).toBe(1);

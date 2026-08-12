@@ -7,28 +7,29 @@ import { CommandButton, CommandCard, LoadingScreen, MetricTile, ProgressBar, Scr
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, formatHours, getMissionInvestedMilliseconds, getTotalPower, useFocusCommand } from "@/lib/focus-command";
+import { formatCompactNumber, formatHours, getMissionCompletionRecords, getMissionInvestedMilliseconds, getTotalPower, useFocusCommand } from "@/lib/focus-command";
 import { playFocusRole } from "@/lib/focus-audio";
 
 export default function MissionResultScreen() {
   const colors = useColors();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, completionId } = useLocalSearchParams<{ id: string; completionId?: string }>();
   const { state, ready } = useFocusCommand();
   const mission = state.missions.find((candidate) => candidate.id === id);
-  const event = state.progression.find((candidate) => candidate.missionId === id);
+  const completion = completionId ? getMissionCompletionRecords(state).find((candidate) => candidate.id === completionId) : null;
+  const event = completion?.progression ?? state.progression.filter((candidate) => candidate.missionId === id).at(-1);
   const [celebration, setCelebration] = useState<CelebrationKind | null>(null);
 
   useEffect(() => {
-    if (!ready || !event) return;
+    if (!ready || !event || completionId) return;
     const kind: CelebrationKind = event.titleAfter && event.titleAfter !== event.titleBefore ? "title" : event.levelAfter && event.levelAfter > (event.levelBefore ?? event.levelAfter) ? "level" : event.comboAfter && event.comboAfter > (event.comboBefore ?? event.comboAfter) ? "combo" : "mission";
     setCelebration(kind);
     const role = kind === "title" ? "titleUnlock" : kind === "level" ? "levelUp" : kind === "combo" ? "comboTier" : "missionWin";
     void playFocusRole(role, state.profile.soundEnabled, state.profile.soundRoles[role]);
-  }, [event, ready, state.profile.soundEnabled, state.profile.soundRoles]);
+  }, [completionId, event, ready, state.profile.soundEnabled, state.profile.soundRoles]);
 
   if (!ready) return <LoadingScreen label="Calculating mission result…" />;
 
-  if (!mission) {
+  if (!mission && !completion) {
     return (
       <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
         <View style={styles.missing}>
@@ -39,14 +40,16 @@ export default function MissionResultScreen() {
     );
   }
 
-  const reflection = state.reflections.find((candidate) => candidate.missionId === mission.id);
-  const duration = getMissionInvestedMilliseconds(mission);
+  const reflection = completion?.reflection ?? state.reflections.filter((candidate) => candidate.missionId === id).at(-1);
+  const duration = completion?.durationMs ?? (mission ? getMissionInvestedMilliseconds(mission) : 0);
   const totalPower = getTotalPower(state);
+  const title = completion?.title ?? mission?.title ?? "Mission";
+  const baseXp = completion?.baseXp ?? mission?.baseXp ?? 0;
 
   return (
     <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <ScreenTitle eyebrow="Mission report" title="Objective secured" detail={mission.title} />
+        <ScreenTitle eyebrow="Mission report" title="Objective secured" detail={title} />
 
         <CommandCard accent="#F4C95D" style={styles.hero}>
           <View style={[styles.medallion, { borderColor: "#F4C95D", backgroundColor: "#F4C95D18" }]}>
@@ -63,7 +66,7 @@ export default function MissionResultScreen() {
 
         <View style={styles.metrics}>
           <MetricTile label="Active time" value={formatHours(duration)} detail="Paused time removed" icon="timer" accent={colors.primary} />
-          <MetricTile label="Base XP" value={formatCompactNumber(event?.baseXp ?? mission.baseXp)} detail={`${(event?.comboMultiplier ?? 1).toFixed(2)}× combo`} icon="bolt.fill" accent={colors.primary} />
+          <MetricTile label="Base XP" value={formatCompactNumber(event?.baseXp ?? baseXp)} detail={`${(event?.comboMultiplier ?? 1).toFixed(2)}× combo`} icon="bolt.fill" accent={colors.primary} />
           <MetricTile label="Gold earned" value={formatCompactNumber(event?.goldAwarded ?? 0)} detail={(event?.goldMultiplier ?? 1) > 1 ? `${event?.goldMultiplier}× cache applied` : "1 gold per 10 power"} icon="star.fill" accent="#F4C95D" />
           <MetricTile label="Total power" value={formatCompactNumber(totalPower)} detail="Lifetime earned" icon="shield.fill" accent={colors.success} />
         </View>
@@ -85,7 +88,7 @@ export default function MissionResultScreen() {
           </CommandCard>
         ) : null}
 
-        {mission.revisionTopicIds.length ? (
+        {mission?.revisionTopicIds.length ? (
           <CommandCard accent={colors.warning} style={styles.srsCard}>
             <View style={styles.srsIcon}><IconSymbol name="arrow.clockwise" size={19} color={colors.warning} /></View>
             <View style={styles.srsCopy}>

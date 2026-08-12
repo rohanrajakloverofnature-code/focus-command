@@ -312,6 +312,27 @@ export interface MissionCompletion {
   durationMs: number;
   reflectionId: string;
   progressionEventId: string;
+  /** Immutable mission details retained when a repeatable mission returns to Planned. */
+  missionTitle?: string;
+  missionSubject?: string;
+  missionCategory?: string;
+  missionDifficulty?: Difficulty;
+  missionBaseXp?: number;
+  missionFrequency?: MissionFrequency;
+  allowMultipleDailyCompletions?: boolean;
+}
+
+/** One completed mission instance enriched with its durable award and reflection records. */
+export interface MissionCompletionRecord extends MissionCompletion {
+  title: string;
+  subject: string;
+  category: string;
+  difficulty: Difficulty;
+  baseXp: number;
+  frequency: MissionFrequency;
+  repeatable: boolean;
+  reflection: Reflection | null;
+  progression: ProgressionEvent | null;
 }
 
 export interface LifelinePoint {
@@ -887,28 +908,111 @@ export function getMissionInvestedMilliseconds(mission: Mission, referenceTime =
   return Math.max(0, endTime - Date.parse(mission.startedAt) - mission.pausedMilliseconds);
 }
 
+export function getMissionCompletionRecords(state: FocusState): MissionCompletionRecord[] {
+  const missionsById = new Map(state.missions.map((mission) => [mission.id, mission]));
+  const reflectionsByCompletion = new Map(state.reflections.filter((reflection) => reflection.completionId).map((reflection) => [reflection.completionId as string, reflection]));
+  const progressionByCompletion = new Map(state.progression.filter((event) => event.completionId).map((event) => [event.completionId as string, event]));
+  const persistedCompletions = state.missionCompletions ?? [];
+  const representedProgression = new Set(persistedCompletions.flatMap((completion) => [completion.id, completion.progressionEventId]).filter(Boolean));
+  const representedMissionMoments = new Set(persistedCompletions.map((completion) => `${completion.missionId}:${completion.completedAt}`));
+  const legacyProgressionCompletions: MissionCompletion[] = state.progression
+    .filter((event) => Boolean(event.missionId) && !representedProgression.has(event.id) && !representedProgression.has(event.completionId ?? ""))
+    .map((event) => {
+      const mission = missionsById.get(event.missionId as string);
+      return {
+        id: event.completionId ?? `completion_legacy_${event.id}`,
+        missionId: event.missionId as string,
+        startedAt: mission?.startedAt ?? event.occurredAt,
+        completedAt: event.occurredAt,
+        durationMs: mission?.completedAt === event.occurredAt ? getMissionInvestedMilliseconds(mission) : 0,
+        reflectionId: state.reflections.find((reflection) => reflection.missionId === event.missionId && reflection.createdAt === event.occurredAt)?.id ?? "",
+        progressionEventId: event.id,
+        missionTitle: mission?.title,
+        missionSubject: mission?.subject,
+        missionCategory: mission?.category,
+        missionDifficulty: mission?.difficulty,
+        missionBaseXp: mission?.baseXp,
+        missionFrequency: mission?.frequency,
+        allowMultipleDailyCompletions: mission?.allowMultipleDailyCompletions,
+      };
+    });
+  const legacyMissionCompletions: MissionCompletion[] = state.missions.flatMap((mission) => {
+    const timestamps = mission.completionHistory.length ? mission.completionHistory : mission.completedAt ? [mission.completedAt] : [];
+    return timestamps
+      .filter((completedAt) => !representedMissionMoments.has(`${mission.id}:${completedAt}`) && !legacyProgressionCompletions.some((completion) => completion.missionId === mission.id && completion.completedAt === completedAt))
+      .map((completedAt) => ({
+        id: mission.id,
+        missionId: mission.id,
+        startedAt: mission.startedAt ?? completedAt,
+        completedAt,
+        durationMs: mission.completedAt === completedAt ? getMissionInvestedMilliseconds(mission) : 0,
+        reflectionId: state.reflections.find((reflection) => reflection.missionId === mission.id && reflection.createdAt === completedAt)?.id ?? "",
+        progressionEventId: state.progression.find((event) => event.missionId === mission.id && event.occurredAt === completedAt)?.id ?? "",
+        missionTitle: mission.title,
+        missionSubject: mission.subject,
+        missionCategory: mission.category,
+        missionDifficulty: mission.difficulty,
+        missionBaseXp: mission.baseXp,
+        missionFrequency: mission.frequency,
+        allowMultipleDailyCompletions: mission.allowMultipleDailyCompletions,
+      }));
+  });
+  const completionInstances = [...persistedCompletions, ...legacyProgressionCompletions, ...legacyMissionCompletions];
+
+  return completionInstances.map((completion) => {
+    const mission = missionsById.get(completion.missionId);
+    const reflection = reflectionsByCompletion.get(completion.id)
+      ?? state.reflections.find((candidate) => candidate.id === completion.reflectionId)
+      ?? state.reflections.find((candidate) => candidate.missionId === completion.missionId && candidate.createdAt === completion.completedAt)
+      ?? state.reflections.find((candidate) => candidate.missionId === completion.missionId)
+      ?? null;
+    const progression = progressionByCompletion.get(completion.id)
+      ?? state.progression.find((candidate) => candidate.id === completion.progressionEventId)
+      ?? state.progression.find((candidate) => candidate.missionId === completion.missionId && candidate.occurredAt === completion.completedAt)
+      ?? state.progression.find((candidate) => candidate.missionId === completion.missionId)
+      ?? null;
+    return {
+      ...completion,
+      title: completion.missionTitle ?? mission?.title ?? "Mission",
+      subject: completion.missionSubject ?? mission?.subject ?? "",
+      category: completion.missionCategory ?? mission?.category ?? "",
+      difficulty: completion.missionDifficulty ?? mission?.difficulty ?? "medium",
+      baseXp: completion.missionBaseXp ?? mission?.baseXp ?? progression?.baseXp ?? 0,
+      frequency: completion.missionFrequency ?? mission?.frequency ?? "once",
+      repeatable: completion.allowMultipleDailyCompletions ?? mission?.allowMultipleDailyCompletions ?? false,
+      reflection,
+      progression,
+    };
+  }).sort((left, right) => right.completedAt.localeCompare(left.completedAt));
+}
+
+export function getTodayMissionCompletions(state: FocusState): MissionCompletionRecord[] {
+  const today = toLocalDate(nowIso(), state.profile.timezone);
+  return getMissionCompletionRecords(state).filter((completion) => toLocalDate(completion.completedAt, state.profile.timezone) === today);
+}
+
 export function getTodayMissions(state: FocusState): Mission[] {
   const today = toLocalDate(nowIso(), state.profile.timezone);
   return state.missions.filter((mission) => mission.completedAt && toLocalDate(mission.completedAt, state.profile.timezone) === today);
 }
 
 export function getEnergy(state: FocusState): { remaining: number; used: number; maximum: number } {
-  const used = getTodayMissions(state).reduce((total, mission) => {
-    const minutes = getMissionInvestedMilliseconds(mission) / 60_000;
-    return total + minutes * state.profile.energyCostPerMinute[mission.difficulty];
+  const used = getTodayMissionCompletions(state).reduce((total, completion) => {
+    const minutes = completion.durationMs / 60_000;
+    return total + minutes * state.profile.energyCostPerMinute[completion.difficulty];
   }, 0);
   const maximum = state.profile.energyMaximum;
   return { remaining: Math.max(0, Math.round(maximum - used)), used: Math.round(used), maximum };
 }
 
 export function getDailyProgress(state: FocusState): { earned: number; target: number; progress: number } {
-  const earned = getTodayMissions(state).reduce((total, mission) => total + mission.baseXp, 0);
+  const earned = getTodayMissionCompletions(state).reduce((total, completion) => total + (completion.progression?.baseXp ?? completion.baseXp), 0);
   const target = Math.max(1, state.profile.dailyTargetXp);
   return { earned, target, progress: Math.min(1, earned / target) };
 }
 
 export function getTodayInvestedMilliseconds(state: FocusState): number {
-  return getTodayMissions(state).reduce((total, mission) => total + getMissionInvestedMilliseconds(mission), 0);
+  return getTodayMissionCompletions(state).reduce((total, completion) => total + completion.durationMs, 0);
 }
 
 export interface CalendarTimeAverages {
@@ -940,9 +1044,9 @@ export function getCalendarTimeAverages(state: FocusState, referenceIso = nowIso
   let weekTotalHours = 0;
   let monthTotalHours = 0;
 
-  state.missions.filter((mission) => mission.completedAt).forEach((mission) => {
-    const completedDate = toLocalDate(mission.completedAt!, state.profile.timezone);
-    const hours = getMissionInvestedMilliseconds(mission) / 3_600_000;
+  getMissionCompletionRecords(state).forEach((completion) => {
+    const completedDate = toLocalDate(completion.completedAt, state.profile.timezone);
+    const hours = completion.durationMs / 3_600_000;
     if (completedDate >= weekStart && completedDate <= today) weekTotalHours += hours;
     if (completedDate >= monthStart && completedDate <= today) monthTotalHours += hours;
   });
@@ -1164,34 +1268,34 @@ export function getWellbeingInsight(state: FocusState): WellbeingInsight {
 export function getDashboardStats(state: FocusState) {
   const today = toLocalDate(nowIso(), state.profile.timezone);
   const sevenDaysAgo = addDays(today, -6);
-  const recentCompleted = state.missions.filter((mission) => mission.completedAt && toLocalDate(mission.completedAt, state.profile.timezone) >= sevenDaysAgo);
-  const reflectionsByMission = new Map(state.reflections.map((reflection) => [reflection.missionId, reflection]));
-  const wallOfFame: WallOfFameEntry[] = recentCompleted.flatMap((mission) => {
-    const reflection = reflectionsByMission.get(mission.id);
+  const completed = getMissionCompletionRecords(state);
+  const recentCompleted = completed.filter((completion) => toLocalDate(completion.completedAt, state.profile.timezone) >= sevenDaysAgo);
+  const wallOfFame: WallOfFameEntry[] = recentCompleted.flatMap((completion) => {
+    const reflection = completion.reflection;
     const rating = reflection?.miniAchievementRating ?? 0;
     if (rating <= 3 || !reflection) return [];
 
     return [{
       id: reflection.id,
-      missionId: mission.id,
-      missionTitle: mission.title,
+      missionId: completion.missionId,
+      missionTitle: completion.title,
       miniAchievement: reflection.miniAchievement.trim() || "Mini achievement not recorded",
       miniAchievementRating: rating,
-      occurredAt: mission.completedAt ?? mission.createdAt,
+      occurredAt: completion.completedAt,
     }];
   });
-  const achievementRadar = recentCompleted.filter((mission) => reflectionsByMission.get(mission.id)?.feelingAfter === "great");
+  const achievementRadar = recentCompleted.filter((completion) => completion.reflection?.feelingAfter === "great");
 
   const bySubject = new Map<string, number>();
   const byCategory = new Map<string, number>();
-  recentCompleted.forEach((mission) => {
-    const duration = getMissionInvestedMilliseconds(mission);
-    bySubject.set(mission.subject || "Unassigned", (bySubject.get(mission.subject || "Unassigned") ?? 0) + duration);
-    byCategory.set(mission.category || "Unassigned", (byCategory.get(mission.category || "Unassigned") ?? 0) + duration);
+  recentCompleted.forEach((completion) => {
+    const duration = completion.durationMs;
+    bySubject.set(completion.subject || "Unassigned", (bySubject.get(completion.subject || "Unassigned") ?? 0) + duration);
+    byCategory.set(completion.category || "Unassigned", (byCategory.get(completion.category || "Unassigned") ?? 0) + duration);
   });
 
-  const totalHours = state.missions.filter((mission) => mission.status === "completed").reduce((total, mission) => total + getMissionInvestedMilliseconds(mission), 0) / 3_600_000;
-  const distinctDays = new Set(state.missions.filter((mission) => mission.completedAt).map((mission) => toLocalDate(mission.completedAt!, state.profile.timezone))).size;
+  const totalHours = completed.reduce((total, completion) => total + completion.durationMs, 0) / 3_600_000;
+  const distinctDays = new Set(completed.map((completion) => toLocalDate(completion.completedAt, state.profile.timezone))).size;
   return {
     wallOfFame,
     achievementRadar,
@@ -1250,7 +1354,7 @@ interface FocusCommandContextValue {
   removeMission: (missionId: string) => void;
   startMission: (missionId: string) => void;
   toggleMissionPause: (missionId: string) => void;
-  finishMission: (missionId: string, reflection: ReflectionDraft) => { durationMs: number; lootReward: Reward | null } | null;
+  finishMission: (missionId: string, reflection: ReflectionDraft) => { completionId: string; durationMs: number; lootReward: Reward | null } | null;
   logRevisionTopic: (missionId: string, topic: string, subject?: string) => void;
   completeRevision: (topicId: string) => void;
   createBoss: (input: Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold">) => string;
@@ -1289,6 +1393,19 @@ export function normalizeHydratedState(input: FocusState): FocusState {
   const defaults = createInitialState();
   const allEquipment = input.allEquipment ?? defaults.allEquipment;
   const userEquipment = reconcileEquipmentInventory(allEquipment, input.userEquipment ?? defaults.userEquipment, nowIso());
+  const existingCompletions = input.missionCompletions ?? [];
+  const representedProgression = new Set(existingCompletions.flatMap((completion) => [completion.id, completion.progressionEventId]).filter(Boolean));
+  const migratedLegacyCompletions = (input.progression ?? [])
+    .filter((event) => Boolean(event.missionId) && !representedProgression.has(event.id) && !representedProgression.has(event.completionId ?? ""))
+    .map((event) => ({
+      id: event.completionId ?? `completion_legacy_${event.id}`,
+      missionId: event.missionId as string,
+      startedAt: event.occurredAt,
+      completedAt: event.occurredAt,
+      durationMs: 0,
+      reflectionId: (input.reflections ?? []).find((reflection) => reflection.missionId === event.missionId && reflection.createdAt === event.occurredAt)?.id ?? "",
+      progressionEventId: event.id,
+    }));
   return {
     ...defaults,
     ...input,
@@ -1335,17 +1452,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       allowMultipleDailyCompletions: mission.allowMultipleDailyCompletions ?? false,
       completionHistory: mission.completionHistory ?? (mission.completedAt ? [mission.completedAt] : []),
     })),
-    missionCompletions: input.missionCompletions ?? (input.progression ?? [])
-      .filter((event) => Boolean(event.missionId))
-      .map((event) => ({
-        id: event.completionId ?? `completion_legacy_${event.id}`,
-        missionId: event.missionId as string,
-        startedAt: event.occurredAt,
-        completedAt: event.occurredAt,
-        durationMs: 0,
-        reflectionId: (input.reflections ?? []).find((reflection) => reflection.missionId === event.missionId && reflection.createdAt === event.occurredAt)?.id ?? "",
-        progressionEventId: event.id,
-      })),
+    missionCompletions: [...existingCompletions, ...migratedLegacyCompletions],
     googleSheet: { ...defaults.googleSheet, ...(input.googleSheet ?? {}) },
     rewards: input.rewards?.length ? input.rewards : defaults.rewards,
     customGraphs: input.customGraphs?.length ? input.customGraphs : defaults.customGraphs,
@@ -1546,6 +1653,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     };
     const durationMs = getMissionInvestedMilliseconds(completedMission);
     let lootReward: Reward | null = null;
+    let completionIdForResult: string | null = null;
 
     commit((current) => {
       const completionDate = toLocalDate(endedAt, current.profile.timezone);
@@ -1559,6 +1667,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       const goldPowerCarry = carryTotal - goldAwarded * 10;
       // Each completion gets its own progression event with independent XP calculation
       const completionId = createId("completion");
+      completionIdForResult = completionId;
       const progressionId = createId("progress");
       const reflectionId = createId("reflection");
       const reflection: Reflection = {
@@ -1718,6 +1827,13 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         durationMs,
         reflectionId,
         progressionEventId: progressionId,
+        missionTitle: completedMission.title,
+        missionSubject: completedMission.subject,
+        missionCategory: completedMission.category,
+        missionDifficulty: completedMission.difficulty,
+        missionBaseXp: completedMission.baseXp,
+        missionFrequency: completedMission.frequency,
+        allowMultipleDailyCompletions: completedMission.allowMultipleDailyCompletions,
       };
       return withQueuedOperation({
         ...current,
@@ -1735,7 +1851,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         goldPowerCarry,
       }, 4);
     });
-    return { durationMs, lootReward };
+    if (!completionIdForResult) return null;
+    return { completionId: completionIdForResult, durationMs, lootReward };
   }, [commit, state.missions]);
 
   const completeRevision = useCallback((topicId: string) => {

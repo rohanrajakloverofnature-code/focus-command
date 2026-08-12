@@ -8,6 +8,7 @@ import {
   MINI_ACHIEVEMENT_HEADLINE_INTERVAL_MS,
   type MiniAchievementHeadline,
 } from "@/lib/mini-achievement-headlines";
+import { MINI_ACHIEVEMENT_TICKER_LAYOUT } from "@/lib/focus-layout";
 
 export function MiniAchievementTicker({
   achievements,
@@ -86,19 +87,19 @@ export function MiniAchievementTicker({
 
 const styles = StyleSheet.create({
   ticker: {
-    height: 36,
+    height: MINI_ACHIEVEMENT_TICKER_LAYOUT.height,
     overflow: "hidden",
-    borderRadius: 11,
+    borderRadius: 13,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#F4C95D50",
     backgroundColor: "#10233AEC",
   },
-  accent: { position: "absolute", left: 0, top: 7, bottom: 7, width: 2, borderRadius: 99, backgroundColor: "#F4C95D" },
-  headline: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 7, paddingLeft: 9 },
-  iconFrame: { width: 19, height: 19, borderRadius: 7, alignItems: "center", justifyContent: "center", backgroundColor: "#F4C95D16" },
+  accent: { position: "absolute", left: 0, top: 12, bottom: 12, width: 3, borderRadius: 99, backgroundColor: "#F4C95D" },
+  headline: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 12, paddingLeft: 15, paddingVertical: 9 },
+  iconFrame: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "#F4C95D16" },
   copy: { flex: 1, minWidth: 0, justifyContent: "center" },
-  eyebrow: { color: "#D9B65A", fontSize: 6.5, lineHeight: 8, fontWeight: "900", letterSpacing: 0.7 },
-  title: { color: "#F5F9FF", fontSize: 10, lineHeight: 13, fontWeight: "800" },
-  ratingBadge: { minWidth: 29, height: 19, paddingHorizontal: 4, borderRadius: 7, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2, backgroundColor: "#F4C95D18" },
-  rating: { color: "#F4C95D", fontSize: 8.5, lineHeight: 11, fontWeight: "900" },
+  eyebrow: { color: "#D9B65A", fontSize: 8, lineHeight: 11, fontWeight: "900", letterSpacing: 0.8 },
+  title: { color: "#F5F9FF", fontSize: 12.5, lineHeight: 17, fontWeight: "800" },
+  ratingBadge: { minWidth: 42, height: 30, paddingHorizontal: 7, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 3, backgroundColor: "#F4C95D18" },
+  rating: { color: "#F4C95D", fontSize: 10.5, lineHeight: 13, fontWeight: "900" },
 });

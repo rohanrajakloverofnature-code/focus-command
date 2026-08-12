@@ -263,3 +263,8 @@
 - [x] Tighten native fire-crackle start timing so it begins with the first visible fire frame, and strengthen the motivational quote shadow without changing the launch sequence’s behavior.
 - [x] Add a bounded Home-screen Mini Achievements ticker that cycles only real mini achievements rated above 3.0 in the marked header space without moving or overlapping existing UI.
 - [x] Add deterministic zero-, one-, and multiple-eligible-achievement regression coverage and validate the focused mobile refinement before building a replacement APK.
+
+- [x] Trace and repair the persisted mission-completion lifecycle so completed sessions immediately populate History, invested time, and shared dashboard analytics.
+- [x] Align the Recognition Window’s Wall of Fame and Achievement Radar cards across portrait widths without content clipping or overflow.
+- [x] Increase the bounded Home Mini Achievement ticker height and padding while preserving its non-overlapping header placement.
+- [x] Add end-to-end regression coverage for mission completion, History, active time, analytics, Recognition Window layout, and ticker sizing before building a replacement APK.

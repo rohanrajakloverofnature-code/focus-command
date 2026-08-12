@@ -89,7 +89,7 @@ export default function MissionDetailScreen() {
       }
       await playFocusSuccessCue(state.profile.soundEnabled, state.profile.soundRoles.missionWin);
       if (state.profile.notificationsEnabled) await scheduleAchievementRecap(mission.title, state.profile.notificationRules, state.profile.soundRoles.achievementRecap);
-      router.replace({ pathname: "/mission-result/[id]" as never, params: { id: mission.id } });
+      router.replace({ pathname: "/mission-result/[id]" as never, params: { id: mission.id, completionId: result.completionId } });
     } catch {
       Alert.alert("Could not save mission result", "Your result was not confirmed. Please try again. If this continues, reopen the app and submit the active mission once more.");
     } finally {

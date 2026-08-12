@@ -6,7 +6,7 @@ import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScree
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { Difficulty, MissionFrequency, getDifficultyColor, getDifficultyLabel, getMissionInvestedMilliseconds, useFocusCommand } from "@/lib/focus-command";
+import { Difficulty, MissionCompletionRecord, MissionFrequency, getDifficultyColor, getDifficultyLabel, getMissionCompletionRecords, getMissionInvestedMilliseconds, useFocusCommand } from "@/lib/focus-command";
 
 type MissionFilter = "open" | "active" | "completed";
 
@@ -42,9 +42,9 @@ export default function MissionsScreen() {
 
   const missions = useMemo(() => {
     if (filter === "active") return state.missions.filter((mission) => mission.status === "active" || mission.status === "paused");
-    if (filter === "completed") return state.missions.filter((mission) => mission.status === "completed");
     return state.missions.filter((mission) => mission.status === "planned");
   }, [filter, state.missions]);
+  const completionRecords = useMemo(() => getMissionCompletionRecords(state), [state]);
 
   if (!ready) return <LoadingScreen label="Loading mission board…" />;
 
@@ -218,9 +218,11 @@ export default function MissionsScreen() {
         </View>
 
         <SectionHeader title={filter === "open" ? "Planned missions" : filter === "active" ? "Live missions" : "Completed history"} action={filter === "open" ? "New mission" : undefined} onAction={filter === "open" ? () => setShowComposer(true) : undefined} />
-        {missions.length ? (
+        {(filter === "completed" ? completionRecords.length : missions.length) ? (
           <View style={styles.missionStack}>
-            {missions.map((mission) => <MissionCard key={mission.id} mission={mission} onStart={() => startMission(mission.id)} />)}
+            {filter === "completed"
+              ? completionRecords.map((completion) => <CompletionHistoryCard key={completion.id} completion={completion} />)
+              : missions.map((mission) => <MissionCard key={mission.id} mission={mission} onStart={() => startMission(mission.id)} />)}
           </View>
         ) : (
           <EmptyCommandState
@@ -233,6 +235,33 @@ export default function MissionsScreen() {
         )}
       </ScrollView>
     </ScreenContainer>
+  );
+}
+
+function CompletionHistoryCard({ completion }: { completion: MissionCompletionRecord }) {
+  const colors = useColors();
+  const color = getDifficultyColor(completion.difficulty);
+  const completedLabel = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(completion.completedAt));
+  const reflection = completion.reflection;
+  const openResult = () => router.push({ pathname: "/mission-result/[id]" as never, params: { id: completion.missionId, completionId: completion.id } });
+  return (
+    <Pressable onPress={openResult} style={({ pressed }) => ({ opacity: pressed ? 0.82 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}>
+      <CommandCard accent={color} style={styles.missionCard}>
+        <View style={styles.missionTopline}>
+          <StatusPill label={getDifficultyLabel(completion.difficulty)} tone={completion.difficulty === "easy" ? "success" : completion.difficulty === "medium" ? "warning" : "danger"} />
+          <StatusPill label="COMPLETE" tone="success" icon="checklist" />
+        </View>
+        <Text numberOfLines={2} style={[styles.missionTitle, { color: colors.foreground }]}>{completion.title}</Text>
+        <Text numberOfLines={2} style={[styles.missionMeta, { color: colors.muted }]}>{completion.subject || "Unassigned"} · {completion.category || "General"} · {(completion.durationMs / 3_600_000).toFixed(2)} h · {completedLabel}</Text>
+        {reflection?.miniAchievement.trim() ? <Text numberOfLines={2} style={[styles.historyReflection, { color: colors.muted }]}>Mini achievement: {reflection.miniAchievement.trim()} {reflection.miniAchievementRating ? `· ${reflection.miniAchievementRating.toFixed(1)}/5` : ""}</Text> : null}
+        <View style={styles.missionFooter}>
+          <View style={styles.missionFooterCopy}>
+            <Text style={[styles.historyAward, { color }]}>{completion.progression?.powerAwarded ?? completion.baseXp} power · {completion.progression?.goldAwarded ?? 0} gold</Text>
+          </View>
+          <CommandButton label="Open" icon="chevron.right" variant="ghost" onPress={openResult} />
+        </View>
+      </CommandCard>
+    </Pressable>
   );
 }
 
@@ -310,6 +339,8 @@ const styles = StyleSheet.create({
   missionTopline: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   missionTitle: { fontSize: 17, lineHeight: 22, fontWeight: "900", letterSpacing: -0.2 },
   missionMeta: { fontSize: 12, lineHeight: 17, fontWeight: "600" },
+  historyReflection: { fontSize: 11, lineHeight: 16, fontWeight: "600", marginTop: -2 },
+  historyAward: { fontSize: 11, lineHeight: 16, fontWeight: "900" },
   missionFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10, marginTop: 2 },
   missionFooterCopy: { flex: 1 },
   missionBadges: { flexDirection: "row", gap: 5, flexWrap: "wrap" },

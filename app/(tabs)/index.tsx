@@ -26,6 +26,7 @@ import { useColors } from "@/hooks/use-colors";
 import { playFocusRole } from "@/lib/focus-audio";
 import { getEligibleCelebration, type CelebrationMilestone } from "@/lib/celebration-lifecycle";
 import { getForecastMotivationMessages } from "@/lib/home-motivation";
+import { MINI_ACHIEVEMENT_TICKER_LAYOUT } from "@/lib/focus-layout";
 import { isLaunchSequenceActive } from "@/lib/launch-session";
 import {
   formatCompactNumber,
@@ -365,8 +366,8 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: 18, paddingTop: 12, paddingBottom: 30 },
-  headerZone: { minHeight: 72, position: "relative" },
-  miniAchievementTicker: { position: "absolute", left: 126, right: 0, top: 38 },
+  headerZone: { minHeight: MINI_ACHIEVEMENT_TICKER_LAYOUT.headerZoneMinHeight, position: "relative" },
+  miniAchievementTicker: { position: "absolute", left: MINI_ACHIEVEMENT_TICKER_LAYOUT.left, right: MINI_ACHIEVEMENT_TICKER_LAYOUT.right, top: MINI_ACHIEVEMENT_TICKER_LAYOUT.top },
   heroCard: { minHeight: 266, padding: 18, position: "relative", overflow: "hidden" },
   fullWidth: { width: "100%" },
   heroCopyFloat: { flex: 1, minWidth: 0 },

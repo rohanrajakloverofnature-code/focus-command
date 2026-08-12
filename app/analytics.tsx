@@ -5,7 +5,7 @@ import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, Sta
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, formatHours, getCalendarTimeAverages, getDashboardStats, getMissionInvestedMilliseconds, getTotalPower, toLocalDate, useFocusCommand } from "@/lib/focus-command";
+import { formatCompactNumber, formatHours, getCalendarTimeAverages, getDashboardStats, getMissionCompletionRecords, getTotalPower, toLocalDate, useFocusCommand } from "@/lib/focus-command";
 
 type MetricKey = "power" | "daily" | "weekly" | "monthly" | "time" | "fame" | "radar" | "emotion" | "skills" | "lifeline";
 
@@ -56,10 +56,10 @@ function formatCalendarDate(localDate: string) {
 
 function hoursByDate(state: ReturnType<typeof useFocusCommand>["state"]) {
   const values = new Map<string, { hours: number; missionCount: number }>();
-  state.missions.filter((mission) => mission.completedAt).forEach((mission) => {
-    const localDate = toLocalDate(mission.completedAt!, state.profile.timezone);
+  getMissionCompletionRecords(state).forEach((completion) => {
+    const localDate = toLocalDate(completion.completedAt, state.profile.timezone);
     const prior = values.get(localDate) ?? { hours: 0, missionCount: 0 };
-    values.set(localDate, { hours: prior.hours + getMissionInvestedMilliseconds(mission) / 3_600_000, missionCount: prior.missionCount + 1 });
+    values.set(localDate, { hours: prior.hours + completion.durationMs / 3_600_000, missionCount: prior.missionCount + 1 });
   });
   return values;
 }
@@ -76,8 +76,8 @@ export default function AnalyticsDetailScreen() {
   const dashboard = getDashboardStats(state);
   const timeAverages = getCalendarTimeAverages(state);
   const timeByDate = hoursByDate(state);
-  const completedMissions = state.missions.filter((mission) => mission.completedAt);
-  const totalHours = completedMissions.reduce((sum, mission) => sum + getMissionInvestedMilliseconds(mission), 0) / 3_600_000;
+  const completedMissions = getMissionCompletionRecords(state);
+  const totalHours = completedMissions.reduce((sum, completion) => sum + completion.durationMs, 0) / 3_600_000;
   const activeDayCount = timeByDate.size;
   const power = getTotalPower(state);
   const periodDates = metric === "weekly"
@@ -110,11 +110,11 @@ export default function AnalyticsDetailScreen() {
       : metric === "weekly" || metric === "monthly"
         ? dayEntries
         : metric === "time"
-          ? completedMissions.map((mission) => ({ id: mission.id, title: mission.title, detail: `${formatHours(getMissionInvestedMilliseconds(mission))} · ${mission.subject} · ${mission.category}`, date: toLocalDate(mission.completedAt!, state.profile.timezone), tone: "primary" as const }))
+          ? completedMissions.map((completion) => ({ id: completion.id, title: completion.title, detail: `${formatHours(completion.durationMs)} · ${completion.subject} · ${completion.category}`, date: toLocalDate(completion.completedAt, state.profile.timezone), tone: "primary" as const }))
           : metric === "fame"
             ? dashboard.wallOfFame.map((entry) => ({ id: entry.id, title: entry.miniAchievement, detail: `${entry.missionTitle} · ${entry.miniAchievementRating}/5 mini achievement · visible for 7 days`, date: toLocalDate(entry.occurredAt, state.profile.timezone), tone: "gold" as const }))
             : metric === "radar"
-              ? dashboard.achievementRadar.map((mission) => ({ id: mission.id, title: mission.title, detail: "After-feeling logged as Great · visible for 7 days", date: toLocalDate(mission.completedAt ?? mission.createdAt, state.profile.timezone), tone: "success" as const }))
+              ? dashboard.achievementRadar.map((completion) => ({ id: completion.id, title: completion.title, detail: "After-feeling logged as Great · visible for 7 days", date: toLocalDate(completion.completedAt, state.profile.timezone), tone: "success" as const }))
               : metric === "emotion"
                 ? state.reflections.map((reflection) => ({ id: reflection.id, title: state.missions.find((mission) => mission.id === reflection.missionId)?.title ?? "Mission reflection", detail: `Before: ${reflection.feelingBefore ?? "not logged"} · After: ${reflection.feelingAfter ?? "not logged"} · Friction: ${reflection.frictionRating ?? "–"}/5`, date: toLocalDate(reflection.createdAt, state.profile.timezone), tone: "warning" as const }))
                 : metric === "skills"

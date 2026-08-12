@@ -7,7 +7,7 @@ import {
   FocusState,
   Mission,
   Reflection,
-  getMissionInvestedMilliseconds,
+  getMissionCompletionRecords,
   toLocalDate,
 } from "./focus-command";
 
@@ -109,6 +109,7 @@ function allActivityDays(state: FocusState) {
   const timezone = state.profile.timezone;
   return [
     ...state.progression.map((item) => toLocalDate(item.occurredAt, timezone)),
+    ...getMissionCompletionRecords(state).map((item) => toLocalDate(item.completedAt, timezone)),
     ...state.reflections.map((item) => toLocalDate(item.createdAt, timezone)),
     ...state.journals.map((item) => item.localDate),
     ...state.transactions.map((item) => toLocalDate(item.occurredAt, timezone)),
@@ -175,7 +176,7 @@ function bucketFor(day: string, granularity: "day" | "month") {
   return granularity === "month" ? day.slice(0, 7) : day;
 }
 
-function missionMatches(mission: Mission | undefined, widget: DashboardWidgetConfig) {
+function missionMatches(mission: Pick<Mission, "subject" | "category" | "frequency"> | undefined, widget: DashboardWidgetConfig) {
   if (!mission) return widget.subject === "all" && widget.category === "all" && widget.missionFrequency === "all";
   return (widget.subject === "all" || normalized(mission.subject) === normalized(widget.subject))
     && (widget.category === "all" || normalized(mission.category) === normalized(widget.category))
@@ -255,6 +256,7 @@ export function getDashboardWorkspaceResult(state: FocusState, widget: Dashboard
   const countsByBucket = new Map(buckets.map((bucket) => [bucket, 0]));
   const breakdownBySubject = new Map<string, number>();
   const missionsById = new Map(state.missions.map((mission) => [mission.id, mission]));
+  const completionRecords = getMissionCompletionRecords(state);
   let sampleCount = 0;
 
   const add = (day: string, value: number, group: string, average = false) => {
@@ -268,18 +270,17 @@ export function getDashboardWorkspaceResult(state: FocusState, widget: Dashboard
   };
 
   if (["power", "xp"].includes(widget.metric) && featureAllows(widget, "missions")) {
-    state.progression.forEach((event) => {
-      const mission = event.missionId ? missionsById.get(event.missionId) : undefined;
-      if (!missionMatches(mission, widget)) return;
-      const value = widget.metric === "power" ? event.powerAwarded : event.baseXp;
-      add(toLocalDate(event.occurredAt, state.profile.timezone), value, mission?.subject || "Campaign");
+    completionRecords.forEach((completion) => {
+      if (!missionMatches(completion, widget) || !completion.progression) return;
+      const value = widget.metric === "power" ? completion.progression.powerAwarded : completion.progression.baseXp;
+      add(toLocalDate(completion.completedAt, state.profile.timezone), value, completion.subject || "Campaign");
     });
   }
 
   if (["time", "missions"].includes(widget.metric) && featureAllows(widget, "missions")) {
-    state.missions.filter((mission) => mission.status === "completed" && mission.completedAt && missionMatches(mission, widget)).forEach((mission) => {
-      const value = widget.metric === "time" ? getMissionInvestedMilliseconds(mission) / 3_600_000 : 1;
-      add(toLocalDate(mission.completedAt!, state.profile.timezone), value, mission.subject);
+    completionRecords.filter((completion) => missionMatches(completion, widget)).forEach((completion) => {
+      const value = widget.metric === "time" ? completion.durationMs / 3_600_000 : 1;
+      add(toLocalDate(completion.completedAt, state.profile.timezone), value, completion.subject);
     });
   }
 

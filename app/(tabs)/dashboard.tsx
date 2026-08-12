@@ -7,7 +7,8 @@ import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, Scre
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getMissionInvestedMilliseconds, getTotalPower, getWellbeingInsight, toLocalDate, useFocusCommand } from "@/lib/focus-command";
+import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getTotalPower, getWellbeingInsight, toLocalDate, useFocusCommand } from "@/lib/focus-command";
+import { RECOGNITION_WINDOW_LAYOUT } from "@/lib/focus-layout";
 
 function createDaySeries(days: number, profileTimezone: string) {
   return Array.from({ length: days }, (_, index) => {
@@ -32,6 +33,7 @@ export default function DashboardScreen() {
 
   const daySeries = useMemo(() => createDaySeries(14, state.profile.timezone), [state.profile.timezone]);
   const dashboard = useMemo(() => getDashboardStats(state), [state]);
+  const completionRecords = useMemo(() => getMissionCompletionRecords(state), [state]);
   const forecast = useMemo(() => getEmotionalPatternForecast(state), [state]);
   const wellbeing = useMemo(() => getWellbeingInsight(state), [state]);
 
@@ -45,9 +47,9 @@ export default function DashboardScreen() {
   const powerSeries: ChartPoint[] = daySeries.map((day) => ({ label: day.label, value: progressionByDate.get(day.localDate) ?? 0 }));
 
   const timeByDate = new Map<string, number>();
-  state.missions.filter((mission) => mission.completedAt).forEach((mission) => {
-    const date = toLocalDate(mission.completedAt!, state.profile.timezone);
-    timeByDate.set(date, (timeByDate.get(date) ?? 0) + getMissionInvestedMilliseconds(mission) / 3_600_000);
+  completionRecords.forEach((completion) => {
+    const date = toLocalDate(completion.completedAt, state.profile.timezone);
+    timeByDate.set(date, (timeByDate.get(date) ?? 0) + completion.durationMs / 3_600_000);
   });
   const timeSeries: ChartPoint[] = daySeries.map((day) => ({ label: day.label, value: timeByDate.get(day.localDate) ?? 0 }));
 
@@ -61,18 +63,18 @@ export default function DashboardScreen() {
   });
   const emotionalPoints = ["charged", "steady", "restless", "drained", "great"].map((label) => ({ label, value: emotionCounts.get(label) ?? 0 }));
 
-  const missionsById = new Map(state.missions.map((mission) => [mission.id, mission]));
+  const completionByReflectionId = new Map(completionRecords.filter((completion) => completion.reflectionId).map((completion) => [completion.reflectionId, completion]));
   const customGraphData = state.customGraphs.map((graph) => ({
     graph,
     series: graph.series.map((series) => ({
       ...series,
       points: state.reflections.slice(-12).map((reflection, index) => {
-        const mission = missionsById.get(reflection.missionId);
+        const completion = completionByReflectionId.get(reflection.id);
         const value = series.metric === "miniAchievementRating" ? reflection.miniAchievementRating ?? 0
           : series.metric === "frictionRating" ? reflection.frictionRating ?? 0
           : series.metric === "provokingThoughtRating" ? reflection.provokingThoughtRating ?? 0
           : series.metric === "feelingAfter" ? reflection.feelingAfter ? feelingScore[reflection.feelingAfter] : 0
-          : mission ? getMissionInvestedMilliseconds(mission) / 3_600_000 : 0;
+          : completion ? completion.durationMs / 3_600_000 : 0;
         const source = reflection.createdAt ? toLocalDate(reflection.createdAt, state.profile.timezone).slice(5) : String(index + 1);
         return { label: index === 0 || index === state.reflections.slice(-12).length - 1 || index === Math.floor(state.reflections.slice(-12).length / 2) ? source : "", value };
       }),
@@ -298,14 +300,16 @@ export default function DashboardScreen() {
 function RecognitionCard({ title, subtitle, items, icon, accent, onPress }: { title: string; subtitle: string; items: string[]; icon: "trophy.fill" | "star.fill"; accent: string; onPress: () => void }) {
   const colors = useColors();
   return (
-    <TapFeedback onPress={onPress} accessibilityLabel={`Open ${title}`}>
-      <View style={[styles.recognitionCard, { backgroundColor: colors.surface, borderColor: `${accent}55` }]}>
-        <View style={[styles.recognitionIcon, { backgroundColor: `${accent}18` }]}><IconSymbol name={icon} size={20} color={accent} /></View>
-        <Text style={[styles.recognitionTitle, { color: colors.foreground }]}>{title}</Text>
-        <Text numberOfLines={3} style={[styles.recognitionDetail, { color: colors.muted }]}>{items.length ? items.slice(0, 2).join(" · ") : subtitle}</Text>
-        <StatusPill label={items.length ? `${items.length} LIVE` : "AWAITING DATA"} tone={items.length ? "success" : "neutral"} />
-      </View>
-    </TapFeedback>
+    <View style={styles.recognitionSlot}>
+      <TapFeedback onPress={onPress} style={styles.recognitionTap} accessibilityLabel={`Open ${title}`}>
+        <View style={[styles.recognitionCard, { backgroundColor: colors.surface, borderColor: `${accent}55` }]}> 
+          <View style={[styles.recognitionIcon, { backgroundColor: `${accent}18` }]}><IconSymbol name={icon} size={20} color={accent} /></View>
+          <Text numberOfLines={2} style={[styles.recognitionTitle, { color: colors.foreground }]}>{title}</Text>
+          <Text numberOfLines={3} ellipsizeMode="tail" style={[styles.recognitionDetail, { color: colors.muted }]}>{items.length ? items.slice(0, 2).join(" · ") : subtitle}</Text>
+          <View style={styles.recognitionPill}><StatusPill label={items.length ? `${items.length} LIVE` : "AWAITING DATA"} tone={items.length ? "success" : "neutral"} /></View>
+        </View>
+      </TapFeedback>
+    </View>
   );
 }
 
@@ -383,11 +387,14 @@ const styles = StyleSheet.create({
   manualLifelineCopy: { flex: 1, gap: 2 },
   manualLifelineTitle: { fontSize: 13, lineHeight: 18, fontWeight: "900" },
   manualLifelineDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600" },
-  recognitionGrid: { flexDirection: "row", gap: 10 },
-  recognitionCard: { flex: 1, minHeight: 180, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, padding: 13, gap: 7 },
-  recognitionIcon: { width: 39, height: 39, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  recognitionTitle: { fontSize: 14, lineHeight: 19, fontWeight: "900" },
-  recognitionDetail: { flex: 1, fontSize: 11, lineHeight: 16, fontWeight: "500" },
+  recognitionGrid: { width: "100%", flexDirection: "row", alignItems: "stretch", gap: RECOGNITION_WINDOW_LAYOUT.gap },
+  recognitionSlot: { flex: 1, minWidth: 0, alignSelf: "stretch" },
+  recognitionTap: { flex: 1, alignSelf: "stretch" },
+  recognitionCard: { width: "100%", height: RECOGNITION_WINDOW_LAYOUT.cardHeight, minHeight: RECOGNITION_WINDOW_LAYOUT.cardHeight, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, padding: 13, gap: 7, overflow: "hidden" },
+  recognitionIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  recognitionTitle: { minHeight: 38, flexShrink: 1, fontSize: 14, lineHeight: 19, fontWeight: "900" },
+  recognitionDetail: { flex: 1, minHeight: 48, fontSize: 11, lineHeight: 16, fontWeight: "500" },
+  recognitionPill: { alignSelf: "flex-start", marginTop: "auto", maxWidth: "100%" },
   chartCard: { gap: 13 },
   chartHeading: { flexDirection: "row", justifyContent: "space-between", gap: 10, alignItems: "flex-start" },
   chartCopy: { flex: 1 },
