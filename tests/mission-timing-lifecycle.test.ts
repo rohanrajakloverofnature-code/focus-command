@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  beginMissionSession,
   createInitialState,
   getMissionInvestedMilliseconds,
   getTodayInvestedMilliseconds,
@@ -54,6 +55,51 @@ describe("mission timing lifecycle compatibility", () => {
     expect(recovered.pausedMilliseconds).toBe(0);
     expect(getMissionInvestedMilliseconds(recovered, oneHourFortyEightMinutesLater)).toBe(108 * MINUTE);
     expect(isLongMissionReflectionEligible(recovered, oneHourFortyEightMinutesLater)).toBe(true);
+  });
+
+  it("accepts a millisecond timestamp persisted by a newer Android session and keeps its active clock advancing", () => {
+    const startedAtMs = Date.parse(STARTED_AT);
+    const persisted = mission({ id: "numeric_start", startedAt: startedAtMs });
+    const hydrated = normalizeHydratedState({ ...createInitialState(), missions: [persisted] });
+    const recovered = hydrated.missions[0];
+    const tenMinutesLater = startedAtMs + 10 * MINUTE;
+
+    expect(recovered.startedAt).toBe(startedAtMs);
+    expect(getMissionInvestedMilliseconds(recovered, tenMinutesLater)).toBe(10 * MINUTE);
+  });
+
+  it("repairs an unreadable persisted live-session start into a new advancing clock without counting creation age", () => {
+    const createdAt = "2026-08-01T08:00:00.000Z";
+    const hydratedAt = Date.now();
+    const hydrated = normalizeHydratedState({
+      ...createInitialState(),
+      missions: [mission({ id: "invalid_start", createdAt, startedAt: "invalid-release-value" })],
+    });
+    const recovered = hydrated.missions[0];
+
+    expect(typeof recovered.startedAt).toBe("number");
+    expect(getMissionInvestedMilliseconds(recovered, hydratedAt + 10 * MINUTE)).toBeLessThanOrEqual(10 * MINUTE + 1_000);
+    expect(getMissionInvestedMilliseconds(recovered, hydratedAt + 10 * MINUTE)).toBeGreaterThanOrEqual(9 * MINUTE);
+  });
+
+  it("starts every new run from a fresh millisecond timestamp and clears stale completion endpoints", () => {
+    const sessionStart = Date.parse(STARTED_AT);
+    const freshSession = beginMissionSession(mission({
+      status: "planned",
+      startedAt: "not-a-date",
+      pausedAt: new Date(sessionStart - MINUTE).toISOString(),
+      pausedMilliseconds: 9 * MINUTE,
+      endedAt: new Date(sessionStart - MINUTE).toISOString(),
+      completedAt: new Date(sessionStart - MINUTE).toISOString(),
+    }), sessionStart);
+
+    expect(freshSession.status).toBe("active");
+    expect(freshSession.startedAt).toBe(sessionStart);
+    expect(freshSession.pausedAt).toBeNull();
+    expect(freshSession.pausedMilliseconds).toBe(0);
+    expect(freshSession.endedAt).toBeNull();
+    expect(freshSession.completedAt).toBeNull();
+    expect(getMissionInvestedMilliseconds(freshSession, sessionStart + 10 * MINUTE)).toBe(10 * MINUTE);
   });
 
   it("excludes every accumulated and current pause from live timing and keeps the timer frozen while paused", () => {

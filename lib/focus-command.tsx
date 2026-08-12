@@ -14,6 +14,8 @@ import { calculateEquippedXpModifier, calculateEquippedEnergyModifier } from "./
 export type Difficulty = "easy" | "medium" | "hard";
 export type MissionStatus = "planned" | "active" | "paused" | "completed";
 export type MissionFrequency = "once" | "daily";
+/** Persisted mission timing accepted from current and pre-migration app builds. */
+export type MissionTimestamp = string | number;
 export type Feeling = "charged" | "steady" | "restless" | "drained" | "great";
 export type RewardCategory = "life" | "gear" | "power" | "multiplier";
 export type SyncPhase = "local" | "ready" | "authorized" | "syncing" | "synced" | "needs_setup" | "error";
@@ -181,8 +183,8 @@ export interface Mission {
   frequency: MissionFrequency;
   createdAt: string;
   dueAt: string | null;
-  startedAt: string | null;
-  pausedAt: string | null;
+  startedAt: MissionTimestamp | null;
+  pausedAt: MissionTimestamp | null;
   pausedMilliseconds: number;
   endedAt: string | null;
   completedAt: string | null;
@@ -904,10 +906,24 @@ export function getCurrentTitle(state: FocusState): { title: string; index: numb
 
 export const LONG_MISSION_REFLECTION_THRESHOLD_MS = 45 * 60_000;
 
-function getFiniteTimestamp(value: string | null | undefined): number | null {
-  if (!value) return null;
-  const timestamp = Date.parse(value);
+function getFiniteTimestamp(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (!normalized) return null;
+  if (/^\d{11,}$/.test(normalized)) {
+    const timestamp = Number(normalized);
+    return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
+  }
+  const timestamp = Date.parse(normalized);
   return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function toIsoTimestamp(value: unknown): string | null {
+  const timestamp = getFiniteTimestamp(value);
+  return timestamp === null ? null : new Date(timestamp).toISOString();
 }
 
 /**
@@ -916,7 +932,13 @@ function getFiniteTimestamp(value: string | null | undefined): number | null {
  * allowing NaN to collapse the visible active timer and completion duration.
  */
 function getMissionPausedMilliseconds(mission: Pick<Mission, "pausedMilliseconds">): number {
-  return Number.isFinite(mission.pausedMilliseconds) ? Math.max(0, mission.pausedMilliseconds) : 0;
+  const persistedMilliseconds = Number(mission.pausedMilliseconds);
+  if (Number.isFinite(persistedMilliseconds)) return Math.max(0, persistedMilliseconds);
+  // The earlier Expo implementation persisted this exact total under a different
+  // name. Accept it during hydration so an older saved pause total cannot corrupt
+  // the active timer after an APK update.
+  const legacyMilliseconds = Number((mission as Pick<Mission, "pausedMilliseconds"> & { pausedDuration?: unknown }).pausedDuration);
+  return Number.isFinite(legacyMilliseconds) ? Math.max(0, legacyMilliseconds) : 0;
 }
 
 export function getMissionInvestedMilliseconds(mission: Mission, referenceTime = Date.now()): number {
@@ -937,6 +959,24 @@ export function isLongMissionReflectionEligible(mission: Mission, referenceTime 
   return getMissionInvestedMilliseconds(mission, referenceTime) >= LONG_MISSION_REFLECTION_THRESHOLD_MS;
 }
 
+/**
+ * Starts a completely fresh timing session. This intentionally clears every
+ * prior terminal and pause marker so a repeatable mission never inherits an old
+ * completion endpoint and renders as 0.0 h in a subsequently installed APK.
+ */
+export function beginMissionSession(mission: Mission, startedAt = Date.now()): Mission {
+  const sessionStart = getFiniteTimestamp(startedAt) ?? Date.now();
+  return {
+    ...mission,
+    status: "active",
+    startedAt: sessionStart,
+    pausedAt: null,
+    pausedMilliseconds: 0,
+    endedAt: null,
+    completedAt: null,
+  };
+}
+
 export function getMissionCompletionRecords(state: FocusState): MissionCompletionRecord[] {
   const missionsById = new Map(state.missions.map((mission) => [mission.id, mission]));
   const reflectionsByCompletion = new Map(state.reflections.filter((reflection) => reflection.completionId).map((reflection) => [reflection.completionId as string, reflection]));
@@ -951,7 +991,7 @@ export function getMissionCompletionRecords(state: FocusState): MissionCompletio
       return {
         id: event.completionId ?? `completion_legacy_${event.id}`,
         missionId: event.missionId as string,
-        startedAt: mission?.startedAt ?? event.occurredAt,
+        startedAt: toIsoTimestamp(mission?.startedAt) ?? event.occurredAt,
         completedAt: event.occurredAt,
         durationMs: mission?.completedAt === event.occurredAt ? getMissionInvestedMilliseconds(mission) : 0,
         reflectionId: state.reflections.find((reflection) => reflection.missionId === event.missionId && reflection.createdAt === event.occurredAt)?.id ?? "",
@@ -972,7 +1012,7 @@ export function getMissionCompletionRecords(state: FocusState): MissionCompletio
       .map((completedAt) => ({
         id: mission.id,
         missionId: mission.id,
-        startedAt: mission.startedAt ?? completedAt,
+        startedAt: toIsoTimestamp(mission.startedAt) ?? completedAt,
         completedAt,
         durationMs: mission.completedAt === completedAt ? getMissionInvestedMilliseconds(mission) : 0,
         reflectionId: state.reflections.find((reflection) => reflection.missionId === mission.id && reflection.createdAt === completedAt)?.id ?? "",
@@ -1480,15 +1520,21 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       const pausedAt = getFiniteTimestamp(mission.pausedAt);
       const endedAt = getFiniteTimestamp(mission.endedAt);
       const completedAt = getFiniteTimestamp(mission.completedAt);
+      // Old release builds can contain an unreadable start field. There is no
+      // trustworthy elapsed duration to recover in that case, so a live mission
+      // must restart from this hydration instant rather than remain permanently
+      // stuck at 0.0 h or incorrectly count time since the mission was created.
+      const recoveredStartedAt = startedAt
+        ?? ((mission.status === "active" || mission.status === "paused") ? Date.now() : null);
       return {
         ...mission,
-        startedAt: startedAt === null ? null : new Date(startedAt).toISOString(),
+        startedAt: recoveredStartedAt,
         // Active sessions must keep advancing even when a legacy record carries
         // a stale pause timestamp from an interrupted pause/resume transition.
         pausedAt: mission.status === "paused" && pausedAt !== null ? new Date(pausedAt).toISOString() : null,
         pausedMilliseconds: getMissionPausedMilliseconds(mission),
-        endedAt: endedAt === null ? null : new Date(endedAt).toISOString(),
-        completedAt: completedAt === null ? null : new Date(completedAt).toISOString(),
+        endedAt: toIsoTimestamp(endedAt),
+        completedAt: toIsoTimestamp(completedAt),
         frequency: mission.frequency ?? "once",
         allowMultipleDailyCompletions: mission.allowMultipleDailyCompletions ?? false,
         completionHistory: mission.completionHistory ?? (mission.completedAt ? [mission.completedAt] : []),
@@ -1621,13 +1667,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         ...current,
         missions: current.missions.map((mission) => {
           if (mission.id !== missionId || !isMissionStartEligible(mission, today, current.profile.timezone)) return mission;
-          const existingStartedAt = getFiniteTimestamp(mission.startedAt);
-          return {
-            ...mission,
-            status: "active",
-            startedAt: existingStartedAt === null ? nowIso() : new Date(existingStartedAt).toISOString(),
-            pausedAt: null,
-          };
+          return beginMissionSession(mission);
         }),
       });
     });
@@ -1639,10 +1679,11 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       missions: current.missions.map((mission) => {
         if (mission.id !== missionId || !mission.startedAt) return mission;
         if (mission.status === "active") {
-          return { ...mission, status: "paused", pausedAt: nowIso() };
+          return { ...mission, status: "paused", pausedAt: Date.now() };
         }
         if (mission.status === "paused" && mission.pausedAt) {
-          const pausedMilliseconds = getMissionPausedMilliseconds(mission) + Math.max(0, Date.now() - Date.parse(mission.pausedAt));
+          const pauseStartedAt = getFiniteTimestamp(mission.pausedAt);
+          const pausedMilliseconds = getMissionPausedMilliseconds(mission) + (pauseStartedAt === null ? 0 : Math.max(0, Date.now() - pauseStartedAt));
           return { ...mission, status: "active", pausedAt: null, pausedMilliseconds };
         }
         return mission;
@@ -1682,7 +1723,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     const sourceMission = state.missions.find((mission) => mission.id === missionId);
     if (!sourceMission || !sourceMission.startedAt || (sourceMission.status !== "active" && sourceMission.status !== "paused")) return null;
     const endedAt = nowIso();
-    const pausedMilliseconds = getMissionPausedMilliseconds(sourceMission) + (sourceMission.pausedAt ? Math.max(0, Date.now() - Date.parse(sourceMission.pausedAt)) : 0);
+    const pauseStartedAt = getFiniteTimestamp(sourceMission.pausedAt);
+    const pausedMilliseconds = getMissionPausedMilliseconds(sourceMission) + (pauseStartedAt === null ? 0 : Math.max(0, Date.now() - pauseStartedAt));
     const completedMission: Mission = {
       ...sourceMission,
       status: "completed",
@@ -1867,7 +1909,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       const completion: MissionCompletion = {
         id: completionId,
         missionId,
-        startedAt: completedMission.startedAt ?? endedAt,
+        startedAt: toIsoTimestamp(completedMission.startedAt) ?? endedAt,
         completedAt: endedAt,
         durationMs,
         reflectionId,

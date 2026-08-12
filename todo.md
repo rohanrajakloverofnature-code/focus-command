@@ -149,6 +149,8 @@
 - [x] Verify no backend imports or calls remain while Google Sheets authorization and manual sync continue to work.
 - [x] Run full checks and regression tests for the backend-free local-first build.
 
+- [x] Permanently repair the installed-APK live-mission active-time path and restore its 45-minute active-time reflection gate without changing unrelated behavior.
+
 - [x] Trace the reported repeatable-mission completion, rescheduling, and same-day start flow against the supplied recording.
 - [x] Fix repeatable missions so completion does not move their eligible scheduled date to tomorrow before the day ends.
 - [x] Preserve next-day rescheduling for non-repeatable daily missions and all existing independent completion records.
@@ -315,3 +317,7 @@
 - [x] Make every permitted Home character-logo tap replay the full sound-enabled cinematic for the current real level, title, and equipped gear without conflicting with other presentation stages.
 - [x] Create richer, visibly varied level- and title-driven progression cinematics with stronger armor/suit formation, impact, shake, energy, and sound design.
 - [x] Add regression coverage and validate repeat taps, progression variations, audio lifecycle, interruption safety, and all project quality gates before checkpointing.
+
+- [x] Compare the pre-GitHub mission timing implementation against the installed-APK failure and identify every incompatible persisted live-session field.
+- [x] Restore the original-compatible active-time, pause/resume, reload, completion, and 45-minute emotion-debrief lifecycle without altering unrelated features.
+- [x] Add full legacy-state lifecycle coverage, validate every timing and debrief path, then publish only after the repair is verified.

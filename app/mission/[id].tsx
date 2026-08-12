@@ -23,7 +23,7 @@ export default function MissionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state, ready, startMission, toggleMissionPause, finishMission, logRevisionTopic, updateMission, removeMission } = useFocusCommand();
   const mission = state.missions.find((candidate) => candidate.id === id);
-  const [clock, setClock] = useState(Date.now());
+  const [nowMs, setNowMs] = useState(Date.now());
   const [revisionTopic, setRevisionTopic] = useState("");
   const [showReflection, setShowReflection] = useState(false);
   const [reflection, setReflection] = useState<ReflectionDraft>({ miniAchievementRating: 3, skills: [] });
@@ -41,13 +41,16 @@ export default function MissionDetailScreen() {
   const submissionLock = useRef(false);
 
   useEffect(() => {
+    // Refresh immediately whenever this session becomes visible, then maintain
+    // a real millisecond reference while the mission is actively running.
+    setNowMs(Date.now());
     if (mission?.status !== "active") return;
-    const timer = setInterval(() => setClock(Date.now()), 1_000);
+    const timer = setInterval(() => setNowMs(Date.now()), 1_000);
     return () => clearInterval(timer);
-  }, [mission?.status]);
+  }, [mission?.id, mission?.status]);
 
-  const duration = useMemo(() => mission ? getMissionInvestedMilliseconds(mission, clock) : 0, [mission, clock]);
-  const isLongMission = mission ? isLongMissionReflectionEligible(mission, clock) : false;
+  const duration = useMemo(() => mission ? getMissionInvestedMilliseconds(mission, nowMs) : 0, [mission, nowMs]);
+  const isLongMission = mission ? isLongMissionReflectionEligible(mission, nowMs) : false;
 
   if (!ready) return <LoadingScreen label="Opening mission…" />;
   if (!mission) {
