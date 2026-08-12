@@ -155,6 +155,12 @@
 - [x] Use the requested excerpt from the supplied first soundtrack, retain the approved second audio cue, and guarantee video/audio lifecycle cleanup.
 - [x] Add regression coverage and complete TypeScript, lint, full-suite, production-export, and media-integrity validation without starting an APK build.
 
+- [x] Restore the stopped Focus Command development service and verify its preview endpoint responds.
+
+- [x] Complete a final pre-publication verification of all moving armor videos, family selection, playback lifecycle, audio synchronization, interruption cleanup, regression coverage, and production export.
+- [x] Obtain and integrate a distinct user-generated Ascendant armor-materialization clip, then repeat final pre-publication verification before publishing.
+- [x] Select and trim the strongest continuous five-second armor-construction segment from the supplied ten-second Ascendant source before mobile integration.
+
 - [x] Trace the reported repeatable-mission completion, rescheduling, and same-day start flow against the supplied recording.
 - [x] Fix repeatable missions so completion does not move their eligible scheduled date to tomorrow before the day ends.
 - [x] Preserve next-day rescheduling for non-repeatable daily missions and all existing independent completion records.
