@@ -251,4 +251,4 @@
 
 - [x] Audit why the GitHub-built APK lacks the Google OAuth client configuration available to the Expo Go development environment; local validation confirms the Web Client ID exists, while the GitHub workflow injects no OAuth values.
 - [x] Add a secure GitHub Actions configuration path for the required Google OAuth build values without exposing credentials in the private repository.
-- [ ] Build and validate a replacement APK with Google Sheets authorization enabled, then document the secure setup and delivery path.
+- [x] Build and validate a replacement APK with Google Sheets authorization enabled, then document the secure setup and delivery path.

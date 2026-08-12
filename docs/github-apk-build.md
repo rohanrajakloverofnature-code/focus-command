@@ -44,6 +44,10 @@ Creating the private repository costs **$0** on GitHub Free. For private reposit
 
 The first private build completed successfully on **12 August 2026**. Its **Focus-Command-APK-1** artifact is retained in the repository's [workflow run](https://github.com/rohanrajakloverofnature-code/focus-command/actions/runs/31572146215). Open that run while signed in to the repository owner account, download the artifact archive, extract it, and install `app-release.apk`.
 
+## Verified OAuth-enabled replacement build
+
+The OAuth-enabled replacement build also completed successfully on **12 August 2026**. It receives the Google Web and Android client IDs only through encrypted repository Actions secrets, so its **Focus-Command-APK-1** artifact includes the existing Google Sheets authorization configuration without exposing client values in committed files. Download it from the later successful [workflow run](https://github.com/rohanrajakloverofnature-code/focus-command/actions/runs/31576750264), extract the archive, and install its `app-release.apk` in place of the earlier build.
+
 ## Reference
 
 GitHub documents artifact retention and download behavior at [Store and share data with workflow artifacts](https://docs.github.com/en/actions/tutorials/store-and-share-data). GitHub’s current [Actions billing documentation](https://docs.github.com/billing/managing-billing-for-github-actions/about-billing-for-github-actions) lists the private-repository allowance and its quota behavior; its [pricing page](https://github.com/pricing) confirms that GitHub Free includes unlimited private repositories and 2,000 CI/CD minutes per month.
