@@ -29,6 +29,10 @@ git push origin main
 
 The generated APK is suitable for direct installation and testing. It uses the generated debug signing configuration so it can be installed without adding a keystore secret. Before Play Store distribution, replace that signing configuration with a release keystore stored in GitHub repository secrets; do not commit a production keystore to the repository.
 
+## Free-tier and spending safeguard
+
+Creating the private repository costs **$0** on GitHub Free. For private repositories, GitHub Free currently includes **2,000 Linux runner minutes per month** and **500 MB** of shared Actions artifact and Packages storage. This Android workflow uses the standard Ubuntu runner and retains only the APK artifact. GitHub states that, if no payment method is configured, workflows are blocked once the included quota is exhausted rather than creating paid overages. No paid runner, larger runner, billing upgrade, or spending-limit change is required or configured by this project. Delete old APK artifacts if storage ever approaches the included allowance.
+
 ## Reference
 
-GitHub documents artifact retention and download behavior at [Store and share data with workflow artifacts](https://docs.github.com/en/actions/tutorials/store-and-share-data).
+GitHub documents artifact retention and download behavior at [Store and share data with workflow artifacts](https://docs.github.com/en/actions/tutorials/store-and-share-data). GitHub’s current [Actions billing documentation](https://docs.github.com/billing/managing-billing-for-github-actions/about-billing-for-github-actions) lists the private-repository allowance and its quota behavior; its [pricing page](https://github.com/pricing) confirms that GitHub Free includes unlimited private repositories and 2,000 CI/CD minutes per month.
