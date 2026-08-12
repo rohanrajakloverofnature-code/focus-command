@@ -68,6 +68,20 @@ describe("mission timing lifecycle compatibility", () => {
     expect(isLongMissionReflectionEligible(pausedMission, Date.parse(STARTED_AT) + 180 * MINUTE)).toBe(true);
   });
 
+  it("does not freeze an active installed session when an older persisted record carries a stale pausedAt timestamp", () => {
+    const stalePausedAt = new Date(Date.parse(STARTED_AT) + 5 * MINUTE).toISOString();
+    const activeMission = mission({
+      status: "active",
+      pausedAt: stalePausedAt,
+    });
+    const ninetyMinutesLater = Date.parse(STARTED_AT) + 90 * MINUTE;
+    const hydrated = normalizeHydratedState({ ...createInitialState(), missions: [activeMission] });
+
+    expect(getMissionInvestedMilliseconds(activeMission, ninetyMinutesLater)).toBe(90 * MINUTE);
+    expect(hydrated.missions[0].pausedAt).toBeNull();
+    expect(getMissionInvestedMilliseconds(hydrated.missions[0], ninetyMinutesLater)).toBe(90 * MINUTE);
+  });
+
   it("opens the full emotion debrief at exactly 45 active minutes, not before", () => {
     const justBelowThreshold = mission();
     const atThreshold = mission();

@@ -925,7 +925,10 @@ export function getMissionInvestedMilliseconds(mission: Mission, referenceTime =
   const fallbackReferenceTime = Number.isFinite(referenceTime) ? referenceTime : Date.now();
   const endTime = getFiniteTimestamp(mission.endedAt)
     ?? getFiniteTimestamp(mission.completedAt)
-    ?? getFiniteTimestamp(mission.pausedAt)
+    // A persisted pausedAt from an interrupted older build must not freeze a
+    // mission that is currently active. Only an actually paused mission uses
+    // its pause instant as the live-timer endpoint.
+    ?? (mission.status === "paused" ? getFiniteTimestamp(mission.pausedAt) : null)
     ?? fallbackReferenceTime;
   return Math.max(0, endTime - startedAt - getMissionPausedMilliseconds(mission));
 }
@@ -1472,17 +1475,25 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       emotionalCharts: input.profile?.emotionalCharts?.length ? input.profile.emotionalCharts : defaults.profile.emotionalCharts,
     },
     combo: { ...defaults.combo, ...(input.combo ?? {}) },
-    missions: (input.missions ?? []).map((mission) => ({
-      ...mission,
-      startedAt: mission.startedAt ?? null,
-      pausedAt: mission.pausedAt ?? null,
-      pausedMilliseconds: getMissionPausedMilliseconds(mission),
-      endedAt: mission.endedAt ?? null,
-      completedAt: mission.completedAt ?? null,
-      frequency: mission.frequency ?? "once",
-      allowMultipleDailyCompletions: mission.allowMultipleDailyCompletions ?? false,
-      completionHistory: mission.completionHistory ?? (mission.completedAt ? [mission.completedAt] : []),
-    })),
+    missions: (input.missions ?? []).map((mission) => {
+      const startedAt = getFiniteTimestamp(mission.startedAt);
+      const pausedAt = getFiniteTimestamp(mission.pausedAt);
+      const endedAt = getFiniteTimestamp(mission.endedAt);
+      const completedAt = getFiniteTimestamp(mission.completedAt);
+      return {
+        ...mission,
+        startedAt: startedAt === null ? null : new Date(startedAt).toISOString(),
+        // Active sessions must keep advancing even when a legacy record carries
+        // a stale pause timestamp from an interrupted pause/resume transition.
+        pausedAt: mission.status === "paused" && pausedAt !== null ? new Date(pausedAt).toISOString() : null,
+        pausedMilliseconds: getMissionPausedMilliseconds(mission),
+        endedAt: endedAt === null ? null : new Date(endedAt).toISOString(),
+        completedAt: completedAt === null ? null : new Date(completedAt).toISOString(),
+        frequency: mission.frequency ?? "once",
+        allowMultipleDailyCompletions: mission.allowMultipleDailyCompletions ?? false,
+        completionHistory: mission.completionHistory ?? (mission.completedAt ? [mission.completedAt] : []),
+      };
+    }),
     missionCompletions: [...existingCompletions, ...migratedLegacyCompletions],
     googleSheet: { ...defaults.googleSheet, ...(input.googleSheet ?? {}) },
     rewards: input.rewards?.length ? input.rewards : defaults.rewards,
@@ -1610,7 +1621,13 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         ...current,
         missions: current.missions.map((mission) => {
           if (mission.id !== missionId || !isMissionStartEligible(mission, today, current.profile.timezone)) return mission;
-          return { ...mission, status: "active", startedAt: mission.startedAt ?? nowIso(), pausedAt: null };
+          const existingStartedAt = getFiniteTimestamp(mission.startedAt);
+          return {
+            ...mission,
+            status: "active",
+            startedAt: existingStartedAt === null ? nowIso() : new Date(existingStartedAt).toISOString(),
+            pausedAt: null,
+          };
         }),
       });
     });

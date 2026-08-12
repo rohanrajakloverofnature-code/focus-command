@@ -307,3 +307,6 @@
 - [x] Replace the basic character overlay with the staged reference-driven avatar transition, armor and weapon materialization, energy rings, ribbon, particles, flashes, impact, title, and reward reveal.
 - [x] Preserve genuine progression-only triggering, real level/title/equipment data, launch and celebration exclusions, app-background cleanup, and all existing functionality.
 - [x] Add deterministic regression coverage and validate the full cinematic sequence, sound timing, visual layering, trigger safety, and project quality gates.
+
+- [x] Reproduce and repair the installed-APK live mission timer that remains at 0.0 h during an active session, including its persisted session-state compatibility path.
+- [x] Add installed-build-focused timer regression coverage, validate pause/resume and completion behavior, then publish the verified repair.
