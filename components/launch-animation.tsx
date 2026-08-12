@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
-import { VideoView, useVideoPlayer } from "expo-video";
+import { Image } from "expo-image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, {
@@ -18,12 +18,14 @@ import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from "rea
 
 import { getEmotionalPatternForecast, getWellbeingInsight, useFocusCommand } from "@/lib/focus-command";
 import { LAUNCH_QUOTE_HISTORY_KEY, nextLaunchQuoteHistory, parseLaunchQuoteHistory, selectLaunchQuote, type LaunchQuote } from "@/lib/launch-quotes";
-import { getLaunchFireSoundStopDelay, getLaunchFireStageHeight, getLaunchQuoteCueDelay, getLaunchQuoteVisibleDelay, getLaunchSequenceDuration } from "@/lib/launch-sequence";
+import { getLaunchFireSoundStopDelay, getLaunchFireStageHeight, getLaunchQuoteCueDelay, getLaunchQuoteHoldDuration, getLaunchQuoteVisibleDelay, getLaunchSequenceDuration } from "@/lib/launch-sequence";
 import { claimLaunchSequence, setLaunchSequenceActive } from "@/lib/launch-session";
 
 const launchFireAudio = require("../assets/sounds/launch-fire-crackle.mp3");
 const launchQuoteTransitionAudio = require("../assets/sounds/launch-quote-transition.m4a");
-const cinematicFirePlate = require("../assets/videos/cinematic-launch-fire.mp4");
+// This alpha-keyed APNG is rendered from the previously approved MP4 frame sequence.
+// Only the original black matte is removed; the fire animation itself is not replaced.
+const cinematicFirePlate = require("../assets/images/launch-fire-alpha.png");
 type LaunchAudioPlayer = ReturnType<typeof createAudioPlayer>;
 
 export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
@@ -46,11 +48,6 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   const glazeOpacity = useSharedValue(0);
   const glazeProgress = useSharedValue(-1);
   const flameMotion = useSharedValue(0);
-  const fireVideoPlayer = useVideoPlayer(cinematicFirePlate, (player) => {
-    player.loop = true;
-    player.muted = true;
-  });
-
   const reduceMotion = state.profile.reduceMotion;
   const highContrast = state.profile.highContrast;
   const forecast = useMemo(() => getEmotionalPatternForecast(state), [state]);
@@ -80,7 +77,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     stopPlayer(quoteAudioPlayerRef);
   }, [stopPlayer]);
 
-  const playAudioCue = useCallback(async (source: number, target: { current: LaunchAudioPlayer | null }, volume: number) => {
+  const playAudioCue = useCallback(async (source: number, target: { current: LaunchAudioPlayer | null }, volume: number, loop = false) => {
     if (!state.profile.soundEnabled) return;
     const audioRun = ++audioRunRef.current;
     try {
@@ -93,6 +90,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
         return;
       }
       player.volume = volume;
+      player.loop = loop;
       target.current = player;
       player.play();
     } catch {
@@ -100,7 +98,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     }
   }, [state.profile.soundEnabled]);
 
-  const playFireAudio = useCallback(() => void playAudioCue(launchFireAudio, fireAudioPlayerRef, 0.48), [playAudioCue]);
+  const playFireAudio = useCallback(() => void playAudioCue(launchFireAudio, fireAudioPlayerRef, 0.48, true), [playAudioCue]);
   const playQuoteTransitionAudio = useCallback(() => {
     stopPlayer(fireAudioPlayerRef);
     void playAudioCue(launchQuoteTransitionAudio, quoteAudioPlayerRef, 0.18);
@@ -111,11 +109,6 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     hasFinishedRef.current = true;
     clearTimers();
     stopLaunchAudio();
-    try {
-      fireVideoPlayer.pause();
-    } catch {
-      // The native decoder can already be released during an app-state interruption.
-    }
     setLaunchSequenceActive(false);
     cancelAnimation(backdrop);
     cancelAnimation(fireOpacity);
@@ -125,7 +118,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     cancelAnimation(glazeProgress);
     setVisible(false);
     onFinished?.();
-  }, [backdrop, clearTimers, fireOpacity, fireVideoPlayer, glazeOpacity, glazeProgress, onFinished, quoteOpacity, quoteScale, stopLaunchAudio]);
+  }, [backdrop, clearTimers, fireOpacity, glazeOpacity, glazeProgress, onFinished, quoteOpacity, quoteScale, stopLaunchAudio]);
 
   useEffect(() => {
     if (!ready) return;
@@ -170,13 +163,6 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     glazeOpacity.value = 0;
     glazeProgress.value = -1;
     flameMotion.value = 0;
-    try {
-      fireVideoPlayer.currentTime = 0;
-      fireVideoPlayer.play();
-    } catch {
-      // The rest of the staged transition remains stable if a device video decoder is unavailable.
-    }
-
     if (reduceMotion) {
       backdrop.value = withSequence(withTiming(0.08, { duration: 100 }), withDelay(880, withTiming(0, { duration: 180 })));
       fireOpacity.value = withSequence(withDelay(45, withTiming(0.72, { duration: 130 })), withDelay(140, withTiming(0, { duration: 190 })));
@@ -185,13 +171,13 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       glazeOpacity.value = withSequence(withDelay(900, withTiming(0.34, { duration: 100 })), withTiming(0, { duration: 170 }));
       glazeProgress.value = withDelay(900, withTiming(1, { duration: 230, easing: Easing.inOut(Easing.quad) }));
     } else {
-      backdrop.value = withSequence(withTiming(0.08, { duration: 260, easing: Easing.out(Easing.cubic) }), withDelay(5_180, withTiming(0, { duration: 560, easing: Easing.inOut(Easing.cubic) })));
-      fireOpacity.value = withSequence(withDelay(130, withTiming(1, { duration: 1_080, easing: Easing.out(Easing.cubic) })), withDelay(540, withTiming(0, { duration: 920, easing: Easing.inOut(Easing.cubic) })));
-      quoteOpacity.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(false), withTiming(1, { duration: 430, easing: Easing.out(Easing.cubic) })), withDelay(1_650, withTiming(0, { duration: 590, easing: Easing.inOut(Easing.cubic) })));
-      quoteScale.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(false), withTiming(1, { duration: 470, easing: Easing.out(Easing.cubic) })), withDelay(1_600, withTiming(0.99, { duration: 620, easing: Easing.inOut(Easing.cubic) })));
-      flameMotion.value = withRepeat(withSequence(withTiming(1, { duration: 780, easing: Easing.inOut(Easing.sin) }), withTiming(0, { duration: 850, easing: Easing.inOut(Easing.sin) })), 3, false);
-      glazeOpacity.value = withSequence(withDelay(4_860, withTiming(0.52, { duration: 310, easing: Easing.out(Easing.quad) })), withDelay(150, withTiming(0, { duration: 600, easing: Easing.inOut(Easing.cubic) })));
-      glazeProgress.value = withDelay(4_940, withTiming(1, { duration: 980, easing: Easing.inOut(Easing.cubic) }));
+      backdrop.value = withSequence(withTiming(0.03, { duration: 260, easing: Easing.out(Easing.cubic) }), withDelay(10_520, withTiming(0, { duration: 620, easing: Easing.inOut(Easing.cubic) })));
+      fireOpacity.value = withSequence(withDelay(120, withTiming(1, { duration: 950, easing: Easing.out(Easing.cubic) })), withDelay(4_450, withTiming(0, { duration: 650, easing: Easing.inOut(Easing.cubic) })));
+      quoteOpacity.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(false), withTiming(1, { duration: 430, easing: Easing.out(Easing.cubic) })), withDelay(getLaunchQuoteHoldDuration(false), withTiming(0, { duration: 590, easing: Easing.inOut(Easing.cubic) })));
+      quoteScale.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(false), withTiming(1, { duration: 470, easing: Easing.out(Easing.cubic) })), withDelay(getLaunchQuoteHoldDuration(false) - 50, withTiming(0.99, { duration: 620, easing: Easing.inOut(Easing.cubic) })));
+      flameMotion.value = withRepeat(withSequence(withTiming(1, { duration: 780, easing: Easing.inOut(Easing.sin) }), withTiming(0, { duration: 850, easing: Easing.inOut(Easing.sin) })), 4, false);
+      glazeOpacity.value = withSequence(withDelay(10_180, withTiming(0.58, { duration: 360, easing: Easing.out(Easing.quad) })), withDelay(170, withTiming(0, { duration: 760, easing: Easing.inOut(Easing.cubic) })));
+      glazeProgress.value = withDelay(10_240, withTiming(1, { duration: 1_150, easing: Easing.inOut(Easing.cubic) }));
     }
 
     const fireTimer = setTimeout(playFireAudio, reduceMotion ? 50 : 180);
@@ -202,14 +188,9 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     return () => {
       clearTimers();
       stopLaunchAudio();
-      try {
-        fireVideoPlayer.pause();
-      } catch {
-        // Native cleanup may race an app-state transition.
-      }
       setLaunchSequenceActive(false);
     };
-  }, [backdrop, clearTimers, finish, fireOpacity, fireVideoPlayer, flameMotion, glazeOpacity, glazeProgress, launchDuration, playFireAudio, playQuoteTransitionAudio, quoteOpacity, quoteScale, reduceMotion, stopLaunchAudio, stopPlayer, visible]);
+  }, [backdrop, clearTimers, finish, fireOpacity, flameMotion, glazeOpacity, glazeProgress, launchDuration, playFireAudio, playQuoteTransitionAudio, quoteOpacity, quoteScale, reduceMotion, stopLaunchAudio, stopPlayer, visible]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
@@ -241,7 +222,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       <Animated.View pointerEvents="none" style={[styles.darkVeil, backdropStyle]} />
       <View style={[styles.fireStage, { height: stageHeight }]}> 
         <Animated.View style={[styles.cinematicFirePlate, { width, height: stageHeight * 1.16, bottom: -stageHeight * 0.12 }, firePlateStyle]}>
-          <VideoView contentFit="contain" nativeControls={false} player={fireVideoPlayer} surfaceType="textureView" style={styles.cinematicFireVideo} />
+          <Image autoplay contentFit="contain" source={cinematicFirePlate} style={styles.cinematicFireImage} />
         </Animated.View>
         <Animated.View style={[styles.fireGrade, fireGradeStyle]}>
           <Svg height={stageHeight} width={width} viewBox={`0 0 ${Math.max(1, width)} ${Math.max(1, stageHeight)}`}>
@@ -282,12 +263,9 @@ const styles = StyleSheet.create({
   darkVeil: { ...StyleSheet.absoluteFillObject, backgroundColor: "#1A0A04" },
   fireStage: { position: "absolute", left: 0, right: 0, bottom: 0, overflow: "hidden" },
   cinematicFirePlate: { position: "absolute", left: 0, bottom: 0 },
-  cinematicFireVideo: {
+  cinematicFireImage: {
     flex: 1,
     backgroundColor: "transparent",
-    // Screen blending treats the source video’s black matte as visually transparent,
-    // while preserving every original flame frame above the existing app surface.
-    mixBlendMode: "screen",
   },
   fireGrade: { ...StyleSheet.absoluteFillObject },
   quoteFrame: { position: "absolute", left: 38, right: 38, top: "34%", alignItems: "center" },

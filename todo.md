@@ -208,3 +208,8 @@
 - [x] Inspect the approved fire video’s black matte and select a transparency-preserving compositing path that does not alter the fire animation.
 - [x] Integrate the matte-free approved fire footage without changing its movement, launch-only behavior, animation arbitration, audio priority, or glaze.
 - [x] Validate transparent compositing, visual fidelity, lifecycle safeguards, rendering performance, and static production output before checkpointing.
+
+- [x] Audit current fire duration, crackle playback, quote duration, and all remaining black-matte sources while preserving the approved footage.
+- [x] Extend the unchanged fire plus sound phase to 5–7 seconds and hold the motivational quote for 3–4 seconds without breaking launch-only arbitration.
+- [x] Correct the residual black matte while retaining the approved fire frames, sound priority, animation exclusion, and existing glaze.
+- [x] Validate timing, sound lifecycle, transparency, responsiveness, launch-only behavior, static output, and production startup before checkpointing.
