@@ -9,6 +9,7 @@ import {
   POWER_UP_TIMELINE_MS,
 } from "../lib/power-up-profile";
 import {
+  CHARACTER_EVOLUTION_VIDEO_DURATION_MS,
   CHARACTER_EVOLUTION_TIMELINE_MS,
   createCharacterEvolutionMilestone,
   getCharacterEvolutionProfile,
@@ -104,10 +105,10 @@ describe("title and level cinematic power-up profiles", () => {
   });
 
   it("uses visibly distinct existing-title families and keeps development stages aligned to level thresholds", () => {
-    expect(getCharacterEvolutionProfile("Recruit", 1)).toMatchObject({ family: "tactical", stage: 0, formName: "Initiate" });
-    expect(getCharacterEvolutionProfile("Captain", 90)).toMatchObject({ family: "command", stage: 2, formName: "Armored Specialist" });
-    expect(getCharacterEvolutionProfile("Shadow Phantom", 180)).toMatchObject({ family: "shadow", stage: 3, formName: "Elite Operator" });
-    expect(getCharacterEvolutionProfile("Celestial Sovereign", 450)).toMatchObject({ family: "ascendant", stage: 5, formName: "Sovereign Form" });
+    expect(getCharacterEvolutionProfile("Recruit", 1)).toMatchObject({ family: "tactical", stage: 0, formName: "Initiate", cinematicVariant: "tactical" });
+    expect(getCharacterEvolutionProfile("Captain", 90)).toMatchObject({ family: "command", stage: 2, formName: "Armored Specialist", cinematicVariant: "command" });
+    expect(getCharacterEvolutionProfile("Shadow Phantom", 180)).toMatchObject({ family: "shadow", stage: 3, formName: "Elite Operator", cinematicVariant: "shadow" });
+    expect(getCharacterEvolutionProfile("Celestial Sovereign", 450)).toMatchObject({ family: "ascendant", stage: 5, formName: "Sovereign Form", cinematicVariant: "ascendant" });
   });
 
   it("uses the equipped local head, body, and accessory state as the only equipment-reveal source", () => {
@@ -158,5 +159,18 @@ describe("title and level cinematic power-up profiles", () => {
     expect(command.family).not.toBe(ascendant.family);
     expect(tactical.stage).toBeLessThan(command.stage);
     expect(command.stage).toBeLessThan(ascendant.stage);
+  });
+
+  it("reserves a five-second moving materialization window and gives each title family a dedicated cinematic variant", () => {
+    const variants = [
+      getCharacterEvolutionProfile("Recruit", 31).cinematicVariant,
+      getCharacterEvolutionProfile("Brigadier", 91).cinematicVariant,
+      getCharacterEvolutionProfile("Shadow Phantom", 181).cinematicVariant,
+      getCharacterEvolutionProfile("Celestial Sovereign", 451).cinematicVariant,
+    ];
+
+    expect(CHARACTER_EVOLUTION_VIDEO_DURATION_MS).toBe(5_000);
+    expect(new Set(variants).size).toBe(4);
+    expect(CHARACTER_EVOLUTION_TIMELINE_MS.materialize + CHARACTER_EVOLUTION_VIDEO_DURATION_MS).toBeGreaterThan(CHARACTER_EVOLUTION_TIMELINE_MS.materialize);
   });
 });

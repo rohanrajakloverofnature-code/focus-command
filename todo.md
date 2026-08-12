@@ -151,6 +151,10 @@
 
 - [x] Permanently repair the installed-APK live-mission active-time path and restore its 45-minute active-time reflection gate without changing unrelated behavior.
 
+- [x] Create and integrate final title-family moving armor-materialization video choreography for the Home character cinematic without changing unrelated features.
+- [x] Use the requested excerpt from the supplied first soundtrack, retain the approved second audio cue, and guarantee video/audio lifecycle cleanup.
+- [x] Add regression coverage and complete TypeScript, lint, full-suite, production-export, and media-integrity validation without starting an APK build.
+
 - [x] Trace the reported repeatable-mission completion, rescheduling, and same-day start flow against the supplied recording.
 - [x] Fix repeatable missions so completion does not move their eligible scheduled date to tomorrow before the day ends.
 - [x] Preserve next-day rescheduling for non-repeatable daily missions and all existing independent completion records.

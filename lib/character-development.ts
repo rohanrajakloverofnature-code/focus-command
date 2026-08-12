@@ -2,6 +2,7 @@ import type { Equipment } from "./focus-command";
 
 export type CharacterFamily = "tactical" | "command" | "shadow" | "ascendant";
 export type DevelopmentStage = 0 | 1 | 2 | 3 | 4 | 5;
+export type CharacterCinematicVariant = "tactical" | "command" | "shadow" | "ascendant";
 
 export type EquippedCharacterGear = {
   head?: Equipment;
@@ -29,7 +30,10 @@ export type CharacterEvolutionProfile = {
   materializationLabel: string;
   impactLabel: string;
   portraitKey: CharacterFamily;
+  cinematicVariant: CharacterCinematicVariant;
 };
+
+export const CHARACTER_EVOLUTION_VIDEO_DURATION_MS = 5_000;
 
 export const CHARACTER_EVOLUTION_TIMELINE_MS = {
   activation: 0,
@@ -58,6 +62,7 @@ const FAMILY_PRESENTATION: Record<CharacterFamily, Omit<CharacterEvolutionProfil
     materializationLabel: "RECON ARMOR ONLINE",
     impactLabel: "FIELD COMMAND LOCKED",
     portraitKey: "tactical",
+    cinematicVariant: "tactical",
   },
   command: {
     family: "command",
@@ -69,6 +74,7 @@ const FAMILY_PRESENTATION: Record<CharacterFamily, Omit<CharacterEvolutionProfil
     materializationLabel: "COMMAND PLATING ONLINE",
     impactLabel: "DIRECTIVE LOCKED",
     portraitKey: "command",
+    cinematicVariant: "command",
   },
   shadow: {
     family: "shadow",
@@ -80,6 +86,7 @@ const FAMILY_PRESENTATION: Record<CharacterFamily, Omit<CharacterEvolutionProfil
     materializationLabel: "PHASE ARMOR ONLINE",
     impactLabel: "SHADOW ARRAY LOCKED",
     portraitKey: "shadow",
+    cinematicVariant: "shadow",
   },
   ascendant: {
     family: "ascendant",
@@ -91,6 +98,7 @@ const FAMILY_PRESENTATION: Record<CharacterFamily, Omit<CharacterEvolutionProfil
     materializationLabel: "SOVEREIGN ARMOR ONLINE",
     impactLabel: "ASCENDANT ARRAY LOCKED",
     portraitKey: "ascendant",
+    cinematicVariant: "ascendant",
   },
 };
 
