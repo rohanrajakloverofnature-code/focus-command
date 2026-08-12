@@ -1632,13 +1632,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
 
   const finishMission = useCallback((missionId: string, reflectionDraft: ReflectionDraft) => {
     const sourceMission = state.missions.find((mission) => mission.id === missionId);
-    if (!sourceMission || !sourceMission.startedAt) return null;
-    
-    // A non-repeatable mission has a single completion. Repeatable missions are
-    // restarted as fresh planned instances after every valid result.
-    if (!sourceMission.allowMultipleDailyCompletions && sourceMission.status === "completed") {
-      return null;
-    }
+    if (!sourceMission || !sourceMission.startedAt || (sourceMission.status !== "active" && sourceMission.status !== "paused")) return null;
     const endedAt = nowIso();
     const pausedMilliseconds = sourceMission.pausedMilliseconds + (sourceMission.pausedAt ? Math.max(0, Date.now() - Date.parse(sourceMission.pausedAt)) : 0);
     const completedMission: Mission = {
@@ -1652,10 +1646,17 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       startedAt: sourceMission.startedAt,
     };
     const durationMs = getMissionInvestedMilliseconds(completedMission);
+    // The reducer transaction can be scheduled after this callback returns. Create
+    // the durable identifiers here so a valid completion never appears to fail
+    // merely because React has not executed the transaction producer yet.
+    const completionId = createId("completion");
+    const progressionId = createId("progress");
+    const reflectionId = createId("reflection");
     let lootReward: Reward | null = null;
-    let completionIdForResult: string | null = null;
 
     commit((current) => {
+      const currentMission = current.missions.find((mission) => mission.id === missionId);
+      if (!currentMission || !currentMission.startedAt || (currentMission.status !== "active" && currentMission.status !== "paused")) return current;
       const completionDate = toLocalDate(endedAt, current.profile.timezone);
       const comboForAward = getCurrentCombo(current, completionDate);
       const goldMultiplier = getActiveGoldMultiplier(current, completionDate);
@@ -1666,10 +1667,6 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       const goldAwarded = Math.floor(carryTotal / 10);
       const goldPowerCarry = carryTotal - goldAwarded * 10;
       // Each completion gets its own progression event with independent XP calculation
-      const completionId = createId("completion");
-      completionIdForResult = completionId;
-      const progressionId = createId("progress");
-      const reflectionId = createId("reflection");
       const reflection: Reflection = {
         id: reflectionId,
         missionId,
@@ -1851,8 +1848,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         goldPowerCarry,
       }, 4);
     });
-    if (!completionIdForResult) return null;
-    return { completionId: completionIdForResult, durationMs, lootReward };
+    return { completionId, durationMs, lootReward };
   }, [commit, state.missions]);
 
   const completeRevision = useCallback((topicId: string) => {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   MINI_ACHIEVEMENT_TICKER_LAYOUT,
+  MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE,
   RECOGNITION_WINDOW_LAYOUT,
   getRecognitionWindowCardWidth,
   hasReservedMiniAchievementTickerSpace,
@@ -11,6 +12,9 @@ describe("focused Home and Dashboard layout constraints", () => {
   it("reserves the full ticker height inside the header zone before the profile card begins", () => {
     expect(MINI_ACHIEVEMENT_TICKER_LAYOUT.height).toBeGreaterThanOrEqual(56);
     expect(hasReservedMiniAchievementTickerSpace()).toBe(true);
+    expect(MINI_ACHIEVEMENT_TICKER_LAYOUT.right).toBeGreaterThanOrEqual(56);
+    expect(MINI_ACHIEVEMENT_TICKER_LAYOUT.left).toBeGreaterThan(0);
+    expect(MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE).toBe("/analytics?metric=fame");
   });
 
   it("keeps Recognition Window cards equal and usable on compact and wide portrait content widths", () => {

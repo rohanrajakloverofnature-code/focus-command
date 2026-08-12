@@ -268,3 +268,8 @@
 - [x] Align the Recognition Window’s Wall of Fame and Achievement Radar cards across portrait widths without content clipping or overflow.
 - [x] Increase the bounded Home Mini Achievement ticker height and padding while preserving its non-overlapping header placement.
 - [x] Add end-to-end regression coverage for mission completion, History, active time, analytics, Recognition Window layout, and ticker sizing before building a replacement APK.
+
+- [x] Repair the active-mission end and result-confirmation lifecycle so a valid live session does not become inactive before finalization.
+- [x] Repair elapsed-time propagation and persistence so completed mission durations drive Home, History, Dashboard, and analytics consistently.
+- [x] Move the Mini Achievement ticker clear of the hamburger control and make its tap navigate to the existing Wall of Fame.
+- [x] Add regression coverage and run a broad existing-flow validation pass without adding or redesigning app features before building a replacement APK.

@@ -26,7 +26,7 @@ import { useColors } from "@/hooks/use-colors";
 import { playFocusRole } from "@/lib/focus-audio";
 import { getEligibleCelebration, type CelebrationMilestone } from "@/lib/celebration-lifecycle";
 import { getForecastMotivationMessages } from "@/lib/home-motivation";
-import { MINI_ACHIEVEMENT_TICKER_LAYOUT } from "@/lib/focus-layout";
+import { MINI_ACHIEVEMENT_TICKER_LAYOUT, MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE } from "@/lib/focus-layout";
 import { isLaunchSequenceActive } from "@/lib/launch-session";
 import {
   formatCompactNumber,
@@ -154,7 +154,7 @@ export default function HomeScreen() {
             detail={title.title}
             right={<IconAction icon="line.3.horizontal" label="Open command settings" onPress={() => router.push("/settings")} />}
           />
-          <MiniAchievementTicker achievements={miniAchievementHeadlines} reduceMotion={state.profile.reduceMotion} style={styles.miniAchievementTicker} />
+          <MiniAchievementTicker achievements={miniAchievementHeadlines} reduceMotion={state.profile.reduceMotion} style={styles.miniAchievementTicker} onPress={() => router.push(MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE as never)} />
         </View>
 
         <CommandCard accent={colors.primary} style={[styles.heroCard, { backgroundColor: "#0E1D2E", borderColor: "#234865" }]}>

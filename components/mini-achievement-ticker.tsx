@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -14,10 +14,12 @@ export function MiniAchievementTicker({
   achievements,
   reduceMotion,
   style,
+  onPress,
 }: {
   achievements: readonly MiniAchievementHeadline[];
   reduceMotion: boolean;
   style?: StyleProp<ViewStyle>;
+  onPress?: () => void;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const changeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -62,10 +64,13 @@ export function MiniAchievementTicker({
   if (!activeAchievement) return null;
 
   return (
-    <View
+    <Pressable
       accessible
       accessibilityLabel={`Mini achievement: ${activeAchievement.title}, rated ${activeAchievement.rating.toFixed(1)} out of 5`}
-      style={[styles.ticker, style]}
+      accessibilityHint={onPress ? "Opens the Wall of Fame" : undefined}
+      accessibilityRole={onPress ? "button" : undefined}
+      onPress={onPress}
+      style={({ pressed }) => [styles.ticker, style, onPress && pressed ? styles.tickerPressed : null]}
     >
       <View style={styles.accent} />
       <Animated.View style={[styles.headline, headlineStyle]}>
@@ -81,7 +86,7 @@ export function MiniAchievementTicker({
           <Text style={styles.rating}>{activeAchievement.rating.toFixed(1)}</Text>
         </View>
       </Animated.View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -94,6 +99,7 @@ const styles = StyleSheet.create({
     borderColor: "#F4C95D50",
     backgroundColor: "#10233AEC",
   },
+  tickerPressed: { opacity: 0.82, transform: [{ scale: 0.985 }] },
   accent: { position: "absolute", left: 0, top: 12, bottom: 12, width: 3, borderRadius: 99, backgroundColor: "#F4C95D" },
   headline: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 12, paddingLeft: 15, paddingVertical: 9 },
   iconFrame: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "#F4C95D16" },
