@@ -10,6 +10,13 @@ The Android display name remains **Focus Command** and the Android application I
 
 Create or use a GitHub repository, then push this project to its `main` branch. The `android/` directory must be committed because it contains the Gradle project used by the workflow.
 
+Before running an APK build, open **Settings → Secrets and variables → Actions** in the private GitHub repository and configure the following repository secrets. They are injected only while the Android bundle is created and are not committed to the repository.
+
+| Secret | Purpose |
+| --- | --- |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Enables the existing Google OAuth web-client fallback used by the direct Google Sheets authorization flow. |
+| `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` | Enables native Google OAuth for `com.app.rpgfocuscommand`. Its Google Cloud Android client must be registered with the project’s release-signing certificate fingerprint. |
+
 ```bash
 git add android .github/workflows/android-apk.yml .gitignore docs/github-apk-build.md
 git commit -m "Add GitHub Actions Android APK build"

@@ -17,6 +17,20 @@ describe("Google Sheets OAuth configuration", () => {
     expect(discovery.token_endpoint).toContain("googleapis.com");
   });
 
+  it("validates the configured Android Client ID for native Google Sheets authorization", () => {
+    const clientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+
+    expect(clientId, "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID must be configured for the APK build").toBeTruthy();
+    expect(clientId).toMatch(/^[0-9][A-Za-z0-9-]*\.apps\.googleusercontent\.com$/);
+  });
+
+  it("injects both OAuth client IDs from protected GitHub Actions secrets during APK bundling", () => {
+    const workflow = readFileSync(resolve(process.cwd(), ".github/workflows/android-apk.yml"), "utf8");
+
+    expect(workflow).toContain("EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}");
+    expect(workflow).toContain("EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID }}");
+  });
+
   it("registers the native application-identifier redirect used by a development build", () => {
     const redirectUri = "com.app.rpgfocuscommand:/oauthredirect";
     const request = new URL("https://accounts.google.com/o/oauth2/v2/auth");
