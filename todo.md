@@ -388,3 +388,7 @@
 - [x] Integrate, validate, and checkpoint the remaining verified Ascendant portrait-video pairing, then report the completed four-video rollout.
 
 - [x] Correct Command Evolution to use the visually verified `ascendant-2_video.mp4` source rather than the filename-matched but visually incorrect Command clip; revalidate and checkpoint this correction before continuing.
+
+- [x] Push the fully validated eight-portrait cinematic rollout checkpoint `e6b124cd` to the private GitHub `main` branch without starting an APK build, then verify the remote commit.
+
+- [x] Integrate the remote-only private-main commit non-destructively, preserving its user-authored Command/Officer update and all locally validated eight-portrait cinematic assets before pushing the completed rollout.
