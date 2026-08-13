@@ -363,3 +363,7 @@
 - [ ] Restore the untouched GitHub connector configuration and use an authorized GitHub browser session to synchronize the saved Tactical checkpoint without changing application files or starting an APK build.
 - [x] Restore every previously completed character video and related regression file that the Tactical checkpoint-to-GitHub diff would otherwise delete, then revalidate the corrected safe state before any repository update.
 - [x] Create a corrected checkpoint that preserves Tactical, Command, Shadow, and Ascendant character-cinematic media before the authorized private GitHub update.
+- [x] Run a fresh GitHub device authorization and push the already committed corrected cinematic rollout update in one continuous terminal session; then verify private main.
+
+- [x] Verify and integrate the supplied Command/Officer ten-second character video with the established during-video and post-video audio cues, leaving every animation and sound completed today unchanged.
+- [x] Validate the isolated Command cinematic mapping, protected existing character mappings, full regression suite, lint, TypeScript, and production export; then checkpoint and synchronize the verified single-character update to GitHub without an APK build.
