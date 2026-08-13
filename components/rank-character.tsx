@@ -63,6 +63,7 @@ const CHARACTER_EVOLUTION_VIDEO_SOURCES = {
   ascendant: require("@/assets/videos/character-cycles/vanguard-ascendant-10s.mp4"),
   tacticalEvolution: require("@/assets/videos/character-cycles/tactical-evolution-10s.mp4"),
   commandEvolution: require("@/assets/videos/character-cycles/command-evolution-10s.mp4"),
+  baseAscendant: require("@/assets/videos/character-cycles/base-ascendant-10s.mp4"),
 } as const;
 
 const CHARACTER_EVOLUTION_VIDEO_SOUNDTRACK_SOURCE = require("@/assets/sounds/character-evolution-video-10s.mp3");

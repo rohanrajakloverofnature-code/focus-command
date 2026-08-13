@@ -384,7 +384,7 @@
 - [x] Integrate, validate, checkpoint, and report only the first verified newly active portrait-video pairing, retaining original video audio plus the established during-video and post-video audio treatment.
 
 - [x] Integrate, validate, and checkpoint the verified Command Evolution portrait-video pairing without changing the Recruit, Tactical Evolution, Shadow, or Ascendant mappings.
-- [ ] Integrate, validate, and checkpoint the first verified Ascendant portrait-video pairing without changing completed mappings.
+- [x] Integrate, validate, and checkpoint the first verified Ascendant portrait-video pairing without changing completed mappings.
 - [ ] Integrate, validate, and checkpoint the remaining verified Ascendant portrait-video pairing, then report the completed four-video rollout.
 
 - [x] Correct Command Evolution to use the visually verified `ascendant-2_video.mp4` source rather than the filename-matched but visually incorrect Command clip; revalidate and checkpoint this correction before continuing.

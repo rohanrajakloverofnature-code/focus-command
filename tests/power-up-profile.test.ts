@@ -127,7 +127,8 @@ describe("title and level cinematic power-up profiles", () => {
     expect(getCharacterEvolutionProfile("Recruit", 90).cinematicVariant).toBe("tacticalEvolution");
     expect(getCharacterEvolutionProfile("Brigadier", 89).cinematicVariant).toBe("command");
     expect(getCharacterEvolutionProfile("Brigadier", 90).cinematicVariant).toBe("commandEvolution");
-    expect(getCharacterEvolutionProfile("Celestial Sovereign", 30).cinematicVariant).toBe("ascendant");
+    expect(getCharacterEvolutionProfile("Celestial Sovereign", 29).cinematicVariant).toBe("ascendant");
+    expect(getCharacterEvolutionProfile("Celestial Sovereign", 30).cinematicVariant).toBe("baseAscendant");
     expect(getCharacterEvolutionProfile("Celestial Sovereign", 180).cinematicVariant).toBe("ascendant");
   });
 
@@ -197,6 +198,7 @@ describe("title and level cinematic power-up profiles", () => {
     expect(getCharacterEvolutionVideoDurationMs("command")).toBe(10_000);
     expect(getCharacterEvolutionVideoDurationMs("commandEvolution")).toBe(10_000);
     expect(getCharacterEvolutionVideoDurationMs("ascendant")).toBe(10_000);
+    expect(getCharacterEvolutionVideoDurationMs("baseAscendant")).toBe(10_000);
     expect(getCharacterEvolutionVideoDurationMs("shadow")).toBe(10_000);
   });
 });

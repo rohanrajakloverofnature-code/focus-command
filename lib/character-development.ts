@@ -2,7 +2,7 @@ import type { Equipment } from "./focus-command";
 
 export type CharacterFamily = "tactical" | "command" | "shadow" | "ascendant";
 export type DevelopmentStage = 0 | 1 | 2 | 3 | 4 | 5;
-export type CharacterCinematicVariant = "tactical" | "command" | "shadow" | "ascendant" | "tacticalEvolution" | "commandEvolution";
+export type CharacterCinematicVariant = "tactical" | "command" | "shadow" | "ascendant" | "tacticalEvolution" | "commandEvolution" | "baseAscendant";
 export type CharacterPortraitVariant = "recruit" | "officer" | "shadow" | "vanguard" | "tactical" | "command" | "ascendant" | "evolutionAscendant";
 
 export type EquippedCharacterGear = {
@@ -44,6 +44,7 @@ export const CHARACTER_EVOLUTION_VIDEO_DURATION_BY_VARIANT: Record<CharacterCine
   ascendant: 10_000,
   tacticalEvolution: 10_000,
   commandEvolution: 10_000,
+  baseAscendant: 10_000,
 };
 
 export function getCharacterEvolutionVideoDurationMs(variant: CharacterCinematicVariant) {
@@ -158,6 +159,7 @@ export function getCharacterCinematicVariant(title: string, level = 0): Characte
   const portrait = getCharacterPortraitVariant(title, level);
   if (portrait === "tactical") return "tacticalEvolution";
   if (portrait === "command") return "commandEvolution";
+  if (portrait === "ascendant") return "baseAscendant";
   return getCharacterFamily(title);
 }
 
