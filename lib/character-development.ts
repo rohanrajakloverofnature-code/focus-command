@@ -36,11 +36,11 @@ export type CharacterEvolutionProfile = {
 export const CHARACTER_EVOLUTION_VIDEO_DURATION_MS = 5_000;
 
 /**
- * Completed families retain their approved five-second materialization window.
- * Shadow alone uses the newly supplied full ten-second portrait clip.
+ * Tactical now uses its matched user-supplied full ten-second portrait clip.
+ * The remaining completed families retain their existing approved windows.
  */
 export const CHARACTER_EVOLUTION_VIDEO_DURATION_BY_VARIANT: Record<CharacterCinematicVariant, number> = {
-  tactical: CHARACTER_EVOLUTION_VIDEO_DURATION_MS,
+  tactical: 10_000,
   command: CHARACTER_EVOLUTION_VIDEO_DURATION_MS,
   shadow: 10_000,
   ascendant: CHARACTER_EVOLUTION_VIDEO_DURATION_MS,

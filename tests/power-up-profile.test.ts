@@ -162,7 +162,7 @@ describe("title and level cinematic power-up profiles", () => {
     expect(command.stage).toBeLessThan(ascendant.stage);
   });
 
-  it("keeps completed families at their approved five-second materialization window and gives each title family a dedicated cinematic variant", () => {
+  it("uses the supplied ten-second tactical cinematic while retaining the established windows for the other title variants", () => {
     const variants = [
       getCharacterEvolutionProfile("Recruit", 31).cinematicVariant,
       getCharacterEvolutionProfile("Brigadier", 91).cinematicVariant,
@@ -173,7 +173,7 @@ describe("title and level cinematic power-up profiles", () => {
     expect(CHARACTER_EVOLUTION_VIDEO_DURATION_MS).toBe(5_000);
     expect(new Set(variants).size).toBe(4);
     expect(CHARACTER_EVOLUTION_TIMELINE_MS.materialize + CHARACTER_EVOLUTION_VIDEO_DURATION_MS).toBeGreaterThan(CHARACTER_EVOLUTION_TIMELINE_MS.materialize);
-    expect(getCharacterEvolutionVideoDurationMs("tactical")).toBe(5_000);
+    expect(getCharacterEvolutionVideoDurationMs("tactical")).toBe(10_000);
     expect(getCharacterEvolutionVideoDurationMs("command")).toBe(5_000);
     expect(getCharacterEvolutionVideoDurationMs("ascendant")).toBe(5_000);
     expect(getCharacterEvolutionVideoDurationMs("shadow")).toBe(10_000);

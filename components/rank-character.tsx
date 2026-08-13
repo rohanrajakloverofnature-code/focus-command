@@ -56,11 +56,14 @@ const CHARACTER_EVOLUTION_AUDIO_SOURCES = [
 ] as const;
 
 const CHARACTER_EVOLUTION_VIDEO_SOURCES = {
-  tactical: require("@/assets/videos/armor-evolution-tactical.mp4"),
+  tactical: require("@/assets/videos/character-cycles/tactical-10s.mp4"),
   command: require("@/assets/videos/armor-evolution-command.mp4"),
   shadow: require("@/assets/videos/character-cycles/shadow-10s.mp4"),
   ascendant: require("@/assets/videos/armor-evolution-ascendant.mp4"),
 } as const;
+
+const CHARACTER_EVOLUTION_VIDEO_SOUNDTRACK_SOURCE = require("@/assets/sounds/character-evolution-video-10s.mp3");
+const CHARACTER_EVOLUTION_POST_VIDEO_REVEAL_SOURCE = require("@/assets/sounds/character-evolution-ending.mp3");
 
 function getBasePortrait(title: string, level: number): ImageSourcePropType {
   const normalized = title.toLowerCase();
@@ -234,6 +237,9 @@ export function RankCharacterAchievement({
   const shakeY = useSharedValue(0);
   const dismissRef = useRef(onDismiss);
   const playersRef = useRef<ReturnType<typeof createAudioPlayer>[]>([]);
+  const videoSoundtrackPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
+  const postVideoRevealPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
+  const usesSuppliedTacticalCinematic = evolution.cinematicVariant === "tactical";
   const variationSeed = level + evolution.stage + (evolution.family === "shadow" ? 1 : evolution.family === "ascendant" ? 2 : evolution.family === "command" ? 3 : 0);
   const impactDirection = variationSeed % 2 === 0 ? 1 : -1;
   const cinematicIntensity = 1 + evolution.stage * 0.09 + (level % 3) * 0.045;
@@ -264,6 +270,50 @@ export function RankCharacterAchievement({
         }
       }
       playersRef.current = [];
+      const videoSoundtrackPlayer = videoSoundtrackPlayerRef.current;
+      if (videoSoundtrackPlayer) {
+        try {
+          videoSoundtrackPlayer.pause();
+          videoSoundtrackPlayer.seekTo(0);
+          videoSoundtrackPlayer.remove();
+        } catch {
+          // Native during-video soundtrack cleanup must never obstruct dismissal.
+        }
+      }
+      videoSoundtrackPlayerRef.current = null;
+      const postVideoRevealPlayer = postVideoRevealPlayerRef.current;
+      if (postVideoRevealPlayer) {
+        try {
+          postVideoRevealPlayer.pause();
+          postVideoRevealPlayer.seekTo(0);
+          postVideoRevealPlayer.remove();
+        } catch {
+          // Native post-video soundtrack cleanup must never obstruct dismissal.
+        }
+      }
+      postVideoRevealPlayerRef.current = null;
+    };
+    const stopVideoSoundtrack = () => {
+      const videoSoundtrackPlayer = videoSoundtrackPlayerRef.current;
+      if (!videoSoundtrackPlayer) return;
+      try {
+        videoSoundtrackPlayer.pause();
+        videoSoundtrackPlayer.seekTo(0);
+      } catch {
+        // A soundtrack interruption must never leave the cinematic modal unresponsive.
+      }
+    };
+    const playVideoSoundtrack = () => {
+      const videoSoundtrackPlayer = videoSoundtrackPlayerRef.current;
+      if (!videoSoundtrackPlayer) return;
+      try {
+        videoSoundtrackPlayer.pause();
+        videoSoundtrackPlayer.seekTo(0);
+        videoSoundtrackPlayer.volume = 0.24;
+        videoSoundtrackPlayer.play();
+      } catch {
+        // Original video audio remains available if the separate soundtrack cannot start.
+      }
     };
     const stopVideo = () => {
       try {
@@ -274,22 +324,51 @@ export function RankCharacterAchievement({
       }
       setVideoVisible(false);
       videoOpacity.value = 0;
+      stopVideoSoundtrack();
     };
     const playArmorVideo = () => {
       try {
         videoPlayer.pause();
         videoPlayer.currentTime = 0;
+        videoPlayer.muted = !usesSuppliedTacticalCinematic;
+        videoPlayer.volume = usesSuppliedTacticalCinematic ? 0.9 : 1;
         setVideoVisible(true);
         videoOpacity.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
         videoPlayer.play();
+        if (usesSuppliedTacticalCinematic) playVideoSoundtrack();
       } catch {
         stopVideo();
+      }
+    };
+    const finishArmorVideo = () => {
+      try {
+        videoPlayer.pause();
+      } catch {
+        // Reaching the end of a native video must never prevent visual completion.
+      }
+      stopVideoSoundtrack();
+      videoOpacity.value = withTiming(0, { duration: 340, easing: Easing.out(Easing.quad) });
+    };
+    const playPostVideoReveal = () => {
+      const postVideoRevealPlayer = postVideoRevealPlayerRef.current;
+      if (!postVideoRevealPlayer) return;
+      try {
+        postVideoRevealPlayer.pause();
+        postVideoRevealPlayer.seekTo(0);
+        postVideoRevealPlayer.play();
+      } catch {
+        // The character-information reveal must continue if its ending cue is unavailable.
       }
     };
     const prepareEffects = () => {
       if (!soundEnabled || mode !== "evolution") return;
       try {
-        playersRef.current = CHARACTER_EVOLUTION_AUDIO_SOURCES.map((source) => createAudioPlayer(source));
+        if (usesSuppliedTacticalCinematic) {
+          videoSoundtrackPlayerRef.current = createAudioPlayer(CHARACTER_EVOLUTION_VIDEO_SOUNDTRACK_SOURCE);
+          postVideoRevealPlayerRef.current = createAudioPlayer(CHARACTER_EVOLUTION_POST_VIDEO_REVEAL_SOURCE);
+        } else {
+          playersRef.current = CHARACTER_EVOLUTION_AUDIO_SOURCES.map((source) => createAudioPlayer(source));
+        }
         void setAudioModeAsync({ playsInSilentMode: true });
       } catch {
         releasePlayers();
@@ -389,11 +468,15 @@ export function RankCharacterAchievement({
       pulse(Math.min(0.42, 0.22 * cinematicIntensity));
     }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + 3_380);
     schedule(() => {
-      videoOpacity.value = withTiming(0, { duration: 360, easing: Easing.out(Easing.quad) });
-    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicVideoDurationMs - 360);
+      finishArmorVideo();
+    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicVideoDurationMs - 340);
     schedule(() => {
       stopVideo();
-      playEffect(1);
+      if (usesSuppliedTacticalCinematic) {
+        playPostVideoReveal();
+      } else {
+        playEffect(1);
+      }
     }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicVideoDurationMs);
     schedule(() => {
       setPhase("weapon");
@@ -431,7 +514,7 @@ export function RankCharacterAchievement({
       stopVideo();
       releasePlayers();
     };
-  }, [camera, cinematicIntensity, cinematicVideoDurationMs, counterSpin, evolution.stage, fade, flash, impactDirection, mode, particles, portal, portraitScale, portraitY, reduceMotion, reveal, reward, ribbon, shakeX, shakeY, shockwave, soundEnabled, spin, videoOpacity, videoPlayer, visible]);
+  }, [camera, cinematicIntensity, cinematicVideoDurationMs, counterSpin, evolution.stage, fade, flash, impactDirection, mode, particles, portal, portraitScale, portraitY, reduceMotion, reveal, reward, ribbon, shakeX, shakeY, shockwave, soundEnabled, spin, usesSuppliedTacticalCinematic, videoOpacity, videoPlayer, visible]);
 
   const backdropStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
   const stageStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shakeX.value }, { translateY: shakeY.value }, { scale: camera.value }] }));

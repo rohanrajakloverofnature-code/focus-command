@@ -347,3 +347,13 @@
 - [x] Integrate only the approved remaining character-video mappings with their matching portraits, retain existing video/audio/replay cleanup behavior, fully validate, checkpoint, and push without starting an APK build.
 
 - [x] Preserve all completed Tactical, Command, and Ascendant animations unchanged while integrating only the available matching Shadow video with the existing bundled approved audio cues.
+
+- [ ] Complete all five newly supplied remaining character forms as individual portrait-and-video mappings while leaving the three previously completed characters unchanged.
+- [ ] Restore the agreed audio contract for every new cinematic: supplied video audio during playback and the dedicated supplied ending cue after the video finishes.
+- [ ] Verify the supplied audio durations and use the ten-second track during every supplied anime video, followed only after video completion by the shorter ending cue.
+
+- [x] Identify and integrate the newly supplied blue tactical-armour character’s matching ten-second cinematic video with the established during-video and post-video audio cues, without changing the profile-logo mechanism or any completed character mappings.
+- [x] Validate the new single-character cinematic mapping, full regression suite, lint, TypeScript, and production export; then checkpoint and synchronize the verified update to GitHub without an APK build.
+
+- [x] Create and validate a checkpoint-safe mobile-optimized copy of the exact supplied Tactical ten-second source while retaining its portrait framing, complete duration, and embedded video audio.
+- [x] Create and validate a checkpoint-safe mobile-optimized copy of the existing completed Shadow source without changing its character mapping, timing, or audio behavior.
