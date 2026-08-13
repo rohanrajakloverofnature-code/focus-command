@@ -110,7 +110,7 @@ describe("title and level cinematic power-up profiles", () => {
     expect(getCharacterEvolutionProfile("Recruit", 1)).toMatchObject({ family: "tactical", stage: 0, formName: "Initiate", cinematicVariant: "tactical" });
     expect(getCharacterEvolutionProfile("Captain", 90)).toMatchObject({ family: "command", stage: 2, formName: "Armored Specialist", cinematicVariant: "commandEvolution" });
     expect(getCharacterEvolutionProfile("Shadow Phantom", 180)).toMatchObject({ family: "shadow", stage: 3, formName: "Elite Operator", cinematicVariant: "shadow" });
-    expect(getCharacterEvolutionProfile("Celestial Sovereign", 450)).toMatchObject({ family: "ascendant", stage: 5, formName: "Sovereign Form", cinematicVariant: "ascendant" });
+    expect(getCharacterEvolutionProfile("Celestial Sovereign", 450)).toMatchObject({ family: "ascendant", stage: 5, formName: "Sovereign Form", cinematicVariant: "sovereignAscendant" });
   });
 
   it("activates all eight profile-logo portraits through title family and earned level while routing Tactical Evolution to its verified cinematic", () => {
@@ -129,7 +129,7 @@ describe("title and level cinematic power-up profiles", () => {
     expect(getCharacterEvolutionProfile("Brigadier", 90).cinematicVariant).toBe("commandEvolution");
     expect(getCharacterEvolutionProfile("Celestial Sovereign", 29).cinematicVariant).toBe("ascendant");
     expect(getCharacterEvolutionProfile("Celestial Sovereign", 30).cinematicVariant).toBe("baseAscendant");
-    expect(getCharacterEvolutionProfile("Celestial Sovereign", 180).cinematicVariant).toBe("ascendant");
+    expect(getCharacterEvolutionProfile("Celestial Sovereign", 180).cinematicVariant).toBe("sovereignAscendant");
   });
 
   it("uses the equipped local head, body, and accessory state as the only equipment-reveal source", () => {
@@ -199,6 +199,7 @@ describe("title and level cinematic power-up profiles", () => {
     expect(getCharacterEvolutionVideoDurationMs("commandEvolution")).toBe(10_000);
     expect(getCharacterEvolutionVideoDurationMs("ascendant")).toBe(10_000);
     expect(getCharacterEvolutionVideoDurationMs("baseAscendant")).toBe(10_000);
+    expect(getCharacterEvolutionVideoDurationMs("sovereignAscendant")).toBe(10_000);
     expect(getCharacterEvolutionVideoDurationMs("shadow")).toBe(10_000);
   });
 });
