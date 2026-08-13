@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CINEMATIC_VIDEO_ASPECT_RATIO,
   CINEMATIC_VIDEO_AUDIO_MODE,
+  CINEMATIC_VIDEO_AUDIO_MIXING_MODE,
   CINEMATIC_VIDEO_CONTENT_FIT,
   CINEMATIC_VIDEO_EMBEDDED_VOLUME,
   CINEMATIC_VIDEO_SOUNDTRACK_VOLUME,
@@ -33,6 +34,7 @@ describe("character cinematic native playback contract", () => {
     });
     expect(CINEMATIC_VIDEO_SOUNDTRACK_VOLUME).toBeGreaterThan(0.5);
     expect(CINEMATIC_VIDEO_EMBEDDED_VOLUME).toBeGreaterThan(0.8);
+    expect(CINEMATIC_VIDEO_AUDIO_MIXING_MODE).toBe("mixWithOthers");
   });
 
   it("preserves the complete portrait image instead of cropping it into the previous wide frame", () => {

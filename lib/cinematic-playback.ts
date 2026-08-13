@@ -10,6 +10,12 @@ export const CINEMATIC_VIDEO_AUDIO_MODE = {
   interruptionModeAndroid: "duckOthers",
 } as const;
 
+/**
+ * Expo Video defaults to exclusive Android audio focus. Explicit mixing lets the
+ * clip's embedded audio coexist with the separate approved cinematic score.
+ */
+export const CINEMATIC_VIDEO_AUDIO_MIXING_MODE = "mixWithOthers" as const;
+
 export const CINEMATIC_VIDEO_SOUNDTRACK_VOLUME = 0.56;
 export const CINEMATIC_VIDEO_EMBEDDED_VOLUME = 0.84;
 export const CINEMATIC_VIDEO_ASPECT_RATIO = 9 / 16;

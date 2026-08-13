@@ -8,6 +8,7 @@ import { useColors } from "@/hooks/use-colors";
 import {
   CINEMATIC_VIDEO_ASPECT_RATIO,
   CINEMATIC_VIDEO_AUDIO_MODE,
+  CINEMATIC_VIDEO_AUDIO_MIXING_MODE,
   CINEMATIC_VIDEO_CONTENT_FIT,
   CINEMATIC_VIDEO_EMBEDDED_VOLUME,
   CINEMATIC_VIDEO_SOUNDTRACK_VOLUME,
@@ -235,6 +236,10 @@ export function RankCharacterAchievement({
   const videoPlayer = useVideoPlayer(cinematicVideoSource, (player) => {
     player.loop = false;
     player.muted = true;
+    // Keep the clip's embedded audio and the approved separate soundtrack
+    // concurrent on Android instead of allowing the video player to take
+    // exclusive audio focus and pause the soundtrack player.
+    player.audioMixingMode = CINEMATIC_VIDEO_AUDIO_MIXING_MODE;
   });
   const spin = useSharedValue(0);
   const counterSpin = useSharedValue(0);
@@ -335,6 +340,10 @@ export function RankCharacterAchievement({
       try {
         videoPlayer.pause();
         videoPlayer.currentTime = 0;
+        // The global audio session can be changed by unrelated one-shot cues.
+        // Reapply the cinematic's own mode immediately before its video begins.
+        void setAudioModeAsync(CINEMATIC_VIDEO_AUDIO_MODE);
+        videoPlayer.audioMixingMode = CINEMATIC_VIDEO_AUDIO_MIXING_MODE;
         videoPlayer.muted = false;
         videoPlayer.volume = CINEMATIC_VIDEO_EMBEDDED_VOLUME;
         setVideoVisible(true);

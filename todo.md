@@ -407,3 +407,6 @@
 
 - [x] Restore the approved ten-second simultaneous cinematic soundtrack for every character video and preserve each video’s portrait aspect without changing cinematic timing, profile-logo behavior, or unrelated app features.
 - [x] Inspect the supplied recording and soundtrack, add regression coverage for shared soundtrack playback and portrait sizing, then validate and synchronize the focused correction without starting an APK build.
+
+- [x] Trace and repair the remaining installed-Android failure of the first ten-second cinematic soundtrack while preserving all existing character videos, embedded video audio, ending cue, profile-logo behavior, timing, and unrelated features.
+- [x] Confirm the reported GitHub Actions notices are non-blocking deprecation warnings, add installed-device lifecycle regression coverage for the first soundtrack, validate, checkpoint, and synchronize the focused repair without starting an APK build.
