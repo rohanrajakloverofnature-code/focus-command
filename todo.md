@@ -361,3 +361,5 @@
 - [x] Integrate the supplied ending audio only after the full ten-second video completes, during the existing character-information reveal.
 
 - [x] Push the approved portrait-alignment checkpoint to the private GitHub repository without starting an APK build.
+
+- [x] Repair Google Sheets export serialization so oversized values cannot exceed the 50,000-character single-cell limit while preserving queued local data and the saved spreadsheet connection.
