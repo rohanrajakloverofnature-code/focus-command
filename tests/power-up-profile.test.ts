@@ -108,7 +108,7 @@ describe("title and level cinematic power-up profiles", () => {
 
   it("uses visibly distinct existing-title families and keeps development stages aligned to level thresholds", () => {
     expect(getCharacterEvolutionProfile("Recruit", 1)).toMatchObject({ family: "tactical", stage: 0, formName: "Initiate", cinematicVariant: "tactical" });
-    expect(getCharacterEvolutionProfile("Captain", 90)).toMatchObject({ family: "command", stage: 2, formName: "Armored Specialist", cinematicVariant: "command" });
+    expect(getCharacterEvolutionProfile("Captain", 90)).toMatchObject({ family: "command", stage: 2, formName: "Armored Specialist", cinematicVariant: "commandEvolution" });
     expect(getCharacterEvolutionProfile("Shadow Phantom", 180)).toMatchObject({ family: "shadow", stage: 3, formName: "Elite Operator", cinematicVariant: "shadow" });
     expect(getCharacterEvolutionProfile("Celestial Sovereign", 450)).toMatchObject({ family: "ascendant", stage: 5, formName: "Sovereign Form", cinematicVariant: "ascendant" });
   });
@@ -125,7 +125,8 @@ describe("title and level cinematic power-up profiles", () => {
 
     expect(getCharacterEvolutionProfile("Recruit", 89).cinematicVariant).toBe("tactical");
     expect(getCharacterEvolutionProfile("Recruit", 90).cinematicVariant).toBe("tacticalEvolution");
-    expect(getCharacterEvolutionProfile("Brigadier", 90).cinematicVariant).toBe("command");
+    expect(getCharacterEvolutionProfile("Brigadier", 89).cinematicVariant).toBe("command");
+    expect(getCharacterEvolutionProfile("Brigadier", 90).cinematicVariant).toBe("commandEvolution");
     expect(getCharacterEvolutionProfile("Celestial Sovereign", 30).cinematicVariant).toBe("ascendant");
     expect(getCharacterEvolutionProfile("Celestial Sovereign", 180).cinematicVariant).toBe("ascendant");
   });
@@ -194,6 +195,7 @@ describe("title and level cinematic power-up profiles", () => {
     expect(getCharacterEvolutionVideoDurationMs("tactical")).toBe(10_000);
     expect(getCharacterEvolutionVideoDurationMs("tacticalEvolution")).toBe(10_000);
     expect(getCharacterEvolutionVideoDurationMs("command")).toBe(10_000);
+    expect(getCharacterEvolutionVideoDurationMs("commandEvolution")).toBe(10_000);
     expect(getCharacterEvolutionVideoDurationMs("ascendant")).toBe(10_000);
     expect(getCharacterEvolutionVideoDurationMs("shadow")).toBe(10_000);
   });
