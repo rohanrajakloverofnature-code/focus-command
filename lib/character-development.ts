@@ -2,7 +2,7 @@ import type { Equipment } from "./focus-command";
 
 export type CharacterFamily = "tactical" | "command" | "shadow" | "ascendant";
 export type DevelopmentStage = 0 | 1 | 2 | 3 | 4 | 5;
-export type CharacterCinematicVariant = "tactical" | "command" | "shadow" | "ascendant";
+export type CharacterCinematicVariant = "tactical" | "command" | "shadow" | "ascendant" | "tacticalEvolution";
 export type CharacterPortraitVariant = "recruit" | "officer" | "shadow" | "vanguard" | "tactical" | "command" | "ascendant" | "evolutionAscendant";
 
 export type EquippedCharacterGear = {
@@ -42,6 +42,7 @@ export const CHARACTER_EVOLUTION_VIDEO_DURATION_BY_VARIANT: Record<CharacterCine
   command: 10_000,
   shadow: 10_000,
   ascendant: 10_000,
+  tacticalEvolution: 10_000,
 };
 
 export function getCharacterEvolutionVideoDurationMs(variant: CharacterCinematicVariant) {
@@ -148,6 +149,14 @@ export function getCharacterPortraitVariant(title: string, level = 0): Character
   return "shadow";
 }
 
+/**
+ * Existing cinematic families remain unchanged. The newly activated Tactical Evolution portrait
+ * receives its own verified ten-second source only after that portrait is selected at level 90.
+ */
+export function getCharacterCinematicVariant(title: string, level = 0): CharacterCinematicVariant {
+  return getCharacterPortraitVariant(title, level) === "tactical" ? "tacticalEvolution" : getCharacterFamily(title);
+}
+
 export function getCharacterEvolutionProfile(title: string, level: number): CharacterEvolutionProfile {
   const stage = getDevelopmentStage(level);
   const family = getCharacterFamily(title);
@@ -155,6 +164,7 @@ export function getCharacterEvolutionProfile(title: string, level: number): Char
     stage,
     formName: STAGE_FORMS[stage],
     ...FAMILY_PRESENTATION[family],
+    cinematicVariant: getCharacterCinematicVariant(title, level),
   };
 }
 

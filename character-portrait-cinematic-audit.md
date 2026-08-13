@@ -27,3 +27,14 @@
 | Ascendant | 180+ | Sovereign Ascendant Evolution | Ascendant |
 
 This activation work changes only static portrait selection. It does not change any video source, audio cue, profile-logo interaction, replay rule, or title-family cinematic assignment.
+
+## Supplied Video Match Audit — 2026-08-13
+
+| Supplied clip | Verified visual evidence | Provisional closest active portrait |
+|---|---|---|
+| `tactical_video_done.mp4` | Starts with a dark-blue tactical operator and evolves into a blue, silver, and bronze heavy armor form with a blue chest core. | Tactical Evolution (`evolution/tactical.png`) |
+| `command_video_done.mp4` | Shows a violet-and-gold armored warrior with a purple aura, chains, floating swords, and a sovereign halo-like final form. | Sovereign Ascendant Evolution (`evolution/ascendant.png`) |
+| `shadow_video.mp4` | Shows a dark black-and-purple armored swordsman whose cloak breaks away into a streamlined violet-energy armor form. | Base Ascendant (`ascendant.jpg`) |
+| `ascendant-2_video.mp4` | Shows a violet-and-gold high-tech armored warrior gaining purple shoulder cannons, an energy shield, and a combat halo. | Command Evolution (`evolution/command.png`) |
+
+The complete closest-match mapping is Tactical clip → Tactical Evolution, Ascendant-2 clip → Command Evolution, Shadow clip → Base Ascendant, and Command clip → Sovereign Ascendant Evolution. No cinematic mapping has changed during this audit.

@@ -379,3 +379,6 @@
 
 - [x] Define and implement deterministic title-family and level-stage selection for all eight existing portraits, while preserving the profile-logo interaction and completed cinematic mappings.
 - [x] Add regression coverage and validate that every active portrait change is driven only by title or level, with no changes to existing cinematic-video or audio behavior.
+
+- [x] Inspect the four newly supplied videos against the four newly active portraits and record the closest verified pairing for each without changing completed portrait-video assignments.
+- [x] Integrate, validate, checkpoint, and report only the first verified newly active portrait-video pairing, retaining original video audio plus the established during-video and post-video audio treatment.
