@@ -7,9 +7,8 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSeq
 import { useColors } from "@/hooks/use-colors";
 import {
   CHARACTER_EVOLUTION_TIMELINE_MS,
-  getCharacterCinematicMedia,
   getCharacterEvolutionProfile,
-  getCharacterPortraitVariant,
+  getCharacterEvolutionVideoDurationMs,
   getEquippedGearLabels,
   type EquippedCharacterGear,
 } from "@/lib/character-development";
@@ -57,18 +56,27 @@ const CHARACTER_EVOLUTION_AUDIO_SOURCES = [
 ] as const;
 
 const CHARACTER_EVOLUTION_VIDEO_SOURCES = {
-  tactical: require("@/assets/videos/character-cycles/recruit-tactical-10s.mp4"),
-  command: require("@/assets/videos/character-cycles/officer-command-10s.mp4"),
-  shadow: require("@/assets/videos/armor-evolution-shadow.mp4"),
-  ascendant: require("@/assets/videos/character-cycles/vanguard-ascendant-10s.mp4"),
+  tactical: require("@/assets/videos/armor-evolution-tactical.mp4"),
+  command: require("@/assets/videos/armor-evolution-command.mp4"),
+  shadow: require("@/assets/videos/character-cycles/shadow-10s.mp4"),
+  ascendant: require("@/assets/videos/armor-evolution-ascendant.mp4"),
 } as const;
 
-const CHARACTER_EVOLUTION_BGM_SOURCE = require("@/assets/sounds/character-evolution-bgm-10s.mp3");
-const CHARACTER_EVOLUTION_ENDING_SOURCE = require("@/assets/sounds/character-evolution-ending.mp3");
+function getBasePortrait(title: string, level: number): ImageSourcePropType {
+  const normalized = title.toLowerCase();
+  if (level >= 350 || /infinity|void|quantum|celestial|galactic|mythic|divine|solar/.test(normalized)) return PORTRAITS.ascendant;
+  if (level >= 180 || /commander|general|warlord|vanguard|sentinel|operative/.test(normalized)) return PORTRAITS.vanguard;
+  if (level >= 70 || /officer|lieutenant|captain|major|colonel/.test(normalized)) return PORTRAITS.officer;
+  return PORTRAITS.recruit;
+}
 
 export function getRankProfile(title: string, level: number): RankProfile {
   const evolution = getCharacterEvolutionProfile(title, level);
-  const portrait = PORTRAITS[getCharacterPortraitVariant(title)];
+  const portrait = evolution.stage === 0
+    ? getBasePortrait(title, level)
+    : evolution.family === "ascendant"
+      ? PORTRAITS.evolutionAscendant
+      : PORTRAITS[evolution.family];
   return {
     name: evolution.formName,
     accent: evolution.accent,
@@ -200,7 +208,7 @@ export function RankCharacterAchievement({
   const colors = useColors();
   const profile = getRankProfile(title, level);
   const evolution = useMemo(() => getCharacterEvolutionProfile(title, level), [level, title]);
-  const cinematicMedia = getCharacterCinematicMedia(evolution.cinematicVariant);
+  const cinematicVideoDurationMs = getCharacterEvolutionVideoDurationMs(evolution.cinematicVariant);
   const gear = useMemo(() => getEquippedGearLabels(equipment), [equipment]);
   const [phase, setPhase] = useState<PowerUpPhase>("activation");
   const fade = useSharedValue(0);
@@ -218,9 +226,7 @@ export function RankCharacterAchievement({
   const [videoVisible, setVideoVisible] = useState(false);
   const videoPlayer = useVideoPlayer(CHARACTER_EVOLUTION_VIDEO_SOURCES[evolution.cinematicVariant], (player) => {
     player.loop = false;
-    player.muted = !cinematicMedia.preservesOriginalVideoAudio;
-    player.volume = cinematicMedia.preservesOriginalVideoAudio ? 0.9 : 1;
-    player.audioMixingMode = cinematicMedia.preservesOriginalVideoAudio ? "mixWithOthers" : "auto";
+    player.muted = true;
   });
   const spin = useSharedValue(0);
   const counterSpin = useSharedValue(0);
@@ -228,8 +234,6 @@ export function RankCharacterAchievement({
   const shakeY = useSharedValue(0);
   const dismissRef = useRef(onDismiss);
   const playersRef = useRef<ReturnType<typeof createAudioPlayer>[]>([]);
-  const bgmPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
-  const endingPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
   const variationSeed = level + evolution.stage + (evolution.family === "shadow" ? 1 : evolution.family === "ascendant" ? 2 : evolution.family === "command" ? 3 : 0);
   const impactDirection = variationSeed % 2 === 0 ? 1 : -1;
   const cinematicIntensity = 1 + evolution.stage * 0.09 + (level % 3) * 0.045;
@@ -260,50 +264,6 @@ export function RankCharacterAchievement({
         }
       }
       playersRef.current = [];
-      const bgmPlayer = bgmPlayerRef.current;
-      if (bgmPlayer) {
-        try {
-          bgmPlayer.pause();
-          bgmPlayer.seekTo(0);
-          bgmPlayer.remove();
-        } catch {
-          // Native BGM cleanup must never obstruct the visual dismissal path.
-        }
-      }
-      bgmPlayerRef.current = null;
-      const endingPlayer = endingPlayerRef.current;
-      if (endingPlayer) {
-        try {
-          endingPlayer.pause();
-          endingPlayer.seekTo(0);
-          endingPlayer.remove();
-        } catch {
-          // Native ending-audio cleanup must never obstruct the visual dismissal path.
-        }
-      }
-      endingPlayerRef.current = null;
-    };
-    const stopBgm = () => {
-      const bgmPlayer = bgmPlayerRef.current;
-      if (!bgmPlayer) return;
-      try {
-        bgmPlayer.pause();
-        bgmPlayer.seekTo(0);
-      } catch {
-        // A BGM interruption must never leave the cinematic modal unresponsive.
-      }
-    };
-    const playBgm = () => {
-      const bgmPlayer = bgmPlayerRef.current;
-      if (!bgmPlayer) return;
-      try {
-        bgmPlayer.pause();
-        bgmPlayer.seekTo(0);
-        bgmPlayer.volume = 0.24;
-        bgmPlayer.play();
-      } catch {
-        // Original video audio remains available if the separate BGM cannot start.
-      }
     };
     const stopVideo = () => {
       try {
@@ -314,51 +274,22 @@ export function RankCharacterAchievement({
       }
       setVideoVisible(false);
       videoOpacity.value = 0;
-      stopBgm();
     };
     const playArmorVideo = () => {
       try {
         videoPlayer.pause();
         videoPlayer.currentTime = 0;
-        videoPlayer.muted = !cinematicMedia.preservesOriginalVideoAudio;
-        videoPlayer.volume = cinematicMedia.preservesOriginalVideoAudio ? 0.9 : 1;
         setVideoVisible(true);
         videoOpacity.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
         videoPlayer.play();
-        if (cinematicMedia.preservesOriginalVideoAudio) playBgm();
       } catch {
         stopVideo();
-      }
-    };
-    const finishArmorVideo = () => {
-      try {
-        videoPlayer.pause();
-      } catch {
-        // Reaching the end of a native video must never prevent visual completion.
-      }
-      stopBgm();
-      videoOpacity.value = withTiming(0, { duration: 340, easing: Easing.out(Easing.quad) });
-    };
-    const playEnding = () => {
-      const endingPlayer = endingPlayerRef.current;
-      if (!endingPlayer) return;
-      try {
-        endingPlayer.pause();
-        endingPlayer.seekTo(0);
-        endingPlayer.play();
-      } catch {
-        // The post-video character reveal must continue even if its ending cue is unavailable.
       }
     };
     const prepareEffects = () => {
       if (!soundEnabled || mode !== "evolution") return;
       try {
-        if (cinematicMedia.preservesOriginalVideoAudio) {
-          bgmPlayerRef.current = createAudioPlayer(CHARACTER_EVOLUTION_BGM_SOURCE);
-          endingPlayerRef.current = createAudioPlayer(CHARACTER_EVOLUTION_ENDING_SOURCE);
-        } else {
-          playersRef.current = CHARACTER_EVOLUTION_AUDIO_SOURCES.map((source) => createAudioPlayer(source));
-        }
+        playersRef.current = CHARACTER_EVOLUTION_AUDIO_SOURCES.map((source) => createAudioPlayer(source));
         void setAudioModeAsync({ playsInSilentMode: true });
       } catch {
         releasePlayers();
@@ -413,7 +344,7 @@ export function RankCharacterAchievement({
     setPhase("activation");
     fade.value = withTiming(1, { duration: scaled(180), easing: Easing.out(Easing.quad) });
     prepareEffects();
-    if (!cinematicMedia.preservesOriginalVideoAudio) playEffect(0);
+    playEffect(0);
 
     if (reduceMotion) {
       portraitScale.value = 1;
@@ -458,24 +389,23 @@ export function RankCharacterAchievement({
       pulse(Math.min(0.42, 0.22 * cinematicIntensity));
     }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + 3_380);
     schedule(() => {
-      finishArmorVideo();
-      playEnding();
-      playEffect(1);
-    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicMedia.durationMs);
+      videoOpacity.value = withTiming(0, { duration: 360, easing: Easing.out(Easing.quad) });
+    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicVideoDurationMs - 360);
     schedule(() => {
       stopVideo();
-    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicMedia.durationMs + 340);
+      playEffect(1);
+    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicVideoDurationMs);
     schedule(() => {
       setPhase("weapon");
       playEffect(2);
       portal.value = withTiming(1.1 + evolution.stage * 0.025, { duration: 650, easing: Easing.out(Easing.quad) });
       pulse(Math.min(0.78, 0.56 * cinematicIntensity));
-    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicMedia.durationMs + 420);
+    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicVideoDurationMs + 420);
     schedule(() => {
       setPhase("ring");
       shockwave.value = 0;
       shockwave.value = withTiming(1, { duration: 620, easing: Easing.out(Easing.cubic) });
-    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicMedia.durationMs + 1_250);
+    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicVideoDurationMs + 1_250);
     schedule(() => {
       setPhase("impact");
       playEffect(3);
@@ -483,25 +413,25 @@ export function RankCharacterAchievement({
       shakeX.value = withSequence(withTiming(13 * impactDirection * cinematicIntensity, { duration: 44 }), withTiming(-11 * impactDirection * cinematicIntensity, { duration: 50 }), withTiming(8 * impactDirection * cinematicIntensity, { duration: 46 }), withTiming(-4 * impactDirection * cinematicIntensity, { duration: 44 }), withTiming(0, { duration: 100 }));
       shakeY.value = withSequence(withTiming(-8 * cinematicIntensity, { duration: 44 }), withTiming(7 * cinematicIntensity, { duration: 50 }), withTiming(-5 * cinematicIntensity, { duration: 46 }), withTiming(3 * cinematicIntensity, { duration: 44 }), withTiming(0, { duration: 100 }));
       portraitScale.value = withSequence(withTiming(1.16 + evolution.stage * 0.018, { duration: 120 }), withTiming(1, { duration: 430, easing: Easing.out(Easing.cubic) }));
-    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicMedia.durationMs + 1_950);
+    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicVideoDurationMs + 1_950);
     schedule(() => {
       setPhase("revealed");
       playEffect(4);
       camera.value = withTiming(1, { duration: 560, easing: Easing.out(Easing.cubic) });
       reveal.value = withTiming(1, { duration: 430, easing: Easing.out(Easing.cubic) });
-    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicMedia.durationMs + 2_550);
+    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicVideoDurationMs + 2_550);
     schedule(() => {
       setPhase("reward");
       reward.value = withTiming(1, { duration: 480, easing: Easing.out(Easing.cubic) });
-    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicMedia.durationMs + 3_650);
-    schedule(() => dismissRef.current(), CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicMedia.durationMs + 5_400);
+    }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicVideoDurationMs + 3_650);
+    schedule(() => dismissRef.current(), CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicVideoDurationMs + 5_400);
 
     return () => {
       timers.forEach(clearTimeout);
       stopVideo();
       releasePlayers();
     };
-  }, [camera, cinematicIntensity, cinematicMedia.durationMs, cinematicMedia.preservesOriginalVideoAudio, counterSpin, evolution.stage, fade, flash, impactDirection, mode, particles, portal, portraitScale, portraitY, reduceMotion, reveal, reward, ribbon, shakeX, shakeY, shockwave, soundEnabled, spin, videoOpacity, videoPlayer, visible]);
+  }, [camera, cinematicIntensity, cinematicVideoDurationMs, counterSpin, evolution.stage, fade, flash, impactDirection, mode, particles, portal, portraitScale, portraitY, reduceMotion, reveal, reward, ribbon, shakeX, shakeY, shockwave, soundEnabled, spin, videoOpacity, videoPlayer, visible]);
 
   const backdropStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
   const stageStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shakeX.value }, { translateY: shakeY.value }, { scale: camera.value }] }));
@@ -540,9 +470,10 @@ export function RankCharacterAchievement({
             <Animated.View pointerEvents="none" style={[styles.cinematicParticles, particleStyle]}>{Array.from({ length: 22 }, (_, index) => <View key={index} style={[styles.cinematicParticle, { backgroundColor: index % 4 === 0 ? evolution.secondaryAccent : evolution.accent, transform: [{ rotate: `${index * 16.35}deg` }, { translateY: -92 - (index % 5) * 29 }] }]} />)}</Animated.View>
             <Animated.View style={[styles.cinematicAvatarSystem, portraitStyle]}>
               <View pointerEvents="none" style={[styles.cinematicAvatarAura, { backgroundColor: `${evolution.accent}28`, shadowColor: evolution.accent }]} />
-              {videoVisible ? <Animated.View pointerEvents="none" style={[cinematicMedia.preservesOriginalVideoAudio ? styles.cinematicSuppliedVideoFrame : styles.cinematicVideoFrame, { borderColor: `${evolution.accent}72`, shadowColor: evolution.accent }, videoStyle]}>
-                <VideoView player={videoPlayer} contentFit="contain" nativeControls={false} surfaceType="textureView" useExoShutter={false} style={styles.cinematicArmorVideo} />
-              </Animated.View> : <Image source={profile.portrait} resizeMode="contain" style={styles.cinematicPortrait} />}
+              <Image source={profile.portrait} resizeMode="contain" style={styles.cinematicPortrait} />
+              {videoVisible ? <Animated.View pointerEvents="none" style={[styles.cinematicVideoFrame, { borderColor: `${evolution.accent}72`, shadowColor: evolution.accent }, videoStyle]}>
+                <VideoView player={videoPlayer} contentFit="cover" nativeControls={false} surfaceType="textureView" style={styles.cinematicArmorVideo} />
+              </Animated.View> : null}
             </Animated.View>
             <Animated.View style={[styles.cinematicReveal, revealStyle]}>
               <Text style={[styles.cinematicTitle, { color: colors.foreground }]}>{title}</Text>
@@ -604,7 +535,6 @@ const styles = StyleSheet.create({
   cinematicAvatarAura: { position: "absolute", width: 230, height: 230, borderRadius: 115, bottom: 55, shadowOpacity: 0.9, shadowRadius: 30, elevation: 6 },
   cinematicPortrait: { width: 294, height: 352, zIndex: 1 },
   cinematicVideoFrame: { position: "absolute", width: 234, height: 300, bottom: 14, borderRadius: 24, borderWidth: 1, overflow: "hidden", zIndex: 4, backgroundColor: "#020914", shadowOpacity: 0.76, shadowRadius: 20, elevation: 17 },
-  cinematicSuppliedVideoFrame: { position: "absolute", width: 294, height: 352, bottom: 0, borderRadius: 24, borderWidth: 1, overflow: "hidden", zIndex: 4, backgroundColor: "#020914", shadowOpacity: 0.76, shadowRadius: 20, elevation: 17 },
   cinematicArmorVideo: { width: "100%", height: "100%" },
   cinematicVisor: { position: "absolute", width: 92, height: 18, top: 93, borderRadius: 11, borderWidth: 2, backgroundColor: "#04142699", zIndex: 4, shadowOpacity: 0.95, shadowRadius: 11, elevation: 14, overflow: "hidden" },
   cinematicVisorBeam: { position: "absolute", left: 9, right: 9, top: 6, height: 3, borderRadius: 2 },

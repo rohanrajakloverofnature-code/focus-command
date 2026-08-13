@@ -8,8 +8,6 @@ const REFRESH_TOKEN_KEY = "focus-command.google.refresh-token";
 const EXPIRY_KEY = "focus-command.google.token-expiry";
 const SELECTED_WORKBOOK_KEY = "focus-command.google.selected-workbook";
 const SHEETS_API = "https://sheets.googleapis.com/v4";
-export const GOOGLE_SHEETS_SAFE_CELL_CHARACTERS = 48_000;
-const CELL_TRUNCATION_MARKER = "… [full value retained in the App_State snapshot]";
 
 export const FOCUS_SHEET_TABS = [
   "App_State",
@@ -156,43 +154,9 @@ async function sheetsRequest<T>(accessToken: string, path: string, init?: Reques
 
 function stringifyCell(value: unknown): string {
   if (value === undefined || value === null) return "";
-  const text = typeof value === "string"
-    ? value
-    : typeof value === "number" || typeof value === "boolean"
-      ? String(value)
-      : JSON.stringify(value);
-  return clampGoogleSheetsCell(text);
-}
-
-function clampGoogleSheetsCell(value: string): string {
-  if (value.length <= GOOGLE_SHEETS_SAFE_CELL_CHARACTERS) return value;
-  const maximumContentLength = GOOGLE_SHEETS_SAFE_CELL_CHARACTERS - CELL_TRUNCATION_MARKER.length;
-  const endsWithHighSurrogate = /[\uD800-\uDBFF]$/.test(value.slice(0, maximumContentLength));
-  return `${value.slice(0, endsWithHighSurrogate ? maximumContentLength - 1 : maximumContentLength)}${CELL_TRUNCATION_MARKER}`;
-}
-
-function splitGoogleSheetsCell(value: string): string[] {
-  if (!value) return [""];
-  const chunks: string[] = [];
-  for (let start = 0; start < value.length; start += GOOGLE_SHEETS_SAFE_CELL_CHARACTERS) {
-    let end = Math.min(start + GOOGLE_SHEETS_SAFE_CELL_CHARACTERS, value.length);
-    if (end < value.length && /[\uD800-\uDBFF]/.test(value.charAt(end - 1))) end -= 1;
-    chunks.push(value.slice(start, end));
-  }
-  return chunks;
-}
-
-function getSnapshotPayload(records: Map<string, string>): string | null {
-  const chunkEntries = Array.from(records.entries())
-    .map(([key, value]) => {
-      const match = /^payload_(\d+)$/.exec(key);
-      return match ? { index: Number(match[1]), value } : null;
-    })
-    .filter((entry): entry is { index: number; value: string } => Boolean(entry))
-    .sort((left, right) => left.index - right.index);
-  if (!chunkEntries.length) return records.get("payload") ?? null;
-  if (chunkEntries.some((entry, index) => entry.index !== index + 1)) return null;
-  return chunkEntries.map((entry) => entry.value).join("");
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
 }
 
 function objectRows(items: unknown[]) {
@@ -202,11 +166,10 @@ function objectRows(items: unknown[]) {
   return [columns, ...records.map((record) => columns.map((column) => stringifyCell(record[column])))];
 }
 
-export function buildFocusWorkbookValueRanges(state: FocusState) {
+function makeValueRanges(state: FocusState) {
   const exported = { ...state, hydrated: true };
-  const snapshotRows = splitGoogleSheetsCell(JSON.stringify(exported)).map((chunk, index) => [`payload_${index + 1}`, chunk]);
   return [
-    { range: "App_State!A1", values: [["key", "value"], ["schemaVersion", String(state.schemaVersion)], ["updatedAt", new Date().toISOString()], ...snapshotRows] },
+    { range: "App_State!A1", values: [["key", "value"], ["schemaVersion", String(state.schemaVersion)], ["updatedAt", new Date().toISOString()], ["payload", JSON.stringify(exported)]] },
     { range: "Missions!A1", values: objectRows(state.missions) },
     { range: "Reflections!A1", values: objectRows(state.reflections) },
     { range: "Revisions!A1", values: objectRows(state.srsTopics) },
@@ -271,7 +234,7 @@ export async function writeFocusWorkbook(accessToken: string, workbook: GoogleWo
   });
   await sheetsRequest(accessToken, `/spreadsheets/${encodeURIComponent(workbook.spreadsheetId)}/values:batchUpdate`, {
     method: "POST",
-    body: JSON.stringify({ valueInputOption: "RAW", data: buildFocusWorkbookValueRanges(state) }),
+    body: JSON.stringify({ valueInputOption: "RAW", data: makeValueRanges(state) }),
   });
 }
 
@@ -281,7 +244,7 @@ export async function getFocusWorkbookMetadata(accessToken: string, spreadsheetI
     `/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent("App_State!A:B")}`,
   );
   const records = new Map(response.values?.map((row) => [row[0], row[1]]) ?? []);
-  const rawPayload = getSnapshotPayload(records);
+  const rawPayload = records.get("payload");
   let payload: FocusState | null = null;
   if (rawPayload) {
     try {

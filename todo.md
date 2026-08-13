@@ -342,24 +342,8 @@
 
 - [x] Deliver every existing character-evolution portrait asset to the user for title-family video generation.
 
-- [x] Map the supplied Recruit, Officer, and Vanguard video pairs plus the supplied BGM to an approval-only character-cinematic preview.
-- [x] Build and validate the isolated preview without changing the final production cinematic before the user explicitly approves it.
-- [x] Integrate the three supplied full ten-second audiovisual character sequences only after explicit preview approval.
-- [x] Preserve the existing profile-logo system exactly, including its appearance, placement, tap mechanism, and replay behavior, while connecting the approved media behind it.
+- [x] Inspect the supplied name-matched remaining character portraits and videos, preserving every already completed cinematic family unchanged.
+- [x] Compare each supplied portrait against the active character portraits first and select a same-named video only for an unmatched remaining character.
+- [x] Integrate only the approved remaining character-video mappings with their matching portraits, retain existing video/audio/replay cleanup behavior, fully validate, checkpoint, and push without starting an APK build.
 
-- [x] Restart the reported stopped Focus Command development preview and verify it responds without changing app features.
-
-- [x] Push the validated full-duration character-cinematic update to the private GitHub repository without starting an APK build.
-
-- [x] Audit the pushed character-cinematic implementation against the user’s written requirements and report any deviation precisely.
-
-- [x] Analyze the installed-app recording and trace the title-family character-video mismatch for correction.
-- [x] Replace only Tactical, Command, and Ascendant family static portrait mappings with the matching Recruit, Officer, and Vanguard source portraits.
-- [x] Trace the post-video sequence and obtain approval before changing its ending audio or presentation.
-- [ ] Identify and correct any unintended delay between an actual title change and the matching Home character portrait update.
-
-- [x] Integrate the supplied ending audio only after the full ten-second video completes, during the existing character-information reveal.
-
-- [x] Push the approved portrait-alignment checkpoint to the private GitHub repository without starting an APK build.
-
-- [x] Repair Google Sheets export serialization so oversized values cannot exceed the 50,000-character single-cell limit while preserving queued local data and the saved spreadsheet connection.
+- [x] Preserve all completed Tactical, Command, and Ascendant animations unchanged while integrating only the available matching Shadow video with the existing bundled approved audio cues.

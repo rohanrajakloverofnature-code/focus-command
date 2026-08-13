@@ -9,12 +9,11 @@ import {
   POWER_UP_TIMELINE_MS,
 } from "../lib/power-up-profile";
 import {
-  CHARACTER_CINEMATIC_MEDIA,
   CHARACTER_EVOLUTION_VIDEO_DURATION_MS,
   CHARACTER_EVOLUTION_TIMELINE_MS,
   createCharacterEvolutionMilestone,
   getCharacterEvolutionProfile,
-  getCharacterPortraitVariant,
+  getCharacterEvolutionVideoDurationMs,
   getEquippedGearLabels,
   hasMeaningfulCharacterEvolution,
 } from "../lib/character-development";
@@ -113,13 +112,6 @@ describe("title and level cinematic power-up profiles", () => {
     expect(getCharacterEvolutionProfile("Celestial Sovereign", 450)).toMatchObject({ family: "ascendant", stage: 5, formName: "Sovereign Form", cinematicVariant: "ascendant" });
   });
 
-  it("keeps the approved static portraits aligned with the matching supplied family-video characters", () => {
-    expect(getCharacterPortraitVariant("Recruit")).toBe("recruit");
-    expect(getCharacterPortraitVariant("Staff Sergeant")).toBe("officer");
-    expect(getCharacterPortraitVariant("Celestial Sovereign")).toBe("vanguard");
-    expect(getCharacterPortraitVariant("Shadow Phantom")).toBe("shadow");
-  });
-
   it("uses the equipped local head, body, and accessory state as the only equipment-reveal source", () => {
     const equipment = {
       head: { id: "head-1", name: "Focus Visor", description: null, type: "FocusDevice" as const, rarity: "Epic" as const, level: 4, xpModifier: 112, energyConsumptionModifier: 95, imageUrl: null },
@@ -170,7 +162,7 @@ describe("title and level cinematic power-up profiles", () => {
     expect(command.stage).toBeLessThan(ascendant.stage);
   });
 
-  it("maps the approved supplied pairs to full ten-second tactical, command, and ascendant playback while keeping the unprovided shadow path intact", () => {
+  it("keeps completed families at their approved five-second materialization window and gives each title family a dedicated cinematic variant", () => {
     const variants = [
       getCharacterEvolutionProfile("Recruit", 31).cinematicVariant,
       getCharacterEvolutionProfile("Brigadier", 91).cinematicVariant,
@@ -180,10 +172,10 @@ describe("title and level cinematic power-up profiles", () => {
 
     expect(CHARACTER_EVOLUTION_VIDEO_DURATION_MS).toBe(5_000);
     expect(new Set(variants).size).toBe(4);
-    expect(CHARACTER_CINEMATIC_MEDIA.tactical).toMatchObject({ durationMs: 10_000, preservesOriginalVideoAudio: true });
-    expect(CHARACTER_CINEMATIC_MEDIA.command).toMatchObject({ durationMs: 10_000, preservesOriginalVideoAudio: true });
-    expect(CHARACTER_CINEMATIC_MEDIA.ascendant).toMatchObject({ durationMs: 10_000, preservesOriginalVideoAudio: true });
-    expect(CHARACTER_CINEMATIC_MEDIA.shadow).toMatchObject({ durationMs: 5_000, preservesOriginalVideoAudio: false });
-    expect(CHARACTER_EVOLUTION_TIMELINE_MS.materialize + CHARACTER_CINEMATIC_MEDIA.tactical.durationMs).toBeGreaterThan(CHARACTER_EVOLUTION_TIMELINE_MS.materialize);
+    expect(CHARACTER_EVOLUTION_TIMELINE_MS.materialize + CHARACTER_EVOLUTION_VIDEO_DURATION_MS).toBeGreaterThan(CHARACTER_EVOLUTION_TIMELINE_MS.materialize);
+    expect(getCharacterEvolutionVideoDurationMs("tactical")).toBe(5_000);
+    expect(getCharacterEvolutionVideoDurationMs("command")).toBe(5_000);
+    expect(getCharacterEvolutionVideoDurationMs("ascendant")).toBe(5_000);
+    expect(getCharacterEvolutionVideoDurationMs("shadow")).toBe(10_000);
   });
 });

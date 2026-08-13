@@ -3,7 +3,6 @@ import type { Equipment } from "./focus-command";
 export type CharacterFamily = "tactical" | "command" | "shadow" | "ascendant";
 export type DevelopmentStage = 0 | 1 | 2 | 3 | 4 | 5;
 export type CharacterCinematicVariant = "tactical" | "command" | "shadow" | "ascendant";
-export type CharacterPortraitVariant = "recruit" | "officer" | "shadow" | "vanguard";
 
 export type EquippedCharacterGear = {
   head?: Equipment;
@@ -37,18 +36,18 @@ export type CharacterEvolutionProfile = {
 export const CHARACTER_EVOLUTION_VIDEO_DURATION_MS = 5_000;
 
 /**
- * Configuration only: later supplied character-video pairs can be added by
- * changing this table, without touching logo interaction or replay logic.
+ * Completed families retain their approved five-second materialization window.
+ * Shadow alone uses the newly supplied full ten-second portrait clip.
  */
-export const CHARACTER_CINEMATIC_MEDIA = {
-  tactical: { durationMs: 10_000, preservesOriginalVideoAudio: true },
-  command: { durationMs: 10_000, preservesOriginalVideoAudio: true },
-  shadow: { durationMs: CHARACTER_EVOLUTION_VIDEO_DURATION_MS, preservesOriginalVideoAudio: false },
-  ascendant: { durationMs: 10_000, preservesOriginalVideoAudio: true },
-} as const satisfies Record<CharacterCinematicVariant, { durationMs: number; preservesOriginalVideoAudio: boolean }>;
+export const CHARACTER_EVOLUTION_VIDEO_DURATION_BY_VARIANT: Record<CharacterCinematicVariant, number> = {
+  tactical: CHARACTER_EVOLUTION_VIDEO_DURATION_MS,
+  command: CHARACTER_EVOLUTION_VIDEO_DURATION_MS,
+  shadow: 10_000,
+  ascendant: CHARACTER_EVOLUTION_VIDEO_DURATION_MS,
+};
 
-export function getCharacterCinematicMedia(variant: CharacterCinematicVariant) {
-  return CHARACTER_CINEMATIC_MEDIA[variant];
+export function getCharacterEvolutionVideoDurationMs(variant: CharacterCinematicVariant) {
+  return CHARACTER_EVOLUTION_VIDEO_DURATION_BY_VARIANT[variant];
 }
 
 export const CHARACTER_EVOLUTION_TIMELINE_MS = {
@@ -133,19 +132,6 @@ export function getCharacterFamily(title: string): CharacterFamily {
   if (/(commander|general|warlord|vanguard|sentinel|cosmic|infinity|nexus|void|quantum|celestial|galactic|mythic|divine|solar|astral|nova|aether|titan|zenith|focus legend|iron oracle|storm)/.test(normalized)) return "ascendant";
   if (/(sergeant|warrant|officer|lieutenant|captain|major|colonel|brigadier)/.test(normalized)) return "command";
   return "tactical";
-}
-
-/**
- * Keeps the Home still portrait visually identical to the approved source
- * character used by each supplied family video. Shadow intentionally keeps
- * its existing portrait because no replacement video was supplied.
- */
-export function getCharacterPortraitVariant(title: string): CharacterPortraitVariant {
-  const family = getCharacterFamily(title);
-  if (family === "tactical") return "recruit";
-  if (family === "command") return "officer";
-  if (family === "ascendant") return "vanguard";
-  return "shadow";
 }
 
 export function getCharacterEvolutionProfile(title: string, level: number): CharacterEvolutionProfile {
