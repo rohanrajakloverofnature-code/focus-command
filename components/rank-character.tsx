@@ -64,6 +64,7 @@ const CHARACTER_EVOLUTION_VIDEO_SOURCES = {
 } as const;
 
 const CHARACTER_EVOLUTION_BGM_SOURCE = require("@/assets/sounds/character-evolution-bgm-10s.mp3");
+const CHARACTER_EVOLUTION_ENDING_SOURCE = require("@/assets/sounds/character-evolution-ending.mp3");
 
 export function getRankProfile(title: string, level: number): RankProfile {
   const evolution = getCharacterEvolutionProfile(title, level);
@@ -228,6 +229,7 @@ export function RankCharacterAchievement({
   const dismissRef = useRef(onDismiss);
   const playersRef = useRef<ReturnType<typeof createAudioPlayer>[]>([]);
   const bgmPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
+  const endingPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
   const variationSeed = level + evolution.stage + (evolution.family === "shadow" ? 1 : evolution.family === "ascendant" ? 2 : evolution.family === "command" ? 3 : 0);
   const impactDirection = variationSeed % 2 === 0 ? 1 : -1;
   const cinematicIntensity = 1 + evolution.stage * 0.09 + (level % 3) * 0.045;
@@ -269,6 +271,17 @@ export function RankCharacterAchievement({
         }
       }
       bgmPlayerRef.current = null;
+      const endingPlayer = endingPlayerRef.current;
+      if (endingPlayer) {
+        try {
+          endingPlayer.pause();
+          endingPlayer.seekTo(0);
+          endingPlayer.remove();
+        } catch {
+          // Native ending-audio cleanup must never obstruct the visual dismissal path.
+        }
+      }
+      endingPlayerRef.current = null;
     };
     const stopBgm = () => {
       const bgmPlayer = bgmPlayerRef.current;
@@ -326,11 +339,23 @@ export function RankCharacterAchievement({
       stopBgm();
       videoOpacity.value = withTiming(0, { duration: 340, easing: Easing.out(Easing.quad) });
     };
+    const playEnding = () => {
+      const endingPlayer = endingPlayerRef.current;
+      if (!endingPlayer) return;
+      try {
+        endingPlayer.pause();
+        endingPlayer.seekTo(0);
+        endingPlayer.play();
+      } catch {
+        // The post-video character reveal must continue even if its ending cue is unavailable.
+      }
+    };
     const prepareEffects = () => {
       if (!soundEnabled || mode !== "evolution") return;
       try {
         if (cinematicMedia.preservesOriginalVideoAudio) {
           bgmPlayerRef.current = createAudioPlayer(CHARACTER_EVOLUTION_BGM_SOURCE);
+          endingPlayerRef.current = createAudioPlayer(CHARACTER_EVOLUTION_ENDING_SOURCE);
         } else {
           playersRef.current = CHARACTER_EVOLUTION_AUDIO_SOURCES.map((source) => createAudioPlayer(source));
         }
@@ -434,6 +459,7 @@ export function RankCharacterAchievement({
     }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + 3_380);
     schedule(() => {
       finishArmorVideo();
+      playEnding();
       playEffect(1);
     }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicMedia.durationMs);
     schedule(() => {

@@ -355,5 +355,9 @@
 
 - [x] Analyze the installed-app recording and trace the title-family character-video mismatch for correction.
 - [x] Replace only Tactical, Command, and Ascendant family static portrait mappings with the matching Recruit, Officer, and Vanguard source portraits.
-- [ ] Trace the post-video sequence and obtain approval before changing its ending audio or presentation.
+- [x] Trace the post-video sequence and obtain approval before changing its ending audio or presentation.
 - [ ] Identify and correct any unintended delay between an actual title change and the matching Home character portrait update.
+
+- [x] Integrate the supplied ending audio only after the full ten-second video completes, during the existing character-information reveal.
+
+- [x] Push the approved portrait-alignment checkpoint to the private GitHub repository without starting an APK build.
