@@ -9,6 +9,7 @@ import {
   POWER_UP_TIMELINE_MS,
 } from "../lib/power-up-profile";
 import {
+  CHARACTER_CINEMATIC_MEDIA,
   CHARACTER_EVOLUTION_VIDEO_DURATION_MS,
   CHARACTER_EVOLUTION_TIMELINE_MS,
   createCharacterEvolutionMilestone,
@@ -161,7 +162,7 @@ describe("title and level cinematic power-up profiles", () => {
     expect(command.stage).toBeLessThan(ascendant.stage);
   });
 
-  it("reserves a five-second moving materialization window and gives each title family a dedicated cinematic variant", () => {
+  it("maps the approved supplied pairs to full ten-second tactical, command, and ascendant playback while keeping the unprovided shadow path intact", () => {
     const variants = [
       getCharacterEvolutionProfile("Recruit", 31).cinematicVariant,
       getCharacterEvolutionProfile("Brigadier", 91).cinematicVariant,
@@ -171,6 +172,10 @@ describe("title and level cinematic power-up profiles", () => {
 
     expect(CHARACTER_EVOLUTION_VIDEO_DURATION_MS).toBe(5_000);
     expect(new Set(variants).size).toBe(4);
-    expect(CHARACTER_EVOLUTION_TIMELINE_MS.materialize + CHARACTER_EVOLUTION_VIDEO_DURATION_MS).toBeGreaterThan(CHARACTER_EVOLUTION_TIMELINE_MS.materialize);
+    expect(CHARACTER_CINEMATIC_MEDIA.tactical).toMatchObject({ durationMs: 10_000, preservesOriginalVideoAudio: true });
+    expect(CHARACTER_CINEMATIC_MEDIA.command).toMatchObject({ durationMs: 10_000, preservesOriginalVideoAudio: true });
+    expect(CHARACTER_CINEMATIC_MEDIA.ascendant).toMatchObject({ durationMs: 10_000, preservesOriginalVideoAudio: true });
+    expect(CHARACTER_CINEMATIC_MEDIA.shadow).toMatchObject({ durationMs: 5_000, preservesOriginalVideoAudio: false });
+    expect(CHARACTER_EVOLUTION_TIMELINE_MS.materialize + CHARACTER_CINEMATIC_MEDIA.tactical.durationMs).toBeGreaterThan(CHARACTER_EVOLUTION_TIMELINE_MS.materialize);
   });
 });

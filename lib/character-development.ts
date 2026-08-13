@@ -35,6 +35,21 @@ export type CharacterEvolutionProfile = {
 
 export const CHARACTER_EVOLUTION_VIDEO_DURATION_MS = 5_000;
 
+/**
+ * Configuration only: later supplied character-video pairs can be added by
+ * changing this table, without touching logo interaction or replay logic.
+ */
+export const CHARACTER_CINEMATIC_MEDIA = {
+  tactical: { durationMs: 10_000, preservesOriginalVideoAudio: true },
+  command: { durationMs: 10_000, preservesOriginalVideoAudio: true },
+  shadow: { durationMs: CHARACTER_EVOLUTION_VIDEO_DURATION_MS, preservesOriginalVideoAudio: false },
+  ascendant: { durationMs: 10_000, preservesOriginalVideoAudio: true },
+} as const satisfies Record<CharacterCinematicVariant, { durationMs: number; preservesOriginalVideoAudio: boolean }>;
+
+export function getCharacterCinematicMedia(variant: CharacterCinematicVariant) {
+  return CHARACTER_CINEMATIC_MEDIA[variant];
+}
+
 export const CHARACTER_EVOLUTION_TIMELINE_MS = {
   activation: 0,
   build: 650,

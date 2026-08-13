@@ -151,6 +151,10 @@
 
 - [x] Permanently repair the installed-APK live-mission active-time path and restore its 45-minute active-time reflection gate without changing unrelated behavior.
 
+- [x] Restart the newly reported stopped development service and verify its preview health without changing the published final cinematic update.
+
+- [x] Diagnose and repair the recurring development preview-load failure without changing the verified final cinematic feature.
+
 - [x] Create and integrate final title-family moving armor-materialization video choreography for the Home character cinematic without changing unrelated features.
 - [x] Use the requested excerpt from the supplied first soundtrack, retain the approved second audio cue, and guarantee video/audio lifecycle cleanup.
 - [x] Add regression coverage and complete TypeScript, lint, full-suite, production-export, and media-integrity validation without starting an APK build.
@@ -162,6 +166,8 @@
 - [x] Select and trim the strongest continuous five-second armor-construction segment from the supplied ten-second Ascendant source before mobile integration.
 
 - [x] Repeat the final exhaustive pre-publication verification of all title-family video assets, full-tap cinematic replay, audio synchronization, lifecycle cleanup, regression coverage, and production export.
+
+- [x] Restart the reported stopped development service and verify its preview health without changing the verified cinematic checkpoint.
 
 - [x] Trace the reported repeatable-mission completion, rescheduling, and same-day start flow against the supplied recording.
 - [x] Fix repeatable missions so completion does not move their eligible scheduled date to tomorrow before the day ends.
@@ -333,3 +339,10 @@
 - [x] Compare the pre-GitHub mission timing implementation against the installed-APK failure and identify every incompatible persisted live-session field.
 - [x] Restore the original-compatible active-time, pause/resume, reload, completion, and 45-minute emotion-debrief lifecycle without altering unrelated features.
 - [x] Add full legacy-state lifecycle coverage, validate every timing and debrief path, then publish only after the repair is verified.
+
+- [x] Deliver every existing character-evolution portrait asset to the user for title-family video generation.
+
+- [x] Map the supplied Recruit, Officer, and Vanguard video pairs plus the supplied BGM to an approval-only character-cinematic preview.
+- [x] Build and validate the isolated preview without changing the final production cinematic before the user explicitly approves it.
+- [x] Integrate the three supplied full ten-second audiovisual character sequences only after explicit preview approval.
+- [x] Preserve the existing profile-logo system exactly, including its appearance, placement, tap mechanism, and replay behavior, while connecting the approved media behind it.
