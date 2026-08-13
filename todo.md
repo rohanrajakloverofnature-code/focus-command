@@ -346,3 +346,7 @@
 - [x] Build and validate the isolated preview without changing the final production cinematic before the user explicitly approves it.
 - [x] Integrate the three supplied full ten-second audiovisual character sequences only after explicit preview approval.
 - [x] Preserve the existing profile-logo system exactly, including its appearance, placement, tap mechanism, and replay behavior, while connecting the approved media behind it.
+
+- [x] Restart the reported stopped Focus Command development preview and verify it responds without changing app features.
+
+- [ ] Push the validated full-duration character-cinematic update to the private GitHub repository without starting an APK build.
