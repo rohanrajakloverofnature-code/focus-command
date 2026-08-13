@@ -349,4 +349,11 @@
 
 - [x] Restart the reported stopped Focus Command development preview and verify it responds without changing app features.
 
-- [ ] Push the validated full-duration character-cinematic update to the private GitHub repository without starting an APK build.
+- [x] Push the validated full-duration character-cinematic update to the private GitHub repository without starting an APK build.
+
+- [x] Audit the pushed character-cinematic implementation against the user’s written requirements and report any deviation precisely.
+
+- [x] Analyze the installed-app recording and trace the title-family character-video mismatch for correction.
+- [x] Replace only Tactical, Command, and Ascendant family static portrait mappings with the matching Recruit, Officer, and Vanguard source portraits.
+- [ ] Trace the post-video sequence and obtain approval before changing its ending audio or presentation.
+- [ ] Identify and correct any unintended delay between an actual title change and the matching Home character portrait update.

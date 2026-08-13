@@ -9,6 +9,7 @@ import {
   CHARACTER_EVOLUTION_TIMELINE_MS,
   getCharacterCinematicMedia,
   getCharacterEvolutionProfile,
+  getCharacterPortraitVariant,
   getEquippedGearLabels,
   type EquippedCharacterGear,
 } from "@/lib/character-development";
@@ -64,21 +65,9 @@ const CHARACTER_EVOLUTION_VIDEO_SOURCES = {
 
 const CHARACTER_EVOLUTION_BGM_SOURCE = require("@/assets/sounds/character-evolution-bgm-10s.mp3");
 
-function getBasePortrait(title: string, level: number): ImageSourcePropType {
-  const normalized = title.toLowerCase();
-  if (level >= 350 || /infinity|void|quantum|celestial|galactic|mythic|divine|solar/.test(normalized)) return PORTRAITS.ascendant;
-  if (level >= 180 || /commander|general|warlord|vanguard|sentinel|operative/.test(normalized)) return PORTRAITS.vanguard;
-  if (level >= 70 || /officer|lieutenant|captain|major|colonel/.test(normalized)) return PORTRAITS.officer;
-  return PORTRAITS.recruit;
-}
-
 export function getRankProfile(title: string, level: number): RankProfile {
   const evolution = getCharacterEvolutionProfile(title, level);
-  const portrait = evolution.stage === 0
-    ? getBasePortrait(title, level)
-    : evolution.family === "ascendant"
-      ? PORTRAITS.evolutionAscendant
-      : PORTRAITS[evolution.family];
+  const portrait = PORTRAITS[getCharacterPortraitVariant(title)];
   return {
     name: evolution.formName,
     accent: evolution.accent,

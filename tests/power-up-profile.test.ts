@@ -14,6 +14,7 @@ import {
   CHARACTER_EVOLUTION_TIMELINE_MS,
   createCharacterEvolutionMilestone,
   getCharacterEvolutionProfile,
+  getCharacterPortraitVariant,
   getEquippedGearLabels,
   hasMeaningfulCharacterEvolution,
 } from "../lib/character-development";
@@ -110,6 +111,13 @@ describe("title and level cinematic power-up profiles", () => {
     expect(getCharacterEvolutionProfile("Captain", 90)).toMatchObject({ family: "command", stage: 2, formName: "Armored Specialist", cinematicVariant: "command" });
     expect(getCharacterEvolutionProfile("Shadow Phantom", 180)).toMatchObject({ family: "shadow", stage: 3, formName: "Elite Operator", cinematicVariant: "shadow" });
     expect(getCharacterEvolutionProfile("Celestial Sovereign", 450)).toMatchObject({ family: "ascendant", stage: 5, formName: "Sovereign Form", cinematicVariant: "ascendant" });
+  });
+
+  it("keeps the approved static portraits aligned with the matching supplied family-video characters", () => {
+    expect(getCharacterPortraitVariant("Recruit")).toBe("recruit");
+    expect(getCharacterPortraitVariant("Staff Sergeant")).toBe("officer");
+    expect(getCharacterPortraitVariant("Celestial Sovereign")).toBe("vanguard");
+    expect(getCharacterPortraitVariant("Shadow Phantom")).toBe("shadow");
   });
 
   it("uses the equipped local head, body, and accessory state as the only equipment-reveal source", () => {

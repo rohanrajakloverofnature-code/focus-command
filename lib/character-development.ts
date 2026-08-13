@@ -3,6 +3,7 @@ import type { Equipment } from "./focus-command";
 export type CharacterFamily = "tactical" | "command" | "shadow" | "ascendant";
 export type DevelopmentStage = 0 | 1 | 2 | 3 | 4 | 5;
 export type CharacterCinematicVariant = "tactical" | "command" | "shadow" | "ascendant";
+export type CharacterPortraitVariant = "recruit" | "officer" | "shadow" | "vanguard";
 
 export type EquippedCharacterGear = {
   head?: Equipment;
@@ -132,6 +133,19 @@ export function getCharacterFamily(title: string): CharacterFamily {
   if (/(commander|general|warlord|vanguard|sentinel|cosmic|infinity|nexus|void|quantum|celestial|galactic|mythic|divine|solar|astral|nova|aether|titan|zenith|focus legend|iron oracle|storm)/.test(normalized)) return "ascendant";
   if (/(sergeant|warrant|officer|lieutenant|captain|major|colonel|brigadier)/.test(normalized)) return "command";
   return "tactical";
+}
+
+/**
+ * Keeps the Home still portrait visually identical to the approved source
+ * character used by each supplied family video. Shadow intentionally keeps
+ * its existing portrait because no replacement video was supplied.
+ */
+export function getCharacterPortraitVariant(title: string): CharacterPortraitVariant {
+  const family = getCharacterFamily(title);
+  if (family === "tactical") return "recruit";
+  if (family === "command") return "officer";
+  if (family === "ascendant") return "vanguard";
+  return "shadow";
 }
 
 export function getCharacterEvolutionProfile(title: string, level: number): CharacterEvolutionProfile {
