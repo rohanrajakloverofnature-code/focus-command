@@ -357,3 +357,9 @@
 
 - [x] Create and validate a checkpoint-safe mobile-optimized copy of the exact supplied Tactical ten-second source while retaining its portrait framing, complete duration, and embedded video audio.
 - [x] Create and validate a checkpoint-safe mobile-optimized copy of the existing completed Shadow source without changing its character mapping, timing, or audio behavior.
+
+- [ ] Renew the expired GitHub device authorization and synchronize the saved Tactical cinematic checkpoint to the private repository without starting an APK build.
+- [ ] Resolve the enabled GitHub connector’s invalid credential replacement, authorize the repair, and verify the saved Tactical checkpoint on the private repository’s main branch.
+- [ ] Restore the untouched GitHub connector configuration and use an authorized GitHub browser session to synchronize the saved Tactical checkpoint without changing application files or starting an APK build.
+- [x] Restore every previously completed character video and related regression file that the Tactical checkpoint-to-GitHub diff would otherwise delete, then revalidate the corrected safe state before any repository update.
+- [ ] Create a corrected checkpoint that preserves Tactical, Command, Shadow, and Ascendant character-cinematic media before the authorized private GitHub update.

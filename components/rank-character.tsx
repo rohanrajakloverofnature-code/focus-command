@@ -9,6 +9,7 @@ import {
   CHARACTER_EVOLUTION_TIMELINE_MS,
   getCharacterEvolutionProfile,
   getCharacterEvolutionVideoDurationMs,
+  getCharacterPortraitVariant,
   getEquippedGearLabels,
   type EquippedCharacterGear,
 } from "@/lib/character-development";
@@ -56,30 +57,18 @@ const CHARACTER_EVOLUTION_AUDIO_SOURCES = [
 ] as const;
 
 const CHARACTER_EVOLUTION_VIDEO_SOURCES = {
-  tactical: require("@/assets/videos/character-cycles/tactical-10s.mp4"),
-  command: require("@/assets/videos/armor-evolution-command.mp4"),
+  tactical: require("@/assets/videos/character-cycles/recruit-tactical-10s.mp4"),
+  command: require("@/assets/videos/character-cycles/officer-command-10s.mp4"),
   shadow: require("@/assets/videos/character-cycles/shadow-10s.mp4"),
-  ascendant: require("@/assets/videos/armor-evolution-ascendant.mp4"),
+  ascendant: require("@/assets/videos/character-cycles/vanguard-ascendant-10s.mp4"),
 } as const;
 
 const CHARACTER_EVOLUTION_VIDEO_SOUNDTRACK_SOURCE = require("@/assets/sounds/character-evolution-video-10s.mp3");
 const CHARACTER_EVOLUTION_POST_VIDEO_REVEAL_SOURCE = require("@/assets/sounds/character-evolution-ending.mp3");
 
-function getBasePortrait(title: string, level: number): ImageSourcePropType {
-  const normalized = title.toLowerCase();
-  if (level >= 350 || /infinity|void|quantum|celestial|galactic|mythic|divine|solar/.test(normalized)) return PORTRAITS.ascendant;
-  if (level >= 180 || /commander|general|warlord|vanguard|sentinel|operative/.test(normalized)) return PORTRAITS.vanguard;
-  if (level >= 70 || /officer|lieutenant|captain|major|colonel/.test(normalized)) return PORTRAITS.officer;
-  return PORTRAITS.recruit;
-}
-
 export function getRankProfile(title: string, level: number): RankProfile {
   const evolution = getCharacterEvolutionProfile(title, level);
-  const portrait = evolution.stage === 0
-    ? getBasePortrait(title, level)
-    : evolution.family === "ascendant"
-      ? PORTRAITS.evolutionAscendant
-      : PORTRAITS[evolution.family];
+  const portrait = PORTRAITS[getCharacterPortraitVariant(title)];
   return {
     name: evolution.formName,
     accent: evolution.accent,
@@ -239,7 +228,7 @@ export function RankCharacterAchievement({
   const playersRef = useRef<ReturnType<typeof createAudioPlayer>[]>([]);
   const videoSoundtrackPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
   const postVideoRevealPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
-  const usesSuppliedTacticalCinematic = evolution.cinematicVariant === "tactical";
+  const usesSuppliedTenSecondCinematic = evolution.cinematicVariant !== "shadow";
   const variationSeed = level + evolution.stage + (evolution.family === "shadow" ? 1 : evolution.family === "ascendant" ? 2 : evolution.family === "command" ? 3 : 0);
   const impactDirection = variationSeed % 2 === 0 ? 1 : -1;
   const cinematicIntensity = 1 + evolution.stage * 0.09 + (level % 3) * 0.045;
@@ -330,12 +319,12 @@ export function RankCharacterAchievement({
       try {
         videoPlayer.pause();
         videoPlayer.currentTime = 0;
-        videoPlayer.muted = !usesSuppliedTacticalCinematic;
-        videoPlayer.volume = usesSuppliedTacticalCinematic ? 0.9 : 1;
+        videoPlayer.muted = !usesSuppliedTenSecondCinematic;
+        videoPlayer.volume = usesSuppliedTenSecondCinematic ? 0.9 : 1;
         setVideoVisible(true);
         videoOpacity.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
         videoPlayer.play();
-        if (usesSuppliedTacticalCinematic) playVideoSoundtrack();
+        if (usesSuppliedTenSecondCinematic) playVideoSoundtrack();
       } catch {
         stopVideo();
       }
@@ -363,7 +352,7 @@ export function RankCharacterAchievement({
     const prepareEffects = () => {
       if (!soundEnabled || mode !== "evolution") return;
       try {
-        if (usesSuppliedTacticalCinematic) {
+        if (usesSuppliedTenSecondCinematic) {
           videoSoundtrackPlayerRef.current = createAudioPlayer(CHARACTER_EVOLUTION_VIDEO_SOUNDTRACK_SOURCE);
           postVideoRevealPlayerRef.current = createAudioPlayer(CHARACTER_EVOLUTION_POST_VIDEO_REVEAL_SOURCE);
         } else {
@@ -472,7 +461,7 @@ export function RankCharacterAchievement({
     }, CHARACTER_EVOLUTION_TIMELINE_MS.materialize + cinematicVideoDurationMs - 340);
     schedule(() => {
       stopVideo();
-      if (usesSuppliedTacticalCinematic) {
+      if (usesSuppliedTenSecondCinematic) {
         playPostVideoReveal();
       } else {
         playEffect(1);
@@ -514,7 +503,7 @@ export function RankCharacterAchievement({
       stopVideo();
       releasePlayers();
     };
-  }, [camera, cinematicIntensity, cinematicVideoDurationMs, counterSpin, evolution.stage, fade, flash, impactDirection, mode, particles, portal, portraitScale, portraitY, reduceMotion, reveal, reward, ribbon, shakeX, shakeY, shockwave, soundEnabled, spin, usesSuppliedTacticalCinematic, videoOpacity, videoPlayer, visible]);
+  }, [camera, cinematicIntensity, cinematicVideoDurationMs, counterSpin, evolution.stage, fade, flash, impactDirection, mode, particles, portal, portraitScale, portraitY, reduceMotion, reveal, reward, ribbon, shakeX, shakeY, shockwave, soundEnabled, spin, usesSuppliedTenSecondCinematic, videoOpacity, videoPlayer, visible]);
 
   const backdropStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
   const stageStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shakeX.value }, { translateY: shakeY.value }, { scale: camera.value }] }));

@@ -3,6 +3,7 @@ import type { Equipment } from "./focus-command";
 export type CharacterFamily = "tactical" | "command" | "shadow" | "ascendant";
 export type DevelopmentStage = 0 | 1 | 2 | 3 | 4 | 5;
 export type CharacterCinematicVariant = "tactical" | "command" | "shadow" | "ascendant";
+export type CharacterPortraitVariant = "recruit" | "officer" | "shadow" | "vanguard";
 
 export type EquippedCharacterGear = {
   head?: Equipment;
@@ -35,15 +36,12 @@ export type CharacterEvolutionProfile = {
 
 export const CHARACTER_EVOLUTION_VIDEO_DURATION_MS = 5_000;
 
-/**
- * Tactical now uses its matched user-supplied full ten-second portrait clip.
- * The remaining completed families retain their existing approved windows.
- */
+/** Completed supplied character pairs play in their full ten-second portrait window. */
 export const CHARACTER_EVOLUTION_VIDEO_DURATION_BY_VARIANT: Record<CharacterCinematicVariant, number> = {
   tactical: 10_000,
-  command: CHARACTER_EVOLUTION_VIDEO_DURATION_MS,
+  command: 10_000,
   shadow: 10_000,
-  ascendant: CHARACTER_EVOLUTION_VIDEO_DURATION_MS,
+  ascendant: 10_000,
 };
 
 export function getCharacterEvolutionVideoDurationMs(variant: CharacterCinematicVariant) {
@@ -132,6 +130,15 @@ export function getCharacterFamily(title: string): CharacterFamily {
   if (/(commander|general|warlord|vanguard|sentinel|cosmic|infinity|nexus|void|quantum|celestial|galactic|mythic|divine|solar|astral|nova|aether|titan|zenith|focus legend|iron oracle|storm)/.test(normalized)) return "ascendant";
   if (/(sergeant|warrant|officer|lieutenant|captain|major|colonel|brigadier)/.test(normalized)) return "command";
   return "tactical";
+}
+
+/** Keeps the existing profile-logo portrait aligned with its approved family video. */
+export function getCharacterPortraitVariant(title: string): CharacterPortraitVariant {
+  const family = getCharacterFamily(title);
+  if (family === "tactical") return "recruit";
+  if (family === "command") return "officer";
+  if (family === "ascendant") return "vanguard";
+  return "shadow";
 }
 
 export function getCharacterEvolutionProfile(title: string, level: number): CharacterEvolutionProfile {

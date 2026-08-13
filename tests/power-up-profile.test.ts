@@ -14,6 +14,7 @@ import {
   createCharacterEvolutionMilestone,
   getCharacterEvolutionProfile,
   getCharacterEvolutionVideoDurationMs,
+  getCharacterPortraitVariant,
   getEquippedGearLabels,
   hasMeaningfulCharacterEvolution,
 } from "../lib/character-development";
@@ -112,6 +113,13 @@ describe("title and level cinematic power-up profiles", () => {
     expect(getCharacterEvolutionProfile("Celestial Sovereign", 450)).toMatchObject({ family: "ascendant", stage: 5, formName: "Sovereign Form", cinematicVariant: "ascendant" });
   });
 
+  it("keeps the existing profile-logo portraits aligned with their matching character-video families", () => {
+    expect(getCharacterPortraitVariant("Recruit")).toBe("recruit");
+    expect(getCharacterPortraitVariant("Brigadier")).toBe("officer");
+    expect(getCharacterPortraitVariant("Shadow Phantom")).toBe("shadow");
+    expect(getCharacterPortraitVariant("Celestial Sovereign")).toBe("vanguard");
+  });
+
   it("uses the equipped local head, body, and accessory state as the only equipment-reveal source", () => {
     const equipment = {
       head: { id: "head-1", name: "Focus Visor", description: null, type: "FocusDevice" as const, rarity: "Epic" as const, level: 4, xpModifier: 112, energyConsumptionModifier: 95, imageUrl: null },
@@ -162,7 +170,7 @@ describe("title and level cinematic power-up profiles", () => {
     expect(command.stage).toBeLessThan(ascendant.stage);
   });
 
-  it("uses the supplied ten-second tactical cinematic while retaining the established windows for the other title variants", () => {
+  it("keeps every completed supplied title family in its full ten-second cinematic window", () => {
     const variants = [
       getCharacterEvolutionProfile("Recruit", 31).cinematicVariant,
       getCharacterEvolutionProfile("Brigadier", 91).cinematicVariant,
@@ -174,8 +182,8 @@ describe("title and level cinematic power-up profiles", () => {
     expect(new Set(variants).size).toBe(4);
     expect(CHARACTER_EVOLUTION_TIMELINE_MS.materialize + CHARACTER_EVOLUTION_VIDEO_DURATION_MS).toBeGreaterThan(CHARACTER_EVOLUTION_TIMELINE_MS.materialize);
     expect(getCharacterEvolutionVideoDurationMs("tactical")).toBe(10_000);
-    expect(getCharacterEvolutionVideoDurationMs("command")).toBe(5_000);
-    expect(getCharacterEvolutionVideoDurationMs("ascendant")).toBe(5_000);
+    expect(getCharacterEvolutionVideoDurationMs("command")).toBe(10_000);
+    expect(getCharacterEvolutionVideoDurationMs("ascendant")).toBe(10_000);
     expect(getCharacterEvolutionVideoDurationMs("shadow")).toBe(10_000);
   });
 });
