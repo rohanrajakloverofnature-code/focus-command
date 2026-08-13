@@ -5,6 +5,7 @@ import { AppState, Image, Modal, Pressable, type ImageSourcePropType, StyleSheet
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 
 import { useColors } from "@/hooks/use-colors";
+import { useFocusCommand } from "@/lib/focus-command";
 import {
   CHARACTER_EVOLUTION_TIMELINE_MS,
   getCharacterEvolutionProfile,
@@ -202,9 +203,12 @@ export function RankCharacterAchievement({
   goldBalance?: number;
 }) {
   const colors = useColors();
+  const { state } = useFocusCommand();
   const profile = getRankProfile(title, level);
   const evolution = useMemo(() => getCharacterEvolutionProfile(title, level), [level, title]);
   const cinematicVideoDurationMs = getCharacterEvolutionVideoDurationMs(evolution.cinematicVariant);
+  const cinematicVideoSource = state.profile.localCinematicOverrides[evolution.cinematicVariant]?.uri
+    ?? CHARACTER_EVOLUTION_VIDEO_SOURCES[evolution.cinematicVariant];
   const gear = useMemo(() => getEquippedGearLabels(equipment), [equipment]);
   const [phase, setPhase] = useState<PowerUpPhase>("activation");
   const fade = useSharedValue(0);
@@ -220,7 +224,7 @@ export function RankCharacterAchievement({
   const reward = useSharedValue(0);
   const videoOpacity = useSharedValue(0);
   const [videoVisible, setVideoVisible] = useState(false);
-  const videoPlayer = useVideoPlayer(CHARACTER_EVOLUTION_VIDEO_SOURCES[evolution.cinematicVariant], (player) => {
+  const videoPlayer = useVideoPlayer(cinematicVideoSource, (player) => {
     player.loop = false;
     player.muted = true;
   });

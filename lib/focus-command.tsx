@@ -10,6 +10,7 @@ import React, {
   useState,
 } from "react";
 import { calculateEquippedXpModifier, calculateEquippedEnergyModifier } from "./equipment-modifiers";
+import type { CharacterCinematicVariant } from "./character-development";
 
 export type Difficulty = "easy" | "medium" | "hard";
 export type MissionStatus = "planned" | "active" | "paused" | "completed";
@@ -136,6 +137,12 @@ export interface ComboTier {
   enabled: boolean;
 }
 
+/** A user-owned offline replacement for one bundled character cinematic. */
+export interface LocalCinematicOverride {
+  uri: string;
+  name: string;
+}
+
 export interface PlayerProfile {
   firstName: string;
   timezone: string;
@@ -149,6 +156,7 @@ export interface PlayerProfile {
   titles: string[];
   soundEnabled: boolean;
   soundRoles: Record<SoundRoleId, SoundRoleSettings>;
+  localCinematicOverrides: Partial<Record<CharacterCinematicVariant, LocalCinematicOverride>>;
   hapticsEnabled: boolean;
   notificationsEnabled: boolean;
   reduceMotion: boolean;
@@ -700,6 +708,7 @@ function defaultProfile(): PlayerProfile {
       notification: { enabled: true, style: "soft", customUri: null, customName: null },
       extended: { enabled: true, style: "soft", customUri: null, customName: null },
     },
+    localCinematicOverrides: {},
     hapticsEnabled: true,
     notificationsEnabled: true,
     reduceMotion: false,
@@ -1437,6 +1446,8 @@ interface FocusCommandContextValue {
   removeReward: (rewardId: string) => void;
   purchaseReward: (rewardId: string) => { ok: boolean; message: string };
   updateProfile: (patch: Partial<PlayerProfile>) => void;
+  setCinematicOverride: (variant: CharacterCinematicVariant, override: LocalCinematicOverride) => void;
+  removeCinematicOverride: (variant: CharacterCinematicVariant) => void;
   updateComboTiers: (tiers: ComboTier[]) => void;
   setGoogleSheetConnection: (patch: Partial<GoogleSheetConnection>) => void;
   importFromGoogleSheet: (remote: FocusState, connection: Partial<GoogleSheetConnection>) => void;
@@ -1512,6 +1523,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
           ]),
         ) as Record<SoundRoleId, SoundRoleSettings>;
       })(),
+      localCinematicOverrides: input.profile?.localCinematicOverrides ?? {},
       emotionalCharts: input.profile?.emotionalCharts?.length ? input.profile.emotionalCharts : defaults.profile.emotionalCharts,
     },
     combo: { ...defaults.combo, ...(input.combo ?? {}) },
@@ -2154,6 +2166,32 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     }));
   }, [commit]);
 
+  const setCinematicOverride = useCallback((variant: CharacterCinematicVariant, override: LocalCinematicOverride) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      profile: {
+        ...current.profile,
+        localCinematicOverrides: {
+          ...current.profile.localCinematicOverrides,
+          [variant]: override,
+        },
+      },
+    }));
+  }, [commit]);
+
+  const removeCinematicOverride = useCallback((variant: CharacterCinematicVariant) => {
+    commit((current) => {
+      const { [variant]: _removed, ...remainingOverrides } = current.profile.localCinematicOverrides;
+      return withQueuedOperation({
+        ...current,
+        profile: {
+          ...current.profile,
+          localCinematicOverrides: remainingOverrides,
+        },
+      });
+    });
+  }, [commit]);
+
   const updateComboTiers = useCallback((tiers: ComboTier[]) => {
     commit((current) => {
       const packed = JSON.stringify(tiers);
@@ -2342,6 +2380,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     removeReward,
     purchaseReward,
     updateProfile,
+    setCinematicOverride,
+    removeCinematicOverride,
     updateComboTiers,
     setGoogleSheetConnection,
     importFromGoogleSheet,
@@ -2381,6 +2421,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     removeReward,
     purchaseReward,
     updateProfile,
+    setCinematicOverride,
+    removeCinematicOverride,
     updateComboTiers,
     setGoogleSheetConnection,
     importFromGoogleSheet,

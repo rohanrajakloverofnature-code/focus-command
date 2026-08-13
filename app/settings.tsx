@@ -322,6 +322,17 @@ export default function SettingsScreen() {
           right={<IconAction icon="xmark" label="Close settings" onPress={() => router.back()} />}
         />
 
+        <SectionHeader title="Character presentation" />
+        <CommandCard accent={colors.primary} style={styles.cardStack}>
+          <Pressable accessibilityRole="link" onPress={() => router.push("/cinematic-library")} style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] }]}>
+            <View style={styles.settingCopy}>
+              <Text style={[styles.settingTitle, { color: colors.foreground }]}>Character cinematics</Text>
+              <Text style={[styles.settingDetail, { color: colors.muted }]}>Assign an offline video to any of the eight character forms.</Text>
+            </View>
+            <Text style={[styles.menuLinkText, { color: colors.primary }]}>OPEN</Text>
+          </Pressable>
+        </CommandCard>
+
         <SectionHeader title="Player profile" />
         <CommandCard accent={colors.primary} style={styles.cardStack}>
           <Text style={[styles.fieldLabel, { color: colors.muted }]}>COMMANDER NAME</Text>
@@ -586,6 +597,7 @@ const styles = StyleSheet.create({
   settingCopy: { flex: 1, gap: 2 },
   settingTitle: { fontSize: 14, lineHeight: 19, fontWeight: "800" },
   settingDetail: { fontSize: 12, lineHeight: 17, fontWeight: "500" },
+  menuLinkText: { fontSize: 10, lineHeight: 13, fontWeight: "900", letterSpacing: 0.7 },
   stepperRow: { flexDirection: "row", gap: 7 },
   stepperButton: { minWidth: 40, paddingHorizontal: 0 },
   divider: { height: StyleSheet.hairlineWidth, width: "100%" },

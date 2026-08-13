@@ -392,3 +392,15 @@
 - [x] Push the fully validated eight-portrait cinematic rollout checkpoint `e6b124cd` to the private GitHub `main` branch without starting an APK build, then verify the remote commit.
 
 - [x] Integrate the remote-only private-main commit non-destructively, preserving its user-authored Command/Officer update and all locally validated eight-portrait cinematic assets before pushing the completed rollout.
+
+- [x] Prepare and deliver a read-only verification set containing all eight active character portraits and the exact runtime cinematic video assigned to each, without modifying project behavior.
+
+- [x] Assemble and deliver an organized eight-pair verification package with clearly numbered folders, each containing one active portrait image and its exact assigned cinematic video.
+
+- [x] Deliver the already assembled external verification package only; do not alter app code, runtime mappings, cinematic files, audio, or GitHub code.
+
+- [x] Add an offline Character Cinematic Library to the existing hamburger menu that lists all eight names and portraits and supports choosing, replacing, and resetting each character’s local video override.
+- [x] Persist selected local videos safely on-device and use them only as per-character runtime overrides while retaining every bundled cinematic as a resettable default.
+- [x] Add automated coverage and validate selection, persistence, fallback, existing audio behavior, profile-logo replay, and the full eight-character cinematic flow before checkpointing.
+
+- [x] Verify that the hamburger-menu cinematic customization adds no changes to existing profile-logo behavior, mission features, title/level progression, bundled default videos, audio timing, or unrelated UI.
