@@ -5,6 +5,14 @@ import { AppState, Image, Modal, Pressable, type ImageSourcePropType, StyleSheet
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 
 import { useColors } from "@/hooks/use-colors";
+import {
+  CINEMATIC_VIDEO_ASPECT_RATIO,
+  CINEMATIC_VIDEO_AUDIO_MODE,
+  CINEMATIC_VIDEO_CONTENT_FIT,
+  CINEMATIC_VIDEO_EMBEDDED_VOLUME,
+  CINEMATIC_VIDEO_SOUNDTRACK_VOLUME,
+  usesCinematicVideoSoundtrack,
+} from "@/lib/cinematic-playback";
 import { useFocusCommand } from "@/lib/focus-command";
 import {
   CHARACTER_EVOLUTION_TIMELINE_MS,
@@ -236,7 +244,7 @@ export function RankCharacterAchievement({
   const playersRef = useRef<ReturnType<typeof createAudioPlayer>[]>([]);
   const videoSoundtrackPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
   const postVideoRevealPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
-  const usesSuppliedTenSecondCinematic = evolution.cinematicVariant !== "shadow";
+  const usesSuppliedTenSecondCinematic = usesCinematicVideoSoundtrack(evolution.cinematicVariant);
   const variationSeed = level + evolution.stage + (evolution.family === "shadow" ? 1 : evolution.family === "ascendant" ? 2 : evolution.family === "command" ? 3 : 0);
   const impactDirection = variationSeed % 2 === 0 ? 1 : -1;
   const cinematicIntensity = 1 + evolution.stage * 0.09 + (level % 3) * 0.045;
@@ -306,7 +314,7 @@ export function RankCharacterAchievement({
       try {
         videoSoundtrackPlayer.pause();
         videoSoundtrackPlayer.seekTo(0);
-        videoSoundtrackPlayer.volume = 0.24;
+        videoSoundtrackPlayer.volume = CINEMATIC_VIDEO_SOUNDTRACK_VOLUME;
         videoSoundtrackPlayer.play();
       } catch {
         // Original video audio remains available if the separate soundtrack cannot start.
@@ -327,8 +335,8 @@ export function RankCharacterAchievement({
       try {
         videoPlayer.pause();
         videoPlayer.currentTime = 0;
-        videoPlayer.muted = !usesSuppliedTenSecondCinematic;
-        videoPlayer.volume = usesSuppliedTenSecondCinematic ? 0.9 : 1;
+        videoPlayer.muted = false;
+        videoPlayer.volume = CINEMATIC_VIDEO_EMBEDDED_VOLUME;
         setVideoVisible(true);
         videoOpacity.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
         videoPlayer.play();
@@ -366,7 +374,7 @@ export function RankCharacterAchievement({
         } else {
           playersRef.current = CHARACTER_EVOLUTION_AUDIO_SOURCES.map((source) => createAudioPlayer(source));
         }
-        void setAudioModeAsync({ playsInSilentMode: true });
+        void setAudioModeAsync(CINEMATIC_VIDEO_AUDIO_MODE);
       } catch {
         releasePlayers();
       }
@@ -552,7 +560,7 @@ export function RankCharacterAchievement({
               <View pointerEvents="none" style={[styles.cinematicAvatarAura, { backgroundColor: `${evolution.accent}28`, shadowColor: evolution.accent }]} />
               <Image source={profile.portrait} resizeMode="contain" style={styles.cinematicPortrait} />
               {videoVisible ? <Animated.View pointerEvents="none" style={[styles.cinematicVideoFrame, { borderColor: `${evolution.accent}72`, shadowColor: evolution.accent }, videoStyle]}>
-                <VideoView player={videoPlayer} contentFit="cover" nativeControls={false} surfaceType="textureView" style={styles.cinematicArmorVideo} />
+                <VideoView player={videoPlayer} contentFit={CINEMATIC_VIDEO_CONTENT_FIT} nativeControls={false} surfaceType="textureView" style={styles.cinematicArmorVideo} />
               </Animated.View> : null}
             </Animated.View>
             <Animated.View style={[styles.cinematicReveal, revealStyle]}>
@@ -614,7 +622,7 @@ const styles = StyleSheet.create({
   cinematicAvatarSystem: { width: 300, height: 365, alignItems: "center", justifyContent: "flex-end", position: "relative" },
   cinematicAvatarAura: { position: "absolute", width: 230, height: 230, borderRadius: 115, bottom: 55, shadowOpacity: 0.9, shadowRadius: 30, elevation: 6 },
   cinematicPortrait: { width: 294, height: 352, zIndex: 1 },
-  cinematicVideoFrame: { position: "absolute", width: 234, height: 300, bottom: 14, borderRadius: 24, borderWidth: 1, overflow: "hidden", zIndex: 4, backgroundColor: "#020914", shadowOpacity: 0.76, shadowRadius: 20, elevation: 17 },
+  cinematicVideoFrame: { position: "absolute", width: 194, aspectRatio: CINEMATIC_VIDEO_ASPECT_RATIO, bottom: 2, borderRadius: 22, borderWidth: 1, overflow: "hidden", zIndex: 4, backgroundColor: "#020914", shadowOpacity: 0.76, shadowRadius: 20, elevation: 17 },
   cinematicArmorVideo: { width: "100%", height: "100%" },
   cinematicVisor: { position: "absolute", width: 92, height: 18, top: 93, borderRadius: 11, borderWidth: 2, backgroundColor: "#04142699", zIndex: 4, shadowOpacity: 0.95, shadowRadius: 11, elevation: 14, overflow: "hidden" },
   cinematicVisorBeam: { position: "absolute", left: 9, right: 9, top: 6, height: 3, borderRadius: 2 },

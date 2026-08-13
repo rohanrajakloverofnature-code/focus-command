@@ -404,3 +404,6 @@
 - [x] Add automated coverage and validate selection, persistence, fallback, existing audio behavior, profile-logo replay, and the full eight-character cinematic flow before checkpointing.
 
 - [x] Verify that the hamburger-menu cinematic customization adds no changes to existing profile-logo behavior, mission features, title/level progression, bundled default videos, audio timing, or unrelated UI.
+
+- [x] Restore the approved ten-second simultaneous cinematic soundtrack for every character video and preserve each video’s portrait aspect without changing cinematic timing, profile-logo behavior, or unrelated app features.
+- [x] Inspect the supplied recording and soundtrack, add regression coverage for shared soundtrack playback and portrait sizing, then validate and synchronize the focused correction without starting an APK build.
