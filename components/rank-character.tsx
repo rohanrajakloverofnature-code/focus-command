@@ -68,7 +68,7 @@ const CHARACTER_EVOLUTION_POST_VIDEO_REVEAL_SOURCE = require("@/assets/sounds/ch
 
 export function getRankProfile(title: string, level: number): RankProfile {
   const evolution = getCharacterEvolutionProfile(title, level);
-  const portrait = PORTRAITS[getCharacterPortraitVariant(title)];
+  const portrait = PORTRAITS[getCharacterPortraitVariant(title, level)];
   return {
     name: evolution.formName,
     accent: evolution.accent,

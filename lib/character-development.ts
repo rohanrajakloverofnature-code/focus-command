@@ -3,7 +3,7 @@ import type { Equipment } from "./focus-command";
 export type CharacterFamily = "tactical" | "command" | "shadow" | "ascendant";
 export type DevelopmentStage = 0 | 1 | 2 | 3 | 4 | 5;
 export type CharacterCinematicVariant = "tactical" | "command" | "shadow" | "ascendant";
-export type CharacterPortraitVariant = "recruit" | "officer" | "shadow" | "vanguard";
+export type CharacterPortraitVariant = "recruit" | "officer" | "shadow" | "vanguard" | "tactical" | "command" | "ascendant" | "evolutionAscendant";
 
 export type EquippedCharacterGear = {
   head?: Equipment;
@@ -132,12 +132,19 @@ export function getCharacterFamily(title: string): CharacterFamily {
   return "tactical";
 }
 
-/** Keeps the existing profile-logo portrait aligned with its approved family video. */
-export function getCharacterPortraitVariant(title: string): CharacterPortraitVariant {
+/**
+ * Keeps the existing profile-logo interaction intact while activating every bundled portrait
+ * through the current title family and earned level stage. Cinematic videos remain family based.
+ */
+export function getCharacterPortraitVariant(title: string, level = 0): CharacterPortraitVariant {
   const family = getCharacterFamily(title);
-  if (family === "tactical") return "recruit";
-  if (family === "command") return "officer";
-  if (family === "ascendant") return "vanguard";
+  if (family === "tactical") return level >= 90 ? "tactical" : "recruit";
+  if (family === "command") return level >= 90 ? "command" : "officer";
+  if (family === "ascendant") {
+    if (level >= 180) return "evolutionAscendant";
+    if (level >= 30) return "ascendant";
+    return "vanguard";
+  }
   return "shadow";
 }
 

@@ -113,11 +113,20 @@ describe("title and level cinematic power-up profiles", () => {
     expect(getCharacterEvolutionProfile("Celestial Sovereign", 450)).toMatchObject({ family: "ascendant", stage: 5, formName: "Sovereign Form", cinematicVariant: "ascendant" });
   });
 
-  it("keeps the existing profile-logo portraits aligned with their matching character-video families", () => {
-    expect(getCharacterPortraitVariant("Recruit")).toBe("recruit");
-    expect(getCharacterPortraitVariant("Brigadier")).toBe("officer");
-    expect(getCharacterPortraitVariant("Shadow Phantom")).toBe("shadow");
-    expect(getCharacterPortraitVariant("Celestial Sovereign")).toBe("vanguard");
+  it("activates all eight profile-logo portraits through title family and earned level without changing cinematic families", () => {
+    expect(getCharacterPortraitVariant("Recruit", 1)).toBe("recruit");
+    expect(getCharacterPortraitVariant("Recruit", 90)).toBe("tactical");
+    expect(getCharacterPortraitVariant("Brigadier", 89)).toBe("officer");
+    expect(getCharacterPortraitVariant("Brigadier", 90)).toBe("command");
+    expect(getCharacterPortraitVariant("Shadow Phantom", 180)).toBe("shadow");
+    expect(getCharacterPortraitVariant("Celestial Sovereign", 1)).toBe("vanguard");
+    expect(getCharacterPortraitVariant("Celestial Sovereign", 30)).toBe("ascendant");
+    expect(getCharacterPortraitVariant("Celestial Sovereign", 180)).toBe("evolutionAscendant");
+
+    expect(getCharacterEvolutionProfile("Recruit", 90).cinematicVariant).toBe("tactical");
+    expect(getCharacterEvolutionProfile("Brigadier", 90).cinematicVariant).toBe("command");
+    expect(getCharacterEvolutionProfile("Celestial Sovereign", 30).cinematicVariant).toBe("ascendant");
+    expect(getCharacterEvolutionProfile("Celestial Sovereign", 180).cinematicVariant).toBe("ascendant");
   });
 
   it("uses the equipped local head, body, and accessory state as the only equipment-reveal source", () => {

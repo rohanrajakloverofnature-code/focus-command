@@ -367,3 +367,15 @@
 
 - [x] Verify and integrate the supplied Command/Officer ten-second character video with the established during-video and post-video audio cues, leaving every animation and sound completed today unchanged.
 - [x] Validate the isolated Command cinematic mapping, protected existing character mappings, full regression suite, lint, TypeScript, and production export; then checkpoint and synchronize the verified single-character update to GitHub without an APK build.
+
+- [x] Identify and present the four pending character portraits directly to the user without changing any cinematic mapping or project behavior.
+
+- [ ] Verify all four supplied evolution videos and match each to its closest remaining character portrait before any implementation.
+- [ ] Integrate, fully validate, checkpoint, and synchronize each matched remaining character cinematic one at a time, using the established during-video and post-video audio cues while preserving all completed animations and sounds.
+
+- [x] Identify and show only genuinely unimplemented character forms after comparing the app’s title, portrait, and cinematic mappings; audit found no additional selectable form beyond the four completed families, so no pending portrait can be shown without adding a new character-form system.
+
+- [x] Audit all eight original character portraits individually against current static portrait selection and latest ten-second cinematic integration; report only the portraits that remain without that cinematic, without altering any app behavior.
+
+- [x] Define and implement deterministic title-family and level-stage selection for all eight existing portraits, while preserving the profile-logo interaction and completed cinematic mappings.
+- [x] Add regression coverage and validate that every active portrait change is driven only by title or level, with no changes to existing cinematic-video or audio behavior.
