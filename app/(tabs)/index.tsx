@@ -52,7 +52,6 @@ import {
   getTotalPower,
   getTotalXp,
   type FocusState,
-  useFocusCommandActions,
   useFocusCommandSelector,
 } from "@/lib/focus-command";
 import { getMiniAchievementHeadlines } from "@/lib/mini-achievement-headlines";
@@ -79,17 +78,32 @@ function hasSameHomeDependencies(left: FocusState, right: FocusState): boolean {
     && left.transactions === right.transactions
     && left.rewards === right.rewards
     && left.inventory === right.inventory
-    && left.allEquipment === right.allEquipment
-    && left.userEquipment === right.userEquipment
     && left.googleSheet === right.googleSheet
     && left.hydrated === right.hydrated;
+}
+
+function selectEquippedCharacterGear(state: FocusState) {
+  const equipped: { head?: FocusState["allEquipment"][number]; body?: FocusState["allEquipment"][number]; accessory?: FocusState["allEquipment"][number] } = {};
+  for (const userEquipment of state.userEquipment) {
+    if (userEquipment.isEquipped === "false") continue;
+    const equipment = state.allEquipment.find((candidate) => candidate.id === userEquipment.equipmentId);
+    if (equipment) equipped[userEquipment.isEquipped as "head" | "body" | "accessory"] = equipment;
+  }
+  return equipped;
+}
+
+function hasSameEquippedCharacterGear(
+  left: ReturnType<typeof selectEquippedCharacterGear>,
+  right: ReturnType<typeof selectEquippedCharacterGear>,
+) {
+  return left.head === right.head && left.body === right.body && left.accessory === right.accessory;
 }
 
 export default function HomeScreen() {
   const colors = useColors();
   const { width } = useWindowDimensions();
   const state = useFocusCommandSelector((current) => current, hasSameHomeDependencies);
-  const { getEquippedItems } = useFocusCommandActions();
+  const equippedCharacterGear = useFocusCommandSelector(selectEquippedCharacterGear, hasSameEquippedCharacterGear);
   const ready = state.hydrated;
   const { journals, missions, srsTopics } = state;
   const level = getLevelInfo(state);
@@ -133,7 +147,6 @@ export default function HomeScreen() {
   }, [forecast.available, forecast.outlook, forecast.sampleSize, motivationMessages.length]);
 
   const energy = getEnergy(state);
-  const equippedCharacterGear = useMemo(() => getEquippedItems(), [getEquippedItems]);
   const currentCharacterMilestone = useMemo(
     () => createCharacterEvolutionMilestone(title.title, level.level, equippedCharacterGear),
     [equippedCharacterGear, level.level, title.title],

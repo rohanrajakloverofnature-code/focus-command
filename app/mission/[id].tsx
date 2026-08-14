@@ -7,7 +7,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { DistractionLogger } from "@/components/distraction-logger";
 import { useColors } from "@/hooks/use-colors";
-import { CustomQuestion, Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getMissionInvestedMilliseconds, isLongMissionReflectionEligible, ReflectionDraft, useFocusCommand } from "@/lib/focus-command";
+import { CustomQuestion, Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getMissionInvestedMilliseconds, isLongMissionReflectionEligible, ReflectionDraft, type FocusState, useFocusCommandActions, useFocusCommandSelector } from "@/lib/focus-command";
 import { playFocusSuccessCue } from "@/lib/focus-audio";
 import { scheduleAchievementRecap } from "@/lib/focus-reminders";
 
@@ -19,12 +19,57 @@ const feelings: { value: Feeling; label: string; color: string }[] = [
   { value: "great", label: "Great", color: "#F4C95D" },
 ];
 
+type MissionDetailSnapshot = {
+  hydrated: boolean;
+  mission: FocusState["missions"][number] | undefined;
+  missionDistractionCount: number;
+  activeBosses: FocusState["bosses"];
+  customQuestions: FocusState["customQuestions"];
+  soundEnabled: boolean;
+  missionWinSound: FocusState["profile"]["soundRoles"]["missionWin"];
+  notificationsEnabled: boolean;
+  notificationRules: FocusState["profile"]["notificationRules"];
+  achievementRecapSound: FocusState["profile"]["soundRoles"]["achievementRecap"];
+};
+
+function hasSameReferences<T>(left: readonly T[], right: readonly T[]) {
+  return left.length === right.length && left.every((entry, index) => entry === right[index]);
+}
+
+function hasSameMissionDetailSnapshot(left: MissionDetailSnapshot, right: MissionDetailSnapshot) {
+  return left.hydrated === right.hydrated
+    && left.mission === right.mission
+    && left.missionDistractionCount === right.missionDistractionCount
+    && hasSameReferences(left.activeBosses, right.activeBosses)
+    && left.customQuestions === right.customQuestions
+    && left.soundEnabled === right.soundEnabled
+    && left.missionWinSound === right.missionWinSound
+    && left.notificationsEnabled === right.notificationsEnabled
+    && left.notificationRules === right.notificationRules
+    && left.achievementRecapSound === right.achievementRecapSound;
+}
+
+function selectMissionDetailSnapshot(state: FocusState, missionId: string | undefined): MissionDetailSnapshot {
+  return {
+    hydrated: state.hydrated,
+    mission: state.missions.find((candidate) => candidate.id === missionId),
+    missionDistractionCount: state.distractionLogs.filter((entry) => entry.missionId === missionId).length,
+    activeBosses: state.bosses.filter((boss) => boss.status === "active"),
+    customQuestions: state.customQuestions,
+    soundEnabled: state.profile.soundEnabled,
+    missionWinSound: state.profile.soundRoles.missionWin,
+    notificationsEnabled: state.profile.notificationsEnabled,
+    notificationRules: state.profile.notificationRules,
+    achievementRecapSound: state.profile.soundRoles.achievementRecap,
+  };
+}
+
 export default function MissionDetailScreen() {
   const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { state, ready, startMission, toggleMissionPause, finishMission, logDistraction, logRevisionTopic, updateMission, removeMission } = useFocusCommand();
-  const mission = state.missions.find((candidate) => candidate.id === id);
-  const missionDistractionCount = state.distractionLogs.filter((entry) => entry.missionId === id).length;
+  const { startMission, toggleMissionPause, finishMission, logDistraction, logRevisionTopic, updateMission, removeMission } = useFocusCommandActions();
+  const detail = useFocusCommandSelector((state) => selectMissionDetailSnapshot(state, id), hasSameMissionDetailSnapshot);
+  const { hydrated: ready, mission, missionDistractionCount, activeBosses, customQuestions, soundEnabled, missionWinSound, notificationsEnabled, notificationRules, achievementRecapSound } = detail;
   const [nowMs, setNowMs] = useState(Date.now());
   const [revisionTopic, setRevisionTopic] = useState("");
   const [showReflection, setShowReflection] = useState(false);
@@ -94,8 +139,8 @@ export default function MissionDetailScreen() {
         Alert.alert("Mission cannot be finalized", "This mission is no longer active. Return to the mission board, start it again if it is repeatable, then submit a new result.");
         return;
       }
-      await playFocusSuccessCue(state.profile.soundEnabled, state.profile.soundRoles.missionWin);
-      if (state.profile.notificationsEnabled) await scheduleAchievementRecap(mission.title, state.profile.notificationRules, state.profile.soundRoles.achievementRecap);
+      await playFocusSuccessCue(soundEnabled, missionWinSound);
+      if (notificationsEnabled) await scheduleAchievementRecap(mission.title, notificationRules, achievementRecapSound);
       router.replace({ pathname: "/mission-result/[id]" as never, params: { id: mission.id, completionId: result.completionId } });
     } catch {
       Alert.alert("Could not save mission result", "Your result was not confirmed. Please try again. If this continues, reopen the app and submit the active mission once more.");
@@ -208,7 +253,7 @@ export default function MissionDetailScreen() {
           <Text style={[styles.editorLabel, { color: colors.muted }]}>CAMPAIGN LINK</Text>
           <View style={styles.bossPicker}>
             <Pressable onPress={() => setEditBossId(null)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: editBossId === null ? `${colors.primary}18` : colors.background, borderColor: editBossId === null ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.bossChoiceText, { color: editBossId === null ? colors.primary : colors.muted }]}>No boss</Text></Pressable>
-            {state.bosses.filter((boss) => boss.status === "active").map((boss) => <Pressable key={boss.id} onPress={() => setEditBossId(boss.id)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: editBossId === boss.id ? "#F4C95D1D" : colors.background, borderColor: editBossId === boss.id ? "#F4C95D" : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text numberOfLines={1} style={[styles.bossChoiceText, { color: editBossId === boss.id ? "#F4C95D" : colors.muted }]}>{boss.title}</Text></Pressable>)}
+            {activeBosses.map((boss) => <Pressable key={boss.id} onPress={() => setEditBossId(boss.id)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: editBossId === boss.id ? "#F4C95D1D" : colors.background, borderColor: editBossId === boss.id ? "#F4C95D" : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text numberOfLines={1} style={[styles.bossChoiceText, { color: editBossId === boss.id ? "#F4C95D" : colors.muted }]}>{boss.title}</Text></Pressable>)}
           </View>
           <CommandButton label="Save mission changes" icon="checklist" onPress={saveEditor} />
         </CommandCard> : null}
@@ -284,7 +329,7 @@ export default function MissionDetailScreen() {
                 <TextInput value={reflection.provokingThought ?? ""} onChangeText={(provokingThought) => setReflection((current) => ({ ...current, provokingThought }))} placeholder="What thought got you moving?" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
                 <RatingSelector label="How powerful was that thought?" value={reflection.provokingThoughtRating ?? 0} onChange={(provokingThoughtRating) => setReflection((current) => ({ ...current, provokingThoughtRating }))} />
                 <TextInput value={skillsText} onChangeText={setSkillsText} placeholder="Skills gained, separated by commas" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
-                {state.customQuestions.filter((question) => question.enabled).map((question) => (
+                {customQuestions.filter((question) => question.enabled).map((question) => (
                   <CustomQuestionInput
                     key={question.id}
                     question={question}

@@ -11,6 +11,7 @@ import { ThemeProvider } from "@/lib/theme-provider";
 import { FocusCommandProvider } from "@/lib/focus-command";
 import { FocusThemeBridge } from "@/components/focus-theme-bridge";
 import { FocusNotificationAudioBridge } from "@/components/focus-notification-audio-bridge";
+import { FocusTapFeedbackBridge } from "@/components/focus-tap-feedback-bridge";
 import { LaunchAnimation } from "@/components/launch-animation";
 import {
   SafeAreaFrameContext,
@@ -82,6 +83,7 @@ export default function RootLayout() {
       <FocusCommandProvider>
         <FocusThemeBridge />
         <FocusNotificationAudioBridge />
+        <FocusTapFeedbackBridge />
         {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
         {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
         {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}

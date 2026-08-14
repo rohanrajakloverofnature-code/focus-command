@@ -14,8 +14,33 @@ import {
 } from "react-native";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
-import { useFocusCommand } from "@/lib/focus-command";
+import { useFocusCommandSelector, type FocusState, type SoundRoleSettings } from "@/lib/focus-command";
 import { playFocusTap } from "@/lib/focus-audio";
+
+type InteractionFeedback = {
+  soundEnabled: boolean;
+  tapSound: SoundRoleSettings;
+  hapticsEnabled: boolean;
+  reduceMotion: boolean;
+};
+
+const selectInteractionFeedback = (state: FocusState): InteractionFeedback => ({
+  soundEnabled: state.profile.soundEnabled,
+  tapSound: state.profile.soundRoles.tap,
+  hapticsEnabled: state.profile.hapticsEnabled,
+  reduceMotion: state.profile.reduceMotion,
+});
+
+const hasSameInteractionFeedback = (left: InteractionFeedback, right: InteractionFeedback) => (
+  left.soundEnabled === right.soundEnabled
+  && left.tapSound === right.tapSound
+  && left.hapticsEnabled === right.hapticsEnabled
+  && left.reduceMotion === right.reduceMotion
+);
+
+function useInteractionFeedback() {
+  return useFocusCommandSelector(selectInteractionFeedback, hasSameInteractionFeedback);
+}
 
 export type FocusIconName =
   | "house.fill"
@@ -113,21 +138,21 @@ export function IconAction({
   disabled?: boolean;
 }) {
   const colors = useColors();
-  const { state } = useFocusCommand();
+  const feedback = useInteractionFeedback();
   const impact = useSharedValue(1);
   const impactStyle = useAnimatedStyle(() => ({ transform: [{ scale: impact.value }, { rotate: `${(impact.value - 1) * 4}deg` }] }));
-  const handlePress = () => {
-    onPress();
+  const acknowledgePress = () => {
     impact.value = withSequence(withTiming(0.91, { duration: 55 }), withTiming(1.03, { duration: 100 }), withTiming(1, { duration: 110 }));
-    void playFocusTap(state.profile.soundEnabled, state.profile.soundRoles.tap);
-    if (state.profile.hapticsEnabled && Platform.OS !== "web") void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    void playFocusTap(feedback.soundEnabled, feedback.tapSound);
+    if (feedback.hapticsEnabled && Platform.OS !== "web") void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
   };
   return (
     <Animated.View style={impactStyle}><Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={disabled}
-      onPress={handlePress}
+      onPress={onPress}
+      onPressIn={acknowledgePress}
       hitSlop={6}
       style={({ pressed }) => [
         styles.iconAction,
@@ -155,14 +180,13 @@ export function CommandButton({
   style?: StyleProp<ViewStyle>;
 }) {
   const colors = useColors();
-  const { state } = useFocusCommand();
+  const feedback = useInteractionFeedback();
   const impact = useSharedValue(1);
   const impactStyle = useAnimatedStyle(() => ({ transform: [{ scale: impact.value }] }));
-  const handlePress = () => {
-    onPress();
+  const acknowledgePress = () => {
     impact.value = withSequence(withTiming(0.955, { duration: 45 }), withTiming(1.02, { duration: 90 }), withTiming(1, { duration: 120 }));
-    void playFocusTap(state.profile.soundEnabled, state.profile.soundRoles.tap);
-    if (state.profile.hapticsEnabled && Platform.OS !== "web") void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    void playFocusTap(feedback.soundEnabled, feedback.tapSound);
+    if (feedback.hapticsEnabled && Platform.OS !== "web") void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
   };
   const palette = {
     primary: { background: colors.primary, foreground: "#071018", border: colors.primary },
@@ -174,7 +198,8 @@ export function CommandButton({
     <Animated.View style={[impactStyle, style]}><Pressable
       accessibilityRole="button"
       disabled={disabled}
-      onPress={handlePress}
+      onPress={onPress}
+      onPressIn={acknowledgePress}
       hitSlop={4}
       style={({ pressed }) => [
         styles.commandButton,
@@ -210,15 +235,14 @@ export function MetricTile({
   style?: StyleProp<ViewStyle>;
 }) {
   const colors = useColors();
-  const { state } = useFocusCommand();
+  const feedback = useInteractionFeedback();
   const impact = useSharedValue(1);
   const impactStyle = useAnimatedStyle(() => ({ transform: [{ scale: impact.value }] }));
-  const handleMetricPress = () => {
+  const acknowledgePress = () => {
     if (!onPress) return;
-    onPress();
     impact.value = withSequence(withTiming(0.97, { duration: 45 }), withTiming(1.01, { duration: 100 }), withTiming(1, { duration: 110 }));
-    void playFocusTap(state.profile.soundEnabled, state.profile.soundRoles.tap);
-    if (state.profile.hapticsEnabled && Platform.OS !== "web") void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    void playFocusTap(feedback.soundEnabled, feedback.tapSound);
+    if (feedback.hapticsEnabled && Platform.OS !== "web") void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
   };
   const body = (
     <>
@@ -236,7 +260,8 @@ export function MetricTile({
   return (
     <Animated.View style={[impactStyle, style]}><Pressable
       accessibilityRole="button"
-      onPress={handleMetricPress}
+      onPress={onPress}
+      onPressIn={acknowledgePress}
       hitSlop={4}
       style={({ pressed }) => [
         styles.metricTile,
@@ -312,12 +337,11 @@ export function TapFeedback({
   disabled?: boolean;
   accessibilityLabel?: string;
 }) {
-  const { state } = useFocusCommand();
+  const feedback = useInteractionFeedback();
   const scale = useSharedValue(1);
   const tapStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const handlePress = () => {
-    onPress();
-    if (!state.profile.reduceMotion) scale.value = withSequence(withTiming(0.972, { duration: 45 }), withTiming(1.012, { duration: 90 }), withTiming(1, { duration: 110 }));
+  const acknowledgePress = () => {
+    if (!feedback.reduceMotion) scale.value = withSequence(withTiming(0.972, { duration: 45 }), withTiming(1.012, { duration: 90 }), withTiming(1, { duration: 110 }));
   };
   return (
     <Animated.View style={[tapStyle, style]}>
@@ -325,7 +349,8 @@ export function TapFeedback({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         disabled={disabled}
-        onPress={handlePress}
+        onPress={onPress}
+        onPressIn={acknowledgePress}
         hitSlop={4}
         style={({ pressed }) => ({ opacity: disabled ? 0.45 : pressed ? 0.76 : 1 })}
       >

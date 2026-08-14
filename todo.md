@@ -467,3 +467,9 @@
 - [x] Conduct a read-only performance, responsiveness, media-lifecycle, interaction, navigation, and data-loading audit; present an approval-gated optimization plan without changing product behavior.
 - [x] Implement the approved Journal-header-only responsive correction so the Today status control remains fully visible on narrow portrait screens.
 - [x] Push the validated Performance and Reliability Optimization checkpoint to the existing private GitHub main branch without starting an APK build or workflow.
+- [x] Conduct a read-only investigation of delayed button responsiveness from the supplied recording and current interaction paths; present an approval-gated root-cause plan without changing app behavior.
+- [x] Narrow shared button, icon, metric, and tab feedback subscriptions without changing their UI or action semantics.
+- [x] Make existing press acknowledgement immediate while preserving current release-to-activate action paths and all mission controls.
+- [x] Narrow verified Mission and Home render dependencies without changing any visible content, calculation, profile-logo behavior, or completed animation.
+- [x] Prepare the existing optional tap-feedback resource safely after hydration without playing a new launch sound or altering sound settings.
+- [x] Add responsiveness regression coverage and complete full TypeScript, test, lint, and export validation without starting an APK build.

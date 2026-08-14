@@ -56,6 +56,26 @@ async function playPlayer(player: ReturnType<typeof createAudioPlayer>) {
   player.play();
 }
 
+/**
+ * Prepares the already-selected tap feedback resource without playing it. This
+ * lets the first eligible press avoid creating a native player or configuring
+ * the audio session on its critical interaction path.
+ */
+export async function prepareFocusTapFeedback(masterEnabled: boolean, settings?: SoundRoleSettings) {
+  const resolved = settings ?? { ...defaultRoleSettings, style: "crisp" as const };
+  if (!masterEnabled || !resolved.enabled || isLaunchSequenceActive()) return;
+  try {
+    await prepareAudio();
+    if (resolved.customUri) {
+      getCustomPlayer(resolved.customUri);
+      return;
+    }
+    getBundledPlayer(cueByRoleAndStyle.tap[resolved.style]);
+  } catch {
+    // First-tap feedback remains optional; a failed preparation never changes an action path.
+  }
+}
+
 export async function playFocusCue(name: CueName, enabled: boolean) {
   if (!enabled || isLaunchSequenceActive()) return;
   try {

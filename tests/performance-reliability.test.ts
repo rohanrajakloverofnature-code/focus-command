@@ -9,6 +9,12 @@ const launchSource = readFileSync(resolve(process.cwd(), "components/launch-anim
 const cinematicSource = readFileSync(resolve(process.cwd(), "components/rank-character.tsx"), "utf8");
 const missionBoardSource = readFileSync(resolve(process.cwd(), "app/(tabs)/missions.tsx"), "utf8");
 const mediaLifecycleSource = readFileSync(resolve(process.cwd(), "lib/media-lifecycle.ts"), "utf8");
+const focusUiSource = readFileSync(resolve(process.cwd(), "components/focus-ui.tsx"), "utf8");
+const tabSource = readFileSync(resolve(process.cwd(), "components/haptic-tab.tsx"), "utf8");
+const tapBridgeSource = readFileSync(resolve(process.cwd(), "components/focus-tap-feedback-bridge.tsx"), "utf8");
+const focusAudioSource = readFileSync(resolve(process.cwd(), "lib/focus-audio.ts"), "utf8");
+const homeSource = readFileSync(resolve(process.cwd(), "app/(tabs)/index.tsx"), "utf8");
+const missionSource = readFileSync(resolve(process.cwd(), "app/mission/[id].tsx"), "utf8");
 
 describe("Performance and reliability contracts", () => {
   it("reuses completion and dashboard derivations for one immutable state snapshot", () => {
@@ -45,5 +51,28 @@ describe("Performance and reliability contracts", () => {
     expect(missionBoardSource).toContain("keyExtractor={(item) => item.key}");
     expect(missionBoardSource).toContain("const CompletionHistoryCard = memo");
     expect(missionBoardSource).toContain("const MissionCard = memo");
+  });
+
+  it("acknowledges existing controls at touch-down without moving their release-to-activate actions", () => {
+    expect(focusUiSource).toContain("onPressIn={acknowledgePress}");
+    expect(focusUiSource).toContain("const acknowledgePress = ()");
+    expect(focusUiSource).toContain("onPress={onPress}");
+    expect(focusUiSource).toContain("useInteractionFeedback");
+    expect(tabSource).toContain("useFocusCommandSelector(selectTabFeedback");
+  });
+
+  it("prepares optional tap feedback only after launch is inactive and never plays sound during preparation", () => {
+    expect(tapBridgeSource).toContain("subscribeLaunchSequenceActivity");
+    expect(tapBridgeSource).toContain("isLaunchSequenceActive()");
+    expect(tapBridgeSource).toContain("Platform.OS === \"web\"");
+    expect(tapBridgeSource).toContain("prepareFocusTapFeedback");
+    expect(focusAudioSource).toContain("export async function prepareFocusTapFeedback");
+    expect(focusAudioSource).toContain("getBundledPlayer(cueByRoleAndStyle.tap[resolved.style])");
+  });
+
+  it("keeps Home equipment updates scoped and the live mission on its existing narrow selector", () => {
+    expect(homeSource).toContain("selectEquippedCharacterGear");
+    expect(homeSource).toContain("useFocusCommandSelector(selectEquippedCharacterGear");
+    expect(missionSource).toContain("useFocusCommandSelector((state) => selectMissionDetailSnapshot(state, id)");
   });
 });
