@@ -1,8 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   createInitialState,
+  getBossProgress,
+  getCalendarTimeAverages,
+  getDailyProgress,
+  getEnergy,
   getMissionCompletionRecords,
+  getTodayInvestedMilliseconds,
   normalizeHydratedState,
   removeCompletedMissionRun,
   type FocusState,
@@ -195,5 +200,156 @@ describe("completed-run deletion", () => {
     expect(next.missionCompletions.map((completion) => completion.id)).not.toContain("completion_target");
     expect(next.progression.map((event) => event.id)).toContain("progress_target_second");
     expect(getMissionCompletionRecords(next).map((completion) => completion.id)).not.toContain("completion_target");
+  });
+
+  it("removes exactly the middle run of three completed attempts and preserves the first, third, and unrelated mission", () => {
+    const state = createFixture();
+    const middleCompletion: MissionCompletion = {
+      id: "completion_target_middle",
+      missionId: "mission_target",
+      startedAt: siblingStartedAt,
+      completedAt: siblingCompletedAt,
+      durationMs: 30 * 60_000,
+      reflectionId: "reflection_target_middle",
+      progressionEventId: "progress_target_middle",
+    };
+    const thirdCompletedAt = "2026-08-13T10:00:00.000Z";
+    const thirdCompletion: MissionCompletion = {
+      id: "completion_target_third",
+      missionId: "mission_target",
+      startedAt: "2026-08-13T09:00:00.000Z",
+      completedAt: thirdCompletedAt,
+      durationMs: 45 * 60_000,
+      reflectionId: "reflection_target_third",
+      progressionEventId: "progress_target_third",
+    };
+    const middleProgression: ProgressionEvent = {
+      ...state.progression[0],
+      id: "progress_target_middle",
+      completionId: middleCompletion.id,
+      occurredAt: siblingCompletedAt,
+    };
+    const thirdProgression: ProgressionEvent = {
+      ...state.progression[0],
+      id: "progress_target_third",
+      completionId: thirdCompletion.id,
+      occurredAt: thirdCompletedAt,
+    };
+    const threeRunState: FocusState = {
+      ...state,
+      missions: state.missions.map((mission) => mission.id === "mission_target" ? {
+        ...mission,
+        status: "planned",
+        allowMultipleDailyCompletions: true,
+        completionHistory: [targetCompletedAt, siblingCompletedAt, thirdCompletedAt],
+        endedAt: thirdCompletedAt,
+        completedAt: thirdCompletedAt,
+        progressionEventId: thirdProgression.id,
+      } : mission),
+      missionCompletions: [...state.missionCompletions, middleCompletion, thirdCompletion],
+      progression: [...state.progression, middleProgression, thirdProgression],
+      reflections: [...state.reflections,
+        { id: "reflection_target_middle", missionId: "mission_target", completionId: middleCompletion.id, createdAt: siblingCompletedAt } as FocusState["reflections"][number],
+        { id: "reflection_target_third", missionId: "mission_target", completionId: thirdCompletion.id, createdAt: thirdCompletedAt } as FocusState["reflections"][number],
+      ],
+    };
+
+    const next = removeCompletedMissionRun(threeRunState, middleCompletion.id);
+    const parent = next.missions.find((mission) => mission.id === "mission_target");
+
+    expect(parent).toMatchObject({ status: "planned", completionHistory: [targetCompletedAt, thirdCompletedAt], progressionEventId: thirdProgression.id, completedAt: thirdCompletedAt });
+    expect(next.missionCompletions.filter((completion) => completion.missionId === "mission_target").map((completion) => completion.id)).toEqual(["completion_target", "completion_target_third"]);
+    expect(next.progression.map((event) => event.id)).toEqual(expect.arrayContaining(["progress_target", "progress_target_third", "progress_sibling"]));
+    expect(next.progression.map((event) => event.id)).not.toContain(middleProgression.id);
+    expect(next.reflections.map((reflection) => reflection.id)).not.toContain("reflection_target_middle");
+    expect(next.missionCompletions.map((completion) => completion.id)).toContain("completion_sibling");
+  });
+
+  it("reverses the selected run from production-derived time, energy, XP, boss, and combo calculations", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-11T12:00:00.000Z"));
+    try {
+      const state = createFixture();
+      const withBoss: FocusState = {
+        ...state,
+        missions: state.missions.map((mission) => mission.id === "mission_target" ? { ...mission, bossId: "boss_target" } : mission),
+      };
+      const next = removeCompletedMissionRun(withBoss, "completion_target");
+
+      expect(getCalendarTimeAverages(withBoss, targetCompletedAt).weekTotalHours).toBe(1);
+      expect(getCalendarTimeAverages(next, targetCompletedAt).weekTotalHours).toBe(0);
+      expect(getTodayInvestedMilliseconds(withBoss)).toBe(60 * 60_000);
+      expect(getTodayInvestedMilliseconds(next)).toBe(0);
+      expect(getDailyProgress(withBoss).earned).toBe(40);
+      expect(getDailyProgress(next).earned).toBe(0);
+      expect(getEnergy(withBoss).used).toBeGreaterThan(0);
+      expect(getEnergy(next).used).toBe(0);
+      expect(getBossProgress(next, "boss_target")).toBe(0);
+      expect(next.combo.lastActiveDate).toBe("2026-08-12");
+      expect(next.combo.qualifyingStreak).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("never deletes a later active or completed daily copy that originated from the removed run", () => {
+    const state = createFixture();
+    const protectedGenerated = state.missions.find((mission) => mission.id === "mission_generated_daily");
+    if (!protectedGenerated) throw new Error("Expected generated daily fixture");
+    const next = removeCompletedMissionRun({
+      ...state,
+      missions: state.missions.map((mission) => mission.id === protectedGenerated.id ? {
+        ...mission,
+        status: "completed",
+        completionHistory: [siblingCompletedAt],
+        completedAt: siblingCompletedAt,
+      } : mission),
+    }, "completion_target");
+
+    expect(next.missions.find((mission) => mission.id === "mission_generated_daily")).toMatchObject({
+      status: "completed",
+      completionHistory: [siblingCompletedAt],
+    });
+  });
+
+  it("keeps ambiguous legacy loot, transactions, and revisions rather than guessing they belong to the deleted run", () => {
+    const state = createFixture();
+    const ambiguousLegacyState: FocusState = {
+      ...state,
+      srsTopics: [...state.srsTopics,
+        { id: "legacy_revision_one", missionId: "mission_target", createdAt: targetCompletedAt, status: "scheduled" } as FocusState["srsTopics"][number],
+        { id: "legacy_revision_two", missionId: "mission_target", createdAt: targetCompletedAt, status: "scheduled" } as FocusState["srsTopics"][number],
+      ],
+      inventory: [...state.inventory,
+        { id: "legacy_loot_one", acquiredAt: targetCompletedAt, active: true } as FocusState["inventory"][number],
+        { id: "legacy_loot_two", acquiredAt: targetCompletedAt, active: true } as FocusState["inventory"][number],
+      ],
+      transactions: [...state.transactions,
+        { id: "legacy_loot_transaction_one", type: "loot", occurredAt: targetCompletedAt } as FocusState["transactions"][number],
+        { id: "legacy_loot_transaction_two", type: "loot", occurredAt: targetCompletedAt } as FocusState["transactions"][number],
+      ],
+    };
+
+    const next = removeCompletedMissionRun(ambiguousLegacyState, "completion_target");
+
+    expect(next.srsTopics.map((topic) => topic.id)).toEqual(expect.arrayContaining(["legacy_revision_one", "legacy_revision_two"]));
+    expect(next.inventory.map((item) => item.id)).toEqual(expect.arrayContaining(["legacy_loot_one", "legacy_loot_two"]));
+    expect(next.transactions.map((transaction) => transaction.id)).toEqual(expect.arrayContaining(["legacy_loot_transaction_one", "legacy_loot_transaction_two"]));
+  });
+
+  it("restores only inventory consumed by the selected run and safely ignores an unknown completion id", () => {
+    const state = createFixture();
+    const stateWithConsumption: FocusState = {
+      ...state,
+      inventory: [...state.inventory,
+        { id: "consumed_target", acquiredAt: "2026-08-01T10:00:00.000Z", active: false, effectiveOn: "2026-08-11", consumedAt: targetCompletedAt, consumedByCompletionId: "completion_target" } as FocusState["inventory"][number],
+        { id: "consumed_other", acquiredAt: "2026-08-01T10:00:00.000Z", active: false, effectiveOn: "2026-08-10", consumedAt: targetCompletedAt } as FocusState["inventory"][number],
+      ],
+    };
+    const next = removeCompletedMissionRun(stateWithConsumption, "completion_target");
+
+    expect(next.inventory.find((item) => item.id === "consumed_target")).toMatchObject({ active: true, consumedAt: null, consumedByCompletionId: undefined });
+    expect(next.inventory.find((item) => item.id === "consumed_other")).toMatchObject({ active: false, consumedAt: targetCompletedAt });
+    expect(removeCompletedMissionRun(next, "unknown_completion")).toBe(next);
   });
 });

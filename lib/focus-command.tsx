@@ -1162,7 +1162,7 @@ export function removeCompletedMissionRun(state: FocusState, completionId: strin
   const removedCompletionDate = toLocalDate(completion.completedAt, state.profile.timezone);
   const generatedMissionIds = new Set(state.missions
     .filter((mission) =>
-      mission.generatedByCompletionId === completionId ||
+      (mission.generatedByCompletionId === completionId && mission.status === "planned" && mission.completionHistory.length === 0) ||
       (completion.generatedMissionId === mission.id && mission.status === "planned" && mission.completionHistory.length === 0),
     )
     .map((mission) => mission.id));
