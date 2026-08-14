@@ -78,8 +78,8 @@ export function MiniAchievementTicker({
           <IconSymbol name="trophy.fill" size={13} color="#F4C95D" />
         </View>
         <View style={styles.copy}>
-          <Text style={styles.eyebrow}>MINI ACHIEVEMENT</Text>
-          <Text numberOfLines={1} ellipsizeMode="tail" style={styles.title}>{activeAchievement.title}</Text>
+          <Text numberOfLines={1} style={styles.eyebrow}>MINI ACHIEVEMENT · WALL OF FAME</Text>
+          <Text numberOfLines={2} ellipsizeMode="tail" style={styles.title}>{activeAchievement.title}</Text>
         </View>
         <View style={styles.ratingBadge}>
           <IconSymbol name="star.fill" size={9} color="#F4C95D" />
@@ -100,12 +100,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#10233AEC",
   },
   tickerPressed: { opacity: 0.82, transform: [{ scale: 0.985 }] },
-  accent: { position: "absolute", left: 0, top: 12, bottom: 12, width: 3, borderRadius: 99, backgroundColor: "#F4C95D" },
-  headline: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 12, paddingLeft: 15, paddingVertical: 9 },
-  iconFrame: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "#F4C95D16" },
+  accent: { position: "absolute", left: 0, top: 14, bottom: 14, width: 3, borderRadius: 99, backgroundColor: "#F4C95D" },
+  headline: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 14, paddingLeft: 17, paddingVertical: 11 },
+  iconFrame: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#F4C95D16" },
   copy: { flex: 1, minWidth: 0, justifyContent: "center" },
-  eyebrow: { color: "#D9B65A", fontSize: 8, lineHeight: 11, fontWeight: "900", letterSpacing: 0.8 },
-  title: { color: "#F5F9FF", fontSize: 12.5, lineHeight: 17, fontWeight: "800" },
-  ratingBadge: { minWidth: 42, height: 30, paddingHorizontal: 7, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 3, backgroundColor: "#F4C95D18" },
-  rating: { color: "#F4C95D", fontSize: 10.5, lineHeight: 13, fontWeight: "900" },
+  eyebrow: { color: "#D9B65A", fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.75 },
+  title: { color: "#F5F9FF", fontSize: 14, lineHeight: 18, fontWeight: "800", marginTop: 2 },
+  ratingBadge: { minWidth: 54, height: 36, paddingHorizontal: 9, borderRadius: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: "#F4C95D18" },
+  rating: { color: "#F4C95D", fontSize: 12.5, lineHeight: 16, fontWeight: "900" },
 });

@@ -413,3 +413,6 @@
 
 - [x] Trace and repair the remaining Google Sheets export route that sends more than 50,000 characters in one cell, preserving complete importable data and all existing local data, sheet connection, and synchronization controls.
 - [x] Add an oversized-data sync regression covering every export payload path, validate, checkpoint, and synchronize the focused repair without starting an APK build.
+
+- [x] Repair only the Home-screen Mini Achievement ticker’s readability, heading wrapping, and long-profile-title spacing while preserving its actual achievement data, cycling behavior, navigation target, header controls, and every unrelated feature.
+- [x] Validate the ticker with long titles, multiple eligible achievements, one eligible achievement, and no eligible achievements before checkpointing and synchronizing the focused layout repair without starting an APK build.

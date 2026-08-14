@@ -9,11 +9,10 @@ import {
 } from "../lib/focus-layout";
 
 describe("focused Home and Dashboard layout constraints", () => {
-  it("reserves the full ticker height inside the header zone before the profile card begins", () => {
-    expect(MINI_ACHIEVEMENT_TICKER_LAYOUT.height).toBeGreaterThanOrEqual(56);
+  it("uses a readable full-width ticker below the variable-height profile title", () => {
+    expect(MINI_ACHIEVEMENT_TICKER_LAYOUT.height).toBeGreaterThanOrEqual(72);
     expect(hasReservedMiniAchievementTickerSpace()).toBe(true);
-    expect(MINI_ACHIEVEMENT_TICKER_LAYOUT.right).toBeGreaterThanOrEqual(56);
-    expect(MINI_ACHIEVEMENT_TICKER_LAYOUT.left).toBeGreaterThan(0);
+    expect(MINI_ACHIEVEMENT_TICKER_LAYOUT.gap).toBeGreaterThanOrEqual(8);
     expect(MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE).toBe("/analytics?metric=fame");
   });
 

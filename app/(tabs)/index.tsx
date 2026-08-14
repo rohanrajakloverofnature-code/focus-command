@@ -393,8 +393,8 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: 18, paddingTop: 12, paddingBottom: 30 },
-  headerZone: { minHeight: MINI_ACHIEVEMENT_TICKER_LAYOUT.headerZoneMinHeight, position: "relative" },
-  miniAchievementTicker: { position: "absolute", left: MINI_ACHIEVEMENT_TICKER_LAYOUT.left, right: MINI_ACHIEVEMENT_TICKER_LAYOUT.right, top: MINI_ACHIEVEMENT_TICKER_LAYOUT.top },
+  headerZone: { minHeight: MINI_ACHIEVEMENT_TICKER_LAYOUT.headerZoneMinHeight, gap: MINI_ACHIEVEMENT_TICKER_LAYOUT.gap },
+  miniAchievementTicker: { width: "100%" },
   heroCard: { minHeight: 266, padding: 18, position: "relative", overflow: "hidden" },
   fullWidth: { width: "100%" },
   heroCopyFloat: { flex: 1, minWidth: 0 },
