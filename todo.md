@@ -424,3 +424,6 @@
 - [x] Push the validated Daily Command Briefing checkpoint to the private GitHub main branch without starting an APK build or GitHub Action.
 - [x] Prepare a non-implementation proposal for an offline Distraction Log during live missions, then wait for explicit approval before changing any feature, mechanism, or layout.
 - [x] Implement the approved offline Distraction Log in live missions and the Focus Friction insight below Wellbeing Insight, while preserving timing, rewards, debriefs, and existing controls.
+- [x] Push the validated Distraction Log checkpoint to the private GitHub main branch without starting an APK build or GitHub Action.
+- [x] Prepare a non-implementation proposal for an offline Weekly After-Action Review, then wait for explicit approval before changing any feature, mechanism, or layout.
+- [x] Implement the approved offline Weekly After-Action Review entry and read-only review screen using existing Focus Command data while preserving all existing features, calculations, controls, synchronization, and layouts.

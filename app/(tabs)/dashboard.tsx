@@ -10,6 +10,7 @@ import { useColors } from "@/hooks/use-colors";
 import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getTotalPower, getWellbeingInsight, toLocalDate, useFocusCommand } from "@/lib/focus-command";
 import { RECOGNITION_WINDOW_LAYOUT } from "@/lib/focus-layout";
 import { getFocusFrictionInsight } from "@/lib/distraction-log";
+import { getWeeklyAfterActionReview } from "@/lib/weekly-after-action";
 
 function createDaySeries(days: number, profileTimezone: string) {
   return Array.from({ length: days }, (_, index) => {
@@ -38,6 +39,7 @@ export default function DashboardScreen() {
   const forecast = useMemo(() => getEmotionalPatternForecast(state), [state]);
   const wellbeing = useMemo(() => getWellbeingInsight(state), [state]);
   const focusFriction = useMemo(() => getFocusFrictionInsight(state), [state]);
+  const weeklyReview = useMemo(() => getWeeklyAfterActionReview(state), [state]);
 
   if (!ready) return <LoadingScreen label="Compiling command analytics…" />;
 
@@ -144,6 +146,19 @@ export default function DashboardScreen() {
           <MetricTile label="Weekly average" value={`${timeAverages.weekDailyAverageHours.toFixed(1)} h`} detail="Tap for week detail" icon="chart.xyaxis.line" accent={colors.success} onPress={() => router.push("/analytics?metric=weekly" as never)} />
           <MetricTile label="Monthly average" value={`${timeAverages.monthDailyAverageHours.toFixed(1)} h`} detail="Tap for month detail" icon="target" accent={colors.warning} onPress={() => router.push("/analytics?metric=monthly" as never)} />
         </View>
+
+        <TapFeedback onPress={() => router.push("/weekly-review" as never)} accessibilityLabel="Open weekly after-action review">
+          <CommandCard accent="#F4C95D" style={styles.weeklyReviewCard}>
+            <View style={styles.weeklyReviewHeading}>
+              <View style={styles.weeklyReviewCopy}>
+                <Text style={[styles.weeklyReviewEyebrow, { color: "#F4C95D" }]}>WEEKLY AFTER-ACTION</Text>
+                <Text style={[styles.weeklyReviewTitle, { color: colors.foreground }]}>Review this week’s command record</Text>
+                <Text style={[styles.weeklyReviewDetail, { color: colors.muted }]}>{(weeklyReview.investedMs / 3_600_000).toFixed(1)} h invested · {weeklyReview.completedMissions} mission{weeklyReview.completedMissions === 1 ? "" : "s"} completed</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={22} color={colors.primary} />
+            </View>
+          </CommandCard>
+        </TapFeedback>
 
         <SectionHeader title="Recognition window" />
         <View style={styles.recognitionGrid}>
@@ -371,6 +386,12 @@ function Legend({ points, formatter }: { points: ChartPoint[]; formatter: (value
 const styles = StyleSheet.create({
   content: { gap: 16, paddingTop: 12, paddingBottom: 28 },
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  weeklyReviewCard: { gap: 8 },
+  weeklyReviewHeading: { flexDirection: "row", alignItems: "center", gap: 11 },
+  weeklyReviewCopy: { flex: 1, gap: 3 },
+  weeklyReviewEyebrow: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.85 },
+  weeklyReviewTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },
+  weeklyReviewDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600" },
   behavioralIntro: { fontSize: 12, lineHeight: 17, fontWeight: "600", marginTop: -7 },
   wellbeingCard: { gap: 10 },
   wellbeingHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
