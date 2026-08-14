@@ -41,6 +41,8 @@ export default function MissionDetailScreen() {
   const [editBossId, setEditBossId] = useState<string | null>(null);
   const [isSubmittingResult, setIsSubmittingResult] = useState(false);
   const submissionLock = useRef(false);
+  const startLock = useRef(false);
+  const deletionLock = useRef(false);
 
   useEffect(() => {
     // Refresh immediately whenever this session becomes visible, then maintain
@@ -109,6 +111,12 @@ export default function MissionDetailScreen() {
     setRevisionTopic("");
   };
 
+  const startOnce = () => {
+    if (startLock.current) return;
+    startLock.current = true;
+    startMission(mission.id);
+  };
+
   const openEditor = () => {
     setEditTitle(mission.title);
     setEditSubject(mission.subject);
@@ -148,7 +156,12 @@ export default function MissionDetailScreen() {
   const confirmDelete = () => {
     Alert.alert("Delete this mission?", mission.status === "completed" ? "This also removes its linked progression, reflection, revision, and gold records. This cannot be undone." : "This removes the mission from your board. This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
-      { text: "Delete mission", style: "destructive", onPress: () => { removeMission(mission.id); router.replace("/missions" as never); } },
+      { text: "Delete mission", style: "destructive", onPress: () => {
+        if (deletionLock.current) return;
+        deletionLock.current = true;
+        removeMission(mission.id);
+        router.replace("/missions" as never);
+      } },
     ]);
   };
 
@@ -211,7 +224,7 @@ export default function MissionDetailScreen() {
             <ProgressBar value={Math.min(1, duration / (90 * 60_000))} color={getDifficultyColor(mission.difficulty)} height={9} />
           </View>
           {mission.status === "planned" ? (
-            <CommandButton label="Start mission" icon="play.fill" onPress={() => startMission(mission.id)} />
+            <CommandButton label="Start mission" icon="play.fill" onPress={startOnce} />
           ) : mission.status === "completed" ? (
             <CommandButton label="View results" icon="trophy.fill" onPress={() => router.replace({ pathname: "/mission-result/[id]" as never, params: { id: mission.id } })} />
           ) : (

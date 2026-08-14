@@ -1,21 +1,24 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { Difficulty, MissionCompletionRecord, MissionFrequency, getDifficultyColor, getDifficultyLabel, getMissionCompletionRecords, getMissionInvestedMilliseconds, useFocusCommand } from "@/lib/focus-command";
+import { Difficulty, MissionCompletionRecord, MissionFrequency, getDifficultyColor, getDifficultyLabel, getMissionCompletionRecords, getMissionInvestedMilliseconds, useFocusCommand, useFocusCommandActions } from "@/lib/focus-command";
 
 type MissionFilter = "open" | "active" | "completed";
+type MissionBoardListItem =
+  | { key: string; kind: "completion"; completion: MissionCompletionRecord }
+  | { key: string; kind: "mission"; mission: ReturnType<typeof useFocusCommand>["state"]["missions"][number] };
 
 const difficultyOptions: Difficulty[] = ["easy", "medium", "hard"];
 
 export default function MissionsScreen() {
   const colors = useColors();
   const { compose, filter: requestedFilter, bossId: requestedBossId } = useLocalSearchParams<{ compose?: string; filter?: MissionFilter; bossId?: string }>();
-  const { state, ready, createMission, createBoss, startMission, removeMissionCompletion } = useFocusCommand();
+  const { state, ready, createMission, createBoss } = useFocusCommand();
   const [showComposer, setShowComposer] = useState(compose === "1");
   const [filter, setFilter] = useState<MissionFilter>(requestedFilter === "active" || requestedFilter === "completed" ? requestedFilter : "open");
   const [title, setTitle] = useState("");
@@ -45,6 +48,13 @@ export default function MissionsScreen() {
     return state.missions.filter((mission) => mission.status === "planned");
   }, [filter, state.missions]);
   const completionRecords = useMemo(() => getMissionCompletionRecords(state), [state]);
+  const boardItems = useMemo<MissionBoardListItem[]>(() => {
+    if (filter === "completed") return completionRecords.map((completion) => ({ key: `completion:${completion.id}`, kind: "completion", completion }));
+    return missions.map((mission) => ({ key: `mission:${mission.id}`, kind: "mission", mission }));
+  }, [completionRecords, filter, missions]);
+  const renderBoardItem = useCallback(({ item }: { item: MissionBoardListItem }) => (
+    item.kind === "completion" ? <CompletionHistoryCard completion={item.completion} /> : <MissionCard mission={item.mission} />
+  ), []);
 
   if (!ready) return <LoadingScreen label="Loading mission board…" />;
 
@@ -105,7 +115,15 @@ export default function MissionsScreen() {
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background">
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <FlatList
+        data={boardItems}
+        renderItem={renderBoardItem}
+        keyExtractor={(item) => item.key}
+        contentContainerStyle={styles.content}
+        ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={<View style={styles.listHeader}>
         <ScreenTitle
           eyebrow="Mission board"
           title="Deploy work"
@@ -218,13 +236,8 @@ export default function MissionsScreen() {
         </View>
 
         <SectionHeader title={filter === "open" ? "Planned missions" : filter === "active" ? "Live missions" : "Completed history"} action={filter === "open" ? "New mission" : undefined} onAction={filter === "open" ? () => setShowComposer(true) : undefined} />
-        {(filter === "completed" ? completionRecords.length : missions.length) ? (
-          <View style={styles.missionStack}>
-            {filter === "completed"
-              ? completionRecords.map((completion) => <CompletionHistoryCard key={completion.id} completion={completion} onRemove={() => removeMissionCompletion(completion.id)} />)
-              : missions.map((mission) => <MissionCard key={mission.id} mission={mission} onStart={() => startMission(mission.id)} />)}
-          </View>
-        ) : (
+        </View>}
+        ListEmptyComponent={(
           <EmptyCommandState
             icon={filter === "completed" ? "trophy.fill" : filter === "active" ? "timer" : "target"}
             title={filter === "completed" ? "No completed missions yet" : filter === "active" ? "No mission is running" : "Your board is open"}
@@ -233,17 +246,24 @@ export default function MissionsScreen() {
             onAction={filter === "open" ? () => setShowComposer(true) : undefined}
           />
         )}
-      </ScrollView>
+      />
     </ScreenContainer>
   );
 }
 
-function CompletionHistoryCard({ completion, onRemove }: { completion: MissionCompletionRecord; onRemove: () => void }) {
+const CompletionHistoryCard = memo(function CompletionHistoryCard({ completion }: { completion: MissionCompletionRecord }) {
   const colors = useColors();
+  const { removeMissionCompletion } = useFocusCommandActions();
+  const removalInFlight = useRef(false);
   const color = getDifficultyColor(completion.difficulty);
   const completedLabel = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(completion.completedAt));
   const reflection = completion.reflection;
   const openResult = () => router.push({ pathname: "/mission-result/[id]" as never, params: { id: completion.missionId, completionId: completion.id } });
+  const removeOnce = useCallback(() => {
+    if (removalInFlight.current) return;
+    removalInFlight.current = true;
+    removeMissionCompletion(completion.id);
+  }, [completion.id, removeMissionCompletion]);
   const confirmRemoval = (event: { stopPropagation?: () => void }) => {
     event.stopPropagation?.();
     Alert.alert(
@@ -251,7 +271,7 @@ function CompletionHistoryCard({ completion, onRemove }: { completion: MissionCo
       `This will permanently remove ${completion.title}, its invested time, XP, power, gold, reflection answers, mini achievement, recognition, and other data earned by this run. The main mission will remain. This cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Delete run and data", style: "destructive", onPress: onRemove },
+        { text: "Delete run and data", style: "destructive", onPress: removeOnce },
       ],
     );
   };
@@ -286,13 +306,20 @@ function CompletionHistoryCard({ completion, onRemove }: { completion: MissionCo
       </CommandCard>
     </Pressable>
   );
-}
+});
 
-function MissionCard({ mission, onStart }: { mission: ReturnType<typeof useFocusCommand>["state"]["missions"][number]; onStart: () => void }) {
+const MissionCard = memo(function MissionCard({ mission }: { mission: ReturnType<typeof useFocusCommand>["state"]["missions"][number] }) {
   const colors = useColors();
+  const { startMission } = useFocusCommandActions();
+  const startInFlight = useRef(false);
   const active = mission.status === "active" || mission.status === "paused";
   const color = getDifficultyColor(mission.difficulty);
   const duration = getMissionInvestedMilliseconds(mission);
+  const startOnce = useCallback(() => {
+    if (startInFlight.current) return;
+    startInFlight.current = true;
+    startMission(mission.id);
+  }, [mission.id, startMission]);
   return (
     <Pressable onPress={() => router.push({ pathname: "/mission/[id]" as never, params: { id: mission.id } })} style={({ pressed }) => ({ opacity: pressed ? 0.82 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}>
       <CommandCard accent={color} style={styles.missionCard}>
@@ -310,15 +337,17 @@ function MissionCard({ mission, onStart }: { mission: ReturnType<typeof useFocus
               {mission.revisionEnabled ? <StatusPill label="SRS READY" tone="primary" icon="arrow.clockwise" /> : <StatusPill label="STANDARD" tone="neutral" />}
             </View>
           </View>
-          {mission.status === "planned" ? <CommandButton label="Start" icon="play.fill" onPress={onStart} /> : <CommandButton label="Open" icon="chevron.right" variant="ghost" onPress={() => router.push({ pathname: "/mission/[id]" as never, params: { id: mission.id } })} />}
+          {mission.status === "planned" ? <CommandButton label="Start" icon="play.fill" onPress={startOnce} /> : <CommandButton label="Open" icon="chevron.right" variant="ghost" onPress={() => router.push({ pathname: "/mission/[id]" as never, params: { id: mission.id } })} />}
         </View>
       </CommandCard>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
-  content: { gap: 16, paddingTop: 12, paddingBottom: 28 },
+  content: { paddingTop: 12, paddingBottom: 28 },
+  listHeader: { gap: 16, paddingBottom: 16 },
+  listSeparator: { height: 10 },
   composer: { gap: 12 },
   composerTitleRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
   composerTitle: { fontSize: 18, lineHeight: 23, fontWeight: "900" },

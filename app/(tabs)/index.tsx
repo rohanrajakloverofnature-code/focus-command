@@ -51,7 +51,9 @@ import {
   getTodayInvestedMilliseconds,
   getTotalPower,
   getTotalXp,
-  useFocusCommand,
+  type FocusState,
+  useFocusCommandActions,
+  useFocusCommandSelector,
 } from "@/lib/focus-command";
 import { getMiniAchievementHeadlines } from "@/lib/mini-achievement-headlines";
 import { canStartPowerUp, getCharacterTapPresentation } from "@/lib/power-up-profile";
@@ -64,10 +66,31 @@ function syncLabel(phase: string, pending: number): string {
   return "Saved on this device";
 }
 
+function hasSameHomeDependencies(left: FocusState, right: FocusState): boolean {
+  return left.profile === right.profile
+    && left.missions === right.missions
+    && left.missionCompletions === right.missionCompletions
+    && left.progression === right.progression
+    && left.reflections === right.reflections
+    && left.journals === right.journals
+    && left.srsTopics === right.srsTopics
+    && left.bosses === right.bosses
+    && left.combo === right.combo
+    && left.transactions === right.transactions
+    && left.rewards === right.rewards
+    && left.inventory === right.inventory
+    && left.allEquipment === right.allEquipment
+    && left.userEquipment === right.userEquipment
+    && left.googleSheet === right.googleSheet
+    && left.hydrated === right.hydrated;
+}
+
 export default function HomeScreen() {
   const colors = useColors();
   const { width } = useWindowDimensions();
-  const { state, ready, getEquippedItems } = useFocusCommand();
+  const state = useFocusCommandSelector((current) => current, hasSameHomeDependencies);
+  const { getEquippedItems } = useFocusCommandActions();
+  const ready = state.hydrated;
   const { journals, missions, srsTopics } = state;
   const level = getLevelInfo(state);
   const title = getCurrentTitle(state);

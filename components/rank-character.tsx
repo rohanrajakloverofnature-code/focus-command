@@ -15,6 +15,7 @@ import {
   usesCinematicVideoSoundtrack,
 } from "@/lib/cinematic-playback";
 import { getActiveCustomCharacterForm, type CustomCharacterForm, useFocusCommand } from "@/lib/focus-command";
+import { disposeAudioPlayer, disposeAudioPlayers, resetAudioPlayer } from "@/lib/media-lifecycle";
 import {
   CHARACTER_EVOLUTION_TIMELINE_MS,
   getCharacterEvolutionProfile,
@@ -291,53 +292,24 @@ export function RankCharacterAchievement({
     const scaled = (duration: number) => reduceMotion ? Math.min(220, duration) : duration;
     const schedule = (callback: () => void, delay: number) => timers.push(setTimeout(callback, scaled(delay)));
     const releasePlayers = () => {
-      for (const player of playersRef.current) {
-        try {
-          player.remove();
-        } catch {
-          // Native audio cleanup must never obstruct the visual dismissal path.
-        }
-      }
+      disposeAudioPlayers(playersRef.current);
       playersRef.current = [];
       const videoSoundtrackPlayer = videoSoundtrackPlayerRef.current;
-      if (videoSoundtrackPlayer) {
-        try {
-          videoSoundtrackPlayer.pause();
-          videoSoundtrackPlayer.seekTo(0);
-          videoSoundtrackPlayer.remove();
-        } catch {
-          // Native during-video soundtrack cleanup must never obstruct dismissal.
-        }
-      }
+      disposeAudioPlayer(videoSoundtrackPlayer, true);
       videoSoundtrackPlayerRef.current = null;
       const postVideoRevealPlayer = postVideoRevealPlayerRef.current;
-      if (postVideoRevealPlayer) {
-        try {
-          postVideoRevealPlayer.pause();
-          postVideoRevealPlayer.seekTo(0);
-          postVideoRevealPlayer.remove();
-        } catch {
-          // Native post-video soundtrack cleanup must never obstruct dismissal.
-        }
-      }
+      disposeAudioPlayer(postVideoRevealPlayer, true);
       postVideoRevealPlayerRef.current = null;
     };
     const stopVideoSoundtrack = () => {
       const videoSoundtrackPlayer = videoSoundtrackPlayerRef.current;
-      if (!videoSoundtrackPlayer) return;
-      try {
-        videoSoundtrackPlayer.pause();
-        videoSoundtrackPlayer.seekTo(0);
-      } catch {
-        // A soundtrack interruption must never leave the cinematic modal unresponsive.
-      }
+      resetAudioPlayer(videoSoundtrackPlayer);
     };
     const playVideoSoundtrack = () => {
       const videoSoundtrackPlayer = videoSoundtrackPlayerRef.current;
       if (!videoSoundtrackPlayer) return;
       try {
-        videoSoundtrackPlayer.pause();
-        videoSoundtrackPlayer.seekTo(0);
+        resetAudioPlayer(videoSoundtrackPlayer);
         videoSoundtrackPlayer.volume = CINEMATIC_VIDEO_SOUNDTRACK_VOLUME;
         videoSoundtrackPlayer.play();
       } catch {
@@ -386,8 +358,7 @@ export function RankCharacterAchievement({
       const postVideoRevealPlayer = postVideoRevealPlayerRef.current;
       if (!postVideoRevealPlayer) return;
       try {
-        postVideoRevealPlayer.pause();
-        postVideoRevealPlayer.seekTo(0);
+        resetAudioPlayer(postVideoRevealPlayer);
         postVideoRevealPlayer.play();
       } catch {
         // The character-information reveal must continue if its ending cue is unavailable.

@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { Image } from "expo-image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, Platform, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { AppState, InteractionManager, Platform, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -19,6 +19,7 @@ import { getEmotionalPatternForecast, getWellbeingInsight, useFocusCommand } fro
 import { LAUNCH_QUOTE_HISTORY_KEY, nextLaunchQuoteHistory, parseLaunchQuoteHistory, selectLaunchQuote, type LaunchQuote } from "@/lib/launch-quotes";
 import { getLaunchFireSoundStopDelay, getLaunchFireStageHeight, getLaunchQuoteHoldDuration, getLaunchQuoteVisibleDelay, getLaunchSequenceDuration } from "@/lib/launch-sequence";
 import { claimLaunchSequence, setLaunchSequenceActive } from "@/lib/launch-session";
+import { disposeAudioPlayer } from "@/lib/media-lifecycle";
 
 const launchFireAudio = require("../assets/sounds/launch-fire-crackle.mp3");
 const launchQuoteTransitionAudio = require("../assets/sounds/launch-quote-transition.m4a");
@@ -69,13 +70,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   const stopPlayer = useCallback((reference: { current: LaunchAudioPlayer | null }) => {
     const player = reference.current;
     reference.current = null;
-    if (!player) return;
-    try {
-      player.pause();
-      player.remove();
-    } catch {
-      // Sound is optional and must never block the launch cleanup path.
-    }
+    disposeAudioPlayer(player);
   }, []);
 
   const stopLaunchAudio = useCallback(() => {
@@ -85,7 +80,9 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   }, [stopPlayer]);
 
   useEffect(() => {
-    if (!state.profile.soundEnabled) return;
+    // Audio players are intentionally created only after the visible launch stage begins.
+    // This leaves initial Home hydration and first-frame interaction free of native-media work.
+    if (!ready || !visible || !state.profile.soundEnabled) return;
     try {
       // Preload before the first fire frame becomes visible so neither player creation nor
       // decoding can push audio behind its corresponding visual moment on Android.
@@ -111,7 +108,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       stopPlayer(fireAudioPlayerRef);
       stopPlayer(quoteAudioPlayerRef);
     };
-  }, [hasCustomLaunchMedia, launchAnimation.audio?.uri, state.profile.soundEnabled, stopPlayer]);
+  }, [hasCustomLaunchMedia, launchAnimation.audio?.uri, ready, state.profile.soundEnabled, stopPlayer, visible]);
 
   const playAudioCue = useCallback(async (source: number, target: { current: LaunchAudioPlayer | null }, volume: number, loop = false) => {
     if (!state.profile.soundEnabled) return;
@@ -233,9 +230,14 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       setLaunchSequenceActive(true);
       setVisible(true);
     };
-    void selectQuote();
+    // Yield one interaction cycle so the already-mounted Home tree can paint and accept its
+    // first touch before local quote-history I/O and native launch-media preparation begin.
+    const scheduledStart = InteractionManager.runAfterInteractions(() => {
+      void selectQuote();
+    });
     return () => {
       active = false;
+      scheduledStart.cancel();
     };
   }, [forecast, launchAnimation.enabled, onFinished, ready, wellbeing]);
 
@@ -312,7 +314,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   if (!visible || !quote) return null;
 
   return (
-    <View accessibilityViewIsModal accessible accessibilityLabel={`Focus Command launch sequence. ${quote.text}`} style={styles.stage}>
+    <View pointerEvents="none" accessibilityViewIsModal accessible accessibilityLabel={`Focus Command launch sequence. ${quote.text}`} style={styles.stage}>
       <Animated.View pointerEvents="none" style={[styles.darkVeil, backdropStyle]} />
       <View style={[styles.fireStage, { height: stageHeight }]}> 
         <Animated.View style={[styles.cinematicFirePlate, { width, height: stageHeight * 1.16, bottom: -stageHeight * 0.12 }, firePlateStyle]}>

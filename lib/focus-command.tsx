@@ -8,9 +8,22 @@ import React, {
   useReducer,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { calculateEquippedXpModifier, calculateEquippedEnergyModifier } from "./equipment-modifiers";
 import type { CharacterCinematicVariant } from "./character-development";
+
+type AppStateSubscription = { remove: () => void };
+type AppStateModule = { addEventListener: (event: "change", listener: (nextState: string) => void) => AppStateSubscription };
+
+function getRuntimeAppState(): AppStateModule | null {
+  if (typeof require !== "function") return null;
+  try {
+    return (require("react-native") as { AppState?: AppStateModule }).AppState ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export type Difficulty = "easy" | "medium" | "hard";
 export type MissionStatus = "planned" | "active" | "paused" | "completed";
@@ -1119,7 +1132,11 @@ export function beginMissionSession(mission: Mission, startedAt = Date.now()): M
   };
 }
 
+const missionCompletionRecordsCache = new WeakMap<FocusState, MissionCompletionRecord[]>();
+
 export function getMissionCompletionRecords(state: FocusState): MissionCompletionRecord[] {
+  const cached = missionCompletionRecordsCache.get(state);
+  if (cached) return cached;
   const missionsById = new Map(state.missions.map((mission) => [mission.id, mission]));
   const reflectionsByCompletion = new Map(state.reflections.filter((reflection) => reflection.completionId).map((reflection) => [reflection.completionId as string, reflection]));
   const progressionByCompletion = new Map(state.progression.filter((event) => event.completionId).map((event) => [event.completionId as string, event]));
@@ -1170,7 +1187,7 @@ export function getMissionCompletionRecords(state: FocusState): MissionCompletio
   });
   const completionInstances = [...persistedCompletions, ...legacyProgressionCompletions, ...legacyMissionCompletions];
 
-  return completionInstances.map((completion) => {
+  const records = completionInstances.map((completion) => {
     const mission = missionsById.get(completion.missionId);
     const reflection = reflectionsByCompletion.get(completion.id)
       ?? state.reflections.find((candidate) => candidate.id === completion.reflectionId)
@@ -1195,6 +1212,8 @@ export function getMissionCompletionRecords(state: FocusState): MissionCompletio
       progression,
     };
   }).sort((left, right) => right.completedAt.localeCompare(left.completedAt));
+  missionCompletionRecordsCache.set(state, records);
+  return records;
 }
 
 function rebuildComboFromCompletions(state: FocusState): ComboState {
@@ -1609,7 +1628,7 @@ export function getWellbeingInsight(state: FocusState): WellbeingInsight {
   };
 }
 
-export function getDashboardStats(state: FocusState) {
+function buildDashboardStats(state: FocusState) {
   const today = toLocalDate(nowIso(), state.profile.timezone);
   const sevenDaysAgo = addDays(today, -6);
   const completed = getMissionCompletionRecords(state);
@@ -1647,6 +1666,16 @@ export function getDashboardStats(state: FocusState) {
     categoryDistribution: Array.from(byCategory, ([label, duration]) => ({ label, duration, percentage: totalHours ? duration / 3_600_000 / totalHours : 0 })),
     averageDailyHours: distinctDays ? totalHours / distinctDays : 0,
   };
+}
+
+const dashboardStatsCache = new WeakMap<FocusState, ReturnType<typeof buildDashboardStats>>();
+
+export function getDashboardStats(state: FocusState) {
+  const cached = dashboardStatsCache.get(state);
+  if (cached) return cached;
+  const result = buildDashboardStats(state);
+  dashboardStatsCache.set(state, result);
+  return result;
 }
 
 function resolveCurrentComboAfterActivity(state: FocusState, activityDate: string): ComboState {
@@ -1737,6 +1766,14 @@ interface FocusCommandContextValue {
 }
 
 const FocusCommandContext = createContext<FocusCommandContextValue | null>(null);
+type FocusCommandActions = Omit<FocusCommandContextValue, "state" | "ready" | "dayMarker">;
+type FocusCommandStateStore = {
+  getSnapshot: () => FocusState;
+  subscribe: (listener: () => void) => () => void;
+};
+const FocusCommandActionsContext = createContext<FocusCommandActions | null>(null);
+const FocusCommandStateStoreContext = createContext<FocusCommandStateStore | null>(null);
+const PERSISTENCE_DEBOUNCE_MS = 250;
 
 export function normalizeHydratedState(input: FocusState): FocusState {
   const defaults = createInitialState();
@@ -1871,7 +1908,52 @@ export function normalizeHydratedState(input: FocusState): FocusState {
 export function FocusCommandProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
   const [localDay, setLocalDay] = useState(() => toLocalDate(nowIso()));
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const stateListeners = useRef(new Set<() => void>());
   const persistenceQueue = useRef<Promise<void>>(Promise.resolve());
+  const pendingPersistence = useRef<FocusState | null>(null);
+  const persistenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const enqueuePersistence = useCallback((snapshot: FocusState) => {
+    const { hydrated, ...persistable } = snapshot;
+    const serialized = JSON.stringify(persistable);
+    persistenceQueue.current = persistenceQueue.current
+      .catch(() => undefined)
+      .then(() => AsyncStorage.setItem(STORAGE_KEY, serialized))
+      .catch(() => undefined);
+    return persistenceQueue.current;
+  }, []);
+
+  const flushPendingPersistence = useCallback(() => {
+    if (persistenceTimer.current) {
+      clearTimeout(persistenceTimer.current);
+      persistenceTimer.current = null;
+    }
+    const snapshot = pendingPersistence.current;
+    pendingPersistence.current = null;
+    return snapshot ? enqueuePersistence(snapshot) : persistenceQueue.current;
+  }, [enqueuePersistence]);
+
+  const discardPendingPersistence = useCallback(() => {
+    if (persistenceTimer.current) {
+      clearTimeout(persistenceTimer.current);
+      persistenceTimer.current = null;
+    }
+    pendingPersistence.current = null;
+  }, []);
+
+  const stateStore = useMemo<FocusCommandStateStore>(() => ({
+    getSnapshot: () => stateRef.current,
+    subscribe: (listener) => {
+      stateListeners.current.add(listener);
+      return () => stateListeners.current.delete(listener);
+    },
+  }), []);
+
+  useEffect(() => {
+    stateListeners.current.forEach((listener) => listener());
+  }, [state]);
 
   useEffect(() => {
     let active = true;
@@ -1898,13 +1980,25 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     if (!state.hydrated) return;
-    const { hydrated, ...persistable } = state;
-    const serialized = JSON.stringify(persistable);
-    persistenceQueue.current = persistenceQueue.current
-      .catch(() => undefined)
-      .then(() => AsyncStorage.setItem(STORAGE_KEY, serialized))
-      .catch(() => undefined);
-  }, [state]);
+    pendingPersistence.current = state;
+    if (persistenceTimer.current) clearTimeout(persistenceTimer.current);
+    persistenceTimer.current = setTimeout(() => {
+      void flushPendingPersistence();
+    }, PERSISTENCE_DEBOUNCE_MS);
+  }, [flushPendingPersistence, state]);
+
+  useEffect(() => () => {
+    void flushPendingPersistence();
+  }, [flushPendingPersistence]);
+
+  useEffect(() => {
+    const appState = getRuntimeAppState();
+    if (!appState) return;
+    const subscription = appState.addEventListener("change", (nextState) => {
+      if (nextState !== "active") void flushPendingPersistence();
+    });
+    return () => subscription.remove();
+  }, [flushPendingPersistence]);
 
   useEffect(() => {
     const refreshLocalDay = () => {
@@ -2477,8 +2571,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         ],
       }, 2);
     });
-    return { ok: true, message: reward.goldMultiplier ? `Activated for ${addDays(toLocalDate(nowIso(), state.profile.timezone), 1)}.` : `${reward.title} added to inventory.` };
-  }, [commit, state]);
+    return { ok: true, message: reward.goldMultiplier ? `Activated for ${addDays(toLocalDate(nowIso(), stateRef.current.profile.timezone), 1)}.` : `${reward.title} added to inventory.` };
+  }, [commit]);
 
   const updateProfile = useCallback((patch: Partial<PlayerProfile>) => {
     commit((current) => {
@@ -2627,15 +2721,18 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       },
     });
     const { hydrated, ...persistable } = restored;
+    discardPendingPersistence();
     await persistenceQueue.current.catch(() => undefined);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(persistable));
     dispatch({ type: "replace", state: { ...restored, hydrated: true } });
-  }, []);
+  }, [discardPendingPersistence]);
 
   const resetLocalData = useCallback(async () => {
+    discardPendingPersistence();
+    await persistenceQueue.current.catch(() => undefined);
     await AsyncStorage.removeItem(STORAGE_KEY);
     dispatch({ type: "replace", state: { ...createInitialState(), hydrated: true } });
-  }, []);
+  }, [discardPendingPersistence]);
 
   const addEquipment = useCallback((equipment: Omit<Equipment, "id">) => {
     const id = createId("equipment");
@@ -2708,21 +2805,19 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
 
   const getEquippedItems = useCallback(() => {
     const equipped: { head?: Equipment; body?: Equipment; accessory?: Equipment } = {};
-    for (const userEq of state.userEquipment) {
+    const current = stateRef.current;
+    for (const userEq of current.userEquipment) {
       if (userEq.isEquipped !== "false") {
-        const equipment = state.allEquipment.find((eq) => eq.id === userEq.equipmentId);
+        const equipment = current.allEquipment.find((eq) => eq.id === userEq.equipmentId);
         if (equipment) {
           equipped[userEq.isEquipped as "head" | "body" | "accessory"] = equipment;
         }
       }
     }
     return equipped;
-  }, [state.userEquipment, state.allEquipment]);
+  }, []);
 
-  const value = useMemo<FocusCommandContextValue>(() => ({
-    state,
-    ready: state.hydrated,
-    dayMarker: localDay,
+  const actions = useMemo<FocusCommandActions>(() => ({
     createMission,
     updateMission,
     removeMission,
@@ -2765,8 +2860,6 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     getEquippedItems,
     restoreOfflineBackup,
   }), [
-    state,
-    localDay,
     createMission,
     updateMission,
     removeMission,
@@ -2810,13 +2903,53 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     restoreOfflineBackup,
   ]);
 
-  return <FocusCommandContext.Provider value={value}>{children}</FocusCommandContext.Provider>;
+  const value = useMemo<FocusCommandContextValue>(() => ({
+    ...actions,
+    state,
+    ready: state.hydrated,
+    dayMarker: localDay,
+  }), [actions, localDay, state]);
+
+  return (
+    <FocusCommandStateStoreContext.Provider value={stateStore}>
+      <FocusCommandActionsContext.Provider value={actions}>
+        <FocusCommandContext.Provider value={value}>{children}</FocusCommandContext.Provider>
+      </FocusCommandActionsContext.Provider>
+    </FocusCommandStateStoreContext.Provider>
+  );
 }
 
 export function useFocusCommand(): FocusCommandContextValue {
   const context = useContext(FocusCommandContext);
   if (!context) throw new Error("useFocusCommand must be used inside FocusCommandProvider");
   return context;
+}
+
+/**
+ * Opt-in narrow state subscription for rendering hot paths. Existing
+ * useFocusCommand consumers remain fully supported and behaviorally identical.
+ */
+export function useFocusCommandSelector<T>(selector: (state: FocusState) => T, isEqual: (left: T, right: T) => boolean = Object.is): T {
+  const store = useContext(FocusCommandStateStoreContext);
+  const selection = useRef<{ value: T } | null>(null);
+  if (!store) throw new Error("useFocusCommandSelector must be used inside FocusCommandProvider");
+  return useSyncExternalStore(
+    store.subscribe,
+    () => {
+      const next = selector(store.getSnapshot());
+      if (selection.current && isEqual(selection.current.value, next)) return selection.current.value;
+      selection.current = { value: next };
+      return next;
+    },
+    () => selector(store.getSnapshot()),
+  );
+}
+
+/** Stable command-only access for components that do not render persisted state. */
+export function useFocusCommandActions(): FocusCommandActions {
+  const actions = useContext(FocusCommandActionsContext);
+  if (!actions) throw new Error("useFocusCommandActions must be used inside FocusCommandProvider");
+  return actions;
 }
 
 export function getDifficultyColor(difficulty: Difficulty): string {

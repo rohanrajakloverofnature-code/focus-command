@@ -230,6 +230,10 @@
 - [x] Validate transparent compositing, visual fidelity, lifecycle safeguards, rendering performance, and static production output before checkpointing.
 
 - [x] Audit current fire duration, crackle playback, quote duration, and all remaining black-matte sources while preserving the approved footage.
+- [x] Make launch media scheduling non-blocking and guarantee safe launch/cinematic media cleanup without changing their user-facing behavior.
+- [x] Reduce offline state persistence, context render fan-out, and repeated derived-data work while preserving all state semantics and calculations.
+- [x] Virtualize only verified long repeated-content views and add single-flight protection only to duplicate-sensitive actions.
+- [x] Add targeted performance-contract coverage and complete the full TypeScript, test, lint, and export validation suite without starting an APK build.
 - [x] Extend the unchanged fire plus sound phase to 5–7 seconds and hold the motivational quote for 3–4 seconds without breaking launch-only arbitration.
 - [x] Correct the residual black matte while retaining the approved fire frames, sound priority, animation exclusion, and existing glaze.
 - [x] Validate timing, sound lifecycle, transparency, responsiveness, launch-only behavior, static output, and production startup before checkpointing.
@@ -458,4 +462,7 @@
 - [x] Add the approved Hamburger Settings Launch Animation controls without moving or changing existing settings entries.
 - [x] Supersede the unshipped standard-video playback branch with the approved GIF/WebP visual plus audio-pair launch branch while preserving protected launch behavior.
 - [x] Complete exhaustive launch customization regression coverage and type, test, lint, production-export, and preview validation without starting an APK build.
+- [x] Push the validated Launch Animation GIF/WebP, synchronized-audio, and master-switch checkpoint to private GitHub main without starting an APK build, then verify the remote commit.
+- [x] Audit Offline Backup File coverage for all recently added feature configuration and local media without changing product code.
+- [x] Conduct a read-only performance, responsiveness, media-lifecycle, interaction, navigation, and data-loading audit; present an approval-gated optimization plan without changing product behavior.
 - [x] Implement the approved Journal-header-only responsive correction so the Today status control remains fully visible on narrow portrait screens.
