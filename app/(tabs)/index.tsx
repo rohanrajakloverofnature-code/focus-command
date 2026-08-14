@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { CelebrationKind, CelebrationOverlay } from "@/components/celebration-overlay";
+import { DailyCommandBriefing } from "@/components/daily-command-briefing";
 import {
   CommandButton,
   CommandCard,
@@ -27,6 +28,7 @@ import { playFocusRole } from "@/lib/focus-audio";
 import { createCharacterEvolutionMilestone, hasMeaningfulCharacterEvolution } from "@/lib/character-development";
 import { getEligibleCelebration, type CelebrationMilestone } from "@/lib/celebration-lifecycle";
 import { getForecastMotivationMessages } from "@/lib/home-motivation";
+import { getDailyCommandBriefing } from "@/lib/daily-command-briefing";
 import { MINI_ACHIEVEMENT_TICKER_LAYOUT, MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE } from "@/lib/focus-layout";
 import { isLaunchSequenceActive } from "@/lib/launch-session";
 import {
@@ -122,6 +124,7 @@ export default function HomeScreen() {
     characterMilestone.current = currentCharacterMilestone;
   }, [currentCharacterMilestone, ready]);
   const daily = getDailyProgress(state);
+  const dailyCommandBriefing = useMemo(() => getDailyCommandBriefing(state), [state]);
   const pendingRevisions = getPendingRevisions(state);
   const activeBosses = state.bosses.filter((boss) => boss.status === "active");
   const subjectCapture = useMemo(() => getSubjectCapture({ missions, srsTopics }), [missions, srsTopics]);
@@ -240,6 +243,8 @@ export default function HomeScreen() {
             </View>
           </HomeFloat>
         </CommandCard>
+
+        <DailyCommandBriefing briefing={dailyCommandBriefing} onPriorityPress={() => router.push(dailyCommandBriefing.priority.route as never)} />
 
         <View style={styles.primaryActions}>
           <HomeFloat reduceMotion={state.profile.reduceMotion} distance={5} sway={1} duration={2_300} delay={120} style={styles.deployFloat}>

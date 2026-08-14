@@ -418,3 +418,6 @@
 - [x] Validate the ticker with long titles, multiple eligible achievements, one eligible achievement, and no eligible achievements before checkpointing and synchronizing the focused layout repair without starting an APK build.
 - [x] Provide an accessible direct-image mockup of the corrected Mini Achievement ticker layout after the prior shared-link delivery failed, without modifying the app.
 - [x] Restore the Mini Achievement ticker to its original logical header slot and improve only its long-text readability and collision safety, as explicitly approved.
+- [x] Push the validated header-only Mini Achievement ticker repair to the private GitHub main branch without starting an APK build or GitHub Action.
+- [x] Prepare a non-implementation proposal for a Daily Command Briefing on the Home screen, then wait for explicit approval before changing any feature, mechanism, or layout.
+- [x] Implement the approved Daily Command Briefing below the existing profile/character card, using only existing offline data and preserving all unrelated features and layouts.
