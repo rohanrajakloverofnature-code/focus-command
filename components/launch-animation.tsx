@@ -44,6 +44,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   const hasFinishedRef = useRef(false);
   const hasSessionClaimRef = useRef(false);
   const hasStartedSelectionRef = useRef(false);
+  const customVisualRef = useRef<Image | null>(null);
 
   const backdrop = useSharedValue(0);
   const fireOpacity = useSharedValue(0);
@@ -53,6 +54,9 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   const glazeProgress = useSharedValue(-1);
   const reduceMotion = state.profile.reduceMotion;
   const highContrast = state.profile.highContrast;
+  const launchAnimation = state.profile.launchAnimation;
+  const hasCustomLaunchMedia = Boolean(launchAnimation.visual?.uri && launchAnimation.audio?.uri) && !reduceMotion;
+  const customAudioDurationMs = Math.round(Math.max(5, Math.min(10, launchAnimation.audio?.durationSeconds ?? 10)) * 1_000);
   const forecast = useMemo(() => getEmotionalPatternForecast(state), [state]);
   const wellbeing = useMemo(() => getWellbeingInsight(state), [state]);
   const stageHeight = getLaunchFireStageHeight(height);
@@ -85,10 +89,16 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     try {
       // Preload before the first fire frame becomes visible so neither player creation nor
       // decoding can push audio behind its corresponding visual moment on Android.
-      const firePlayer = createAudioPlayer(launchFireAudio);
-      firePlayer.volume = 0.5;
-      firePlayer.loop = true;
-      fireAudioPlayerRef.current = firePlayer;
+      if (hasCustomLaunchMedia && launchAnimation.audio?.uri) {
+        const customPlayer = createAudioPlayer(launchAnimation.audio.uri);
+        customPlayer.volume = 0.5;
+        fireAudioPlayerRef.current = customPlayer;
+      } else {
+        const firePlayer = createAudioPlayer(launchFireAudio);
+        firePlayer.volume = 0.5;
+        firePlayer.loop = true;
+        fireAudioPlayerRef.current = firePlayer;
+      }
 
       const quotePlayer = createAudioPlayer(launchQuoteTransitionAudio);
       quotePlayer.volume = 0.44;
@@ -101,7 +111,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       stopPlayer(fireAudioPlayerRef);
       stopPlayer(quoteAudioPlayerRef);
     };
-  }, [state.profile.soundEnabled, stopPlayer]);
+  }, [hasCustomLaunchMedia, launchAnimation.audio?.uri, state.profile.soundEnabled, stopPlayer]);
 
   const playAudioCue = useCallback(async (source: number, target: { current: LaunchAudioPlayer | null }, volume: number, loop = false) => {
     if (!state.profile.soundEnabled) return;
@@ -152,11 +162,34 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     void playAudioCue(launchQuoteTransitionAudio, quoteAudioPlayerRef, 0.44);
   }, [playAudioCue, stopPlayer]);
 
+  const playCustomLaunchMedia = useCallback(() => {
+    if (!hasCustomLaunchMedia) return;
+    try {
+      customVisualRef.current?.startAnimating();
+      const player = fireAudioPlayerRef.current;
+      if (!state.profile.soundEnabled || !player) return;
+      player.seekTo(0);
+      player.play();
+    } catch {
+      // A failed custom pair falls back to the rest of the safe launch sequence.
+    }
+  }, [hasCustomLaunchMedia, state.profile.soundEnabled]);
+
+  const stopCustomLaunchMedia = useCallback(() => {
+    try {
+      customVisualRef.current?.stopAnimating();
+    } catch {
+      // Animated-image cleanup is optional and must never block the primary lifecycle.
+    }
+    stopPlayer(fireAudioPlayerRef);
+  }, [stopPlayer]);
+
   const finish = useCallback(() => {
     if (hasFinishedRef.current) return;
     hasFinishedRef.current = true;
     clearTimers();
     stopLaunchAudio();
+    stopCustomLaunchMedia();
     setLaunchSequenceActive(false);
     cancelAnimation(backdrop);
     cancelAnimation(fireOpacity);
@@ -166,10 +199,15 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     cancelAnimation(glazeProgress);
     setVisible(false);
     onFinished?.();
-  }, [backdrop, clearTimers, fireOpacity, glazeOpacity, glazeProgress, onFinished, quoteOpacity, quoteScale, stopLaunchAudio]);
+  }, [backdrop, clearTimers, fireOpacity, glazeOpacity, glazeProgress, onFinished, quoteOpacity, quoteScale, stopCustomLaunchMedia, stopLaunchAudio]);
 
   useEffect(() => {
     if (!ready) return;
+    if (!launchAnimation.enabled) {
+      setLaunchSequenceActive(false);
+      onFinished?.();
+      return;
+    }
     if (!hasSessionClaimRef.current) {
       if (!claimLaunchSequence()) return;
       hasSessionClaimRef.current = true;
@@ -199,7 +237,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     return () => {
       active = false;
     };
-  }, [forecast, ready, wellbeing]);
+  }, [forecast, launchAnimation.enabled, onFinished, ready, wellbeing]);
 
   useEffect(() => {
     if (!visible) return;
@@ -210,6 +248,10 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     quoteScale.value = 0.95;
     glazeOpacity.value = 0;
     glazeProgress.value = -1;
+    const quoteVisibleDelay = hasCustomLaunchMedia ? customAudioDurationMs : getLaunchQuoteVisibleDelay(reduceMotion);
+    const totalLaunchDuration = hasCustomLaunchMedia
+      ? quoteVisibleDelay + getLaunchQuoteHoldDuration(false) + 1_220
+      : launchDuration;
     if (reduceMotion) {
       backdrop.value = withSequence(withTiming(0.08, { duration: 100 }), withDelay(880, withTiming(0, { duration: 180 })));
       fireOpacity.value = withSequence(withTiming(0.72, { duration: 130 }), withDelay(140, withTiming(0, { duration: 190 })));
@@ -219,28 +261,36 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       glazeProgress.value = withDelay(900, withTiming(1, { duration: 230, easing: Easing.inOut(Easing.quad) }));
     } else {
       const nativeFireVisualLead = Platform.OS === "web" ? 0 : NATIVE_FIRE_AUDIO_VISUAL_LEAD_MS;
-      backdrop.value = withSequence(withTiming(0.03, { duration: 260, easing: Easing.out(Easing.cubic) }), withDelay(10_520, withTiming(0, { duration: 620, easing: Easing.inOut(Easing.cubic) })));
-      fireOpacity.value = withSequence(withDelay(nativeFireVisualLead, withTiming(1, { duration: 160, easing: Easing.out(Easing.cubic) })), withDelay(5_390 - nativeFireVisualLead, withTiming(0, { duration: 650, easing: Easing.inOut(Easing.cubic) })));
-      quoteOpacity.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(false), withTiming(1, { duration: 430, easing: Easing.out(Easing.cubic) })), withDelay(getLaunchQuoteHoldDuration(false), withTiming(0, { duration: 590, easing: Easing.inOut(Easing.cubic) })));
-      quoteScale.value = withSequence(withDelay(getLaunchQuoteVisibleDelay(false), withTiming(1, { duration: 470, easing: Easing.out(Easing.cubic) })), withDelay(getLaunchQuoteHoldDuration(false) - 50, withTiming(0.99, { duration: 620, easing: Easing.inOut(Easing.cubic) })));
-      glazeOpacity.value = withSequence(withDelay(10_180, withTiming(0.58, { duration: 360, easing: Easing.out(Easing.quad) })), withDelay(170, withTiming(0, { duration: 760, easing: Easing.inOut(Easing.cubic) })));
-      glazeProgress.value = withDelay(10_240, withTiming(1, { duration: 1_150, easing: Easing.inOut(Easing.cubic) }));
+      const backdropExitDelay = hasCustomLaunchMedia ? Math.max(0, totalLaunchDuration - 620) : 10_520;
+      backdrop.value = withSequence(withTiming(0.03, { duration: 260, easing: Easing.out(Easing.cubic) }), withDelay(backdropExitDelay, withTiming(0, { duration: 620, easing: Easing.inOut(Easing.cubic) })));
+      fireOpacity.value = hasCustomLaunchMedia
+        ? withSequence(withTiming(1, { duration: 160, easing: Easing.out(Easing.cubic) }), withDelay(Math.max(0, customAudioDurationMs - 320), withTiming(0, { duration: 260, easing: Easing.inOut(Easing.cubic) })))
+        : withSequence(withDelay(nativeFireVisualLead, withTiming(1, { duration: 160, easing: Easing.out(Easing.cubic) })), withDelay(5_390 - nativeFireVisualLead, withTiming(0, { duration: 650, easing: Easing.inOut(Easing.cubic) })));
+      quoteOpacity.value = withSequence(withDelay(quoteVisibleDelay, withTiming(1, { duration: 430, easing: Easing.out(Easing.cubic) })), withDelay(getLaunchQuoteHoldDuration(false), withTiming(0, { duration: 590, easing: Easing.inOut(Easing.cubic) })));
+      quoteScale.value = withSequence(withDelay(quoteVisibleDelay, withTiming(1, { duration: 470, easing: Easing.out(Easing.cubic) })), withDelay(getLaunchQuoteHoldDuration(false) - 50, withTiming(0.99, { duration: 620, easing: Easing.inOut(Easing.cubic) })));
+      const glazeDelay = hasCustomLaunchMedia ? quoteVisibleDelay + getLaunchQuoteHoldDuration(false) - 120 : 10_180;
+      glazeOpacity.value = withSequence(withDelay(glazeDelay, withTiming(0.58, { duration: 360, easing: Easing.out(Easing.quad) })), withDelay(170, withTiming(0, { duration: 760, easing: Easing.inOut(Easing.cubic) })));
+      glazeProgress.value = withDelay(glazeDelay + 60, withTiming(1, { duration: 1_150, easing: Easing.inOut(Easing.cubic) }));
     }
 
-    // The alpha fire animation and preloaded crackle begin in this same launch tick, before the first opacity frame.
-    playFireAudio();
-    const fireStopTimer = setTimeout(() => stopPlayer(fireAudioPlayerRef), getLaunchFireSoundStopDelay(reduceMotion));
+    // The animated visual and its preloaded soundtrack begin in this same launch tick.
+    if (hasCustomLaunchMedia) playCustomLaunchMedia();
+    else playFireAudio();
+    const fireStopTimer = setTimeout(() => stopPlayer(fireAudioPlayerRef), hasCustomLaunchMedia ? customAudioDurationMs : getLaunchFireSoundStopDelay(reduceMotion));
     // The quote cue begins with the first visible quote frame, rather than an earlier
     // abstract timeline marker, so its sound is always perceptually attached to the text.
-    const quoteTimer = setTimeout(playQuoteTransitionAudio, getLaunchQuoteVisibleDelay(reduceMotion));
-    const endTimer = setTimeout(finish, launchDuration);
+    const quoteTimer = setTimeout(() => {
+      if (hasCustomLaunchMedia) stopCustomLaunchMedia();
+      playQuoteTransitionAudio();
+    }, quoteVisibleDelay);
+    const endTimer = setTimeout(finish, totalLaunchDuration);
     timersRef.current = [fireStopTimer, quoteTimer, endTimer];
     return () => {
       clearTimers();
       stopLaunchAudio();
       setLaunchSequenceActive(false);
     };
-  }, [backdrop, clearTimers, finish, fireOpacity, glazeOpacity, glazeProgress, launchDuration, playFireAudio, playQuoteTransitionAudio, quoteOpacity, quoteScale, reduceMotion, stopLaunchAudio, stopPlayer, visible]);
+  }, [backdrop, clearTimers, customAudioDurationMs, finish, fireOpacity, glazeOpacity, glazeProgress, hasCustomLaunchMedia, launchDuration, playCustomLaunchMedia, playFireAudio, playQuoteTransitionAudio, quoteOpacity, quoteScale, reduceMotion, stopCustomLaunchMedia, stopLaunchAudio, stopPlayer, visible]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
@@ -266,7 +316,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       <Animated.View pointerEvents="none" style={[styles.darkVeil, backdropStyle]} />
       <View style={[styles.fireStage, { height: stageHeight }]}> 
         <Animated.View style={[styles.cinematicFirePlate, { width, height: stageHeight * 1.16, bottom: -stageHeight * 0.12 }, firePlateStyle]}>
-          <Image autoplay cachePolicy="memory-disk" contentFit="contain" source={cinematicFireAlphaPlate} style={styles.cinematicFireImage} />
+          {hasCustomLaunchMedia && launchAnimation.visual ? <Image ref={customVisualRef} autoplay={false} cachePolicy="memory-disk" contentFit="contain" source={{ uri: launchAnimation.visual.uri }} style={styles.cinematicFireImage} /> : <Image autoplay cachePolicy="memory-disk" contentFit="contain" source={cinematicFireAlphaPlate} style={styles.cinematicFireImage} />}
         </Animated.View>
         <Animated.View style={[styles.fireGrade, fireGradeStyle]}>
           <Svg height={stageHeight} width={width} viewBox={`0 0 ${Math.max(1, width)} ${Math.max(1, stageHeight)}`}>

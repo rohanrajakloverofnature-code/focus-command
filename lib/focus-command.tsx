@@ -141,6 +141,8 @@ export interface ComboTier {
 export interface LocalCinematicOverride {
   uri: string;
   name: string;
+  /** Optional because bundled and legacy local media predate duration-aware launch playback. */
+  durationSeconds?: number;
 }
 
 /** A locally copied audio file whose loaded duration was checked before saving. */
@@ -175,6 +177,15 @@ export interface CustomCharacterForm {
   createdAt: string;
 }
 
+/** One master switch controls the complete fire/video, quote, and glaze launch sequence. */
+export interface LaunchAnimationSettings {
+  enabled: boolean;
+  /** Transparent animated GIF or animated WebP for the lower launch stage. */
+  visual: LocalCinematicOverride | null;
+  /** Duration-validated audio that starts with the selected animated visual. */
+  audio: LocalCinematicAudioOverride | null;
+}
+
 export interface PlayerProfile {
   firstName: string;
   timezone: string;
@@ -194,6 +205,7 @@ export interface PlayerProfile {
   localCinematicOverrides: Partial<Record<CharacterCinematicVariant, LocalCinematicOverride>>;
   localCinematicMusicOverrides: Partial<Record<CharacterCinematicVariant, CharacterCinematicMusicPair>>;
   customCharacterForms: CustomCharacterForm[];
+  launchAnimation: LaunchAnimationSettings;
   hapticsEnabled: boolean;
   notificationsEnabled: boolean;
   reduceMotion: boolean;
@@ -826,6 +838,7 @@ function defaultProfile(): PlayerProfile {
     localCinematicOverrides: {},
     localCinematicMusicOverrides: {},
     customCharacterForms: [],
+    launchAnimation: { enabled: true, visual: null, audio: null },
     hapticsEnabled: true,
     notificationsEnabled: true,
     reduceMotion: false,
@@ -1808,6 +1821,13 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       })(),
       localCinematicOverrides: input.profile?.localCinematicOverrides ?? {},
       localCinematicMusicOverrides: input.profile?.localCinematicMusicOverrides ?? {},
+      launchAnimation: {
+        enabled: input.profile?.launchAnimation?.enabled !== false,
+        visual: input.profile?.launchAnimation?.visual?.uri ? input.profile.launchAnimation.visual : null,
+        audio: input.profile?.launchAnimation?.audio?.uri && Number.isFinite(input.profile.launchAnimation.audio.durationSeconds)
+          ? input.profile.launchAnimation.audio
+          : null,
+      },
       emotionalCharts: input.profile?.emotionalCharts?.length ? input.profile.emotionalCharts : defaults.profile.emotionalCharts,
     },
     combo: { ...defaults.combo, ...(input.combo ?? {}) },

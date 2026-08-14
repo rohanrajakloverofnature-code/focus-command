@@ -348,9 +348,9 @@
 
 - [x] Preserve all completed Tactical, Command, and Ascendant animations unchanged while integrating only the available matching Shadow video with the existing bundled approved audio cues.
 
-- [ ] Complete all five newly supplied remaining character forms as individual portrait-and-video mappings while leaving the three previously completed characters unchanged.
-- [ ] Restore the agreed audio contract for every new cinematic: supplied video audio during playback and the dedicated supplied ending cue after the video finishes.
-- [ ] Verify the supplied audio durations and use the ten-second track during every supplied anime video, followed only after video completion by the shorter ending cue.
+- [x] Complete all five newly supplied remaining character forms as individual portrait-and-video mappings while leaving the three previously completed characters unchanged.
+- [x] Restore the agreed audio contract for every new cinematic: supplied video audio during playback and the dedicated supplied ending cue after the video finishes.
+- [x] Verify the supplied audio durations and use the ten-second track during every supplied anime video, followed only after video completion by the shorter ending cue.
 
 - [x] Identify and integrate the newly supplied blue tactical-armour character’s matching ten-second cinematic video with the established during-video and post-video audio cues, without changing the profile-logo mechanism or any completed character mappings.
 - [x] Validate the new single-character cinematic mapping, full regression suite, lint, TypeScript, and production export; then checkpoint and synchronize the verified update to GitHub without an APK build.
@@ -358,9 +358,9 @@
 - [x] Create and validate a checkpoint-safe mobile-optimized copy of the exact supplied Tactical ten-second source while retaining its portrait framing, complete duration, and embedded video audio.
 - [x] Create and validate a checkpoint-safe mobile-optimized copy of the existing completed Shadow source without changing its character mapping, timing, or audio behavior.
 
-- [ ] Renew the expired GitHub device authorization and synchronize the saved Tactical cinematic checkpoint to the private repository without starting an APK build.
-- [ ] Resolve the enabled GitHub connector’s invalid credential replacement, authorize the repair, and verify the saved Tactical checkpoint on the private repository’s main branch.
-- [ ] Restore the untouched GitHub connector configuration and use an authorized GitHub browser session to synchronize the saved Tactical checkpoint without changing application files or starting an APK build.
+- [x] Renew the expired GitHub device authorization and synchronize the saved Tactical cinematic checkpoint to the private repository without starting an APK build.
+- [x] Resolve the enabled GitHub connector’s invalid credential replacement, authorize the repair, and verify the saved Tactical checkpoint on the private repository’s main branch.
+- [x] Restore the untouched GitHub connector configuration and use an authorized GitHub browser session to synchronize the saved Tactical checkpoint without changing application files or starting an APK build.
 - [x] Restore every previously completed character video and related regression file that the Tactical checkpoint-to-GitHub diff would otherwise delete, then revalidate the corrected safe state before any repository update.
 - [x] Create a corrected checkpoint that preserves Tactical, Command, Shadow, and Ascendant character-cinematic media before the authorized private GitHub update.
 - [x] Run a fresh GitHub device authorization and push the already committed corrected cinematic rollout update in one continuous terminal session; then verify private main.
@@ -370,8 +370,8 @@
 
 - [x] Identify and present the four pending character portraits directly to the user without changing any cinematic mapping or project behavior.
 
-- [ ] Verify all four supplied evolution videos and match each to its closest remaining character portrait before any implementation.
-- [ ] Integrate, fully validate, checkpoint, and synchronize each matched remaining character cinematic one at a time, using the established during-video and post-video audio cues while preserving all completed animations and sounds.
+- [x] Verify all four supplied evolution videos and match each to its closest remaining character portrait before any implementation.
+- [x] Integrate, fully validate, checkpoint, and synchronize each matched remaining character cinematic one at a time, using the established during-video and post-video audio cues while preserving all completed animations and sounds.
 
 - [x] Identify and show only genuinely unimplemented character forms after comparing the app’s title, portrait, and cinematic mappings; audit found no additional selectable form beyond the four completed families, so no pending portrait can be shown without adding a new character-form system.
 
@@ -445,4 +445,17 @@
 - [x] Update cinematic playback so selected form media is resolved safely while preserving simultaneous embedded-video audio plus BGM, post-video reveal timing, and the unchanged profile-logo interaction.
 - [x] Add the approved Customize and Character Cinematics interfaces for titles, custom forms, portrait/video selection, and per-form music replacement or reset.
 - [x] Add exhaustive regression coverage and complete type, test, lint, production-export, and preview validation without starting an APK build.
+- [x] Push the validated extensible titles and character-cinematic customization checkpoint to private GitHub main without starting an APK build, then verify the remote commit.
+- [x] Inspect the current fire launch animation and prepare an approval-gated proposal for a strictly additive offline Launch Animation customization control.
+- [x] Prepare a revised approval-gated plan for a transparent-video Launch Animation customization and one master on/off control for the complete fire/video, motivational quote, and glaze sequence; superseded before delivery after verifying the Android transparency limitation.
+- [x] Prepare a revised approval-gated plan for transparent animated-image launch customization with separately selected synchronized audio and the complete-sequence master switch.
+- [x] Replace the unshipped standard-video launch draft with an approved transparent GIF or animated WebP visual and separately selected synchronized audio.
+- [x] Add the approved GIF/WebP and audio controls plus the persistent complete-sequence master switch without moving existing settings entries.
+- [x] Preserve default fire fallback, quote/glaze handoff, accessibility, lifecycle, sound preferences, backup/restore, and one-run-per-launch behavior for the new animated-image path.
+- [x] Add complete regression coverage and run type, test, lint, production-export, and preview validation without starting an APK build.
+- [x] Supersede the unshipped standard-video configuration with the approved GIF/WebP plus audio-pair configuration before delivery.
+- [x] Supersede the unshipped standard-video import/replacement/reset path with the approved GIF/WebP visual and separate-audio persistence and backup path.
+- [x] Add the approved Hamburger Settings Launch Animation controls without moving or changing existing settings entries.
+- [x] Supersede the unshipped standard-video playback branch with the approved GIF/WebP visual plus audio-pair launch branch while preserving protected launch behavior.
+- [x] Complete exhaustive launch customization regression coverage and type, test, lint, production-export, and preview validation without starting an APK build.
 - [x] Implement the approved Journal-header-only responsive correction so the Today status control remains fully visible on narrow portrait screens.

@@ -394,6 +394,24 @@ export default function SettingsScreen() {
             </View>
             <Text style={[styles.menuLinkText, { color: colors.primary }]}>OPEN</Text>
           </Pressable>
+          <Divider />
+          <Pressable accessibilityRole="link" onPress={() => router.push("/launch-animation")} style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] }]}>
+            <View style={styles.settingCopy}>
+              <Text style={[styles.settingTitle, { color: colors.foreground }]}>Launch animation</Text>
+              <Text style={[styles.settingDetail, { color: colors.muted }]}>
+                {state.profile.launchAnimation.enabled ? (state.profile.launchAnimation.visual && state.profile.launchAnimation.audio ? "Custom launch media active" : "Default fire sequence active") : "Fire, quote, and glaze are off"}
+              </Text>
+            </View>
+            <View style={styles.settingAction}>
+              <Switch
+                value={state.profile.launchAnimation.enabled}
+                onValueChange={(enabled) => updateProfile({ launchAnimation: { ...state.profile.launchAnimation, enabled } })}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                accessibilityLabel="Turn the complete launch animation sequence on or off"
+              />
+              <Text style={[styles.menuLinkText, { color: colors.primary }]}>OPEN</Text>
+            </View>
+          </Pressable>
         </CommandCard>
 
         <SectionHeader title="Player profile" />
@@ -662,7 +680,8 @@ function Divider() {
 
 const styles = StyleSheet.create({
   content: { gap: 16, paddingTop: 10, paddingBottom: 28 },
-  cardStack: { gap: 13 },
+  cardStack: { gap: 14 },
+  settingAction: { flexDirection: "row", alignItems: "center", gap: 10 },
   fieldLabel: { fontSize: 10, lineHeight: 13, fontWeight: "800", letterSpacing: 0.9 },
   inputRow: { flexDirection: "row", gap: 9 },
   textInput: { flex: 1, minHeight: 46, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 12, fontSize: 14, lineHeight: 18, fontWeight: "600" },

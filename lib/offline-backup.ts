@@ -22,6 +22,7 @@ const CINEMATIC_PREFIX = "media/cinematics/";
 const SOUND_PREFIX = "media/sounds/";
 const CINEMATIC_MUSIC_PREFIX = "media/cinematic-music/";
 const FORM_PREFIX = "media/forms/";
+const LAUNCH_PREFIX = "media/launch/";
 
 export interface OfflineBackupPreview {
   archiveUri: string;
@@ -85,6 +86,14 @@ export async function collectOfflineBackupMedia(state: FocusState): Promise<Offl
       const override = form.music[slot];
       if (override?.uri) media.push(await readLocalMedia(override.uri, `${formPrefix}${slot}.${fileExtension(override.name, "mp3")}`));
     }
+  }
+  if (state.profile.launchAnimation.visual?.uri) {
+    const visual = state.profile.launchAnimation.visual;
+    media.push(await readLocalMedia(visual.uri, `${LAUNCH_PREFIX}visual.${fileExtension(visual.name, "gif")}`));
+  }
+  if (state.profile.launchAnimation.audio?.uri) {
+    const audio = state.profile.launchAnimation.audio;
+    media.push(await readLocalMedia(audio.uri, `${LAUNCH_PREFIX}audio.${fileExtension(audio.name, "mp3")}`));
   }
   return media;
 }
@@ -201,6 +210,8 @@ export function materializeOfflineBackupMedia(backup: ParsedOfflineBackup): Offl
       const postVideo = restoreMediaOverride(backup, prefix, "postVideo", form.music.postVideo, SOUND_DIRECTORY, restoreStamp, "mp3", createdUris);
       return { ...form, portrait, video, music: { duringVideo, postVideo } };
     });
+    state.profile.launchAnimation.visual = restoreMediaOverride(backup, LAUNCH_PREFIX, "visual", state.profile.launchAnimation.visual, CINEMATIC_DIRECTORY, restoreStamp, "gif", createdUris);
+    state.profile.launchAnimation.audio = restoreMediaOverride(backup, LAUNCH_PREFIX, "audio", state.profile.launchAnimation.audio, SOUND_DIRECTORY, restoreStamp, "mp3", createdUris);
     return { state, createdUris };
   } catch (error) {
     for (const uri of createdUris) {
