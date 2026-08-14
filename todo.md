@@ -421,3 +421,6 @@
 - [x] Push the validated header-only Mini Achievement ticker repair to the private GitHub main branch without starting an APK build or GitHub Action.
 - [x] Prepare a non-implementation proposal for a Daily Command Briefing on the Home screen, then wait for explicit approval before changing any feature, mechanism, or layout.
 - [x] Implement the approved Daily Command Briefing below the existing profile/character card, using only existing offline data and preserving all unrelated features and layouts.
+- [x] Push the validated Daily Command Briefing checkpoint to the private GitHub main branch without starting an APK build or GitHub Action.
+- [x] Prepare a non-implementation proposal for an offline Distraction Log during live missions, then wait for explicit approval before changing any feature, mechanism, or layout.
+- [x] Implement the approved offline Distraction Log in live missions and the Focus Friction insight below Wellbeing Insight, while preserving timing, rewards, debriefs, and existing controls.

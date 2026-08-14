@@ -37,8 +37,9 @@ describe("Custom Analytics workspace", () => {
     const state = createInitialState();
     state.hydrated = true;
     const now = new Date().toISOString();
-    const mathMission = mission();
-    const physicsMission = mission({ id: "workspace_physics", subject: "Physics", category: "Practice", progressionEventId: "workspace_physics_progress" });
+    const completionMoments = { createdAt: now, startedAt: now, endedAt: now, completedAt: now, completionHistory: [now] };
+    const mathMission = mission(completionMoments);
+    const physicsMission = mission({ ...completionMoments, id: "workspace_physics", subject: "Physics", category: "Practice", progressionEventId: "workspace_physics_progress" });
     state.missions.push(mathMission, physicsMission);
     state.progression.push(
       { id: "workspace_progress", missionId: mathMission.id, baseXp: 50, comboMultiplier: 1, goldMultiplier: 1, powerAwarded: 120, goldAwarded: 5, occurredAt: now, note: "Math ledger" },

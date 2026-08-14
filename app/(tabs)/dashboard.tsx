@@ -9,6 +9,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getTotalPower, getWellbeingInsight, toLocalDate, useFocusCommand } from "@/lib/focus-command";
 import { RECOGNITION_WINDOW_LAYOUT } from "@/lib/focus-layout";
+import { getFocusFrictionInsight } from "@/lib/distraction-log";
 
 function createDaySeries(days: number, profileTimezone: string) {
   return Array.from({ length: days }, (_, index) => {
@@ -36,6 +37,7 @@ export default function DashboardScreen() {
   const completionRecords = useMemo(() => getMissionCompletionRecords(state), [state]);
   const forecast = useMemo(() => getEmotionalPatternForecast(state), [state]);
   const wellbeing = useMemo(() => getWellbeingInsight(state), [state]);
+  const focusFriction = useMemo(() => getFocusFrictionInsight(state), [state]);
 
   if (!ready) return <LoadingScreen label="Compiling command analytics…" />;
 
@@ -218,6 +220,21 @@ export default function DashboardScreen() {
           </CommandCard>
         </TapFeedback>
 
+        <SectionHeader title="Focus friction" />
+        <CommandCard accent={colors.warning} style={styles.frictionCard}>
+          {focusFriction.total ? <>
+            <View style={styles.frictionHeading}>
+              <View style={styles.frictionCopy}>
+                <Text style={[styles.frictionEyebrow, { color: colors.warning }]}>PRIVATE · LAST 14 DAYS</Text>
+                <Text style={[styles.frictionTitle, { color: colors.foreground }]}>{focusFriction.total} disruption{focusFriction.total === 1 ? "" : "s"} logged</Text>
+              </View>
+              <StatusPill label={`TOP · ${focusFriction.topCategory?.label.toUpperCase()}`} tone="warning" />
+            </View>
+            <Text style={[styles.frictionDetail, { color: colors.muted }]}>Most interrupted window: {focusFriction.timeWindow}. {focusFriction.recentMission ? `${focusFriction.recentMission.title} recorded ${focusFriction.recentMission.count}.` : ""}</Text>
+            <View style={styles.frictionBars}>{focusFriction.categoryCounts.map((entry) => <View key={entry.category} style={styles.frictionBarRow}><Text numberOfLines={1} style={[styles.frictionBarLabel, { color: colors.muted }]}>{entry.label}</Text><View style={[styles.frictionBarTrack, { backgroundColor: colors.background }]}><View style={[styles.frictionBarFill, { backgroundColor: colors.warning, width: `${Math.max(12, (entry.count / Math.max(focusFriction.topCategory?.count ?? 1, 1)) * 100)}%` }]} /></View><Text style={[styles.frictionBarValue, { color: colors.foreground }]}>{entry.count}</Text></View>)}</View>
+          </> : <View style={styles.frictionEmpty}><Text style={[styles.frictionTitle, { color: colors.foreground }]}>No distraction signals logged yet.</Text><Text style={[styles.frictionDetail, { color: colors.muted }]}>Your private focus log will appear here after you record a live-mission interruption.</Text></View>}
+        </CommandCard>
+
         <SectionHeader title="Emotional intelligence" />
         <InteractiveChartCard title="Emotional radar" detail="How you tend to feel after finishing work" tag="INSIGHT" onPress={() => router.push("/analytics?metric=emotion" as never)}>
           {state.reflections.length ? <RadarChart points={emotionalPoints} color={colors.warning} accessibilityLabel="Emotional radar based on post-mission feeling data" /> : <NoData label="Complete a mission debrief to reveal emotional patterns." icon="star.fill" />}
@@ -366,6 +383,19 @@ const styles = StyleSheet.create({
   wellbeingDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600" },
   wellbeingFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   wellbeingOpen: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.65 },
+  frictionCard: { gap: 11 },
+  frictionHeading: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
+  frictionCopy: { flex: 1, gap: 3 },
+  frictionEyebrow: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.85 },
+  frictionTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },
+  frictionDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600" },
+  frictionBars: { gap: 7 },
+  frictionBarRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  frictionBarLabel: { width: 88, fontSize: 10, lineHeight: 14, fontWeight: "700" },
+  frictionBarTrack: { flex: 1, height: 7, overflow: "hidden", borderRadius: 99 },
+  frictionBarFill: { height: "100%", borderRadius: 99 },
+  frictionBarValue: { minWidth: 14, textAlign: "right", fontSize: 11, lineHeight: 14, fontWeight: "900" },
+  frictionEmpty: { minHeight: 78, justifyContent: "center", gap: 4 },
   behavioralStack: { gap: 12 },
   forecastCard: { gap: 12 },
   forecastHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },

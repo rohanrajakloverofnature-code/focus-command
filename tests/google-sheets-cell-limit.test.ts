@@ -27,6 +27,7 @@ function makeOversizedState(): FocusState {
       note: oversizedJournalNote,
       createdAt: "2026-08-14T00:00:00.000Z",
     }],
+    distractionLogs: [],
     rewards: [],
     transactions: [],
     inventory: [],

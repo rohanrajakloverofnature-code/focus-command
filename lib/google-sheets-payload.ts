@@ -41,7 +41,9 @@ function chunkPayload(payload: string): string[] {
 }
 
 function makeAppStateRows(state: FocusState) {
-  const serializedPayload = JSON.stringify({ ...state, hydrated: true });
+  // Distraction Log entries are intentionally device-local until the user explicitly approves their synchronization.
+  const { distractionLogs: _distractionLogs, ...syncableState } = state;
+  const serializedPayload = JSON.stringify({ ...syncableState, hydrated: true });
   const payloadChunks = chunkPayload(serializedPayload);
   const rows: string[][] = [
     ["key", "value"],

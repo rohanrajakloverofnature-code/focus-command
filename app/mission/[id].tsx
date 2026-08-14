@@ -5,6 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ProgressBar, ScreenTitle, StatusPill } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
+import { DistractionLogger } from "@/components/distraction-logger";
 import { useColors } from "@/hooks/use-colors";
 import { CustomQuestion, Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getMissionInvestedMilliseconds, isLongMissionReflectionEligible, ReflectionDraft, useFocusCommand } from "@/lib/focus-command";
 import { playFocusSuccessCue } from "@/lib/focus-audio";
@@ -21,8 +22,9 @@ const feelings: { value: Feeling; label: string; color: string }[] = [
 export default function MissionDetailScreen() {
   const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { state, ready, startMission, toggleMissionPause, finishMission, logRevisionTopic, updateMission, removeMission } = useFocusCommand();
+  const { state, ready, startMission, toggleMissionPause, finishMission, logDistraction, logRevisionTopic, updateMission, removeMission } = useFocusCommand();
   const mission = state.missions.find((candidate) => candidate.id === id);
+  const missionDistractionCount = state.distractionLogs.filter((entry) => entry.missionId === id).length;
   const [nowMs, setNowMs] = useState(Date.now());
   const [revisionTopic, setRevisionTopic] = useState("");
   const [showReflection, setShowReflection] = useState(false);
@@ -213,10 +215,13 @@ export default function MissionDetailScreen() {
           ) : mission.status === "completed" ? (
             <CommandButton label="View results" icon="trophy.fill" onPress={() => router.replace({ pathname: "/mission-result/[id]" as never, params: { id: mission.id } })} />
           ) : (
-            <View style={styles.liveActions}>
-              <CommandButton label={mission.status === "paused" ? "Resume" : "Pause"} icon={mission.status === "paused" ? "play.fill" : "pause.fill"} variant="secondary" onPress={() => toggleMissionPause(mission.id)} style={styles.liveAction} />
-              <CommandButton label="End mission" icon="stop.fill" onPress={() => setShowReflection(true)} style={styles.liveAction} />
-            </View>
+            <>
+              <View style={styles.liveActions}>
+                <CommandButton label={mission.status === "paused" ? "Resume" : "Pause"} icon={mission.status === "paused" ? "play.fill" : "pause.fill"} variant="secondary" onPress={() => toggleMissionPause(mission.id)} style={styles.liveAction} />
+                <CommandButton label="End mission" icon="stop.fill" onPress={() => setShowReflection(true)} style={styles.liveAction} />
+              </View>
+              <DistractionLogger count={missionDistractionCount} onLog={(category, note) => logDistraction(mission.id, category, note)} />
+            </>
           )}
         </CommandCard>
 

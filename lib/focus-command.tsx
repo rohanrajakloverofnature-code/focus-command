@@ -416,6 +416,17 @@ export interface UserEquipment {
   acquiredAt: string; // ISO date string
 }
 
+export const DISTRACTION_CATEGORIES = ["phone", "people", "environment", "thoughts", "energy", "other"] as const;
+export type DistractionCategory = typeof DISTRACTION_CATEGORIES[number];
+
+export interface DistractionLogEntry {
+  id: string;
+  missionId: string;
+  category: DistractionCategory;
+  note?: string;
+  occurredAt: string;
+}
+
 export const EQUIPMENT_SLOT_BY_TYPE = {
   FocusDevice: "head",
   EnergyPack: "body",
@@ -459,6 +470,7 @@ export interface FocusState {
   srsTopics: SrsTopic[];
   bosses: Boss[];
   journals: JournalEntry[];
+  distractionLogs: DistractionLogEntry[];
   rewards: Reward[];
   transactions: Transaction[];
   inventory: InventoryItem[];
@@ -753,6 +765,7 @@ export function createInitialState(): FocusState {
     srsTopics: [],
     bosses: [],
     journals: [],
+    distractionLogs: [],
     rewards: [
       {
         id: "reward_focus_break",
@@ -1433,6 +1446,7 @@ interface FocusCommandContextValue {
   startMission: (missionId: string) => void;
   toggleMissionPause: (missionId: string) => void;
   finishMission: (missionId: string, reflection: ReflectionDraft) => { completionId: string; durationMs: number; lootReward: Reward | null } | null;
+  logDistraction: (missionId: string, category: DistractionCategory, note?: string) => void;
   logRevisionTopic: (missionId: string, topic: string, subject?: string) => void;
   completeRevision: (topicId: string) => void;
   createBoss: (input: Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold">) => string;
@@ -1553,6 +1567,9 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       };
     }),
     missionCompletions: [...existingCompletions, ...migratedLegacyCompletions],
+    distractionLogs: (input.distractionLogs ?? []).filter((entry): entry is DistractionLogEntry =>
+      Boolean(entry && typeof entry.id === "string" && typeof entry.missionId === "string" && typeof entry.occurredAt === "string" && DISTRACTION_CATEGORIES.includes(entry.category)),
+    ).map((entry) => ({ ...entry, note: typeof entry.note === "string" && entry.note.trim() ? entry.note.trim().slice(0, 140) : undefined })),
     googleSheet: { ...defaults.googleSheet, ...(input.googleSheet ?? {}) },
     rewards: input.rewards?.length ? input.rewards : defaults.rewards,
     customGraphs: input.customGraphs?.length ? input.customGraphs : defaults.customGraphs,
@@ -1727,6 +1744,18 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
             status: "scheduled",
           },
         ],
+      });
+    });
+  }, [commit]);
+
+  const logDistraction = useCallback((missionId: string, category: DistractionCategory, note?: string) => {
+    commit((current) => {
+      const mission = current.missions.find((candidate) => candidate.id === missionId);
+      if (!mission || (mission.status !== "active" && mission.status !== "paused")) return current;
+      const sanitizedNote = category === "other" && note?.trim() ? note.trim().slice(0, 140) : undefined;
+      return withQueuedOperation({
+        ...current,
+        distractionLogs: [...current.distractionLogs, { id: createId("distraction"), missionId, category, note: sanitizedNote, occurredAt: nowIso() }],
       });
     });
   }, [commit]);
@@ -2220,6 +2249,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   const importFromGoogleSheet = useCallback((remote: FocusState, connection: Partial<GoogleSheetConnection>) => {
     commit((current) => normalizeHydratedState({
       ...remote,
+      // Deliberately device-local until a separate synchronization scope is approved.
+      distractionLogs: current.distractionLogs,
       googleSheet: {
         ...remote.googleSheet,
         ...current.googleSheet,
@@ -2367,6 +2398,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     startMission,
     toggleMissionPause,
     finishMission,
+    logDistraction,
     logRevisionTopic,
     completeRevision,
     createBoss,
@@ -2408,6 +2440,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     startMission,
     toggleMissionPause,
     finishMission,
+    logDistraction,
     logRevisionTopic,
     completeRevision,
     createBoss,
