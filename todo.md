@@ -427,3 +427,7 @@
 - [x] Push the validated Distraction Log checkpoint to the private GitHub main branch without starting an APK build or GitHub Action.
 - [x] Prepare a non-implementation proposal for an offline Weekly After-Action Review, then wait for explicit approval before changing any feature, mechanism, or layout.
 - [x] Implement the approved offline Weekly After-Action Review entry and read-only review screen using existing Focus Command data while preserving all existing features, calculations, controls, synchronization, and layouts.
+- [x] Push the validated Weekly After-Action Review checkpoint to the private GitHub main branch without starting an APK build or GitHub Action.
+- [ ] Prepare a non-implementation safety proposal for deleting one completed History record without deleting its parent mission or corrupting rewards, statistics, reflections, analytics, or related records.
+- [ ] Prepare a non-implementation proposal for deleting one completed mission run together with only the XP, power, gold, energy, combo impact, transactions, inventory effects, reflection/emotion data, mini achievement, recognition entries, and time/analytics data earned by that exact run, while retaining the parent mission and unrelated records.
+- [x] Implement the approved deletion of one completed mission run and its uniquely linked earned data, while restoring the parent mission safely and preserving all unrelated records.

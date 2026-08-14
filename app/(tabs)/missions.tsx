@@ -15,7 +15,7 @@ const difficultyOptions: Difficulty[] = ["easy", "medium", "hard"];
 export default function MissionsScreen() {
   const colors = useColors();
   const { compose, filter: requestedFilter, bossId: requestedBossId } = useLocalSearchParams<{ compose?: string; filter?: MissionFilter; bossId?: string }>();
-  const { state, ready, createMission, createBoss, startMission } = useFocusCommand();
+  const { state, ready, createMission, createBoss, startMission, removeMissionCompletion } = useFocusCommand();
   const [showComposer, setShowComposer] = useState(compose === "1");
   const [filter, setFilter] = useState<MissionFilter>(requestedFilter === "active" || requestedFilter === "completed" ? requestedFilter : "open");
   const [title, setTitle] = useState("");
@@ -221,7 +221,7 @@ export default function MissionsScreen() {
         {(filter === "completed" ? completionRecords.length : missions.length) ? (
           <View style={styles.missionStack}>
             {filter === "completed"
-              ? completionRecords.map((completion) => <CompletionHistoryCard key={completion.id} completion={completion} />)
+              ? completionRecords.map((completion) => <CompletionHistoryCard key={completion.id} completion={completion} onRemove={() => removeMissionCompletion(completion.id)} />)
               : missions.map((mission) => <MissionCard key={mission.id} mission={mission} onStart={() => startMission(mission.id)} />)}
           </View>
         ) : (
@@ -238,12 +238,23 @@ export default function MissionsScreen() {
   );
 }
 
-function CompletionHistoryCard({ completion }: { completion: MissionCompletionRecord }) {
+function CompletionHistoryCard({ completion, onRemove }: { completion: MissionCompletionRecord; onRemove: () => void }) {
   const colors = useColors();
   const color = getDifficultyColor(completion.difficulty);
   const completedLabel = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(completion.completedAt));
   const reflection = completion.reflection;
   const openResult = () => router.push({ pathname: "/mission-result/[id]" as never, params: { id: completion.missionId, completionId: completion.id } });
+  const confirmRemoval = (event: { stopPropagation?: () => void }) => {
+    event.stopPropagation?.();
+    Alert.alert(
+      "Delete this completed run and its data?",
+      `This will permanently remove ${completion.title}, its invested time, XP, power, gold, reflection answers, mini achievement, recognition, and other data earned by this run. The main mission will remain. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete run and data", style: "destructive", onPress: onRemove },
+      ],
+    );
+  };
   return (
     <Pressable onPress={openResult} style={({ pressed }) => ({ opacity: pressed ? 0.82 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}>
       <CommandCard accent={color} style={styles.missionCard}>
@@ -258,7 +269,19 @@ function CompletionHistoryCard({ completion }: { completion: MissionCompletionRe
           <View style={styles.missionFooterCopy}>
             <Text style={[styles.historyAward, { color }]}>{completion.progression?.powerAwarded ?? completion.baseXp} power · {completion.progression?.goldAwarded ?? 0} gold</Text>
           </View>
-          <CommandButton label="Open" icon="chevron.right" variant="ghost" onPress={openResult} />
+          <View style={styles.historyActions}>
+            <CommandButton label="Open" icon="chevron.right" variant="ghost" onPress={openResult} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Delete completed run: ${completion.title}`}
+              onPress={confirmRemoval}
+              hitSlop={4}
+              style={({ pressed }) => [styles.deleteRunButton, { borderColor: `${colors.error}88`, backgroundColor: `${colors.error}12`, opacity: pressed ? 0.74 : 1 }]}
+            >
+              <IconSymbol name="xmark" size={15} color={colors.error} />
+              <Text style={[styles.deleteRunLabel, { color: colors.error }]}>Delete run</Text>
+            </Pressable>
+          </View>
         </View>
       </CommandCard>
     </Pressable>
@@ -343,5 +366,8 @@ const styles = StyleSheet.create({
   historyAward: { fontSize: 11, lineHeight: 16, fontWeight: "900" },
   missionFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10, marginTop: 2 },
   missionFooterCopy: { flex: 1 },
+  historyActions: { flexDirection: "row", alignItems: "center", gap: 2 },
+  deleteRunButton: { minHeight: 32, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, borderWidth: StyleSheet.hairlineWidth, borderRadius: 11, paddingHorizontal: 9 },
+  deleteRunLabel: { fontSize: 10, lineHeight: 14, fontWeight: "900" },
   missionBadges: { flexDirection: "row", gap: 5, flexWrap: "wrap" },
 });
