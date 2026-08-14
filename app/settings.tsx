@@ -11,6 +11,7 @@ import { useGoogleSheetsAuth } from "@/hooks/use-google-sheets-auth";
 import { ComboTier, getComboTiers, PaletteToken, SoundRoleId, SoundStyle, useFocusCommand } from "@/lib/focus-command";
 import { clearSelectedFocusWorkbook, createFocusWorkbook, getFocusWorkbookMetadata, getGoogleAccessToken, getSelectedFocusWorkbook, getSpreadsheet, readFocusWorkbook, saveSelectedFocusWorkbook, writeFocusWorkbook } from "@/lib/google-sheets";
 import { configureDailyMissionReminder, enableFocusReminders, refreshScheduledReminderSounds } from "@/lib/focus-reminders";
+import { chooseAndValidateOfflineBackup, createAndShareOfflineBackup, discardMaterializedOfflineBackup, materializeOfflineBackupMedia } from "@/lib/offline-backup";
 import { useThemeContext } from "@/lib/theme-provider";
 import { playFocusRole, releaseFocusCustomSound } from "@/lib/focus-audio";
 import { pickAndPersistFocusSound, removePersistedFocusSound } from "@/lib/focus-sound-library";
@@ -27,6 +28,7 @@ export default function SettingsScreen() {
     setGoogleSheetConnection,
     importFromGoogleSheet,
     markSynced,
+    restoreOfflineBackup,
     resetLocalData,
   } = useFocusCommand();
   const [firstName, setFirstName] = useState(state.profile.firstName);
@@ -35,6 +37,7 @@ export default function SettingsScreen() {
   const [sheetId, setSheetId] = useState(state.googleSheet.spreadsheetId ?? "");
   const [sheetName, setSheetName] = useState(state.googleSheet.spreadsheetName || "Focus Command Data");
   const [savingSoundRole, setSavingSoundRole] = useState<SoundRoleId | null>(null);
+  const [backupBusy, setBackupBusy] = useState<"export" | "restore" | null>(null);
   const onGoogleAuthorized = useCallback((_token: string, email: string | null) => {
     setGoogleSheetConnection({ phase: "authorized", connectedEmail: email ?? "", errorMessage: null });
   }, [setGoogleSheetConnection]);
@@ -189,6 +192,66 @@ export default function SettingsScreen() {
       { text: "Cancel", style: "cancel" },
       { text: "Reset", style: "destructive", onPress: () => resetLocalData() },
     ]);
+  };
+
+  const createOfflineBackup = async () => {
+    if (backupBusy) return;
+    setBackupBusy("export");
+    try {
+      const result = await createAndShareOfflineBackup(state);
+      Alert.alert("Backup file ready", `${result.fileName} was prepared. Save it in a private location so it is available when you change phones or reinstall Focus Command.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Focus Command could not create the backup file.";
+      Alert.alert("Backup not created", message);
+    } finally {
+      setBackupBusy(null);
+    }
+  };
+
+  const restoreValidatedOfflineBackup = async () => {
+    if (backupBusy) return;
+    setBackupBusy("restore");
+    try {
+      const preview = await chooseAndValidateOfflineBackup();
+      if (!preview) {
+        setBackupBusy(null);
+        return;
+      }
+      const { manifest } = preview.backup;
+      const { summary } = manifest;
+      Alert.alert(
+        "Restore all Focus Command data?",
+        `${preview.fileName}\nCreated ${new Date(manifest.createdAt).toLocaleString()}\n\n${summary.missions} missions · ${summary.completions} completed runs · ${summary.reflections} reflections · ${summary.journals} journals · ${summary.mediaFiles} media files\n\nThis validated backup will replace the current local command log on this device. Google Sheets credentials are not included and may need authorization again. This cannot be undone.`,
+        [
+          { text: "Cancel", style: "cancel", onPress: () => setBackupBusy(null) },
+          {
+            text: "Restore all data",
+            style: "destructive",
+            onPress: () => {
+              void (async () => {
+                let materialized: ReturnType<typeof materializeOfflineBackupMedia> | null = null;
+                try {
+                  materialized = materializeOfflineBackupMedia(preview.backup);
+                  await restoreOfflineBackup(materialized.state);
+                  void playFocusRole("system", materialized.state.profile.soundEnabled, materialized.state.profile.soundRoles.system);
+                  Alert.alert("Restore complete", "Focus Command replaced this device’s local data with the validated backup file.");
+                } catch (error) {
+                  if (materialized) discardMaterializedOfflineBackup(materialized);
+                  const message = error instanceof Error ? error.message : "Focus Command could not restore the selected backup. Your current data was kept.";
+                  Alert.alert("Restore not completed", message);
+                } finally {
+                  setBackupBusy(null);
+                }
+              })();
+            },
+          },
+        ],
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Focus Command could not validate the selected backup.";
+      Alert.alert("Backup file unavailable", `${message} Your current data was kept.`);
+      setBackupBusy(null);
+    }
   };
 
   const requireGoogleToken = async () => {
@@ -561,6 +624,16 @@ export default function SettingsScreen() {
 
         <SectionHeader title="Data controls" />
         <CommandCard style={styles.cardStack}>
+          <View style={styles.settingCopy}>
+            <Text style={[styles.settingTitle, { color: colors.foreground }]}>Offline Backup File</Text>
+            <Text style={[styles.settingDetail, { color: colors.muted }]}>Create one portable copy of your complete local command log and app-private custom media. It is separate from Google Sheets and should be saved privately.</Text>
+          </View>
+          <View style={styles.sheetActionRow}>
+            <CommandButton label={backupBusy === "export" ? "Preparing…" : "Create backup"} variant="secondary" disabled={backupBusy !== null} onPress={() => { void createOfflineBackup(); }} style={styles.sheetActionButton} />
+            <CommandButton label={backupBusy === "restore" ? "Checking…" : "Restore backup"} disabled={backupBusy !== null} onPress={() => { void restoreValidatedOfflineBackup(); }} style={styles.sheetActionButton} />
+          </View>
+          <Text style={[styles.settingDetail, { color: colors.muted }]}>Restore validates the entire file before asking for final confirmation. Cancelling, choosing an invalid file, or a failed check leaves current data unchanged.</Text>
+          <Divider />
           <Text style={[styles.settingDetail, { color: colors.muted }]}>The selected Google Sheet is never deleted from this screen. Reset only clears the local cache and queued changes on this device.</Text>
           <CommandButton label="Reset local data" icon="arrow.clockwise" variant="danger" onPress={reset} />
         </CommandCard>

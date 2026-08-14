@@ -1616,6 +1616,7 @@ interface FocusCommandContextValue {
   updateCustomQuestion: (questionId: string, patch: Partial<Omit<CustomQuestion, "id">>) => void;
   removeCustomQuestion: (questionId: string) => void;
   updateCustomGraph: (graphId: string, patch: Partial<CustomGraph>) => void;
+  restoreOfflineBackup: (backup: FocusState) => Promise<void>;
   resetLocalData: () => Promise<void>;
   addEquipment: (equipment: Omit<Equipment, "id">) => string;
   updateEquipment: (equipmentId: string, patch: Partial<Omit<Equipment, "id">>) => void;
@@ -2461,6 +2462,23 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     }));
   }, [commit]);
 
+  const restoreOfflineBackup = useCallback(async (backup: FocusState) => {
+    const restored = normalizeHydratedState({
+      ...backup,
+      googleSheet: {
+        ...backup.googleSheet,
+        phase: "needs_setup",
+        pendingOperations: 0,
+        lastSyncedAt: null,
+        errorMessage: null,
+      },
+    });
+    const { hydrated, ...persistable } = restored;
+    await persistenceQueue.current.catch(() => undefined);
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(persistable));
+    dispatch({ type: "replace", state: { ...restored, hydrated: true } });
+  }, []);
+
   const resetLocalData = useCallback(async () => {
     await AsyncStorage.removeItem(STORAGE_KEY);
     dispatch({ type: "replace", state: { ...createInitialState(), hydrated: true } });
@@ -2592,6 +2610,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     equipItem,
     unequipItem,
     getEquippedItems,
+    restoreOfflineBackup,
   }), [
     state,
     localDay,
@@ -2635,6 +2654,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     equipItem,
     unequipItem,
     getEquippedItems,
+    restoreOfflineBackup,
   ]);
 
   return <FocusCommandContext.Provider value={value}>{children}</FocusCommandContext.Provider>;

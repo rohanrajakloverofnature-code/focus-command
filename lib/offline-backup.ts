@@ -1,0 +1,176 @@
+import * as DocumentPicker from "expo-document-picker";
+import { Directory, File, Paths } from "expo-file-system";
+import * as Sharing from "expo-sharing";
+
+import {
+  createOfflineBackupArchive,
+  FOCUS_COMMAND_BACKUP_EXTENSION,
+  OfflineBackupMediaFile,
+  OfflineBackupValidationError,
+  parseOfflineBackupArchive,
+  ParsedOfflineBackup,
+} from "@/lib/offline-backup-format";
+import { SOUND_ROLE_IDS, type FocusState, type SoundRoleId } from "@/lib/focus-command";
+import type { CharacterCinematicVariant } from "@/lib/character-development";
+
+const BACKUP_CACHE_DIRECTORY = new Directory(Paths.cache, "focus-command-backups");
+const CINEMATIC_DIRECTORY = new Directory(Paths.document, "focus-command-cinematics");
+const SOUND_DIRECTORY = new Directory(Paths.document, "focus-command-sounds");
+
+const CINEMATIC_PREFIX = "media/cinematics/";
+const SOUND_PREFIX = "media/sounds/";
+
+export interface OfflineBackupPreview {
+  archiveUri: string;
+  fileName: string;
+  backup: ParsedOfflineBackup;
+}
+
+export interface OfflineRestoreMaterialization {
+  state: FocusState;
+  createdUris: string[];
+}
+
+function safeFileName(name: string, fallback: string): string {
+  const normalized = name.trim().replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  return normalized || fallback;
+}
+
+function fileExtension(name: string, fallback: string): string {
+  const extension = name.split(".").pop()?.toLowerCase() ?? "";
+  return /^[a-z0-9]{2,5}$/.test(extension) ? extension : fallback;
+}
+
+function timestampFileStem() {
+  return new Date().toISOString().replace(/[:.]/g, "-").replace("T", "-").replace("Z", "");
+}
+
+async function readLocalMedia(uri: string, archivePath: string): Promise<OfflineBackupMediaFile> {
+  const file = new File(uri);
+  if (!file.exists || !file.size) {
+    throw new OfflineBackupValidationError(`The local media file for ${archivePath} is unavailable. Reassign it before creating a backup.`);
+  }
+  return { path: archivePath, bytes: await file.bytes() };
+}
+
+export async function collectOfflineBackupMedia(state: FocusState): Promise<OfflineBackupMediaFile[]> {
+  const media: OfflineBackupMediaFile[] = [];
+  for (const [variant, override] of Object.entries(state.profile.localCinematicOverrides)) {
+    if (!override?.uri) continue;
+    const extension = fileExtension(override.name, "mp4");
+    media.push(await readLocalMedia(override.uri, `${CINEMATIC_PREFIX}${variant}.${extension}`));
+  }
+  for (const role of SOUND_ROLE_IDS) {
+    const setting = state.profile.soundRoles[role];
+    if (!setting?.customUri) continue;
+    const extension = fileExtension(setting.customName ?? "", "mp3");
+    media.push(await readLocalMedia(setting.customUri, `${SOUND_PREFIX}${role}.${extension}`));
+  }
+  return media;
+}
+
+export async function createAndShareOfflineBackup(state: FocusState): Promise<{ uri: string; fileName: string }> {
+  const media = await collectOfflineBackupMedia(state);
+  const { archive } = createOfflineBackupArchive(state, media);
+  BACKUP_CACHE_DIRECTORY.create({ idempotent: true, intermediates: true });
+  const fileName = `FocusCommand-backup-${timestampFileStem()}.${FOCUS_COMMAND_BACKUP_EXTENSION}`;
+  const destination = new File(BACKUP_CACHE_DIRECTORY, fileName);
+  if (destination.exists) destination.delete();
+  destination.create({ intermediates: true });
+  destination.write(archive);
+  if (!destination.exists || destination.size !== archive.length) {
+    if (destination.exists) destination.delete();
+    throw new OfflineBackupValidationError("Focus Command could not write a complete backup file on this device.");
+  }
+  if (!(await Sharing.isAvailableAsync())) {
+    throw new OfflineBackupValidationError("This device cannot open a save/share sheet for the backup file.");
+  }
+  await Sharing.shareAsync(destination.uri, {
+    mimeType: "application/vnd.focuscommand.backup",
+    dialogTitle: "Save Focus Command backup",
+    UTI: "public.zip-archive",
+  });
+  return { uri: destination.uri, fileName };
+}
+
+export async function chooseAndValidateOfflineBackup(): Promise<OfflineBackupPreview | null> {
+  const result = await DocumentPicker.getDocumentAsync({
+    type: ["application/vnd.focuscommand.backup", "application/zip", "application/octet-stream", "*/*"],
+    copyToCacheDirectory: true,
+    multiple: false,
+  });
+  if (result.canceled || !result.assets?.[0]) return null;
+  const asset = result.assets[0];
+  const file = new File(asset.uri);
+  if (!file.exists || !file.size) {
+    throw new OfflineBackupValidationError("The selected backup file is no longer available. Please choose it again.");
+  }
+  const backup = parseOfflineBackupArchive(await file.bytes());
+  return { archiveUri: asset.uri, fileName: asset.name || "Focus Command backup", backup };
+}
+
+function mediaEntryForPrefix(backup: ParsedOfflineBackup, prefix: string, key: string) {
+  return backup.media.find((file) => file.path.startsWith(`${prefix}${key}.`)) ?? null;
+}
+
+function createRestoredMediaFile(directory: Directory, name: string, bytes: Uint8Array): File {
+  directory.create({ idempotent: true, intermediates: true });
+  const file = new File(directory, name);
+  if (file.exists) file.delete();
+  file.create({ intermediates: true });
+  file.write(bytes);
+  if (!file.exists || file.size !== bytes.length) {
+    if (file.exists) file.delete();
+    throw new OfflineBackupValidationError("Focus Command could not restore one of the backup media files.");
+  }
+  return file;
+}
+
+/**
+ * Copies media files before state replacement. On error, all newly copied files are
+ * removed and the existing application state remains untouched.
+ */
+export function materializeOfflineBackupMedia(backup: ParsedOfflineBackup): OfflineRestoreMaterialization {
+  const state = JSON.parse(JSON.stringify(backup.state)) as FocusState;
+  const createdUris: string[] = [];
+  const restoreStamp = timestampFileStem();
+  try {
+    for (const [variant, override] of Object.entries(state.profile.localCinematicOverrides)) {
+      const entry = mediaEntryForPrefix(backup, CINEMATIC_PREFIX, variant);
+      if (!override || !entry) {
+        delete state.profile.localCinematicOverrides[variant as CharacterCinematicVariant];
+        continue;
+      }
+      const extension = fileExtension(entry.path, "mp4");
+      const file = createRestoredMediaFile(CINEMATIC_DIRECTORY, `backup-${restoreStamp}-${safeFileName(variant, "cinematic")}.${extension}`, entry.bytes);
+      createdUris.push(file.uri);
+      state.profile.localCinematicOverrides[variant as CharacterCinematicVariant] = { uri: file.uri, name: override.name };
+    }
+    for (const role of SOUND_ROLE_IDS) {
+      const setting = state.profile.soundRoles[role];
+      const entry = setting?.customUri ? mediaEntryForPrefix(backup, SOUND_PREFIX, role) : null;
+      if (!setting || !entry) {
+        if (setting) state.profile.soundRoles[role as SoundRoleId] = { ...setting, customUri: null, customName: null };
+        continue;
+      }
+      const extension = fileExtension(entry.path, "mp3");
+      const file = createRestoredMediaFile(SOUND_DIRECTORY, `backup-${restoreStamp}-${safeFileName(role, "sound")}.${extension}`, entry.bytes);
+      createdUris.push(file.uri);
+      state.profile.soundRoles[role as SoundRoleId] = { ...setting, customUri: file.uri };
+    }
+    return { state, createdUris };
+  } catch (error) {
+    for (const uri of createdUris) {
+      const file = new File(uri);
+      if (file.exists) file.delete();
+    }
+    throw error;
+  }
+}
+
+export function discardMaterializedOfflineBackup(materialized: OfflineRestoreMaterialization): void {
+  for (const uri of materialized.createdUris) {
+    const file = new File(uri);
+    if (file.exists) file.delete();
+  }
+}
