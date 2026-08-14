@@ -55,13 +55,13 @@ export default function JournalScreen() {
           <MetricTile label="Lifeline gain" value={lifelineContribution.toFixed(1)} detail="5% of journal points" icon="chart.xyaxis.line" accent={colors.success} />
         </View>
 
-        {showComposer ? (
-          <CommandCard accent={colors.primary} style={styles.composer}>
-            <View style={styles.composerHeading}>
-              <View>
-                <Text style={[styles.composerTitle, { color: colors.foreground }]}>Journal entry · {today}</Text>
-                <Text style={[styles.composerDetail, { color: colors.muted }]}>Your answers will update the life-performance signal on the Dashboard.</Text>
-              </View>
+	        {showComposer ? (
+	          <CommandCard accent={colors.primary} style={styles.composer}>
+	            <View style={styles.composerHeading}>
+	              <View style={styles.composerCopy}>
+	                <Text numberOfLines={2} style={[styles.composerTitle, { color: colors.foreground }]}>Journal entry · {today}</Text>
+	                <Text style={[styles.composerDetail, { color: colors.muted }]}>Your answers will update the life-performance signal on the Dashboard.</Text>
+	              </View>
               <StatusPill label="TODAY" tone="primary" icon="book.closed.fill" />
             </View>
 
@@ -126,10 +126,11 @@ export default function JournalScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: 16, paddingTop: 12, paddingBottom: 28 },
-  metrics: { flexDirection: "row", gap: 10 },
-  composer: { gap: 16 },
-  composerHeading: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
-  composerTitle: { fontSize: 16, lineHeight: 21, fontWeight: "900" },
+	  metrics: { flexDirection: "row", gap: 10 },
+	  composer: { gap: 16 },
+	  composerHeading: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
+	  composerCopy: { flex: 1, minWidth: 0 },
+	  composerTitle: { fontSize: 16, lineHeight: 21, fontWeight: "900" },
   composerDetail: { fontSize: 12, lineHeight: 17, fontWeight: "500", marginTop: 2, maxWidth: 260 },
   questionBlock: { gap: 10 },
   questionLabel: { fontSize: 14, lineHeight: 19, fontWeight: "800" },
