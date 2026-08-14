@@ -14,7 +14,7 @@ import {
   CINEMATIC_VIDEO_SOUNDTRACK_VOLUME,
   usesCinematicVideoSoundtrack,
 } from "@/lib/cinematic-playback";
-import { useFocusCommand } from "@/lib/focus-command";
+import { getActiveCustomCharacterForm, type CustomCharacterForm, useFocusCommand } from "@/lib/focus-command";
 import {
   CHARACTER_EVOLUTION_TIMELINE_MS,
   getCharacterEvolutionProfile,
@@ -80,8 +80,19 @@ const CHARACTER_EVOLUTION_VIDEO_SOURCES = {
 const CHARACTER_EVOLUTION_VIDEO_SOUNDTRACK_SOURCE = require("@/assets/sounds/character-evolution-video-10s.mp3");
 const CHARACTER_EVOLUTION_POST_VIDEO_REVEAL_SOURCE = require("@/assets/sounds/character-evolution-ending.mp3");
 
-export function getRankProfile(title: string, level: number): RankProfile {
+export function getRankProfile(title: string, level: number, customCharacterForms: CustomCharacterForm[] = []): RankProfile {
+  const customForm = getActiveCustomCharacterForm({ customCharacterForms }, level);
   const evolution = getCharacterEvolutionProfile(title, level);
+  if (customForm?.portrait) {
+    return {
+      name: customForm.name,
+      accent: evolution.accent,
+      secondaryAccent: evolution.secondaryAccent,
+      detail: `Custom form · activates at L${customForm.activationLevel}`,
+      portrait: { uri: customForm.portrait.uri },
+      stage: evolution.stage,
+    };
+  }
   const portrait = PORTRAITS[getCharacterPortraitVariant(title, level)];
   return {
     name: evolution.formName,
@@ -113,7 +124,8 @@ function CharacterGrowthLayers({ stage, accent, secondaryAccent, equipment, comp
 
 export function RankCharacter({ title, level, reduceMotion, compact = false, onPress, equipment, acknowledgementNonce = 0 }: RankCharacterProps) {
   const colors = useColors();
-  const profile = getRankProfile(title, level);
+  const { state } = useFocusCommand();
+  const profile = getRankProfile(title, level, state.profile.customCharacterForms);
   const float = useSharedValue(0);
   const glow = useSharedValue(0.55);
   const transition = useSharedValue(1);
@@ -213,11 +225,18 @@ export function RankCharacterAchievement({
 }) {
   const colors = useColors();
   const { state } = useFocusCommand();
-  const profile = getRankProfile(title, level);
+  const activeCustomForm = getActiveCustomCharacterForm(state.profile, level);
+  const profile = getRankProfile(title, level, state.profile.customCharacterForms);
   const evolution = useMemo(() => getCharacterEvolutionProfile(title, level), [level, title]);
   const cinematicVideoDurationMs = getCharacterEvolutionVideoDurationMs(evolution.cinematicVariant);
-  const cinematicVideoSource = state.profile.localCinematicOverrides[evolution.cinematicVariant]?.uri
+  const cinematicVideoSource = activeCustomForm?.video?.uri
+    ?? state.profile.localCinematicOverrides[evolution.cinematicVariant]?.uri
     ?? CHARACTER_EVOLUTION_VIDEO_SOURCES[evolution.cinematicVariant];
+  const selectedMusic = activeCustomForm?.music
+    ?? state.profile.localCinematicMusicOverrides[evolution.cinematicVariant]
+    ?? { duringVideo: null, postVideo: null };
+  const duringVideoMusicSource = selectedMusic.duringVideo?.uri ?? CHARACTER_EVOLUTION_VIDEO_SOUNDTRACK_SOURCE;
+  const postVideoMusicSource = selectedMusic.postVideo?.uri ?? CHARACTER_EVOLUTION_POST_VIDEO_REVEAL_SOURCE;
   const gear = useMemo(() => getEquippedGearLabels(equipment), [equipment]);
   const [phase, setPhase] = useState<PowerUpPhase>("activation");
   const fade = useSharedValue(0);
@@ -249,7 +268,7 @@ export function RankCharacterAchievement({
   const playersRef = useRef<ReturnType<typeof createAudioPlayer>[]>([]);
   const videoSoundtrackPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
   const postVideoRevealPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
-  const usesSuppliedTenSecondCinematic = usesCinematicVideoSoundtrack(evolution.cinematicVariant);
+  const usesSuppliedTenSecondCinematic = Boolean(activeCustomForm || selectedMusic.duringVideo || selectedMusic.postVideo || usesCinematicVideoSoundtrack(evolution.cinematicVariant));
   const variationSeed = level + evolution.stage + (evolution.family === "shadow" ? 1 : evolution.family === "ascendant" ? 2 : evolution.family === "command" ? 3 : 0);
   const impactDirection = variationSeed % 2 === 0 ? 1 : -1;
   const cinematicIntensity = 1 + evolution.stage * 0.09 + (level % 3) * 0.045;
@@ -378,8 +397,8 @@ export function RankCharacterAchievement({
       if (!soundEnabled || mode !== "evolution") return;
       try {
         if (usesSuppliedTenSecondCinematic) {
-          videoSoundtrackPlayerRef.current = createAudioPlayer(CHARACTER_EVOLUTION_VIDEO_SOUNDTRACK_SOURCE);
-          postVideoRevealPlayerRef.current = createAudioPlayer(CHARACTER_EVOLUTION_POST_VIDEO_REVEAL_SOURCE);
+          videoSoundtrackPlayerRef.current = createAudioPlayer(duringVideoMusicSource);
+          postVideoRevealPlayerRef.current = createAudioPlayer(postVideoMusicSource);
         } else {
           playersRef.current = CHARACTER_EVOLUTION_AUDIO_SOURCES.map((source) => createAudioPlayer(source));
         }
@@ -528,7 +547,7 @@ export function RankCharacterAchievement({
       stopVideo();
       releasePlayers();
     };
-  }, [camera, cinematicIntensity, cinematicVideoDurationMs, counterSpin, evolution.stage, fade, flash, impactDirection, mode, particles, portal, portraitScale, portraitY, reduceMotion, reveal, reward, ribbon, shakeX, shakeY, shockwave, soundEnabled, spin, usesSuppliedTenSecondCinematic, videoOpacity, videoPlayer, visible]);
+  }, [camera, cinematicIntensity, cinematicVideoDurationMs, counterSpin, duringVideoMusicSource, evolution.stage, fade, flash, impactDirection, mode, particles, portal, portraitScale, portraitY, postVideoMusicSource, reduceMotion, reveal, reward, ribbon, shakeX, shakeY, shockwave, soundEnabled, spin, usesSuppliedTenSecondCinematic, videoOpacity, videoPlayer, visible]);
 
   const backdropStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
   const stageStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shakeX.value }, { translateY: shakeY.value }, { scale: camera.value }] }));

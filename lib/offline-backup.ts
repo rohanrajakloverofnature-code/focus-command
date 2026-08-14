@@ -16,9 +16,12 @@ import type { CharacterCinematicVariant } from "@/lib/character-development";
 const BACKUP_CACHE_DIRECTORY = new Directory(Paths.cache, "focus-command-backups");
 const CINEMATIC_DIRECTORY = new Directory(Paths.document, "focus-command-cinematics");
 const SOUND_DIRECTORY = new Directory(Paths.document, "focus-command-sounds");
+const PORTRAIT_DIRECTORY = new Directory(Paths.document, "focus-command-portraits");
 
 const CINEMATIC_PREFIX = "media/cinematics/";
 const SOUND_PREFIX = "media/sounds/";
+const CINEMATIC_MUSIC_PREFIX = "media/cinematic-music/";
+const FORM_PREFIX = "media/forms/";
 
 export interface OfflineBackupPreview {
   archiveUri: string;
@@ -65,6 +68,23 @@ export async function collectOfflineBackupMedia(state: FocusState): Promise<Offl
     if (!setting?.customUri) continue;
     const extension = fileExtension(setting.customName ?? "", "mp3");
     media.push(await readLocalMedia(setting.customUri, `${SOUND_PREFIX}${role}.${extension}`));
+  }
+  for (const [variant, pair] of Object.entries(state.profile.localCinematicMusicOverrides)) {
+    for (const slot of ["duringVideo", "postVideo"] as const) {
+      const override = pair?.[slot];
+      if (!override?.uri) continue;
+      const extension = fileExtension(override.name, "mp3");
+      media.push(await readLocalMedia(override.uri, `${CINEMATIC_MUSIC_PREFIX}${variant}-${slot}.${extension}`));
+    }
+  }
+  for (const form of state.profile.customCharacterForms) {
+    const formPrefix = `${FORM_PREFIX}${safeFileName(form.id, "form")}/`;
+    if (form.portrait?.uri) media.push(await readLocalMedia(form.portrait.uri, `${formPrefix}portrait.${fileExtension(form.portrait.name, "png")}`));
+    if (form.video?.uri) media.push(await readLocalMedia(form.video.uri, `${formPrefix}video.${fileExtension(form.video.name, "mp4")}`));
+    for (const slot of ["duringVideo", "postVideo"] as const) {
+      const override = form.music[slot];
+      if (override?.uri) media.push(await readLocalMedia(override.uri, `${formPrefix}${slot}.${fileExtension(override.name, "mp3")}`));
+    }
   }
   return media;
 }
@@ -113,6 +133,15 @@ function mediaEntryForPrefix(backup: ParsedOfflineBackup, prefix: string, key: s
   return backup.media.find((file) => file.path.startsWith(`${prefix}${key}.`)) ?? null;
 }
 
+function restoreMediaOverride<T extends { uri: string; name: string }>(backup: ParsedOfflineBackup, prefix: string, key: string, original: T | null | undefined, directory: Directory, restoreStamp: string, fallbackExtension: string, createdUris: string[]): T | null {
+  const entry = original?.uri ? mediaEntryForPrefix(backup, prefix, key) : null;
+  if (!original || !entry) return null;
+  const extension = fileExtension(entry.path, fallbackExtension);
+  const file = createRestoredMediaFile(directory, `backup-${restoreStamp}-${safeFileName(key, "media")}.${extension}`, entry.bytes);
+  createdUris.push(file.uri);
+  return { ...original, uri: file.uri };
+}
+
 function createRestoredMediaFile(directory: Directory, name: string, bytes: Uint8Array): File {
   directory.create({ idempotent: true, intermediates: true });
   const file = new File(directory, name);
@@ -158,6 +187,20 @@ export function materializeOfflineBackupMedia(backup: ParsedOfflineBackup): Offl
       createdUris.push(file.uri);
       state.profile.soundRoles[role as SoundRoleId] = { ...setting, customUri: file.uri };
     }
+    for (const [variant, pair] of Object.entries(state.profile.localCinematicMusicOverrides)) {
+      if (!pair) continue;
+      const duringVideo = restoreMediaOverride(backup, CINEMATIC_MUSIC_PREFIX, `${variant}-duringVideo`, pair.duringVideo, SOUND_DIRECTORY, restoreStamp, "mp3", createdUris);
+      const postVideo = restoreMediaOverride(backup, CINEMATIC_MUSIC_PREFIX, `${variant}-postVideo`, pair.postVideo, SOUND_DIRECTORY, restoreStamp, "mp3", createdUris);
+      state.profile.localCinematicMusicOverrides[variant as CharacterCinematicVariant] = { duringVideo, postVideo };
+    }
+    state.profile.customCharacterForms = state.profile.customCharacterForms.map((form) => {
+      const prefix = `${FORM_PREFIX}${safeFileName(form.id, "form")}/`;
+      const portrait = restoreMediaOverride(backup, prefix, "portrait", form.portrait, PORTRAIT_DIRECTORY, restoreStamp, "png", createdUris);
+      const video = restoreMediaOverride(backup, prefix, "video", form.video, CINEMATIC_DIRECTORY, restoreStamp, "mp4", createdUris);
+      const duringVideo = restoreMediaOverride(backup, prefix, "duringVideo", form.music.duringVideo, SOUND_DIRECTORY, restoreStamp, "mp3", createdUris);
+      const postVideo = restoreMediaOverride(backup, prefix, "postVideo", form.music.postVideo, SOUND_DIRECTORY, restoreStamp, "mp3", createdUris);
+      return { ...form, portrait, video, music: { duringVideo, postVideo } };
+    });
     return { state, createdUris };
   } catch (error) {
     for (const uri of createdUris) {

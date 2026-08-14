@@ -437,4 +437,12 @@
 - [x] Push the validated Offline Backup File checkpoint to private GitHub main without starting an APK build, then verify the remote commit.
 - [x] Prepare an approval-gated, Journal-header-only correction for the clipped Today status control in the Journal Entry card.
 - [x] Implement the approved Journal-header-only responsive correction so the Today status control remains fully visible on narrow portrait screens.
+- [x] Push the validated Journal Today-control correction checkpoint to private GitHub main without starting an APK build, then verify the remote commit.
+- [x] Prepare an approval-gated plan for extensible rank titles and custom level-based character cinematic forms, including independently configurable and duration-validated two-track music for all eight existing forms and every new custom form.
+- [x] Extend persisted progression data so rank titles use safe explicit level thresholds beyond the original title list while retaining legacy behavior.
+- [x] Add local custom character-form data, media lifecycle, activation-level safeguards, and backup compatibility without changing the current eight-form defaults.
+- [x] Add independently validated during-video and post-video music overrides for all eight existing forms and every custom form, retaining the bundled default tracks as fallbacks.
+- [x] Update cinematic playback so selected form media is resolved safely while preserving simultaneous embedded-video audio plus BGM, post-video reveal timing, and the unchanged profile-logo interaction.
+- [x] Add the approved Customize and Character Cinematics interfaces for titles, custom forms, portrait/video selection, and per-form music replacement or reset.
+- [x] Add exhaustive regression coverage and complete type, test, lint, production-export, and preview validation without starting an APK build.
 - [x] Implement the approved Journal-header-only responsive correction so the Today status control remains fully visible on narrow portrait screens.

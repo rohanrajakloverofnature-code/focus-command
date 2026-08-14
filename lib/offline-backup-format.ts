@@ -8,7 +8,9 @@ export const FOCUS_COMMAND_BACKUP_EXTENSION = "fcbak";
 export const FOCUS_COMMAND_BACKUP_FORMAT = "focus-command-offline-backup";
 export const FOCUS_COMMAND_BACKUP_VERSION = 1;
 export const MAX_BACKUP_BYTES = 250 * 1024 * 1024;
-export const MAX_BACKUP_MEDIA_FILES = 32;
+// Existing cinematic/video and sound overrides can now be accompanied by two
+// tracks for eight forms plus four files for each custom form.
+export const MAX_BACKUP_MEDIA_FILES = 256;
 
 const MANIFEST_PATH = "manifest.json";
 const STATE_PATH = "state.json";

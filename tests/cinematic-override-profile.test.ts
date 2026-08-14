@@ -18,4 +18,40 @@ describe("cinematic override profile persistence", () => {
     delete (legacy.profile as Partial<FocusState["profile"]>).localCinematicOverrides;
     expect(normalizeHydratedState(legacy as FocusState).profile.localCinematicOverrides).toEqual({});
   });
+
+  it("hydrates new rank, per-form music, and custom-form fields without changing legacy defaults", () => {
+    const legacy = JSON.parse(JSON.stringify(createInitialState())) as FocusState;
+    delete (legacy.profile as Partial<FocusState["profile"]>).rankTitles;
+    delete (legacy.profile as Partial<FocusState["profile"]>).localCinematicMusicOverrides;
+    delete (legacy.profile as Partial<FocusState["profile"]>).customCharacterForms;
+
+    const hydratedLegacy = normalizeHydratedState(legacy as FocusState).profile;
+    expect(hydratedLegacy.rankTitles).toHaveLength(hydratedLegacy.titles.length);
+    expect(hydratedLegacy.rankTitles[0]).toMatchObject({ startLevel: 1, thresholdMode: "interval" });
+    expect(hydratedLegacy.localCinematicMusicOverrides).toEqual({});
+    expect(hydratedLegacy.customCharacterForms).toEqual([]);
+
+    const saved = createInitialState();
+    saved.profile.localCinematicMusicOverrides = {
+      tactical: {
+        duringVideo: { uri: "file:///documents/focus-command-sounds/recruit-during.mp3", name: "recruit-during.mp3", durationSeconds: 10.2 },
+        postVideo: { uri: "file:///documents/focus-command-sounds/recruit-after.mp3", name: "recruit-after.mp3", durationSeconds: 7.4 },
+      },
+    };
+    saved.profile.customCharacterForms = [{
+      id: "custom_saved",
+      name: "Arcane Commander",
+      activationLevel: 600,
+      portrait: { uri: "file:///documents/focus-command-portraits/arcane.png", name: "arcane.png" },
+      video: { uri: "file:///documents/focus-command-cinematics/arcane.mp4", name: "arcane.mp4" },
+      music: {
+        duringVideo: { uri: "file:///documents/focus-command-sounds/arcane-during.mp3", name: "arcane-during.mp3", durationSeconds: 10.3 },
+        postVideo: { uri: "file:///documents/focus-command-sounds/arcane-after.mp3", name: "arcane-after.mp3", durationSeconds: 7.2 },
+      },
+      createdAt: "2026-08-14T00:00:00.000Z",
+    }];
+    const hydratedSaved = normalizeHydratedState(saved).profile;
+    expect(hydratedSaved.localCinematicMusicOverrides.tactical?.duringVideo?.uri).toContain("recruit-during.mp3");
+    expect(hydratedSaved.customCharacterForms[0]).toMatchObject({ name: "Arcane Commander", activationLevel: 600 });
+  });
 });

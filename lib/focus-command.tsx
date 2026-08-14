@@ -143,6 +143,38 @@ export interface LocalCinematicOverride {
   name: string;
 }
 
+/** A locally copied audio file whose loaded duration was checked before saving. */
+export interface LocalCinematicAudioOverride extends LocalCinematicOverride {
+  durationSeconds: number;
+}
+
+export interface CharacterCinematicMusicPair {
+  duringVideo: LocalCinematicAudioOverride | null;
+  postVideo: LocalCinematicAudioOverride | null;
+}
+
+export interface RankTitle {
+  id: string;
+  name: string;
+  startLevel: number;
+  /** Legacy titles continue to follow the Level Rules interval until explicitly repositioned. */
+  thresholdMode?: "interval" | "explicit";
+}
+
+/**
+ * An offline, user-created form. Incomplete forms are retained for editing but
+ * never replace a bundled portrait/cinematic until every required file exists.
+ */
+export interface CustomCharacterForm {
+  id: string;
+  name: string;
+  activationLevel: number;
+  portrait: LocalCinematicOverride | null;
+  video: LocalCinematicOverride | null;
+  music: CharacterCinematicMusicPair;
+  createdAt: string;
+}
+
 export interface PlayerProfile {
   firstName: string;
   timezone: string;
@@ -153,10 +185,15 @@ export interface PlayerProfile {
   maxLevel: number;
   powerPerLevel: number;
   titleChangeInterval: number;
+  /** Legacy display list retained for older state, Google-sheet, and UI consumers. */
   titles: string[];
+  /** Explicit title thresholds that allow ranks to continue beyond the original fifty. */
+  rankTitles: RankTitle[];
   soundEnabled: boolean;
   soundRoles: Record<SoundRoleId, SoundRoleSettings>;
   localCinematicOverrides: Partial<Record<CharacterCinematicVariant, LocalCinematicOverride>>;
+  localCinematicMusicOverrides: Partial<Record<CharacterCinematicVariant, CharacterCinematicMusicPair>>;
+  customCharacterForms: CustomCharacterForm[];
   hapticsEnabled: boolean;
   notificationsEnabled: boolean;
   reduceMotion: boolean;
@@ -599,6 +636,59 @@ export const DEFAULT_TITLES = [
   "Focus Legend",
 ];
 
+export function createDefaultRankTitles(interval = 10): RankTitle[] {
+  const safeInterval = Math.max(1, Math.floor(interval));
+  return DEFAULT_TITLES.map((name, index) => ({
+    id: `legacy_rank_${index + 1}`,
+    name,
+    startLevel: index * safeInterval + 1,
+    thresholdMode: "interval",
+  }));
+}
+
+export function getResolvedRankTitles(profile: Pick<PlayerProfile, "titles" | "rankTitles" | "titleChangeInterval">): RankTitle[] {
+  const legacy = profile.titles?.length ? profile.titles : DEFAULT_TITLES;
+  const supplied = profile.rankTitles?.length
+    ? profile.rankTitles
+    : legacy.map((name, index) => ({ id: `legacy_rank_${index + 1}`, name, startLevel: index * Math.max(1, profile.titleChangeInterval) + 1, thresholdMode: "interval" as const }));
+  const usedLevels = new Set<number>();
+  return supplied
+    .map((entry, index) => {
+      const thresholdMode: NonNullable<RankTitle["thresholdMode"]> = entry.thresholdMode === "explicit" ? "explicit" : "interval";
+      return {
+      id: typeof entry.id === "string" && entry.id.trim() ? entry.id : `rank_${index + 1}`,
+      name: typeof entry.name === "string" && entry.name.trim() ? entry.name.trim() : `Title ${index + 1}`,
+      startLevel: thresholdMode === "interval"
+        ? index * Math.max(1, Math.floor(profile.titleChangeInterval)) + 1
+        : Math.max(1, Math.floor(Number(entry.startLevel) || 1)),
+      thresholdMode,
+    };
+    })
+    .sort((left, right) => left.startLevel - right.startLevel || left.id.localeCompare(right.id))
+    .map((entry) => {
+      let nextLevel = entry.startLevel;
+      while (usedLevels.has(nextLevel)) nextLevel += 1;
+      usedLevels.add(nextLevel);
+      return { ...entry, startLevel: nextLevel };
+    });
+}
+
+export function getActiveCustomCharacterForm(profile: Pick<PlayerProfile, "customCharacterForms">, level: number): CustomCharacterForm | null {
+  return (profile.customCharacterForms ?? [])
+    .filter((form) => form.activationLevel <= level && isCustomCharacterFormReady(form))
+    .sort((left, right) => right.activationLevel - left.activationLevel || right.createdAt.localeCompare(left.createdAt))[0] ?? null;
+}
+
+export function isCustomCharacterFormReady(form: CustomCharacterForm): boolean {
+  return Boolean(form.name.trim() && form.portrait?.uri && form.video?.uri && form.music.duringVideo?.uri && form.music.postVideo?.uri);
+}
+
+export function getMinimumProfileMaxLevel(profile: Pick<PlayerProfile, "titles" | "rankTitles" | "titleChangeInterval" | "customCharacterForms">): number {
+  const highestTitle = getResolvedRankTitles(profile).at(-1)?.startLevel ?? 1;
+  const highestForm = (profile.customCharacterForms ?? []).reduce((highest, form) => Math.max(highest, form.activationLevel), 1);
+  return Math.max(10, highestTitle, highestForm);
+}
+
 const STORAGE_KEY = "focus-command-state-v1";
 const DAY_MS = 86_400_000;
 
@@ -715,6 +805,7 @@ function defaultProfile(): PlayerProfile {
     powerPerLevel: 100,
     titleChangeInterval: 10,
     titles: DEFAULT_TITLES,
+    rankTitles: createDefaultRankTitles(),
     soundEnabled: true,
     soundRoles: {
       missionWin: { enabled: true, style: "ceremonial", customUri: null, customName: null },
@@ -733,6 +824,8 @@ function defaultProfile(): PlayerProfile {
       extended: { enabled: true, style: "soft", customUri: null, customName: null },
     },
     localCinematicOverrides: {},
+    localCinematicMusicOverrides: {},
+    customCharacterForms: [],
     hapticsEnabled: true,
     notificationsEnabled: true,
     reduceMotion: false,
@@ -927,15 +1020,17 @@ export function getLevelInfo(state: FocusState) {
 
 export function getCurrentTitle(state: FocusState): { title: string; index: number; progress: number } {
   const levelInfo = getLevelInfo(state);
-  const interval = Math.max(1, state.profile.titleChangeInterval);
-  const titleIndex = Math.min(state.profile.titles.length - 1, Math.max(0, Math.floor((levelInfo.level - 1) / interval)));
-  const titleStartLevel = titleIndex * interval + 1;
-  const titleEndLevel = titleStartLevel + interval;
+  const rankTitles = getResolvedRankTitles(state.profile);
+  const titleIndex = Math.max(0, rankTitles.reduce((selected, entry, index) => entry.startLevel <= levelInfo.level ? index : selected, 0));
+  const currentTitle = rankTitles[titleIndex] ?? { id: "fallback", name: "Commander", startLevel: 1 };
+  const nextTitle = rankTitles[titleIndex + 1] ?? null;
+  const titleStartLevel = currentTitle.startLevel;
+  const titleEndLevel = nextTitle?.startLevel ?? titleStartLevel;
   const titleStartPower = getLevelPowerThreshold(titleStartLevel, state.profile.powerPerLevel);
   const titleEndPower = getLevelPowerThreshold(titleEndLevel, state.profile.powerPerLevel);
   const totalPower = getTotalPower(state);
-  const progress = titleIndex >= state.profile.titles.length - 1 ? 1 : Math.min(1, Math.max(0, (totalPower - titleStartPower) / Math.max(1, titleEndPower - titleStartPower)));
-  return { title: state.profile.titles[titleIndex] ?? "Commander", index: titleIndex, progress };
+  const progress = nextTitle ? Math.min(1, Math.max(0, (totalPower - titleStartPower) / Math.max(1, titleEndPower - titleStartPower))) : 1;
+  return { title: currentTitle.name, index: titleIndex, progress };
 }
 
 export const LONG_MISSION_REFLECTION_THRESHOLD_MS = 45 * 60_000;
@@ -1647,6 +1742,29 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       reflectionId: (input.reflections ?? []).find((reflection) => reflection.missionId === event.missionId && reflection.createdAt === event.occurredAt)?.id ?? "",
       progressionEventId: event.id,
     }));
+  const rawProfile = {
+    ...defaults.profile,
+    ...(input.profile ?? {}),
+  };
+  const rankTitles = getResolvedRankTitles(rawProfile);
+  const customCharacterForms = (rawProfile.customCharacterForms ?? []).map((form, index) => ({
+    id: typeof form.id === "string" && form.id ? form.id : `custom_form_${index + 1}`,
+    name: typeof form.name === "string" ? form.name : `Custom form ${index + 1}`,
+    activationLevel: Math.max(1, Math.floor(Number(form.activationLevel) || 1)),
+    portrait: form.portrait?.uri ? form.portrait : null,
+    video: form.video?.uri ? form.video : null,
+    music: {
+      duringVideo: form.music?.duringVideo?.uri ? form.music.duringVideo : null,
+      postVideo: form.music?.postVideo?.uri ? form.music.postVideo : null,
+    },
+    createdAt: typeof form.createdAt === "string" && form.createdAt ? form.createdAt : nowIso(),
+  }));
+  const minimumMaxLevel = getMinimumProfileMaxLevel({
+    ...rawProfile,
+    rankTitles,
+    titles: rankTitles.map((entry) => entry.name),
+    customCharacterForms,
+  });
   return {
     ...defaults,
     ...input,
@@ -1654,6 +1772,10 @@ export function normalizeHydratedState(input: FocusState): FocusState {
     profile: {
       ...defaults.profile,
       ...(input.profile ?? {}),
+      titles: rankTitles.map((entry) => entry.name),
+      rankTitles,
+      customCharacterForms,
+      maxLevel: Math.max(Number(rawProfile.maxLevel) || defaults.profile.maxLevel, minimumMaxLevel),
       palette: { ...defaults.profile.palette, ...(input.profile?.palette ?? {}) },
       notificationRules: { ...defaults.profile.notificationRules, ...(input.profile?.notificationRules ?? {}) },
       soundRoles: (() => {
@@ -1685,6 +1807,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
         ) as Record<SoundRoleId, SoundRoleSettings>;
       })(),
       localCinematicOverrides: input.profile?.localCinematicOverrides ?? {},
+      localCinematicMusicOverrides: input.profile?.localCinematicMusicOverrides ?? {},
       emotionalCharts: input.profile?.emotionalCharts?.length ? input.profile.emotionalCharts : defaults.profile.emotionalCharts,
     },
     combo: { ...defaults.combo, ...(input.combo ?? {}) },
@@ -2338,9 +2461,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   }, [commit, state]);
 
   const updateProfile = useCallback((patch: Partial<PlayerProfile>) => {
-    commit((current) => withQueuedOperation({
-      ...current,
-      profile: {
+    commit((current) => {
+      const candidate = {
         ...current.profile,
         ...patch,
         soundRoles: patch.soundRoles
@@ -2352,8 +2474,19 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         palette: patch.palette
           ? { ...current.profile.palette, ...patch.palette }
           : current.profile.palette,
-      },
-    }));
+        localCinematicMusicOverrides: patch.localCinematicMusicOverrides
+          ? { ...current.profile.localCinematicMusicOverrides, ...patch.localCinematicMusicOverrides }
+          : current.profile.localCinematicMusicOverrides,
+      };
+      const rankTitles = getResolvedRankTitles(candidate);
+      const profile = {
+        ...candidate,
+        rankTitles,
+        titles: rankTitles.map((entry) => entry.name),
+        maxLevel: Math.max(Math.floor(Number(candidate.maxLevel) || 10), getMinimumProfileMaxLevel({ ...candidate, rankTitles })),
+      };
+      return withQueuedOperation({ ...current, profile });
+    });
   }, [commit]);
 
   const setCinematicOverride = useCallback((variant: CharacterCinematicVariant, override: LocalCinematicOverride) => {

@@ -56,6 +56,42 @@ describe("offline Focus Command backup format", () => {
     ]);
   });
 
+  it("round-trips built-in form music plus a complete custom form media set", () => {
+    const state = createPopulatedState();
+    state.profile.localCinematicMusicOverrides = {
+      tactical: {
+        duringVideo: { uri: "file:///sounds/tactical-during.mp3", name: "tactical-during.mp3", durationSeconds: 10.25 },
+        postVideo: { uri: "file:///sounds/tactical-after.mp3", name: "tactical-after.mp3", durationSeconds: 7.5 },
+      },
+    };
+    state.profile.customCharacterForms = [{
+      id: "arcane_commander",
+      name: "Arcane Commander",
+      activationLevel: 600,
+      portrait: { uri: "file:///portraits/arcane.png", name: "arcane.png" },
+      video: { uri: "file:///cinematics/arcane.mp4", name: "arcane.mp4" },
+      music: {
+        duringVideo: { uri: "file:///sounds/arcane-during.mp3", name: "arcane-during.mp3", durationSeconds: 10.4 },
+        postVideo: { uri: "file:///sounds/arcane-after.mp3", name: "arcane-after.mp3", durationSeconds: 7.1 },
+      },
+      createdAt: "2026-08-14T00:00:00.000Z",
+    }];
+    const media = [
+      "media/cinematic-music/tactical-duringVideo.mp3",
+      "media/cinematic-music/tactical-postVideo.mp3",
+      "media/forms/arcane_commander/portrait.png",
+      "media/forms/arcane_commander/video.mp4",
+      "media/forms/arcane_commander/duringVideo.mp3",
+      "media/forms/arcane_commander/postVideo.mp3",
+    ].map((path) => ({ path, bytes: strToU8(path) }));
+
+    const parsed = parseOfflineBackupArchive(createOfflineBackupArchive(state, media).archive);
+
+    expect(parsed.state.profile.localCinematicMusicOverrides.tactical?.duringVideo?.durationSeconds).toBe(10.25);
+    expect(parsed.state.profile.customCharacterForms[0]).toMatchObject({ id: "arcane_commander", activationLevel: 600 });
+    expect(parsed.media.map((file) => file.path)).toEqual(media.map((file) => file.path));
+  });
+
   it("rejects a damaged state payload before any restore can begin", () => {
     const { archive } = createOfflineBackupArchive(createPopulatedState());
     const damaged = mutateArchive(archive, (entries) => {

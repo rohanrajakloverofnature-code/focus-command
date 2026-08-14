@@ -1,11 +1,11 @@
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { CustomQuestion, GraphSeries, useFocusCommand } from "@/lib/focus-command";
+import { CustomQuestion, GraphSeries, RankTitle, useFocusCommand } from "@/lib/focus-command";
 
 const graphMetrics: { metric: GraphSeries["metric"]; label: string; color: string }[] = [
   { metric: "miniAchievementRating", label: "Mini achievement", color: "#F4C95D" },
@@ -29,7 +29,7 @@ function parseOptions(value: string) {
 export default function CustomizeScreen() {
   const colors = useColors();
   const { state, ready, updateProfile, addCustomQuestion, updateCustomQuestion, removeCustomQuestion, updateCustomGraph } = useFocusCommand();
-  const [titleDrafts, setTitleDrafts] = useState(state.profile.titles);
+  const [titleDrafts, setTitleDrafts] = useState<RankTitle[]>(state.profile.rankTitles);
   const [questionLabel, setQuestionLabel] = useState("");
   const [questionType, setQuestionType] = useState<CustomQuestion["type"]>("rating");
   const [questionOptions, setQuestionOptions] = useState("");
@@ -37,16 +37,49 @@ export default function CustomizeScreen() {
 
   const editableTitles = useMemo(() => showAllTitles ? titleDrafts : titleDrafts.slice(0, 12), [showAllTitles, titleDrafts]);
 
+  useEffect(() => {
+    if (ready) setTitleDrafts(state.profile.rankTitles);
+  }, [ready, state.profile.rankTitles]);
+
   if (!ready) return <LoadingScreen label="Opening RPG customization…" />;
 
-  const updateTitle = (index: number, value: string) => {
-    setTitleDrafts((current) => current.map((title, position) => position === index ? value : title));
+  const updateTitle = (id: string, patch: Partial<RankTitle>) => {
+    setTitleDrafts((current) => current.map((title) => title.id === id ? { ...title, ...patch } : title));
   };
 
   const saveTitles = () => {
-    const cleaned = titleDrafts.map((title, index) => title.trim() || `Title ${index + 1}`);
-    setTitleDrafts(cleaned);
-    updateProfile({ titles: cleaned });
+    const cleaned = titleDrafts.map((title, index) => ({ ...title, name: title.name.trim() || `Title ${index + 1}`, startLevel: Math.floor(title.startLevel) }));
+    if (cleaned.some((title) => !Number.isInteger(title.startLevel) || title.startLevel < 1 || title.startLevel > state.profile.maxLevel)) {
+      Alert.alert("Invalid title level", `Every title must start at a whole-number level from 1 to ${state.profile.maxLevel}.`);
+      return;
+    }
+    if (new Set(cleaned.map((title) => title.startLevel)).size !== cleaned.length) {
+      Alert.alert("Duplicate title level", "Each title needs its own starting level.");
+      return;
+    }
+    const ordered = cleaned.slice().sort((left, right) => left.startLevel - right.startLevel || left.id.localeCompare(right.id));
+    setTitleDrafts(ordered);
+    updateProfile({ rankTitles: ordered, titles: ordered.map((title) => title.name) });
+  };
+
+  const addTitle = () => {
+    const highest = titleDrafts.reduce((level, title) => Math.max(level, title.startLevel), 0);
+    const startLevel = highest + Math.max(1, state.profile.titleChangeInterval);
+    if (startLevel > state.profile.maxLevel) {
+      Alert.alert("Increase Maximum level first", `The next title would begin at level ${startLevel}, beyond the current maximum level of ${state.profile.maxLevel}.`);
+      return;
+    }
+    setTitleDrafts((current) => [...current, { id: `rank_title_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, name: `New rank title ${current.length + 1}`, startLevel, thresholdMode: "explicit" }]);
+    setShowAllTitles(true);
+  };
+
+  const changeMaximumLevel = (maxLevel: number) => {
+    const requiredLevel = Math.max(1, ...state.profile.rankTitles.map((title) => title.startLevel), ...state.profile.customCharacterForms.map((form) => form.activationLevel));
+    if (maxLevel < requiredLevel) {
+      Alert.alert("Maximum level protected", `Level ${requiredLevel} is used by a configured title or character form. Increase or move that item before lowering Maximum level.`);
+      return;
+    }
+    updateProfile({ maxLevel });
   };
 
   const addQuestion = () => {
@@ -99,7 +132,7 @@ export default function CustomizeScreen() {
 
         <SectionHeader title="Level rules" />
         <CommandCard accent={colors.primary} style={styles.cardStack}>
-          <RuleStepper label="Maximum level" value={state.profile.maxLevel} minimum={10} step={10} onChange={(maxLevel) => updateProfile({ maxLevel })} />
+          <RuleStepper label="Maximum level" value={state.profile.maxLevel} minimum={10} step={10} onChange={changeMaximumLevel} />
           <Divider />
           <RuleStepper label="Power per level" value={state.profile.powerPerLevel} minimum={10} step={10} onChange={(powerPerLevel) => updateProfile({ powerPerLevel })} />
           <Divider />
@@ -107,21 +140,22 @@ export default function CustomizeScreen() {
           <Text style={[styles.helpText, { color: colors.muted }]}>The app always shows your current title and the distance to the next title. Defaults are configured for 500 levels and a title change every 10 levels.</Text>
         </CommandCard>
 
-        <SectionHeader title={`Rank titles · ${state.profile.titles.length} available`} action={showAllTitles ? "Show less" : "Show all"} onAction={() => setShowAllTitles((value) => !value)} />
+        <SectionHeader title={`Rank titles · ${state.profile.rankTitles.length} available`} action={showAllTitles ? "Show less" : "Show all"} onAction={() => setShowAllTitles((value) => !value)} />
         <CommandCard accent={colors.primary} style={styles.titleCard}>
+          <Text style={[styles.helpText, { color: colors.muted }]}>Titles remain ordered by their starting level. The interval still sets default spacing; a level you edit becomes an explicit threshold and is not moved by later interval changes.</Text>
           <FlatList
             data={editableTitles}
             scrollEnabled={false}
-            keyExtractor={(_, index) => String(index)}
-            renderItem={({ item, index }) => (
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
               <View style={styles.titleRow}>
-                <StatusPill label={`LV ${index * state.profile.titleChangeInterval + 1}`} tone="primary" />
-                <TextInput value={item} onChangeText={(value) => updateTitle(index, value)} onBlur={saveTitles} style={[styles.titleInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+                <TextInput value={String(item.startLevel)} onChangeText={(value) => updateTitle(item.id, { startLevel: Number(value) })} keyboardType="number-pad" returnKeyType="done" onEndEditing={saveTitles} style={[styles.titleLevelInput, { color: colors.primary, backgroundColor: colors.background, borderColor: colors.border }]} />
+                <TextInput value={item.name} onChangeText={(value) => updateTitle(item.id, { name: value })} onEndEditing={saveTitles} style={[styles.titleInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
               </View>
             )}
             ItemSeparatorComponent={() => <View style={[styles.titleDivider, { backgroundColor: colors.border }]} />}
           />
-          <CommandButton label="Save title changes" icon="checklist" onPress={saveTitles} />
+          <View style={styles.titleActions}><CommandButton label="Add title" icon="plus" variant="ghost" onPress={addTitle} /><CommandButton label="Save title changes" icon="checklist" onPress={saveTitles} /></View>
         </CommandCard>
 
         <SectionHeader title="Reflection questions" />
@@ -257,8 +291,10 @@ const styles = StyleSheet.create({
   helpText: { fontSize: 12, lineHeight: 18, fontWeight: "500" },
   titleCard: { gap: 10 },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 9, paddingVertical: 6 },
+  titleLevelInput: { width: 62, minHeight: 42, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 7, textAlign: "center", fontSize: 12, fontWeight: "900" },
   titleInput: { flex: 1, minHeight: 42, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 11, fontSize: 13, lineHeight: 17, fontWeight: "700" },
   titleDivider: { height: StyleSheet.hairlineWidth, marginVertical: 2 },
+  titleActions: { gap: 8 },
   questionInput: { minHeight: 44, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 11, fontSize: 12, lineHeight: 17, fontWeight: "600" },
   typeChoices: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   typeChoice: { minHeight: 32, paddingHorizontal: 9, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, justifyContent: "center" },
