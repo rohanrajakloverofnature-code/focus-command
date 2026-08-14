@@ -2,6 +2,7 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
 import type { FocusState } from "@/lib/focus-command";
+import { assembleFocusWorkbookPayload, makeFocusWorkbookValueRanges } from "@/lib/google-sheets-payload";
 
 const ACCESS_TOKEN_KEY = "focus-command.google.access-token";
 const REFRESH_TOKEN_KEY = "focus-command.google.refresh-token";
@@ -152,47 +153,6 @@ async function sheetsRequest<T>(accessToken: string, path: string, init?: Reques
   return response.json() as Promise<T>;
 }
 
-function stringifyCell(value: unknown): string {
-  if (value === undefined || value === null) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return JSON.stringify(value);
-}
-
-function objectRows(items: unknown[]) {
-  const records = items.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item));
-  const columns = Array.from(new Set(records.flatMap((record) => Object.keys(record))));
-  if (!columns.length) return [["No records"]];
-  return [columns, ...records.map((record) => columns.map((column) => stringifyCell(record[column])))];
-}
-
-function makeValueRanges(state: FocusState) {
-  const exported = { ...state, hydrated: true };
-  return [
-    { range: "App_State!A1", values: [["key", "value"], ["schemaVersion", String(state.schemaVersion)], ["updatedAt", new Date().toISOString()], ["payload", JSON.stringify(exported)]] },
-    { range: "Missions!A1", values: objectRows(state.missions) },
-    { range: "Reflections!A1", values: objectRows(state.reflections) },
-    { range: "Revisions!A1", values: objectRows(state.srsTopics) },
-    { range: "Bosses!A1", values: objectRows(state.bosses) },
-    { range: "Journal!A1", values: objectRows(state.journals) },
-    { range: "Rewards!A1", values: objectRows(state.rewards) },
-    { range: "Transactions!A1", values: objectRows(state.transactions) },
-    { range: "Inventory!A1", values: objectRows(state.inventory) },
-    { range: "Progression!A1", values: objectRows(state.progression) },
-    { range: "Lifeline!A1", values: objectRows(state.lifeline) },
-    {
-      range: "Settings!A1",
-      values: [
-        ["key", "value"],
-        ["profile", JSON.stringify(state.profile)],
-        ["combo", JSON.stringify(state.combo)],
-        ["customQuestions", JSON.stringify(state.customQuestions)],
-        ["customGraphs", JSON.stringify(state.customGraphs)],
-      ],
-    },
-  ];
-}
-
 export async function getSpreadsheet(accessToken: string, spreadsheetId: string): Promise<GoogleWorkbook> {
   const result = await sheetsRequest<{ spreadsheetId: string; properties: { title: string } }>(
     accessToken,
@@ -234,7 +194,7 @@ export async function writeFocusWorkbook(accessToken: string, workbook: GoogleWo
   });
   await sheetsRequest(accessToken, `/spreadsheets/${encodeURIComponent(workbook.spreadsheetId)}/values:batchUpdate`, {
     method: "POST",
-    body: JSON.stringify({ valueInputOption: "RAW", data: makeValueRanges(state) }),
+    body: JSON.stringify({ valueInputOption: "RAW", data: makeFocusWorkbookValueRanges(state) }),
   });
 }
 
@@ -244,7 +204,7 @@ export async function getFocusWorkbookMetadata(accessToken: string, spreadsheetI
     `/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent("App_State!A:B")}`,
   );
   const records = new Map(response.values?.map((row) => [row[0], row[1]]) ?? []);
-  const rawPayload = records.get("payload");
+  const rawPayload = assembleFocusWorkbookPayload(records);
   let payload: FocusState | null = null;
   if (rawPayload) {
     try {

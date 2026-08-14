@@ -410,3 +410,6 @@
 
 - [x] Trace and repair the remaining installed-Android failure of the first ten-second cinematic soundtrack while preserving all existing character videos, embedded video audio, ending cue, profile-logo behavior, timing, and unrelated features.
 - [x] Confirm the reported GitHub Actions notices are non-blocking deprecation warnings, add installed-device lifecycle regression coverage for the first soundtrack, validate, checkpoint, and synchronize the focused repair without starting an APK build.
+
+- [x] Trace and repair the remaining Google Sheets export route that sends more than 50,000 characters in one cell, preserving complete importable data and all existing local data, sheet connection, and synchronization controls.
+- [x] Add an oversized-data sync regression covering every export payload path, validate, checkpoint, and synchronize the focused repair without starting an APK build.
