@@ -9,6 +9,25 @@ export interface MiniAchievementHeadline {
   occurredAt: string;
 }
 
+const SUMMARY_MAX_LENGTH = 42;
+const SUMMARY_STOP_WORDS = new Set(["a", "an", "and", "at", "by", "for", "from", "in", "of", "on", "the", "to", "with"]);
+
+/**
+ * Preserves the complete achievement in storage and accessibility labels, while
+ * keeping unusually long headline copy legible inside the compact Home ticker.
+ */
+export function getMiniAchievementTickerSummary(title: string): string {
+  const normalized = title.trim().replace(/\s+/g, " ");
+  if (normalized.length <= SUMMARY_MAX_LENGTH) return normalized;
+
+  const meaningfulWords = normalized
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .split(" ")
+    .filter((word) => word.length > 0 && !SUMMARY_STOP_WORDS.has(word.toLowerCase()));
+
+  return meaningfulWords.slice(0, 2).join(" ") || normalized;
+}
+
 /**
  * Keeps Home recognition aligned with the canonical Wall of Fame window while
  * refusing incomplete or low-rated mini achievements for the compact headline.

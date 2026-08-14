@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getMiniAchievementTickerSummary,
   getMiniAchievementHeadlines,
   getNextMiniAchievementHeadlineIndex,
 } from "../lib/mini-achievement-headlines";
@@ -43,5 +44,16 @@ describe("Mini Achievements headline selection", () => {
     expect(headlines.map((headline) => headline.id)).toEqual(["latest", "older"]);
     expect(getNextMiniAchievementHeadlineIndex(0, headlines.length)).toBe(1);
     expect(getNextMiniAchievementHeadlineIndex(1, headlines.length)).toBe(0);
+  });
+
+  it("keeps normal achievement titles intact for the readable two-line ticker", () => {
+    expect(getMiniAchievementTickerSummary("Held a distraction-free block")).toBe("Held a distraction-free block");
+  });
+
+  it("uses a concise two-word display summary for unusually long achievement text without changing the saved title", () => {
+    const fullTitle = "Completed a deep work review and maintained focus through the final reflection";
+
+    expect(getMiniAchievementTickerSummary(fullTitle)).toBe("Completed deep");
+    expect(getMiniAchievementHeadlines([entry({ miniAchievement: fullTitle })])[0]?.title).toBe(fullTitle);
   });
 });

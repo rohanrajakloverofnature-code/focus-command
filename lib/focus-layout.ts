@@ -1,8 +1,8 @@
 export const MINI_ACHIEVEMENT_TICKER_LAYOUT = {
-  // The ticker is intentionally full-width and placed below the variable-height
-  // profile title. This prevents long player names and roles from crowding it.
+  // The ticker remains in its original logical header slot, directly after the
+  // variable-height profile name and role, with a fixed safety gap.
   height: 78,
-  gap: 10,
+  gap: 12,
   headerZoneMinHeight: 0,
 } as const;
 
@@ -16,7 +16,7 @@ export const RECOGNITION_WINDOW_LAYOUT = {
 
 export function hasReservedMiniAchievementTickerSpace() {
   return MINI_ACHIEVEMENT_TICKER_LAYOUT.height >= 72
-    && MINI_ACHIEVEMENT_TICKER_LAYOUT.gap >= 8;
+    && MINI_ACHIEVEMENT_TICKER_LAYOUT.gap >= 12;
 }
 
 export function getRecognitionWindowCardWidth(containerWidth: number) {

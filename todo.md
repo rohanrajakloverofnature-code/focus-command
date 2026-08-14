@@ -416,3 +416,5 @@
 
 - [x] Repair only the Home-screen Mini Achievement ticker’s readability, heading wrapping, and long-profile-title spacing while preserving its actual achievement data, cycling behavior, navigation target, header controls, and every unrelated feature.
 - [x] Validate the ticker with long titles, multiple eligible achievements, one eligible achievement, and no eligible achievements before checkpointing and synchronizing the focused layout repair without starting an APK build.
+- [x] Provide an accessible direct-image mockup of the corrected Mini Achievement ticker layout after the prior shared-link delivery failed, without modifying the app.
+- [x] Restore the Mini Achievement ticker to its original logical header slot and improve only its long-text readability and collision safety, as explicitly approved.

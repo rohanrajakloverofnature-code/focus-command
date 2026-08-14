@@ -76,19 +76,23 @@ export function ScreenTitle({
   title,
   detail,
   right,
+  titleNumberOfLines,
+  detailNumberOfLines,
 }: {
   eyebrow?: string;
   title: string;
   detail?: string;
   right?: ReactNode;
+  titleNumberOfLines?: number;
+  detailNumberOfLines?: number;
 }) {
   const colors = useColors();
   return (
     <View style={styles.titleRow}>
       <View style={styles.titleCopy}>
         {eyebrow ? <Text style={[styles.eyebrow, { color: colors.primary }]}>{eyebrow.toUpperCase()}</Text> : null}
-        <Text style={[styles.screenTitle, { color: colors.foreground }]}>{title}</Text>
-        {detail ? <Text style={[styles.screenDetail, { color: colors.muted }]}>{detail}</Text> : null}
+        <Text numberOfLines={titleNumberOfLines} ellipsizeMode="tail" style={[styles.screenTitle, { color: colors.foreground }]}>{title}</Text>
+        {detail ? <Text numberOfLines={detailNumberOfLines} ellipsizeMode="tail" style={[styles.screenDetail, { color: colors.muted }]}>{detail}</Text> : null}
       </View>
       {right}
     </View>

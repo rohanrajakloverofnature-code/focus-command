@@ -179,6 +179,8 @@ export default function HomeScreen() {
             eyebrow="Focus Command"
             title={state.profile.firstName}
             detail={title.title}
+            titleNumberOfLines={2}
+            detailNumberOfLines={2}
             right={<IconAction icon="line.3.horizontal" label="Open command settings" onPress={() => router.push("/settings")} />}
           />
           <MiniAchievementTicker achievements={miniAchievementHeadlines} reduceMotion={state.profile.reduceMotion} style={styles.miniAchievementTicker} onPress={() => router.push(MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE as never)} />

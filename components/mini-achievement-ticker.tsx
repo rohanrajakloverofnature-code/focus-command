@@ -4,6 +4,7 @@ import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, wi
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import {
+  getMiniAchievementTickerSummary,
   getNextMiniAchievementHeadlineIndex,
   MINI_ACHIEVEMENT_HEADLINE_INTERVAL_MS,
   type MiniAchievementHeadline,
@@ -60,6 +61,7 @@ export function MiniAchievementTicker({
 
   const headlineStyle = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ translateY: offsetY.value }] }));
   const activeAchievement = achievements[activeIndex % Math.max(1, achievements.length)];
+  const displayTitle = activeAchievement ? getMiniAchievementTickerSummary(activeAchievement.title) : "";
 
   if (!activeAchievement) return null;
 
@@ -79,7 +81,7 @@ export function MiniAchievementTicker({
         </View>
         <View style={styles.copy}>
           <Text numberOfLines={1} style={styles.eyebrow}>MINI ACHIEVEMENT · WALL OF FAME</Text>
-          <Text numberOfLines={2} ellipsizeMode="tail" style={styles.title}>{activeAchievement.title}</Text>
+          <Text numberOfLines={2} ellipsizeMode="tail" style={styles.title}>{displayTitle}</Text>
         </View>
         <View style={styles.ratingBadge}>
           <IconSymbol name="star.fill" size={9} color="#F4C95D" />
@@ -105,7 +107,7 @@ const styles = StyleSheet.create({
   iconFrame: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#F4C95D16" },
   copy: { flex: 1, minWidth: 0, justifyContent: "center" },
   eyebrow: { color: "#D9B65A", fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.75 },
-  title: { color: "#F5F9FF", fontSize: 14, lineHeight: 18, fontWeight: "800", marginTop: 2 },
+  title: { minHeight: 36, color: "#F5F9FF", fontSize: 14, lineHeight: 18, fontWeight: "800", marginTop: 2 },
   ratingBadge: { minWidth: 54, height: 36, paddingHorizontal: 9, borderRadius: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: "#F4C95D18" },
   rating: { color: "#F4C95D", fontSize: 12.5, lineHeight: 16, fontWeight: "900" },
 });
