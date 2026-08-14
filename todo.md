@@ -431,4 +431,4 @@
 - [ ] Prepare a non-implementation safety proposal for deleting one completed History record without deleting its parent mission or corrupting rewards, statistics, reflections, analytics, or related records.
 - [ ] Prepare a non-implementation proposal for deleting one completed mission run together with only the XP, power, gold, energy, combo impact, transactions, inventory effects, reflection/emotion data, mini achievement, recognition entries, and time/analytics data earned by that exact run, while retaining the parent mission and unrelated records.
 - [x] Implement the approved deletion of one completed mission run and its uniquely linked earned data, while restoring the parent mission safely and preserving all unrelated records.
-- [ ] Add and run comprehensive completed-run deletion scenarios, then synchronize the validated checkpoint to private GitHub main only if every check passes, without starting an APK build.
+- [x] Add and run comprehensive completed-run deletion scenarios, then synchronize the validated checkpoint to private GitHub main only if every check passes, without starting an APK build.
