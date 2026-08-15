@@ -2011,6 +2011,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   stateRef.current = state;
   const getCurrentState = useCallback(() => stateRef.current, []);
   const stateListeners = useRef(new Set<() => void>());
+  const deferNextStateNotification = useRef(false);
+  const deferredNotificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persistenceQueue = useRef<Promise<void>>(Promise.resolve());
   const pendingPersistence = useRef<FocusState | null>(null);
   const persistenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2052,8 +2054,25 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   }), []);
 
   useEffect(() => {
-    stateListeners.current.forEach((listener) => listener());
+    const notifySubscribers = () => {
+      deferredNotificationTimer.current = null;
+      stateListeners.current.forEach((listener) => listener());
+    };
+    if (deferNextStateNotification.current) {
+      deferNextStateNotification.current = false;
+      deferredNotificationTimer.current = setTimeout(notifySubscribers, 0);
+      return;
+    }
+    if (deferredNotificationTimer.current) {
+      clearTimeout(deferredNotificationTimer.current);
+      deferredNotificationTimer.current = null;
+    }
+    notifySubscribers();
   }, [state]);
+
+  useEffect(() => () => {
+    if (deferredNotificationTimer.current) clearTimeout(deferredNotificationTimer.current);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -2110,7 +2129,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     return () => clearInterval(interval);
   }, [state.profile.timezone]);
 
-  const commit = useCallback((producer: (current: FocusState) => FocusState) => {
+  const commit = useCallback((producer: (current: FocusState) => FocusState, options?: { deferSubscriberNotification?: boolean }) => {
+    if (options?.deferSubscriberNotification) deferNextStateNotification.current = true;
     dispatch({ type: "update", producer });
   }, []);
 
@@ -2476,7 +2496,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         combo: updatedCombo,
         goldPowerCarry,
       }, 4);
-    });
+    }, { deferSubscriberNotification: true });
     return { completionId, durationMs, lootReward };
   }, [commit, state.missions]);
 
