@@ -515,4 +515,7 @@
 - [x] Identify the exact launch-failure root cause and present an approval-gated, internal-only repair plan that preserves all user-facing mechanisms and optimizations.
 - [x] Add only the missing customQuestions dependency to Home’s narrow startup snapshot and add a regression contract for the combo/briefing first-render path.
 - [x] Run full TypeScript, regression, lint, and static-export validation for the approved launch repair; confirm the existing scroll and confirmed-tap performance contracts still pass.
-- [ ] Checkpoint and synchronize only the validated launch repair to GitHub without starting an APK build or workflow.
+- [x] Checkpoint and synchronize only the validated launch repair to GitHub without starting an APK build or workflow.
+- [x] Audit the Day 1–Day 7–Day 30 revision enrollment and cadence mechanism, correct archive-topic source assumptions, and inspect the reported touching archive cards; present an approval-gated plan without changing app behavior.
+- [x] Correct archive revision-topic mapping and cadence reporting; add matching Seed Sown/Emerging/Developing/Matured filters to the Yearly Revision Overview and a new clearly separated, searchable Lifetime Revision Overview; repair the touching overview-card gap; and validate without altering protected behavior. TypeScript, all 36 test files / 198 tests, lint, and static export pass.
+- [ ] Synchronize the validated Revision Archive Accuracy, Lifetime View, Progress Filter, Search & Card Spacing checkpoint to the private GitHub main branch without starting an APK build or workflow.
