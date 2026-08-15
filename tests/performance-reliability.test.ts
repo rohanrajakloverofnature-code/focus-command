@@ -16,6 +16,7 @@ const tapBridgeSource = readFileSync(resolve(process.cwd(), "components/focus-ta
 const focusAudioSource = readFileSync(resolve(process.cwd(), "lib/focus-audio.ts"), "utf8");
 const homeSource = readFileSync(resolve(process.cwd(), "app/(tabs)/index.tsx"), "utf8");
 const missionSource = readFileSync(resolve(process.cwd(), "app/mission/[id].tsx"), "utf8");
+const missionResultSource = readFileSync(resolve(process.cwd(), "app/mission-result/[id].tsx"), "utf8");
 const settingsSource = readFileSync(resolve(process.cwd(), "app/settings.tsx"), "utf8");
 const homeMotionSource = readFileSync(resolve(process.cwd(), "components/home-motion.tsx"), "utf8");
 const dashboardSource = readFileSync(resolve(process.cwd(), "app/(tabs)/dashboard.tsx"), "utf8");
@@ -87,6 +88,7 @@ describe("Performance and reliability contracts", () => {
     expect(homeSource).toContain("useFocusCommandSelector(selectHomeDependencies, hasSameHomeDependencies)");
     expect(homeSource).toContain("const bossProgressById = useMemo(");
     expect(missionSource).toContain("useFocusCommandSelector((state) => selectMissionDetailSnapshot(state, id)");
+    expect(missionResultSource).toContain("useFocusCommandSelector((state) => selectMissionResultSnapshot(state, id, completionId), hasSameMissionResultSnapshot)");
   });
 
   it("provides custom questions to Home's first-render combo and Daily Command Briefing path", () => {
