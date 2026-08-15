@@ -133,20 +133,35 @@ export default function MissionDetailScreen() {
     }
     submissionLock.current = true;
     setIsSubmittingResult(true);
+    let navigationQueued = false;
     try {
       const result = finishMission(mission.id, { ...reflection, miniAchievement, skills: skillsText.split(",").map((value) => value.trim()).filter(Boolean) });
       if (!result) {
         Alert.alert("Mission cannot be finalized", "This mission is no longer active. Return to the mission board, start it again if it is repeatable, then submit a new result.");
         return;
       }
-      await playFocusSuccessCue(soundEnabled, missionWinSound);
-      if (notificationsEnabled) await scheduleAchievementRecap(mission.title, notificationRules, achievementRecapSound);
-      router.replace({ pathname: "/mission-result/[id]" as never, params: { id: mission.id, completionId: result.completionId } });
+      // Keep the existing visible saving acknowledgement for one committed frame,
+      // then begin navigation before optional audio and notification work. This
+      // preserves the durable completion and single-submit lock while keeping
+      // native media/session preparation off the touch-to-navigation path.
+      requestAnimationFrame(() => {
+        router.replace({ pathname: "/mission-result/[id]" as never, params: { id: mission.id, completionId: result.completionId } });
+        setTimeout(() => {
+          void playFocusSuccessCue(soundEnabled, missionWinSound);
+          if (notificationsEnabled) void scheduleAchievementRecap(mission.title, notificationRules, achievementRecapSound);
+        }, 0);
+      });
+      navigationQueued = true;
+      return;
     } catch {
       Alert.alert("Could not save mission result", "Your result was not confirmed. Please try again. If this continues, reopen the app and submit the active mission once more.");
     } finally {
-      submissionLock.current = false;
-      setIsSubmittingResult(false);
+      // A successfully submitted result stays locked until this screen unmounts
+      // during the queued route transition. Failed submissions remain retryable.
+      if (!navigationQueued) {
+        submissionLock.current = false;
+        setIsSubmittingResult(false);
+      }
     }
   };
 
