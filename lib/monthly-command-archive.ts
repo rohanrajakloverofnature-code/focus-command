@@ -17,6 +17,16 @@ export const MONTHLY_ARCHIVE_METRICS = [
 
 export type MonthlyArchiveMetric = typeof MONTHLY_ARCHIVE_METRICS[number];
 
+export const MONTHLY_ARCHIVE_REVISION_PROGRESS_FILTERS = [
+  { id: "all", label: "All", percent: null },
+  { id: "seed_sown", label: "Seed Sown", percent: 0 },
+  { id: "emerging", label: "Emerging", percent: 33 },
+  { id: "developing", label: "Developing", percent: 67 },
+  { id: "matured", label: "Matured", percent: 100 },
+] as const;
+
+export type MonthlyArchiveRevisionProgressFilter = typeof MONTHLY_ARCHIVE_REVISION_PROGRESS_FILTERS[number]["id"];
+
 export interface MonthlyArchiveSubject {
   label: string;
   durationMs: number;
@@ -129,12 +139,14 @@ export interface MonthlyArchiveStudiedTopic {
   completedMissions: number;
   revisionTopicId: string | null;
   revisionCompletionPercent: number | null;
-  revisionStatus: "not_enrolled" | "scheduled" | "completed";
+  revisionStatus: "not_enrolled" | "scheduled" | "due" | "completed";
+  revisionPhase: "seed_sown" | "emerging" | "developing" | "matured" | "not_enrolled";
 }
 
 export interface ArchiveTopicPeriod {
   year?: number;
   monthKey?: string;
+  lifetime?: true;
 }
 
 interface AggregateDay {
@@ -717,52 +729,43 @@ function revisionPercent(topic: FocusState["srsTopics"][number]) {
   return [0, 33, 67][Math.max(0, Math.min(2, topic.stage))] ?? 0;
 }
 
+function revisionPhase(percent: number): MonthlyArchiveStudiedTopic["revisionPhase"] {
+  if (percent >= 100) return "matured";
+  if (percent >= 67) return "developing";
+  if (percent >= 33) return "emerging";
+  return "seed_sown";
+}
+
 function getAllArchiveStudiedTopics(state: FocusState) {
   const cached = studiedTopicsCache.get(state);
   if (cached) return cached;
   const timezone = state.profile.timezone;
-  const missionsById = new Map(state.missions.map((mission) => [mission.id, mission]));
-  const revisionsByCompletionId = new Map((state.srsTopics ?? []).map((topic) => [topic.completionId, topic]));
-  const grouped = new Map<string, MonthlyArchiveStudiedTopic>();
-
-  getMissionCompletionRecords(state).forEach((completion) => {
-    const mission = missionsById.get(completion.missionId);
-    const sourceTopic = mission?.specificTopic?.trim() || completion.title.trim();
-    if (!sourceTopic) return;
-    const subject = mission?.subject?.trim() || completion.subject?.trim() || "Unassigned";
-    const localDate = toLocalDate(completion.completedAt, timezone);
-    const key = `${subject.toLocaleLowerCase()}::${sourceTopic.toLocaleLowerCase()}`;
-    const revision = revisionsByCompletionId.get(completion.id);
-    const existing = grouped.get(key);
-    if (existing) {
-      existing.completedMissions += 1;
-      if (completion.completedAt < existing.firstCompletedAt) {
-        existing.firstCompletedAt = completion.completedAt;
-        existing.firstMonthKey = localDate.slice(0, 7);
-      }
-      return;
-    }
-    grouped.set(key, {
-      key,
-      subject,
-      topic: sourceTopic,
-      firstCompletedAt: completion.completedAt,
-      firstMonthKey: localDate.slice(0, 7),
-      completedMissions: 1,
-      revisionTopicId: revision?.id ?? null,
-      revisionCompletionPercent: revision ? revisionPercent(revision) : null,
-      revisionStatus: revision?.status === "completed" ? "completed" : revision ? "scheduled" : "not_enrolled",
-    });
-  });
-  const topics = Array.from(grouped.values()).sort((left, right) => left.subject.localeCompare(right.subject) || left.topic.localeCompare(right.topic));
+  const topics = (state.srsTopics ?? [])
+    .map((revision) => {
+      const loggedAt = revision.createdAt;
+      const percent = revisionPercent(revision);
+      return {
+        key: revision.id,
+        subject: revision.subject.trim() || "General",
+        topic: revision.topic.trim(),
+        firstCompletedAt: loggedAt,
+        firstMonthKey: toLocalDate(loggedAt, timezone).slice(0, 7),
+        completedMissions: revision.completionId ? 1 : 0,
+        revisionTopicId: revision.id,
+        revisionCompletionPercent: percent,
+        revisionStatus: revision.status,
+        revisionPhase: revisionPhase(percent),
+      } satisfies MonthlyArchiveStudiedTopic;
+    })
+    .filter((topic) => Boolean(topic.topic))
+    .sort((left, right) => left.subject.localeCompare(right.subject) || left.topic.localeCompare(right.topic) || left.firstCompletedAt.localeCompare(right.firstCompletedAt));
   studiedTopicsCache.set(state, topics);
   return topics;
 }
 
 /**
- * Lists only genuinely completed study topics, with their current existing revision-cadence
- * status. A topic without a revision record intentionally reports no percentage instead of
- * inventing study-completion progress.
+ * Lists real saved spaced-revision topics. Period membership uses the local date that a topic
+ * entered the existing review loop, never a mission title or a reconstructed completion record.
  */
 export function getMonthlyArchiveStudiedTopics(state: FocusState, period: ArchiveTopicPeriod = {}) {
   return getAllArchiveStudiedTopics(state).filter((topic) => {
@@ -777,4 +780,10 @@ export function filterMonthlyArchiveStudiedTopics(topics: MonthlyArchiveStudiedT
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) return topics;
   return topics.filter((topic) => topic.topic.toLocaleLowerCase().includes(normalizedQuery) || topic.subject.toLocaleLowerCase().includes(normalizedQuery));
+}
+
+/** Filters real revision topics by their existing Day 1/7/30/completed cadence progress. */
+export function filterMonthlyArchiveStudiedTopicsByProgress(topics: MonthlyArchiveStudiedTopic[], progress: MonthlyArchiveRevisionProgressFilter) {
+  if (progress === "all") return topics;
+  return topics.filter((topic) => topic.revisionPhase === progress);
 }
