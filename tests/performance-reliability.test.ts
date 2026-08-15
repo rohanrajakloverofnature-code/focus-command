@@ -89,6 +89,15 @@ describe("Performance and reliability contracts", () => {
     expect(missionSource).toContain("useFocusCommandSelector((state) => selectMissionDetailSnapshot(state, id)");
   });
 
+  it("provides custom questions to Home's first-render combo and Daily Command Briefing path", () => {
+    expect(homeSource).toContain('  | "customQuestions"');
+    expect(homeSource).toContain("customQuestions: state.customQuestions");
+    expect(homeSource).toContain("left.customQuestions === right.customQuestions");
+    expect(homeSource).toContain("dailyCommandBriefing: getDailyCommandBriefing(state)");
+    expect(homeSource).toContain("combo: getCurrentCombo(state)");
+    expect(homeSource).toContain("    state.customQuestions,");
+  });
+
   it("keeps dense Settings rendering on exact state slices while explicit backup and sync work reads the current snapshot only on demand", () => {
     expect(settingsSource).toContain("const profile = useFocusCommandSelector((snapshot) => snapshot.profile)");
     expect(settingsSource).toContain("const googleSheet = useFocusCommandSelector((snapshot) => snapshot.googleSheet)");
