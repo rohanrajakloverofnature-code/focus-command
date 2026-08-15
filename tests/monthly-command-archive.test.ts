@@ -3,9 +3,12 @@ import { describe, expect, it } from "vitest";
 import { createInitialState, type FocusState } from "../lib/focus-command";
 import { createOfflineBackupArchive, parseOfflineBackupArchive } from "../lib/offline-backup-format";
 import {
+  filterMonthlyArchiveStudiedTopics,
   getMonthlyArchiveLifetimeWindows,
+  getMonthlyArchiveMonthComparison,
   getMonthlyArchiveMetricSeries,
   getMonthlyArchiveMetricValue,
+  getMonthlyArchiveSubjectLifetimeWindows,
   getMonthlyArchiveStudiedTopics,
   getMonthlyCommandArchive,
 } from "../lib/monthly-command-archive";
@@ -54,7 +57,7 @@ describe("getMonthlyCommandArchive", () => {
 
     expect(archive.years.map((year) => year.year)).toEqual([2026, 2025]);
     expect(february).toMatchObject({ hasData: true, xpEarned: 60, goldEarned: 6, investedMs: 5_400_000, completedMissions: 1, averageFocus: 5, averageClarity: 4, averageMotivation: 5, mostCommonFeeling: "Great", energyShift: 2, distractionCount: 1, topDistractionCategory: "Phone" });
-    expect(february?.subjectBreakdown).toEqual([{ label: "Writing", durationMs: 5_400_000, completedMissions: 1 }]);
+    expect(february?.subjectBreakdown).toEqual([{ label: "Writing", durationMs: 5_400_000, completedMissions: 1, xpEarned: 60 }]);
     expect(march).toMatchObject({ hasData: true, completedMissions: 0, scheduledPlans: 1 });
     expect(january).toMatchObject({ hasData: true, xpEarned: 20, goldEarned: 2, mostCommonFeeling: "Steady" });
     expect(state.missionCompletions).toHaveLength(2);
@@ -97,5 +100,37 @@ describe("getMonthlyCommandArchive", () => {
 
     expect(yearly).toEqual([expect.objectContaining({ subject: "Writing", topic: "Argument flow", revisionCompletionPercent: 100, revisionStatus: "completed" })]);
     expect(january).toEqual([expect.objectContaining({ subject: "Physics", topic: "Kinematics", revisionCompletionPercent: 33, revisionStatus: "scheduled" })]);
+  });
+
+  it("builds a subject-only lifetime lens from that subject’s own completed runs, earned XP, and invested time", () => {
+    const windows = getMonthlyArchiveSubjectLifetimeWindows(getMonthlyCommandArchive(makeState()), "Physics", 24);
+    const points = windows[0].points;
+
+    expect(points.find((point) => point.key === "2025-01")).toMatchObject({ value: 50, xpEarned: 20, completedMissions: 1, investedMs: 7_200_000 });
+    expect(points.find((point) => point.key === "2026-02")).toMatchObject({ value: 0, xpEarned: 0, completedMissions: 0, investedMs: 0 });
+  });
+
+  it("returns a transparent two-month comparison with accurate deltas and subject distribution", () => {
+    const archive = getMonthlyCommandArchive(makeState());
+    const january = archive.years.find((year) => year.year === 2025)?.months[0];
+    const february = archive.years.find((year) => year.year === 2026)?.months[1];
+    expect(january).toBeDefined();
+    expect(february).toBeDefined();
+
+    const comparison = getMonthlyArchiveMonthComparison(january!, february!);
+    expect(comparison.metrics.find((metric) => metric.key === "xp")).toEqual(expect.objectContaining({ firstValue: 20, secondValue: 60, delta: 40 }));
+    expect(comparison.metrics.find((metric) => metric.key === "distractions")).toEqual(expect.objectContaining({ firstValue: 0, secondValue: 1, delta: 1 }));
+    expect(comparison.subjects).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "Physics", firstCompletedMissions: 1, secondCompletedMissions: 0, firstInvestedMs: 7_200_000 }),
+      expect.objectContaining({ label: "Writing", firstCompletedMissions: 0, secondCompletedMissions: 1, secondInvestedMs: 5_400_000 }),
+    ]));
+  });
+
+  it("filters yearly studied topics by topic or subject without regard to case", () => {
+    const allTopics = getMonthlyArchiveStudiedTopics(makeState());
+
+    expect(filterMonthlyArchiveStudiedTopics(allTopics, "PHY")).toEqual([expect.objectContaining({ topic: "Kinematics", subject: "Physics" })]);
+    expect(filterMonthlyArchiveStudiedTopics(allTopics, "argument")).toEqual([expect.objectContaining({ topic: "Argument flow", subject: "Writing" })]);
+    expect(filterMonthlyArchiveStudiedTopics(allTopics, "   ")).toBe(allTopics);
   });
 });

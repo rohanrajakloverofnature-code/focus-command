@@ -490,3 +490,5 @@
 - [x] Conduct a read-only inspection and present a revised approval-gated plan for clickable monthly Command Summary and Subjects Map controls, a truthful monthly topic-revision view, and completion percentages derived from existing durable records.
 - [x] If approved, add bounded, virtualized monthly revision navigation and topic completion views with stable callbacks and regression validation, preserving all existing screens, records, calculations, and user-facing mechanisms.
 - [x] Revise the approval plan to include an additive, performance-bounded selected-year topic and revision-cadence completion summary, preserving the current annual graph and month grid exactly.
+- [x] Conduct a read-only inspection and present an approval-gated plan for Yearly Revision Overview search, subject-only Lifetime Growth filtering, and an optional month-to-month comparison view.
+- [x] If approved, add bounded search, subject filtering, and month comparison with stable interactions, virtualized results, and regression validation while preserving all existing archive behavior.

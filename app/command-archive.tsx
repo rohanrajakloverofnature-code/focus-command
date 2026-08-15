@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 
 import { BarsChart, LineTrendChart, type ChartPoint } from "@/components/focus-charts";
@@ -9,9 +9,12 @@ import { useColors } from "@/hooks/use-colors";
 import { useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import {
   MONTHLY_ARCHIVE_METRICS,
+  filterMonthlyArchiveStudiedTopics,
+  getMonthlyArchiveMonthComparison,
   getMonthlyArchiveMetricLabel,
   getMonthlyArchiveMetricSeries,
   getMonthlyArchiveMetricValue,
+  getMonthlyArchiveSubjectLifetimeWindows,
   getMonthlyArchiveLifetimeWindows,
   getMonthlyArchiveStudiedTopics,
   getMonthlyCommandArchive,
@@ -99,7 +102,7 @@ function MonthTile({ month, onOpen }: { month: MonthlyCommandArchiveMonth; onOpe
   </TapFeedback>;
 }
 
-function ArchiveYearView({ year, years, onSelectYear, onOpenMonth, onOpenTopics, lifetimeWindows, activeLifetimeWindow, onSelectLifetimeWindow }: { year: MonthlyCommandArchiveYear; years: MonthlyCommandArchiveYear[]; onSelectYear: (year: number) => void; onOpenMonth: (key: string) => void; onOpenTopics: () => void; lifetimeWindows: ReturnType<typeof getMonthlyArchiveLifetimeWindows>; activeLifetimeWindow: number; onSelectLifetimeWindow: (index: number) => void }) {
+function ArchiveYearView({ year, years, onSelectYear, onOpenMonth, onOpenTopics, onOpenComparison, lifetimeWindows, activeLifetimeWindow, onSelectLifetimeWindow, lifetimeSubjects, activeLifetimeSubject, onSelectLifetimeSubject }: { year: MonthlyCommandArchiveYear; years: MonthlyCommandArchiveYear[]; onSelectYear: (year: number) => void; onOpenMonth: (key: string) => void; onOpenTopics: () => void; onOpenComparison: () => void; lifetimeWindows: ReturnType<typeof getMonthlyArchiveLifetimeWindows>; activeLifetimeWindow: number; onSelectLifetimeWindow: (index: number) => void; lifetimeSubjects: string[]; activeLifetimeSubject: string; onSelectLifetimeSubject: (subject: string) => void }) {
   const colors = useColors();
   const growthPoints = useMemo<ChartPoint[]>(() => year.months.map((month, index) => ({
     label: index === 0 || index === 5 || index === 11 ? month.shortLabel : "",
@@ -108,6 +111,8 @@ function ArchiveYearView({ year, years, onSelectYear, onOpenMonth, onOpenTopics,
   const completedMonths = year.months.filter((month) => month.hasData).length;
   const lifetimeWindow = lifetimeWindows[activeLifetimeWindow] ?? lifetimeWindows[lifetimeWindows.length - 1] ?? null;
   const lifetimePoints = useMemo<ChartPoint[]>(() => lifetimeWindow?.points.map((point) => ({ label: point.label, value: point.value })) ?? [], [lifetimeWindow]);
+  const subjectLensOptions = useMemo(() => ["", ...lifetimeSubjects], [lifetimeSubjects]);
+  const subjectFocused = Boolean(activeLifetimeSubject);
 
   return <FlatList
     data={year.months}
@@ -122,17 +127,22 @@ function ArchiveYearView({ year, years, onSelectYear, onOpenMonth, onOpenTopics,
       {lifetimeWindow ? <CommandCard accent="#F4C95D" style={styles.lifetimeCard}>
         <View style={styles.lifetimeHeading}>
           <View style={styles.growthCopy}>
-            <Text style={[styles.eyebrow, { color: "#F4C95D" }]}>LIFETIME GROWTH TRAJECTORY</Text>
-            <Text style={[styles.cardTitle, { color: colors.foreground }]}>Continuous command growth</Text>
-            <Text style={[styles.detail, { color: colors.muted }]}>Every real calendar month from {lifetimeWindow.points[0]?.key} to {lifetimeWindow.points[lifetimeWindow.points.length - 1]?.key}. Months without records remain zero so the timeline never fabricates progress.</Text>
+            <Text style={[styles.eyebrow, { color: "#F4C95D" }]}>{subjectFocused ? "SUBJECT FOCUS TRAJECTORY" : "LIFETIME GROWTH TRAJECTORY"}</Text>
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>{subjectFocused ? activeLifetimeSubject : "Continuous command growth"}</Text>
+            <Text style={[styles.detail, { color: colors.muted }]}>{subjectFocused ? "A transparent activity index from this subject’s real completed runs, earned XP, and invested time. Reflection and distraction data are not attributed to one subject." : `Every real calendar month from ${lifetimeWindow.points[0]?.key} to ${lifetimeWindow.points[lifetimeWindow.points.length - 1]?.key}. Months without records remain zero so the timeline never fabricates progress.`}</Text>
           </View>
           <View style={[styles.growthScore, { borderColor: "#F4C95D66", backgroundColor: "#F4C95D12" }]}>
             <Text style={[styles.growthScoreValue, { color: "#F4C95D" }]}>{lifetimeWindows.length}</Text>
             <Text style={[styles.growthScoreLabel, { color: colors.muted }]}>WINDOW{lifetimeWindows.length === 1 ? "" : "S"}</Text>
           </View>
         </View>
+        <FlatList horizontal data={subjectLensOptions} keyExtractor={(item) => item || "all-subjects"} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.subjectLensSelector} renderItem={({ item }) => {
+          const active = item === activeLifetimeSubject;
+          const label = item || "All subjects";
+          return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`Show ${label.toLowerCase()} lifetime trajectory`} onPress={() => onSelectLifetimeSubject(item)} style={({ pressed }) => [styles.subjectLensChip, { borderColor: active ? "#F4C95D" : colors.border, backgroundColor: active ? "#F4C95D1F" : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.metricChipText, { color: active ? "#F4C95D" : colors.foreground }]}>{label}</Text></Pressable>;
+        }} />
         {lifetimeWindows.length > 1 ? <FlatList horizontal data={lifetimeWindows} keyExtractor={(item) => item.key} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lifetimeSelector} renderItem={({ item, index }) => <Pressable accessibilityRole="button" accessibilityState={{ selected: index === activeLifetimeWindow }} accessibilityLabel={`Show lifetime trajectory ${item.label}`} onPress={() => onSelectLifetimeWindow(index)} style={({ pressed }) => [styles.lifetimeChip, { borderColor: index === activeLifetimeWindow ? "#F4C95D" : colors.border, backgroundColor: index === activeLifetimeWindow ? "#F4C95D1F" : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.metricChipText, { color: index === activeLifetimeWindow ? "#F4C95D" : colors.foreground }]}>{item.label}</Text></Pressable>} /> : null}
-        <LineTrendChart points={lifetimePoints} color="#F4C95D" height={146} accessibilityLabel={`${lifetimeWindow.label} continuous lifetime command growth line chart`} />
+        <LineTrendChart points={lifetimePoints} color="#F4C95D" height={146} accessibilityLabel={`${lifetimeWindow.label} ${subjectFocused ? `${activeLifetimeSubject} subject focus` : "continuous lifetime command growth"} line chart`} />
       </CommandCard> : null}
       <CommandCard accent="#A78BFA" style={styles.growthCard}>
         <View style={styles.growthHeading}>
@@ -155,6 +165,12 @@ function ArchiveYearView({ year, years, onSelectYear, onOpenMonth, onOpenTopics,
         <View style={[styles.reviewEntry, { borderColor: "#5DD6C066", backgroundColor: "#5DD6C012" }]}>
           <View style={styles.reviewEntryCopy}><Text style={[styles.subjectTitle, { color: colors.foreground }]}>Studied topics and revision cadence</Text><Text style={[styles.detail, { color: colors.muted }]}>Open every real topic first studied in {year.year}, grouped by subject, with its current revision-cadence completion percentage.</Text></View>
           <Text style={[styles.reviewEntryAction, { color: "#5DD6C0" }]}>OPEN</Text>
+        </View>
+      </TapFeedback>
+      <TapFeedback onPress={onOpenComparison} accessibilityLabel="Compare two recorded command months">
+        <View style={[styles.reviewEntry, { borderColor: "#F4C95D66", backgroundColor: "#F4C95D12" }]}>
+          <View style={styles.reviewEntryCopy}><Text style={[styles.subjectTitle, { color: colors.foreground }]}>Compare recorded months</Text><Text style={[styles.detail, { color: colors.muted }]}>Choose any two real months for a read-only side-by-side view of command, reflection, subject, and revision context.</Text></View>
+          <Text style={[styles.reviewEntryAction, { color: "#F4C95D" }]}>COMPARE</Text>
         </View>
       </TapFeedback>
       <SectionHeader title={`${year.year} monthly record`} />
@@ -252,10 +268,11 @@ function ArchiveMonthView({ month, selectedMetric, onSelectMetric, onBack, onOpe
   />;
 }
 
-function ArchiveTopicListView({ topics, period, onBack }: { topics: MonthlyArchiveStudiedTopic[]; period: ArchiveTopicPeriod; onBack: () => void }) {
+function ArchiveTopicListView({ topics, period, searchQuery, onSearchChange, onBack }: { topics: MonthlyArchiveStudiedTopic[]; period: ArchiveTopicPeriod; searchQuery: string; onSearchChange: (value: string) => void; onBack: () => void }) {
   const colors = useColors();
   const router = useRouter();
   const title = period.monthKey ? new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${period.monthKey}-01T12:00:00Z`)) : `${period.year} yearly revision overview`;
+  const searchable = Boolean(period.year && !period.monthKey);
   return <FlatList
     data={topics}
     keyExtractor={(item) => item.key}
@@ -267,8 +284,43 @@ function ArchiveTopicListView({ topics, period, onBack }: { topics: MonthlyArchi
         <View style={styles.topicProgress}><Text style={[styles.topicProgressValue, { color: item.revisionCompletionPercent === null ? colors.muted : "#5DD6C0" }]}>{item.revisionCompletionPercent === null ? "—" : `${item.revisionCompletionPercent}%`}</Text><Text style={[styles.topicProgressLabel, { color: colors.muted }]}>{item.revisionCompletionPercent === null ? "NOT ENROLLED" : item.revisionStatus === "completed" ? "CADENCE DONE" : "CADENCE"}</Text></View>
       </View>
     </TapFeedback>}
-    ListEmptyComponent={<CommandCard accent="#A78BFA" style={styles.emptySubjectCard}><Text style={[styles.detail, { color: colors.muted }]}>No completed topics were captured for this period.</Text></CommandCard>}
-    ListHeaderComponent={<><ScreenTitle eyebrow="Read-only revision view" title={title} detail="Each percentage reflects only the existing three-stage revision cadence: 0%, 33%, 67%, or 100%." right={<IconAction icon="xmark" label="Close topic review" onPress={onBack} />} /><TapFeedback onPress={onBack} accessibilityLabel="Return to command archive"><View style={[styles.returnControl, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.returnControlText, { color: colors.primary }]}>Return to command archive</Text></View></TapFeedback><SectionHeader title="Studied topics" /></>}
+    ListEmptyComponent={<CommandCard accent="#A78BFA" style={styles.emptySubjectCard}><Text style={[styles.detail, { color: colors.muted }]}>{searchable && searchQuery.trim() ? "No studied topic matches this search." : "No completed topics were captured for this period."}</Text></CommandCard>}
+    ListHeaderComponent={<><ScreenTitle eyebrow="Read-only revision view" title={title} detail="Each percentage reflects only the existing three-stage revision cadence: 0%, 33%, 67%, or 100%." right={<IconAction icon="xmark" label="Close topic review" onPress={onBack} />} /><TapFeedback onPress={onBack} accessibilityLabel="Return to command archive"><View style={[styles.returnControl, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.returnControlText, { color: colors.primary }]}>Return to command archive</Text></View></TapFeedback>{searchable ? <View style={[styles.topicSearch, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.eyebrow, { color: "#55B7FF" }]}>SEARCH THIS YEAR</Text><TextInput value={searchQuery} onChangeText={onSearchChange} placeholder="Topic or subject" placeholderTextColor={colors.muted} returnKeyType="done" accessibilityLabel="Search yearly studied topics by topic or subject" style={[styles.topicSearchInput, { color: colors.foreground }]} /></View> : null}<SectionHeader title="Studied topics" /></>}
+  />;
+}
+
+function formatComparisonValue(metric: string, value: number, unavailable: boolean) {
+  if (unavailable) return "—";
+  if (metric === "time") return `${value.toFixed(1)} h`;
+  if (metric === "xp") return `${Math.round(value)} XP`;
+  if (metric === "gold") return `${Math.round(value)} gold`;
+  if (["focus", "clarity", "motivation", "feeling"].includes(metric)) return `${value.toFixed(1)} / 5`;
+  return `${Math.round(value)}`;
+}
+
+function ArchiveMonthComparisonView({ months, topics, firstKey, secondKey, onSelectFirst, onSelectSecond, onBack }: { months: MonthlyCommandArchiveMonth[]; topics: MonthlyArchiveStudiedTopic[]; firstKey: string; secondKey: string; onSelectFirst: (key: string) => void; onSelectSecond: (key: string) => void; onBack: () => void }) {
+  const colors = useColors();
+  const first = months.find((month) => month.key === firstKey) ?? months[0];
+  const second = months.find((month) => month.key === secondKey) ?? months[0];
+  const comparison = useMemo(() => getMonthlyArchiveMonthComparison(first, second), [first, second]);
+  const firstTopics = useMemo(() => topics.filter((topic) => topic.firstMonthKey === first.key), [first.key, topics]);
+  const secondTopics = useMemo(() => topics.filter((topic) => topic.firstMonthKey === second.key), [second.key, topics]);
+  const topicSummary = (items: MonthlyArchiveStudiedTopic[]) => items.length ? `${items.slice(0, 3).map((item) => `${item.topic} (${item.revisionCompletionPercent === null ? "not enrolled" : `${item.revisionCompletionPercent}%`})`).join(" · ")}${items.length > 3 ? ` · +${items.length - 3} more` : ""}` : "No newly studied topics";
+  const traitUnavailable = (metric: string, month: MonthlyCommandArchiveMonth) => metric === "focus" ? month.averageFocus === null : metric === "clarity" ? month.averageClarity === null : metric === "motivation" ? month.averageMotivation === null : metric === "feeling" ? month.mostCommonFeeling === null : false;
+
+  return <FlatList
+    data={comparison.metrics}
+    keyExtractor={(item) => item.key}
+    showsVerticalScrollIndicator={false}
+    contentContainerStyle={styles.monthContent}
+    renderItem={({ item }) => {
+      const firstUnavailable = traitUnavailable(item.key, first);
+      const secondUnavailable = traitUnavailable(item.key, second);
+      const differenceUnavailable = firstUnavailable || secondUnavailable;
+      return <View style={[styles.comparisonMetricRow, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.comparisonMetricLabel, { color: colors.muted }]}>{item.label.toUpperCase()}</Text><Text style={[styles.comparisonMetricValue, { color: colors.foreground }]}>{formatComparisonValue(item.key, item.firstValue, firstUnavailable)}</Text><Text style={[styles.comparisonMetricValue, { color: colors.foreground }]}>{formatComparisonValue(item.key, item.secondValue, secondUnavailable)}</Text><Text style={[styles.comparisonMetricDelta, { color: differenceUnavailable ? colors.muted : item.delta > 0 ? "#49D17D" : item.delta < 0 ? "#FF6B6B" : colors.muted }]}>{differenceUnavailable ? "—" : `${item.delta > 0 ? "+" : ""}${formatComparisonValue(item.key, item.delta, false)}`}</Text></View>;
+    }}
+    ListHeaderComponent={<><ScreenTitle eyebrow="Read-only command review" title="Compare recorded months" detail="Values are rebuilt from existing local records. Changing a selector never edits either month." right={<IconAction icon="xmark" label="Close month comparison" onPress={onBack} />} /><TapFeedback onPress={onBack} accessibilityLabel="Return to command archive"><View style={[styles.returnControl, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.returnControlText, { color: colors.primary }]}>Return to command archive</Text></View></TapFeedback><CommandCard accent="#F4C95D" style={styles.comparisonCard}><Text style={[styles.eyebrow, { color: "#F4C95D" }]}>SELECT TWO RECORDED MONTHS</Text><FlatList horizontal data={months} keyExtractor={(item) => `first-${item.key}`} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.comparisonSelector} renderItem={({ item }) => <Pressable accessibilityRole="button" accessibilityState={{ selected: item.key === first.key }} accessibilityLabel={`Use ${item.label} as the first comparison month`} onPress={() => onSelectFirst(item.key)} style={({ pressed }) => [styles.comparisonChip, { borderColor: item.key === first.key ? "#A78BFA" : colors.border, backgroundColor: item.key === first.key ? "#A78BFA1F" : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.metricChipText, { color: item.key === first.key ? "#A78BFA" : colors.foreground }]}>{item.label}</Text></Pressable>} /><FlatList horizontal data={months} keyExtractor={(item) => `second-${item.key}`} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.comparisonSelector} renderItem={({ item }) => <Pressable accessibilityRole="button" accessibilityState={{ selected: item.key === second.key }} accessibilityLabel={`Use ${item.label} as the second comparison month`} onPress={() => onSelectSecond(item.key)} style={({ pressed }) => [styles.comparisonChip, { borderColor: item.key === second.key ? "#F4C95D" : colors.border, backgroundColor: item.key === second.key ? "#F4C95D1F" : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.metricChipText, { color: item.key === second.key ? "#F4C95D" : colors.foreground }]}>{item.label}</Text></Pressable>} /></CommandCard><SectionHeader title="Command differences" /><View style={[styles.comparisonHeader, { borderColor: colors.border }]}><Text style={[styles.comparisonHeaderLabel, { color: colors.muted }]}>METRIC</Text><Text style={[styles.comparisonHeaderValue, { color: "#A78BFA" }]} numberOfLines={1}>{first.shortLabel}</Text><Text style={[styles.comparisonHeaderValue, { color: "#F4C95D" }]} numberOfLines={1}>{second.shortLabel}</Text><Text style={[styles.comparisonHeaderValue, { color: colors.muted }]}>CHANGE</Text></View></>}
+    ListFooterComponent={<><SectionHeader title="Reflection context" /><CommandCard accent="#5DD6C0" style={styles.comparisonContextCard}><Text style={[styles.detail, { color: colors.muted }]}>{first.label}: Feeling {first.mostCommonFeeling ?? "unavailable"} · Energy {first.energyShift === null ? "unavailable" : `${first.energyShift >= 0 ? "+" : ""}${first.energyShift.toFixed(1)}`}</Text><Text style={[styles.detail, { color: colors.muted }]}>{second.label}: Feeling {second.mostCommonFeeling ?? "unavailable"} · Energy {second.energyShift === null ? "unavailable" : `${second.energyShift >= 0 ? "+" : ""}${second.energyShift.toFixed(1)}`}</Text></CommandCard><SectionHeader title="Subject distribution" /><View style={styles.comparisonSubjects}>{comparison.subjects.length ? comparison.subjects.map((subject) => <View key={subject.label} style={[styles.comparisonSubjectRow, { borderColor: colors.border, backgroundColor: colors.background }]}><View style={styles.subjectCopy}><Text style={[styles.subjectTitle, { color: colors.foreground }]}>{subject.label}</Text><Text style={[styles.detail, { color: colors.muted }]}>{subject.firstCompletedMissions} → {subject.secondCompletedMissions} completed run{subject.secondCompletedMissions === 1 ? "" : "s"}</Text></View><Text style={[styles.subjectValue, { color: "#55B7FF" }]}>{formatHours(subject.firstInvestedMs)} → {formatHours(subject.secondInvestedMs)}</Text></View>) : <CommandCard accent="#55B7FF" style={styles.emptySubjectCard}><Text style={[styles.detail, { color: colors.muted }]}>No subject activity was recorded in either selected month.</Text></CommandCard>}</View><SectionHeader title="Topics and revision context" /><CommandCard accent="#A78BFA" style={styles.comparisonContextCard}><Text style={[styles.detail, { color: colors.muted }]}>{first.label}: {topicSummary(firstTopics)}</Text><Text style={[styles.detail, { color: colors.muted }]}>{second.label}: {topicSummary(secondTopics)}</Text></CommandCard></>}
   />;
 }
 
@@ -299,11 +351,26 @@ export default function CommandArchiveScreen() {
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<MonthlyArchiveMetric>("growth");
   const [lifetimeWindowIndex, setLifetimeWindowIndex] = useState(0);
+  const [lifetimeSubject, setLifetimeSubject] = useState("");
   const [topicPeriod, setTopicPeriod] = useState<ArchiveTopicPeriod | null>(null);
+  const [topicSearchQuery, setTopicSearchQuery] = useState("");
+  const [comparisonSelection, setComparisonSelection] = useState<{ firstKey: string; secondKey: string } | null>(null);
   const activeYear = archive.years.find((year) => year.year === selectedYear) ?? archive.years[0] ?? null;
   const selectedMonth = activeYear?.months.find((month) => month.key === selectedMonthKey) ?? null;
-  const lifetimeWindows = useMemo(() => getMonthlyArchiveLifetimeWindows(archive), [archive]);
+  const recordedMonths = useMemo(() => archive.years.flatMap((year) => year.months).filter((month) => month.hasData).sort((left, right) => left.key.localeCompare(right.key)), [archive]);
+  const lifetimeSubjects = useMemo(() => Array.from(new Set(recordedMonths.flatMap((month) => month.subjectBreakdown.map((subject) => subject.label)))).sort((left, right) => left.localeCompare(right)), [recordedMonths]);
+  const activeLifetimeSubject = lifetimeSubjects.includes(lifetimeSubject) ? lifetimeSubject : "";
+  const lifetimeWindows = useMemo(() => activeLifetimeSubject ? getMonthlyArchiveSubjectLifetimeWindows(archive, activeLifetimeSubject) : getMonthlyArchiveLifetimeWindows(archive), [activeLifetimeSubject, archive]);
   const archiveTopics = useMemo(() => topicPeriod ? getMonthlyArchiveStudiedTopics(state, topicPeriod) : [], [state, topicPeriod]);
+  const filteredArchiveTopics = useMemo(() => filterMonthlyArchiveStudiedTopics(archiveTopics, topicSearchQuery), [archiveTopics, topicSearchQuery]);
+  const allArchiveTopics = useMemo(() => getMonthlyArchiveStudiedTopics(state), [state]);
+  const openComparison = useCallback(() => {
+    const selected = activeYear?.months.filter((month) => month.hasData).at(-1) ?? recordedMonths.at(-1);
+    if (!selected) return;
+    const selectedIndex = recordedMonths.findIndex((month) => month.key === selected.key);
+    const previous = selectedIndex > 0 ? recordedMonths[selectedIndex - 1] : null;
+    setComparisonSelection({ firstKey: previous?.key ?? selected.key, secondKey: selected.key });
+  }, [activeYear, recordedMonths]);
 
   if (!ready) return <LoadingScreen label="Preparing lifetime command archive…" />;
 
@@ -316,7 +383,7 @@ export default function CommandArchiveScreen() {
         <ScreenTitle eyebrow="Lifetime command record" title="Monthly command archive" detail="A read-only view of your existing local history." right={<IconAction icon="xmark" label="Close command archive" onPress={() => router.back()} />} />
         <ArchiveEmptyState />
       </>}
-    /> : topicPeriod ? <ArchiveTopicListView topics={archiveTopics} period={topicPeriod} onBack={() => setTopicPeriod(null)} /> : selectedMonth ? <ArchiveMonthView month={selectedMonth} selectedMetric={selectedMetric} onSelectMetric={setSelectedMetric} onBack={() => setSelectedMonthKey(null)} onOpenTopics={() => setTopicPeriod({ monthKey: selectedMonth.key })} /> : <ArchiveYearView year={activeYear} years={archive.years} onSelectYear={setSelectedYear} onOpenMonth={setSelectedMonthKey} onOpenTopics={() => setTopicPeriod({ year: activeYear.year })} lifetimeWindows={lifetimeWindows} activeLifetimeWindow={lifetimeWindowIndex} onSelectLifetimeWindow={setLifetimeWindowIndex} />}
+    /> : topicPeriod ? <ArchiveTopicListView topics={filteredArchiveTopics} period={topicPeriod} searchQuery={topicSearchQuery} onSearchChange={setTopicSearchQuery} onBack={() => setTopicPeriod(null)} /> : comparisonSelection ? <ArchiveMonthComparisonView months={recordedMonths} topics={allArchiveTopics} firstKey={comparisonSelection.firstKey} secondKey={comparisonSelection.secondKey} onSelectFirst={(firstKey) => setComparisonSelection((current) => current ? { ...current, firstKey } : current)} onSelectSecond={(secondKey) => setComparisonSelection((current) => current ? { ...current, secondKey } : current)} onBack={() => setComparisonSelection(null)} /> : selectedMonth ? <ArchiveMonthView month={selectedMonth} selectedMetric={selectedMetric} onSelectMetric={setSelectedMetric} onBack={() => setSelectedMonthKey(null)} onOpenTopics={() => { setTopicSearchQuery(""); setTopicPeriod({ monthKey: selectedMonth.key }); }} /> : <ArchiveYearView year={activeYear} years={archive.years} onSelectYear={setSelectedYear} onOpenMonth={setSelectedMonthKey} onOpenTopics={() => { setTopicSearchQuery(""); setTopicPeriod({ year: activeYear.year }); }} onOpenComparison={openComparison} lifetimeWindows={lifetimeWindows} activeLifetimeWindow={lifetimeWindowIndex} onSelectLifetimeWindow={setLifetimeWindowIndex} lifetimeSubjects={lifetimeSubjects} activeLifetimeSubject={activeLifetimeSubject} onSelectLifetimeSubject={(subject) => { setLifetimeSubject(subject); setLifetimeWindowIndex(0); }} />}
   </ScreenContainer>;
 }
 
@@ -372,4 +439,21 @@ const styles = StyleSheet.create({
   topicProgress: { minWidth: 62, alignItems: "flex-end", gap: 2 },
   topicProgressValue: { fontSize: 17, lineHeight: 21, fontWeight: "900" },
   topicProgressLabel: { fontSize: 7, lineHeight: 10, fontWeight: "900", letterSpacing: 0.45 },
+  subjectLensSelector: { gap: 7, paddingRight: 4 },
+  subjectLensChip: { minHeight: 32, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
+  topicSearch: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 15, paddingHorizontal: 12, paddingVertical: 10, gap: 4 },
+  topicSearchInput: { minHeight: 34, fontSize: 14, lineHeight: 18, fontWeight: "700", paddingVertical: 4 },
+  comparisonCard: { gap: 10 },
+  comparisonSelector: { gap: 7, paddingRight: 4 },
+  comparisonChip: { minHeight: 32, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
+  comparisonHeader: { minHeight: 30, flexDirection: "row", alignItems: "center", borderBottomWidth: StyleSheet.hairlineWidth },
+  comparisonHeaderLabel: { flex: 1.05, fontSize: 7, lineHeight: 10, fontWeight: "900", letterSpacing: 0.5 },
+  comparisonHeaderValue: { flex: 0.8, fontSize: 8, lineHeight: 11, fontWeight: "900", textAlign: "right" },
+  comparisonMetricRow: { minHeight: 48, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", marginTop: 7 },
+  comparisonMetricLabel: { flex: 1.05, fontSize: 8, lineHeight: 11, fontWeight: "900", letterSpacing: 0.45 },
+  comparisonMetricValue: { flex: 0.8, fontSize: 11, lineHeight: 15, fontWeight: "900", textAlign: "right" },
+  comparisonMetricDelta: { flex: 0.8, fontSize: 10, lineHeight: 14, fontWeight: "900", textAlign: "right" },
+  comparisonContextCard: { gap: 5 },
+  comparisonSubjects: { gap: 7 },
+  comparisonSubjectRow: { minHeight: 58, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 10, paddingVertical: 9, flexDirection: "row", alignItems: "center", gap: 10 },
 });

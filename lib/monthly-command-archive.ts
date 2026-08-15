@@ -21,6 +21,7 @@ export interface MonthlyArchiveSubject {
   label: string;
   durationMs: number;
   completedMissions: number;
+  xpEarned: number;
 }
 
 export interface MonthlyArchiveCategory {
@@ -90,6 +91,33 @@ export interface MonthlyArchiveLifetimeWindow {
   key: string;
   label: string;
   points: MonthlyArchiveLifetimePoint[];
+}
+
+export interface MonthlyArchiveSubjectLifetimePoint extends MonthlyArchiveLifetimePoint {
+  xpEarned: number;
+  investedMs: number;
+  completedMissions: number;
+}
+
+export interface MonthlyArchiveMonthComparisonMetric {
+  key: "xp" | "gold" | "time" | "missions" | "focus" | "clarity" | "motivation" | "feeling" | "distractions";
+  label: string;
+  firstValue: number;
+  secondValue: number;
+  delta: number;
+}
+
+export interface MonthlyArchiveMonthComparison {
+  first: MonthlyCommandArchiveMonth;
+  second: MonthlyCommandArchiveMonth;
+  metrics: MonthlyArchiveMonthComparisonMetric[];
+  subjects: Array<{
+    label: string;
+    firstInvestedMs: number;
+    secondInvestedMs: number;
+    firstCompletedMissions: number;
+    secondCompletedMissions: number;
+  }>;
 }
 
 export interface MonthlyArchiveStudiedTopic {
@@ -391,11 +419,12 @@ export function getMonthlyCommandArchive(state: FocusState): MonthlyCommandArchi
       target.subjectLabels.add(subject);
     });
     const subject = completion.subject.trim() || "Unspecified";
-    const currentSubject = month.subjects.get(subject) ?? { label: subject, durationMs: 0, completedMissions: 0 };
+    const currentSubject = month.subjects.get(subject) ?? { label: subject, durationMs: 0, completedMissions: 0, xpEarned: 0 };
     month.subjects.set(subject, {
       label: subject,
       durationMs: currentSubject.durationMs + completion.durationMs,
       completedMissions: currentSubject.completedMissions + 1,
+      xpEarned: currentSubject.xpEarned + (completion.progression?.powerAwarded ?? completion.baseXp),
     });
     if (completion.reflection) addReflection(month, localDate, completion.reflection);
   });
@@ -553,6 +582,98 @@ export function getMonthlyArchiveLifetimeWindows(archive: MonthlyCommandArchive,
   return windows;
 }
 
+/**
+ * Returns the exact existing workload for one subject in each existing lifetime point.
+ * It intentionally does not reuse the all-subject growth score, because reflections and
+ * distractions are not attributable to one particular subject.
+ */
+export function getMonthlyArchiveSubjectLifetimeWindows(
+  archive: MonthlyCommandArchive,
+  subject: string,
+  monthsPerWindow = 24,
+): MonthlyArchiveLifetimeWindow[] {
+  const normalizedSubject = subject.trim().toLocaleLowerCase();
+  if (!normalizedSubject) return getMonthlyArchiveLifetimeWindows(archive, monthsPerWindow);
+
+  const subjectMonths = archive.years
+    .flatMap((year) => year.months)
+    .filter((month) => month.subjectBreakdown.some((entry) => entry.label.toLocaleLowerCase() === normalizedSubject));
+  if (!subjectMonths.length) return [];
+  const recorded = archive.years
+    .flatMap((year) => year.months)
+    .filter((month) => month.hasData)
+    .sort((left, right) => left.key.localeCompare(right.key));
+  if (!recorded.length) return [];
+
+  const byKey = new Map(archive.years.flatMap((year) => year.months).map((month) => [month.key, month]));
+  const points: MonthlyArchiveSubjectLifetimePoint[] = [];
+  let { year, monthIndex } = recorded[0];
+  const last = recorded[recorded.length - 1];
+  while (year < last.year || (year === last.year && monthIndex <= last.monthIndex)) {
+    const key = monthKey(year, monthIndex);
+    const month = byKey.get(key);
+    const entry = month?.subjectBreakdown.find((item) => item.label.toLocaleLowerCase() === normalizedSubject);
+    points.push({
+      key,
+      label: monthIndex === 0 || monthIndex === 11 ? `${formatMonth(year, monthIndex, "short")} ${String(year).slice(-2)}` : "",
+      // This score is a transparent subject-only activity index, not a substitute for the all-subject growth score.
+      value: entry ? Math.round(Math.min(100,
+        Math.min(40, entry.completedMissions * 20)
+        + Math.min(40, entry.xpEarned / 2)
+        + Math.min(20, (entry.durationMs / 3_600_000) * 10),
+      )) : 0,
+      xpEarned: entry?.xpEarned ?? 0,
+      investedMs: entry?.durationMs ?? 0,
+      completedMissions: entry?.completedMissions ?? 0,
+      year,
+      monthIndex,
+    });
+    ({ year, monthIndex } = nextMonth(year, monthIndex));
+  }
+
+  const safeWindowSize = Math.max(6, Math.floor(monthsPerWindow));
+  const windows: MonthlyArchiveLifetimeWindow[] = [];
+  for (let index = 0; index < points.length; index += safeWindowSize) {
+    const windowPoints = points.slice(index, index + safeWindowSize);
+    const first = windowPoints[0];
+    const final = windowPoints[windowPoints.length - 1];
+    windows.push({
+      key: `${subject}:${first.key}:${final.key}`,
+      label: first.year === final.year ? `${first.year}` : `${first.year}–${final.year}`,
+      points: windowPoints,
+    });
+  }
+  return windows;
+}
+
+/** Produces a read-only comparison between two actual archive months. */
+export function getMonthlyArchiveMonthComparison(
+  first: MonthlyCommandArchiveMonth,
+  second: MonthlyCommandArchiveMonth,
+): MonthlyArchiveMonthComparison {
+  const metricKeys: MonthlyArchiveMonthComparisonMetric["key"][] = ["xp", "gold", "time", "missions", "focus", "clarity", "motivation", "feeling", "distractions"];
+  const metrics = metricKeys.map((key) => {
+    const firstValue = getMonthlyArchiveMetricValue(first, key);
+    const secondValue = getMonthlyArchiveMetricValue(second, key);
+    return { key, label: getMonthlyArchiveMetricLabel(key), firstValue, secondValue, delta: secondValue - firstValue };
+  });
+  const firstSubjects = new Map(first.subjectBreakdown.map((entry) => [entry.label, entry]));
+  const secondSubjects = new Map(second.subjectBreakdown.map((entry) => [entry.label, entry]));
+  const labels = Array.from(new Set([...firstSubjects.keys(), ...secondSubjects.keys()])).sort((left, right) => left.localeCompare(right));
+  return {
+    first,
+    second,
+    metrics,
+    subjects: labels.map((label) => ({
+      label,
+      firstInvestedMs: firstSubjects.get(label)?.durationMs ?? 0,
+      secondInvestedMs: secondSubjects.get(label)?.durationMs ?? 0,
+      firstCompletedMissions: firstSubjects.get(label)?.completedMissions ?? 0,
+      secondCompletedMissions: secondSubjects.get(label)?.completedMissions ?? 0,
+    })),
+  };
+}
+
 function revisionPercent(topic: FocusState["srsTopics"][number]) {
   if (topic.status === "completed") return 100;
   return [0, 33, 67][Math.max(0, Math.min(2, topic.stage))] ?? 0;
@@ -611,4 +732,11 @@ export function getMonthlyArchiveStudiedTopics(state: FocusState, period: Archiv
     if (period.year) return Number(topic.firstMonthKey.slice(0, 4)) === period.year;
     return true;
   });
+}
+
+/** Filters an already-derived local topic list without changing archive state or doing network work. */
+export function filterMonthlyArchiveStudiedTopics(topics: MonthlyArchiveStudiedTopic[], query: string) {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return topics;
+  return topics.filter((topic) => topic.topic.toLocaleLowerCase().includes(normalizedQuery) || topic.subject.toLocaleLowerCase().includes(normalizedQuery));
 }
