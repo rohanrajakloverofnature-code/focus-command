@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { createInitialState, getDashboardStats, getMissionCompletionRecords } from "../lib/focus-command";
+import { getMonthlyCommandArchive } from "../lib/monthly-command-archive";
 
 const focusCommandSource = readFileSync(resolve(process.cwd(), "lib/focus-command.tsx"), "utf8");
 const launchSource = readFileSync(resolve(process.cwd(), "components/launch-animation.tsx"), "utf8");
@@ -18,12 +19,15 @@ const missionSource = readFileSync(resolve(process.cwd(), "app/mission/[id].tsx"
 const settingsSource = readFileSync(resolve(process.cwd(), "app/settings.tsx"), "utf8");
 const homeMotionSource = readFileSync(resolve(process.cwd(), "components/home-motion.tsx"), "utf8");
 const dashboardSource = readFileSync(resolve(process.cwd(), "app/(tabs)/dashboard.tsx"), "utf8");
+const archiveSource = readFileSync(resolve(process.cwd(), "app/command-archive.tsx"), "utf8");
+const archiveHelperSource = readFileSync(resolve(process.cwd(), "lib/monthly-command-archive.ts"), "utf8");
 
 describe("Performance and reliability contracts", () => {
   it("reuses completion and dashboard derivations for one immutable state snapshot", () => {
     const state = createInitialState();
     expect(getMissionCompletionRecords(state)).toBe(getMissionCompletionRecords(state));
     expect(getDashboardStats(state)).toBe(getDashboardStats(state));
+    expect(getMonthlyCommandArchive(state)).toBe(getMonthlyCommandArchive(state));
   });
 
   it("defines one tolerant shared cleanup contract for pause, optional rewind, and native player removal", () => {
@@ -101,5 +105,13 @@ describe("Performance and reliability contracts", () => {
     expect(dashboardSource).toContain("const state = getCurrentState();");
     expect(dashboardSource).toContain("getDashboardStats(state)");
     expect(dashboardSource).toContain("getWeeklyAfterActionReview(state)");
+  });
+
+  it("keeps the lifetime archive derived, virtualized, and scoped to its durable source records", () => {
+    expect(archiveHelperSource).toContain("const archiveCache = new WeakMap<FocusState, MonthlyCommandArchive>()");
+    expect(archiveHelperSource).toContain("no archive data, rollover marker, or placeholder is stored");
+    expect(archiveSource).toContain("useFocusCommandSelector((state) => ({");
+    expect(archiveSource).toContain("<FlatList");
+    expect(archiveSource).toContain("getMonthlyCommandArchive(state)");
   });
 });

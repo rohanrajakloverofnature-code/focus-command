@@ -168,6 +168,19 @@ export default function DashboardScreen() {
           <MetricTile label="Monthly average" value={`${timeAverages.monthDailyAverageHours.toFixed(1)} h`} detail="Tap for month detail" icon="target" accent={colors.warning} onPress={() => router.push("/analytics?metric=monthly" as never)} />
         </View>
 
+        <TapFeedback onPress={() => router.push("/command-archive" as never)} accessibilityLabel="Open monthly command archive">
+          <CommandCard accent="#A78BFA" style={styles.commandArchiveCard}>
+            <View style={styles.commandArchiveHeading}>
+              <View style={styles.commandArchiveCopy}>
+                <Text style={[styles.commandArchiveEyebrow, { color: "#A78BFA" }]}>LIFETIME COMMAND RECORD</Text>
+                <Text style={[styles.commandArchiveTitle, { color: colors.foreground }]}>Monthly command archive</Text>
+                <Text style={[styles.commandArchiveDetail, { color: colors.muted }]}>Explore every recorded local year and month, with growth, focus, rewards, subjects, and friction kept in one read-only record.</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={22} color="#A78BFA" />
+            </View>
+          </CommandCard>
+        </TapFeedback>
+
         <TapFeedback onPress={() => router.push("/weekly-review" as never)} accessibilityLabel="Open weekly after-action review">
           <CommandCard accent="#F4C95D" style={styles.weeklyReviewCard}>
             <View style={styles.weeklyReviewHeading}>
@@ -407,6 +420,12 @@ function Legend({ points, formatter }: { points: ChartPoint[]; formatter: (value
 const styles = StyleSheet.create({
   content: { gap: 16, paddingTop: 12, paddingBottom: 28 },
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  commandArchiveCard: { gap: 8 },
+  commandArchiveHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  commandArchiveCopy: { flex: 1, gap: 3 },
+  commandArchiveEyebrow: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.9 },
+  commandArchiveTitle: { fontSize: 16, lineHeight: 21, fontWeight: "900" },
+  commandArchiveDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600" },
   weeklyReviewCard: { gap: 8 },
   weeklyReviewHeading: { flexDirection: "row", alignItems: "center", gap: 11 },
   weeklyReviewCopy: { flex: 1, gap: 3 },

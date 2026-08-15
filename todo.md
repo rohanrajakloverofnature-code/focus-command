@@ -480,3 +480,8 @@
 - [x] Protect existing continuous visual work from unrelated state updates without changing completed animations or their timing.
 - [x] Add touch-and-scroll regression coverage and complete full TypeScript, test, lint, and export validation without starting an APK build.
 - [x] Push the validated Touch and Scroll Smoothness Optimization checkpoint to the existing private GitHub main branch without starting an APK build or workflow.
+- [x] Conduct a read-only analysis and present an approval-gated plan for a lifelong Dashboard Monthly Command Archive with year/month navigation, growth trends, month metric switching, and performance safeguards.
+- [x] Implement a pure, durable-record-derived Monthly Command Archive with local-timezone year/month grouping, transparent monthly metrics, and automatic real month/year recognition.
+- [x] Add the approved Dashboard archive entry and read-only year/month archive screens without moving or changing current Dashboard sections.
+- [x] Add virtualized archive rendering, stable metric switching, and memoized derivations to preserve smooth scrolling and immediate button responsiveness.
+- [x] Add deterministic archive, automatic rollover, backup-equivalence, and performance regression coverage; complete full validation without an APK build.
