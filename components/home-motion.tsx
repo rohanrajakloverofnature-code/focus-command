@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from "react";
+import { memo, type ReactNode, useEffect } from "react";
 import { StyleProp, StyleSheet, ViewStyle } from "react-native";
 import Animated, { cancelAnimation, interpolate, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withTiming } from "react-native-reanimated";
 
@@ -41,7 +41,7 @@ export function HomeFloat({
   return <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>;
 }
 
-export function HomeAmbientScene({ reduceMotion }: { reduceMotion: boolean }) {
+export const HomeAmbientScene = memo(function HomeAmbientScene({ reduceMotion }: { reduceMotion: boolean }) {
   const phase = useSharedValue(0);
 
   useEffect(() => {
@@ -74,7 +74,7 @@ export function HomeAmbientScene({ reduceMotion }: { reduceMotion: boolean }) {
       <Animated.View pointerEvents="none" style={[styles.signal, signal]} />
     </>
   );
-}
+});
 
 const styles = StyleSheet.create({
   orb: { position: "absolute", borderRadius: 999, backgroundColor: "#A78BFA" },

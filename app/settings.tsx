@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Appearance, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
@@ -8,7 +8,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useGoogleSheetsAuth } from "@/hooks/use-google-sheets-auth";
-import { ComboTier, getComboTiers, PaletteToken, SoundRoleId, SoundStyle, useFocusCommand } from "@/lib/focus-command";
+import { ComboTier, getComboTiers, PaletteToken, SoundRoleId, SoundStyle, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { clearSelectedFocusWorkbook, createFocusWorkbook, getFocusWorkbookMetadata, getGoogleAccessToken, getSelectedFocusWorkbook, getSpreadsheet, readFocusWorkbook, saveSelectedFocusWorkbook, writeFocusWorkbook } from "@/lib/google-sheets";
 import { configureDailyMissionReminder, enableFocusReminders, refreshScheduledReminderSounds } from "@/lib/focus-reminders";
 import { chooseAndValidateOfflineBackup, createAndShareOfflineBackup, discardMaterializedOfflineBackup, materializeOfflineBackupMedia } from "@/lib/offline-backup";
@@ -20,9 +20,8 @@ export default function SettingsScreen() {
   const colors = useColors();
   const { setColorScheme } = useThemeContext();
   const { section } = useLocalSearchParams<{ section?: string }>();
+  const ready = useFocusCommandReady();
   const {
-    state,
-    ready,
     updateProfile,
     updateComboTiers,
     setGoogleSheetConnection,
@@ -30,7 +29,12 @@ export default function SettingsScreen() {
     markSynced,
     restoreOfflineBackup,
     resetLocalData,
-  } = useFocusCommand();
+    getCurrentState,
+  } = useFocusCommandActions();
+  const profile = useFocusCommandSelector((snapshot) => snapshot.profile);
+  const googleSheet = useFocusCommandSelector((snapshot) => snapshot.googleSheet);
+  const customQuestions = useFocusCommandSelector((snapshot) => snapshot.customQuestions);
+  const state = useMemo(() => ({ profile, googleSheet, customQuestions }), [customQuestions, googleSheet, profile]);
   const [firstName, setFirstName] = useState(state.profile.firstName);
   const [newTierDays, setNewTierDays] = useState("");
   const [newTierMultiplier, setNewTierMultiplier] = useState("");
@@ -198,7 +202,7 @@ export default function SettingsScreen() {
     if (backupBusy) return;
     setBackupBusy("export");
     try {
-      const result = await createAndShareOfflineBackup(state);
+      const result = await createAndShareOfflineBackup(getCurrentState());
       Alert.alert("Backup file ready", `${result.fileName} was prepared. Save it in a private location so it is available when you change phones or reinstall Focus Command.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Focus Command could not create the backup file.";
@@ -269,13 +273,14 @@ export default function SettingsScreen() {
     try {
       setGoogleSheetConnection({ phase: "syncing", errorMessage: null });
       const workbook = await createFocusWorkbook(token, sheetName.trim() || "Focus Command Data");
-      await writeFocusWorkbook(token, workbook, state);
+      const currentState = getCurrentState();
+      await writeFocusWorkbook(token, workbook, currentState);
       setSheetId(workbook.spreadsheetId);
       setSheetName(workbook.spreadsheetName);
       await saveSelectedFocusWorkbook(workbook);
       setGoogleSheetConnection({ ...workbook, phase: "synced", pendingOperations: 0, lastSyncedAt: new Date().toISOString(), errorMessage: null });
       markSynced();
-      void playFocusRole("system", state.profile.soundEnabled, state.profile.soundRoles.system);
+      void playFocusRole("system", currentState.profile.soundEnabled, currentState.profile.soundRoles.system);
       Alert.alert("Spreadsheet ready", "Focus Command created its data tabs and exported the current command log.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Google Sheets could not create the spreadsheet.";
@@ -311,13 +316,14 @@ export default function SettingsScreen() {
         ]);
         return;
       }
-      await writeFocusWorkbook(token, workbook, state);
+      const currentState = getCurrentState();
+      await writeFocusWorkbook(token, workbook, currentState);
       setSheetId(workbook.spreadsheetId);
       setSheetName(workbook.spreadsheetName);
       await saveSelectedFocusWorkbook(workbook);
       setGoogleSheetConnection({ ...workbook, phase: "synced", pendingOperations: 0, lastSyncedAt: new Date().toISOString(), errorMessage: null });
       markSynced();
-      void playFocusRole("system", state.profile.soundEnabled, state.profile.soundRoles.system);
+      void playFocusRole("system", currentState.profile.soundEnabled, currentState.profile.soundRoles.system);
       Alert.alert("Sync complete", "The selected Google Sheet now contains the latest Focus Command snapshot and data tabs.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Google Sheets could not sync the selected spreadsheet.";

@@ -141,18 +141,21 @@ export function IconAction({
   const feedback = useInteractionFeedback();
   const impact = useSharedValue(1);
   const impactStyle = useAnimatedStyle(() => ({ transform: [{ scale: impact.value }, { rotate: `${(impact.value - 1) * 4}deg` }] }));
-  const acknowledgePress = () => {
+  const acknowledgeCompletedPress = () => {
     impact.value = withSequence(withTiming(0.91, { duration: 55 }), withTiming(1.03, { duration: 100 }), withTiming(1, { duration: 110 }));
     void playFocusTap(feedback.soundEnabled, feedback.tapSound);
     if (feedback.hapticsEnabled && Platform.OS !== "web") void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+  };
+  const handlePress = () => {
+    onPress();
+    acknowledgeCompletedPress();
   };
   return (
     <Animated.View style={impactStyle}><Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={disabled}
-      onPress={onPress}
-      onPressIn={acknowledgePress}
+      onPress={handlePress}
       hitSlop={6}
       style={({ pressed }) => [
         styles.iconAction,
@@ -183,10 +186,14 @@ export function CommandButton({
   const feedback = useInteractionFeedback();
   const impact = useSharedValue(1);
   const impactStyle = useAnimatedStyle(() => ({ transform: [{ scale: impact.value }] }));
-  const acknowledgePress = () => {
+  const acknowledgeCompletedPress = () => {
     impact.value = withSequence(withTiming(0.955, { duration: 45 }), withTiming(1.02, { duration: 90 }), withTiming(1, { duration: 120 }));
     void playFocusTap(feedback.soundEnabled, feedback.tapSound);
     if (feedback.hapticsEnabled && Platform.OS !== "web") void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+  };
+  const handlePress = () => {
+    onPress();
+    acknowledgeCompletedPress();
   };
   const palette = {
     primary: { background: colors.primary, foreground: "#071018", border: colors.primary },
@@ -198,8 +205,7 @@ export function CommandButton({
     <Animated.View style={[impactStyle, style]}><Pressable
       accessibilityRole="button"
       disabled={disabled}
-      onPress={onPress}
-      onPressIn={acknowledgePress}
+      onPress={handlePress}
       hitSlop={4}
       style={({ pressed }) => [
         styles.commandButton,
@@ -238,11 +244,15 @@ export function MetricTile({
   const feedback = useInteractionFeedback();
   const impact = useSharedValue(1);
   const impactStyle = useAnimatedStyle(() => ({ transform: [{ scale: impact.value }] }));
-  const acknowledgePress = () => {
+  const acknowledgeCompletedPress = () => {
     if (!onPress) return;
     impact.value = withSequence(withTiming(0.97, { duration: 45 }), withTiming(1.01, { duration: 100 }), withTiming(1, { duration: 110 }));
     void playFocusTap(feedback.soundEnabled, feedback.tapSound);
     if (feedback.hapticsEnabled && Platform.OS !== "web") void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+  };
+  const handlePress = () => {
+    onPress?.();
+    acknowledgeCompletedPress();
   };
   const body = (
     <>
@@ -260,8 +270,7 @@ export function MetricTile({
   return (
     <Animated.View style={[impactStyle, style]}><Pressable
       accessibilityRole="button"
-      onPress={onPress}
-      onPressIn={acknowledgePress}
+      onPress={handlePress}
       hitSlop={4}
       style={({ pressed }) => [
         styles.metricTile,
@@ -340,8 +349,12 @@ export function TapFeedback({
   const feedback = useInteractionFeedback();
   const scale = useSharedValue(1);
   const tapStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const acknowledgePress = () => {
+  const acknowledgeCompletedPress = () => {
     if (!feedback.reduceMotion) scale.value = withSequence(withTiming(0.972, { duration: 45 }), withTiming(1.012, { duration: 90 }), withTiming(1, { duration: 110 }));
+  };
+  const handlePress = () => {
+    onPress();
+    acknowledgeCompletedPress();
   };
   return (
     <Animated.View style={[tapStyle, style]}>
@@ -349,8 +362,7 @@ export function TapFeedback({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         disabled={disabled}
-        onPress={onPress}
-        onPressIn={acknowledgePress}
+        onPress={handlePress}
         hitSlop={4}
         style={({ pressed }) => ({ opacity: disabled ? 0.45 : pressed ? 0.76 : 1 })}
       >

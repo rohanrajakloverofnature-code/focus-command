@@ -972,7 +972,7 @@ export function createInitialState(): FocusState {
   };
 }
 
-export function getComboTiers(state: FocusState): ComboTier[] {
+export function getComboTiers(state: Pick<FocusState, "customQuestions">): ComboTier[] {
   const stored = state.customQuestions.find((question) => question.id === "__combo_tiers__");
   if (stored && stored.options.length) {
     try {
@@ -1722,6 +1722,8 @@ interface FocusCommandContextValue {
   state: FocusState;
   ready: boolean;
   dayMarker: string;
+  /** Stable read for explicit export/import actions; it does not subscribe a screen to state updates. */
+  getCurrentState: () => FocusState;
   createMission: (draft: MissionDraft) => string;
   updateMission: (missionId: string, patch: Partial<Mission>) => void;
   removeMission: (missionId: string) => void;
@@ -1773,6 +1775,7 @@ type FocusCommandStateStore = {
 };
 const FocusCommandActionsContext = createContext<FocusCommandActions | null>(null);
 const FocusCommandStateStoreContext = createContext<FocusCommandStateStore | null>(null);
+const FocusCommandReadyContext = createContext(false);
 const PERSISTENCE_DEBOUNCE_MS = 250;
 
 export function normalizeHydratedState(input: FocusState): FocusState {
@@ -1910,6 +1913,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   const [localDay, setLocalDay] = useState(() => toLocalDate(nowIso()));
   const stateRef = useRef(state);
   stateRef.current = state;
+  const getCurrentState = useCallback(() => stateRef.current, []);
   const stateListeners = useRef(new Set<() => void>());
   const persistenceQueue = useRef<Promise<void>>(Promise.resolve());
   const pendingPersistence = useRef<FocusState | null>(null);
@@ -2818,6 +2822,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const actions = useMemo<FocusCommandActions>(() => ({
+    getCurrentState,
     createMission,
     updateMission,
     removeMission,
@@ -2860,6 +2865,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     getEquippedItems,
     restoreOfflineBackup,
   }), [
+    getCurrentState,
     createMission,
     updateMission,
     removeMission,
@@ -2913,7 +2919,9 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   return (
     <FocusCommandStateStoreContext.Provider value={stateStore}>
       <FocusCommandActionsContext.Provider value={actions}>
-        <FocusCommandContext.Provider value={value}>{children}</FocusCommandContext.Provider>
+        <FocusCommandReadyContext.Provider value={state.hydrated}>
+          <FocusCommandContext.Provider value={value}>{children}</FocusCommandContext.Provider>
+        </FocusCommandReadyContext.Provider>
       </FocusCommandActionsContext.Provider>
     </FocusCommandStateStoreContext.Provider>
   );
@@ -2950,6 +2958,11 @@ export function useFocusCommandActions(): FocusCommandActions {
   const actions = useContext(FocusCommandActionsContext);
   if (!actions) throw new Error("useFocusCommandActions must be used inside FocusCommandProvider");
   return actions;
+}
+
+/** Read hydration readiness without subscribing to the full persisted state. */
+export function useFocusCommandReady(): boolean {
+  return useContext(FocusCommandReadyContext);
 }
 
 export function getDifficultyColor(difficulty: Difficulty): string {

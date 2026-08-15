@@ -474,3 +474,8 @@
 - [x] Prepare the existing optional tap-feedback resource safely after hydration without playing a new launch sound or altering sound settings.
 - [x] Add responsiveness regression coverage and complete full TypeScript, test, lint, and export validation without starting an APK build.
 - [x] Push the validated Button Responsiveness Optimization checkpoint to the existing private GitHub main branch without starting an APK build or workflow.
+- [x] Conduct a read-only investigation of renewed button and scrolling lag from the supplied recording and current code; present an approval-gated root-cause plan without changing app behavior.
+- [x] Correct shared scroll-versus-tap feedback scheduling without changing visible controls, feedback choices, or release-to-activate action behavior.
+- [x] Contain dense Settings and Dashboard rendering work without changing any section, chart, calculation, data, layout, or feature behavior.
+- [x] Protect existing continuous visual work from unrelated state updates without changing completed animations or their timing.
+- [x] Add touch-and-scroll regression coverage and complete full TypeScript, test, lint, and export validation without starting an APK build.

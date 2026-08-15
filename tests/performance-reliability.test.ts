@@ -15,6 +15,9 @@ const tapBridgeSource = readFileSync(resolve(process.cwd(), "components/focus-ta
 const focusAudioSource = readFileSync(resolve(process.cwd(), "lib/focus-audio.ts"), "utf8");
 const homeSource = readFileSync(resolve(process.cwd(), "app/(tabs)/index.tsx"), "utf8");
 const missionSource = readFileSync(resolve(process.cwd(), "app/mission/[id].tsx"), "utf8");
+const settingsSource = readFileSync(resolve(process.cwd(), "app/settings.tsx"), "utf8");
+const homeMotionSource = readFileSync(resolve(process.cwd(), "components/home-motion.tsx"), "utf8");
+const dashboardSource = readFileSync(resolve(process.cwd(), "app/(tabs)/dashboard.tsx"), "utf8");
 
 describe("Performance and reliability contracts", () => {
   it("reuses completion and dashboard derivations for one immutable state snapshot", () => {
@@ -53,10 +56,12 @@ describe("Performance and reliability contracts", () => {
     expect(missionBoardSource).toContain("const MissionCard = memo");
   });
 
-  it("acknowledges existing controls at touch-down without moving their release-to-activate actions", () => {
-    expect(focusUiSource).toContain("onPressIn={acknowledgePress}");
-    expect(focusUiSource).toContain("const acknowledgePress = ()");
-    expect(focusUiSource).toContain("onPress={onPress}");
+  it("keeps the native pressed visual immediate but defers costly acknowledgement until a confirmed completed tap", () => {
+    expect(focusUiSource).not.toContain("onPressIn={acknowledgePress}");
+    expect(focusUiSource).toContain("const acknowledgeCompletedPress = ()");
+    expect(focusUiSource).toContain("const handlePress = () => {");
+    expect(focusUiSource).toContain("onPress();\n    acknowledgeCompletedPress();");
+    expect(focusUiSource).toContain("pressed ? 0.82 : 1");
     expect(focusUiSource).toContain("useInteractionFeedback");
     expect(tabSource).toContain("useFocusCommandSelector(selectTabFeedback");
   });
@@ -74,5 +79,27 @@ describe("Performance and reliability contracts", () => {
     expect(homeSource).toContain("selectEquippedCharacterGear");
     expect(homeSource).toContain("useFocusCommandSelector(selectEquippedCharacterGear");
     expect(missionSource).toContain("useFocusCommandSelector((state) => selectMissionDetailSnapshot(state, id)");
+  });
+
+  it("keeps dense Settings rendering on exact state slices while explicit backup and sync work reads the current snapshot only on demand", () => {
+    expect(settingsSource).toContain("const profile = useFocusCommandSelector((snapshot) => snapshot.profile)");
+    expect(settingsSource).toContain("const googleSheet = useFocusCommandSelector((snapshot) => snapshot.googleSheet)");
+    expect(settingsSource).toContain("const customQuestions = useFocusCommandSelector((snapshot) => snapshot.customQuestions)");
+    expect(settingsSource).toContain("getCurrentState");
+    expect(settingsSource).not.toContain("useFocusCommand()" );
+  });
+
+  it("isolates the existing non-interactive Home ambient scene from unrelated parent renders without changing its animation contract", () => {
+    expect(homeMotionSource).toContain("memo(function HomeAmbientScene");
+    expect(homeMotionSource).toContain("withRepeat(withTiming(1, { duration: 4_800 })");
+    expect(homeMotionSource).toContain('pointerEvents="none"');
+  });
+
+  it("keeps Dashboard analytics behind an exact render-dependency boundary while retaining its existing derivations", () => {
+    expect(dashboardSource).toContain("useFocusCommandSelector");
+    expect(dashboardSource).toContain("useFocusCommandSelector((state) => ({");
+    expect(dashboardSource).toContain("const state = getCurrentState();");
+    expect(dashboardSource).toContain("getDashboardStats(state)");
+    expect(dashboardSource).toContain("getWeeklyAfterActionReview(state)");
   });
 });

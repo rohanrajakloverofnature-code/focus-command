@@ -7,7 +7,7 @@ import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, Scre
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getTotalPower, getWellbeingInsight, toLocalDate, useFocusCommand } from "@/lib/focus-command";
+import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getTotalPower, getWellbeingInsight, toLocalDate, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { RECOGNITION_WINDOW_LAYOUT } from "@/lib/focus-layout";
 import { getFocusFrictionInsight } from "@/lib/distraction-log";
 import { getWeeklyAfterActionReview } from "@/lib/weekly-after-action";
@@ -25,7 +25,28 @@ const feelingScore = { drained: 1, restless: 2, steady: 3, charged: 4, great: 5 
 
 export default function DashboardScreen() {
   const colors = useColors();
-  const { state, ready, addLifelinePoint, removeLifelinePoint } = useFocusCommand();
+  const ready = useFocusCommandReady();
+  const { addLifelinePoint, removeLifelinePoint, getCurrentState } = useFocusCommandActions();
+  useFocusCommandSelector((state) => ({
+      profile: state.profile,
+      progression: state.progression,
+      missions: state.missions,
+      reflections: state.reflections,
+      distractionLogs: state.distractionLogs,
+      srsTopics: state.srsTopics,
+      customGraphs: state.customGraphs,
+      lifeline: state.lifeline,
+    }),
+    (left, right) => left.profile === right.profile
+      && left.progression === right.progression
+      && left.missions === right.missions
+      && left.reflections === right.reflections
+      && left.distractionLogs === right.distractionLogs
+      && left.srsTopics === right.srsTopics
+      && left.customGraphs === right.customGraphs
+      && left.lifeline === right.lifeline,
+  );
+  const state = getCurrentState();
   const [showLifelineEditor, setShowLifelineEditor] = useState(false);
   const [birthYear, setBirthYear] = useState(String(new Date().getFullYear() - 20));
   const [lifePerformance, setLifePerformance] = useState("5");

@@ -21,8 +21,11 @@ export function HapticTab(props: BottomTabBarButtonProps) {
   const scaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const pressIn = (event: Parameters<NonNullable<BottomTabBarButtonProps["onPressIn"]>>[0]) => {
     if (!feedback.reduceMotion) scale.value = withTiming(0.94, { duration: 70 });
-    if (feedback.hapticsEnabled && Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     props.onPressIn?.(event);
+  };
+  const press = (event: Parameters<NonNullable<BottomTabBarButtonProps["onPress"]>>[0]) => {
+    props.onPress?.(event);
+    if (feedback.hapticsEnabled && Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
   };
   const pressOut = (event: Parameters<NonNullable<BottomTabBarButtonProps["onPressOut"]>>[0]) => {
     if (!feedback.reduceMotion) scale.value = withTiming(1, { duration: 140 });
@@ -31,7 +34,7 @@ export function HapticTab(props: BottomTabBarButtonProps) {
 
   return (
     <Animated.View pointerEvents="box-none" style={[styles.touchArea, scaleStyle]}>
-      <PlatformPressable {...props} hitSlop={6} onPressIn={pressIn} onPressOut={pressOut} />
+      <PlatformPressable {...props} hitSlop={6} onPress={press} onPressIn={pressIn} onPressOut={pressOut} />
     </Animated.View>
   );
 }
