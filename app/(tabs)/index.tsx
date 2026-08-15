@@ -79,6 +79,7 @@ type HomeDependencies = Pick<FocusState,
   | "rewards"
   | "inventory"
   | "googleSheet"
+  | "customQuestions"
   | "hydrated"
 >;
 
@@ -97,6 +98,7 @@ function selectHomeDependencies(state: FocusState): HomeDependencies {
     rewards: state.rewards,
     inventory: state.inventory,
     googleSheet: state.googleSheet,
+    customQuestions: state.customQuestions,
     hydrated: state.hydrated,
   };
 }
@@ -115,6 +117,7 @@ function hasSameHomeDependencies(left: HomeDependencies, right: HomeDependencies
     && left.rewards === right.rewards
     && left.inventory === right.inventory
     && left.googleSheet === right.googleSheet
+    && left.customQuestions === right.customQuestions
     && left.hydrated === right.hydrated;
 }
 
@@ -188,6 +191,7 @@ export default function HomeScreen() {
   }, [
     state.bosses,
     state.combo,
+    state.customQuestions,
     state.inventory,
     state.missionCompletions,
     state.missions,
