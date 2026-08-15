@@ -492,3 +492,5 @@
 - [x] Revise the approval plan to include an additive, performance-bounded selected-year topic and revision-cadence completion summary, preserving the current annual graph and month grid exactly.
 - [x] Conduct a read-only inspection and present an approval-gated plan for Yearly Revision Overview search, subject-only Lifetime Growth filtering, and an optional month-to-month comparison view.
 - [x] If approved, add bounded search, subject filtering, and month comparison with stable interactions, virtualized results, and regression validation while preserving all existing archive behavior.
+- [x] Conduct a read-only long-term scalability audit for very large offline Focus Command histories, then present an approval-gated performance plan without changing any existing feature, calculation, user-facing mechanism, profile-logo behavior, animation, or app identity.
+- [x] Implement the approved internal long-term scalability protections: bounded derivations, cache-aware large-history paths, hardened virtualized lists, persistence safety, and deterministic multi-year regression coverage—without changing any existing user-facing behavior or durable calculation.
