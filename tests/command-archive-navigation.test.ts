@@ -19,3 +19,12 @@ it("keeps studied-topic rows connected to the established Revision Queue or rela
   expect(archiveSource).toContain("revisionCompletionPercent");
   expect(archiveSource).toContain("NOT ENROLLED");
 });
+
+it("keeps the approved mobile archive spacing and readable two-column metric grid", () => {
+  expect(archiveSource).toContain("lifetimeCard: { gap: 12, marginBottom: 14 }");
+  expect(archiveSource).toContain("monthTileTap: { flex: 1 / 3, padding: 5 }");
+  expect(archiveSource).toContain('monthMetricSlot: { width: "48.8%" }');
+  expect(archiveSource).toContain('monthMetricTap: { width: "100%" }');
+  expect(archiveSource).toContain('monthMetric: { width: "100%", minHeight: 68');
+  expect(archiveSource).toContain("<View style={styles.monthMetricSlot}>");
+});
