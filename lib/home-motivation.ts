@@ -1,107 +1,91 @@
-import type { EmotionalPatternForecast } from "@/lib/focus-command";
+import type { EmotionalPatternForecast, ForecastOutlook, Reflection } from "./focus-command";
+
+
 
 export interface ForecastMotivationMessage {
+  
   headline: string;
+  
   detail: string;
+  
 }
 
-export function getForecastMotivationMessages(forecast: EmotionalPatternForecast): ForecastMotivationMessage[] {
-  if (!forecast.available) {
-    return [
-      { headline: "Begin your reflection baseline.", detail: "Complete a mission and log its optional debrief to start your on-device forecast." },
-      { headline: "Your pattern is waiting for input.", detail: "Each reflection adds a concrete data point to your personal focus and energy trends." },
-      { headline: "Observe without pressure.", detail: "There are no targets to hit—just honest logs of focus, energy, and friction." },
-    ];
-  }
 
-  // Extract signals for deeper analysis
-  const signalsMap = new Map(forecast.signals.map(s => [s.label.toLowerCase(), s]));
-  const focusSignal = signalsMap.get("focus");
-  const motivationSignal = signalsMap.get("motivation");
-  const claritySignal = signalsMap.get("clarity");
-  const stressSignal = signalsMap.get("stress load");
-  const distractionSignal = signalsMap.get("distraction");
 
-  const sampleDesc = `${forecast.sampleSize} reflection${forecast.sampleSize === 1 ? "" : "s"}`;
-  const confText = forecast.confidence === "grounded" ? "grounded" : forecast.confidence === "emerging" ? "forming" : "early";
+type LibraryMessage = ForecastMotivationMessage & { id: string };
 
-  const pool: ForecastMotivationMessage[] = [];
 
-  // Data-driven insight categories based on outlook & signal analysis
-  if (forecast.outlook === "momentum") {
-    if (focusSignal && focusSignal.value >= 75) {
-      pool.push(
-        { headline: "High focus is driving momentum.", detail: `Across your last ${sampleDesc}, your reported focus averaging ${focusSignal.value}% is powering a strong upward trend.` },
-        { headline: "Capitalize on peak clarity.", detail: `With clarity holding strong and ${confText} confidence from ${sampleDesc}, now is the ideal window for deep work.` }
-      );
-    }
-    if (motivationSignal && motivationSignal.value >= 70) {
-      pool.push(
-        { headline: "Motivation meets clear output.", detail: `Your ${confText} forecast (${sampleDesc}) indicates high drive; channel this energy into your primary objective.` },
-        { headline: "Sustain your current rhythm.", detail: `Your logged momentum is steady across ${sampleDesc}. Protect this block from unnecessary task switching.` }
-      );
-    }
-    pool.push(
-      { headline: "Momentum is active.", detail: `Your ${confText} forecast from ${sampleDesc} favors another defined focus block while conditions are favorable.` },
-      { headline: "Keep the next target precise.", detail: `Your supportive signals outweigh load across ${sampleDesc}. Commit to one well-scoped task.` },
-      { headline: "Turn active flow into consistency.", detail: `The forecast score (${forecast.score}/100) reflects strong alignment between focus and motivation.` }
-    );
-  } else if (forecast.outlook === "steady") {
-    if (stressSignal && stressSignal.value >= 60) {
-      pool.push(
-        { headline: "Balanced despite elevated load.", detail: `Even with stress registering around ${stressSignal.value}%, your overall balance score (${forecast.score}/100) remains steady across ${sampleDesc}.` },
-        { headline: "Maintain your anchor.", detail: `Your steady forecast (${sampleDesc}) shows that consistent execution is buffering against recent task friction.` }
-      );
-    }
-    if (claritySignal && claritySignal.value >= 70) {
-      pool.push(
-        { headline: "Clear direction keeps you steady.", detail: `Your ${confText} trend across ${sampleDesc} shows high clarity; keep your next task equally straightforward.` },
-        { headline: "Calm consistency is your edge.", detail: `With a balance score of ${forecast.score}/100 from ${sampleDesc}, repeatable blocks will compound your progress.` }
-      );
-    }
-    pool.push(
-      { headline: "Strengthen the steady pattern.", detail: `Your ${confText} forecast from ${sampleDesc} is stable—one consistent block reinforces it.` },
-      { headline: "Consistency is your advantage.", detail: `Logged signals across ${sampleDesc} show healthy equilibrium between focus and demand.` },
-      { headline: "Build quietly on what works.", detail: `A calm, uninterrupted session is the most reliable way to preserve this steady outlook.` }
-    );
-  } else if (forecast.outlook === "recovery") {
-    if (distractionSignal && distractionSignal.value >= 60) {
-      pool.push(
-        { headline: "Distraction load calls for a reset.", detail: `Your recent ${sampleDesc} indicate attention drift averaging ${distractionSignal.value}%. Simplify your workspace before starting.` },
-        { headline: "Clear the noise first.", detail: `With recovery indicated by your ${confText} forecast, reducing distractions will yield a cleaner next session.` }
-      );
-    }
-    if (focusSignal && focusSignal.value < 50) {
-      pool.push(
-        { headline: "Focus needs a lower hurdle.", detail: `Your focus score (${focusSignal.value}%) across ${sampleDesc} suggests breaking your next objective into smaller pieces.` },
-        { headline: "Gentle pacing supports recovery.", detail: `Your on-device forecast (${sampleDesc}) favors a shorter, lower-pressure session to rebuild rhythm.` }
-      );
-    }
-    pool.push(
-      { headline: "Make the next step smaller.", detail: `Your ${confText} forecast from ${sampleDesc} suggests a gentle reset before tackling demanding tasks.` },
-      { headline: "Clarity first, intensity second.", detail: `Use one small, well-defined task to ease the friction recorded in your last ${sampleDesc}.` },
-      { headline: "A lightweight beginning counts.", detail: `The forecast (${forecast.score}/100) points toward recovery—opt for a manageable action over a heavy push.` }
-    );
-  } else if (forecast.outlook === "fragile") {
-    if (stressSignal && stressSignal.value >= 65) {
-      pool.push(
-        { headline: "High stress load detected.", detail: `Your ${sampleDesc} show stress averaging ${stressSignal.value}%. Consider lowering session duration or task complexity.` },
-        { headline: "Protect your energy reserves.", detail: `With load signals outweighing supportive ones in your ${confText} forecast, prioritize friction reduction.` }
-      );
-    }
-    pool.push(
-      { headline: "Reduce friction before the next block.", detail: `Your ${confText} forecast from ${sampleDesc} contains more reported load signals right now.` },
-      { headline: "Choose the smallest useful action.", detail: `A short, concrete task can create a positive signal without requiring an all-or-nothing effort.` },
-      { headline: "Create easier operating conditions.", detail: `Your recent ${sampleDesc} reflect strain; use this data as a cue to simplify your immediate environment.` }
-    );
-  } else {
-    pool.push(
-      { headline: "Your pattern is warming up.", detail: `The forecast has ${sampleDesc}; a few more honest debriefs will sharpen your trend lines.` },
-      { headline: "Give the forecast a clear signal.", detail: `Complete a short session followed by your reflection to keep your ${confText} model building.` },
-      { headline: "Progress begins with observation.", detail: `Your on-device pattern summary is learning directly from what you log across ${sampleDesc}.` }
-    );
-  }
 
-  // Ensure variety and fallback
-  return pool;
-}
+const library = (prefix: string, headlines: string[], details: string[]): LibraryMessage[] => (
+  
+  headlines.map((headline, index) => ({ id: `${prefix}-${index}`, headline, detail: details[index]! }))
+  
+);
+
+
+
+const FORECAST_LIBRARY: Record<ForecastOutlook, LibraryMessage[]> = {
+  
+  momentum: library("momentum", [
+    
+    "Your focus is finding its current.", "Clarity is giving effort a direction.", "Drive is meeting a workable pace.", "A calmer rhythm is supporting progress.", "Energy and attention are moving together.",
+    
+    "The supportive signals are holding.", "Quiet confidence is appearing.", "Your emotional signals are aligning.", "The next focus window looks open.", "Momentum is present; protect its edges.",
+    
+  ], [
+    
+    "The recent emotional pattern supports a defined block while attention still feels available.", "Use the steadier emotional window for one meaningful step before the pattern changes.", "Your reflections suggest momentum stays useful when the next action remains specific.", "Let the current emotional balance guide a focused start instead of adding pressure.", "The next session can build on this supportive pattern with one clear point of entry.",
+    
+    "Protect the conditions that recently made focus feel more natural and less forced.", "A deliberate next block can use the present focus without turning it into a demand.", "Keep the next step narrow enough for motivation and clarity to stay together.", "Recent reflections point toward a usable balance between inner drive and mental space.", "A little less switching and friction can help the current lift remain steady.",
+    
+  ]),
+  
+  steady: library("steady", [
+    
+    "Your emotional ground is holding steady.", "Clarity is giving the day a stable center.", "A calm pace is working in your favor.", "Your pattern has found an anchor.", "The emotional signals are broadly balanced.",
+    
+    "Attention is settling into a reliable rhythm.", "There is useful steadiness beneath the noise.", "Your recent pattern supports staying the course.", "Quiet consistency is becoming visible.", "Your center is easier to return to.",
+    
+  ], [
+    
+    "A consistent, well-defined session fits the balance you have recently been building.", "Keep the next step simple enough for the present emotional balance to remain intact.", "Recent reflections suggest steady effort is more useful than forcing a surge.", "Return to the kind of small, direct start that kept focus and pressure in balance.", "Use this stable base for a clear task rather than spending the window deciding.",
+    
+    "A focused block with few moving parts can reinforce what the reflections already show.", "Let an uncomplicated next action preserve the emotional room you currently have.", "One measured session can keep clarity, motivation, and pressure from drifting apart.", "The emotional data favors a repeatable pace over a heavier push right now.", "Choose a bounded task and let the existing balance do more of the work.",
+    
+  ]),
+  
+  recovery: library("recovery", [
+    
+    "A gentler start suits the current pattern.", "Clarity can return through a smaller step.", "Your emotional pattern is asking for a reset.", "Give the next block more breathing space.", "Energy may respond to a lighter entry.",
+    
+    "Focus can rebuild without forcing intensity.", "The next useful move can be quiet and small.", "A kinder pace is still a real direction.", "Restoring the conditions matters first.", "Your rhythm can return one step at a time.",
+    
+  ], [
+    
+    "Recent reflection signals suggest beginning with a small, clear action before adding demand.", "Reduce the number of decisions around the next session and let focus rebuild gradually.", "A lower-pressure entry can create room for motivation and attention to recover.", "Recent load signals favor a calm beginning with fewer distractions and less friction.", "Choose an action that feels easy to begin, then let the emotional pattern guide what follows.",
+    
+    "A short, defined session is more aligned with the current emotional recovery signal.", "Lowering friction first gives clarity and motivation a better chance to return together.", "Your reflections suggest reducing pr
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
