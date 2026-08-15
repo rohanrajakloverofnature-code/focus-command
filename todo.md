@@ -502,3 +502,17 @@
 - [x] Add deterministic render-boundary and cache-reuse regression coverage for the recovered performance paths.
 - [x] Run full TypeScript, test, lint, and static-export validation for the approved Performance Regression Recovery without starting an APK build.
 - [x] Checkpoint and synchronize the validated Performance Regression Recovery to private GitHub without starting an APK build or workflow.
+- [x] Inspect the supplied eight-character portrait archive and the existing Focus Command portrait-file requirements without changing the app or existing characters.
+- [x] Define ten distinct new character concepts with separate colors, silhouettes, and roles that avoid duplication with the existing portraits.
+- [x] Present the proposed ten-character transparent-PNG generation plan and wait for explicit approval before generating any files.
+- [x] Generate and verify the approved ten-character transparent PNG portrait files without integrating them into the app.
+- [x] Package and deliver the verified ten-character transparent PNG portrait pack separately from the app.
+- [x] Audit the supplied reference portraits against the generated pack to identify the premium colour, contrast, lighting, and glaze differences without changing any app or portrait file.
+- [x] Define and present an approval-gated Portrait Glaze and Colour Upgrade plan before regenerating or replacing any standalone portrait.
+- [x] Regenerate and validate the approved glazed portrait replacements exclusively in the separate asset-pack folder, without changing any Focus Command file.
+- [x] Package and deliver the upgraded standalone portrait pack, retaining the original pack separately and without changing Focus Command.
+- [x] Inspect the reported app launch failure from the supplied recording, current runtime state, logs, and startup code without changing any app behavior.
+- [x] Identify the exact launch-failure root cause and present an approval-gated, internal-only repair plan that preserves all user-facing mechanisms and optimizations.
+- [x] Add only the missing customQuestions dependency to Home’s narrow startup snapshot and add a regression contract for the combo/briefing first-render path.
+- [x] Run full TypeScript, regression, lint, and static-export validation for the approved launch repair; confirm the existing scroll and confirmed-tap performance contracts still pass.
+- [ ] Checkpoint and synchronize only the validated launch repair to GitHub without starting an APK build or workflow.
