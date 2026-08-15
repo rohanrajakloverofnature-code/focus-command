@@ -14,7 +14,14 @@ type EntryTone = "gold" | "primary" | "success" | "warning";
 
 type AnalyticsEntry = { id: string; title: string; detail: string; date: string; tone: EntryTone };
 
-type AnalyticsDependencies = FocusState;
+type AnalyticsDependencies = Pick<FocusState,
+  "profile"
+  | "missions"
+  | "missionCompletions"
+  | "reflections"
+  | "progression"
+  | "lifeline"
+>;
 
 type MetricMeta = { title: string; detail: string; icon: "chart.xyaxis.line" | "trophy.fill" | "star.fill" | "target" | "shield.fill" | "timer" };
 
@@ -68,7 +75,14 @@ function hoursByDate(state: FocusState) {
 }
 
 function selectAnalyticsDependencies(state: FocusState): AnalyticsDependencies {
-  return state;
+  return {
+    profile: state.profile,
+    missions: state.missions,
+    missionCompletions: state.missionCompletions,
+    reflections: state.reflections,
+    progression: state.progression,
+    lifeline: state.lifeline,
+  };
 }
 
 function hasSameAnalyticsDependencies(left: AnalyticsDependencies, right: AnalyticsDependencies) {
@@ -99,11 +113,15 @@ export default function AnalyticsDetailScreen() {
   const colors = useColors();
   const params = useLocalSearchParams<{ metric?: string }>();
   const metric: MetricKey = isMetricKey(params.metric) ? params.metric : "power";
-  const state = useFocusCommandSelector(selectAnalyticsDependencies, hasSameAnalyticsDependencies);
+  const state = useFocusCommandSelector(selectAnalyticsDependencies, hasSameAnalyticsDependencies) as FocusState;
   const ready = useFocusCommandReady();
 
   const meta = META[metric];
-  const dashboard = useMemo(() => getDashboardStats(state), [state]);
+  /* eslint-disable react-hooks/exhaustive-deps -- Analytics accepts the narrowed FocusState-compatible snapshot, and these dependency lists intentionally follow only the sources each existing derivation reads. */
+  const dashboard = useMemo(
+    () => getDashboardStats(state as FocusState),
+    [state.missionCompletions, state.missions, state.profile, state.progression, state.reflections],
+  );
   const { calculation, entries } = useMemo(() => {
     const timeAverages = getCalendarTimeAverages(state);
     const timeByDate = hoursByDate(state);
@@ -160,7 +178,17 @@ export default function AnalyticsDetailScreen() {
           ? { value: `${timeAverages.monthDailyAverageHours.toFixed(1)} h`, label: "MONTH-TO-DATE DAILY AVERAGE", formula: `${timeAverages.monthTotalHours.toFixed(1)} total hours ÷ ${timeAverages.monthElapsedDays} elapsed calendar day${timeAverages.monthElapsedDays === 1 ? "" : "s"}`, detail: `${formatCalendarDate(timeAverages.monthStart)} through ${formatCalendarDate(timeAverages.today)}. Zero-work days remain in the denominator.` }
           : { value: "SOURCE", label: "TRACEABLE ANALYTICS", formula: "Records displayed below drive this analytic view", detail: "Each Dashboard number can be inspected rather than treated as a black box." };
     return { calculation: metricCalculation, entries: metricEntries.slice().sort((left, right) => right.date.localeCompare(left.date)) };
-  }, [dashboard, metric, state]);
+  }, [
+    dashboard,
+    metric,
+    state.lifeline,
+    state.missionCompletions,
+    state.missions,
+    state.profile,
+    state.progression,
+    state.reflections,
+  ]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   if (!ready) return <LoadingScreen label="Opening analytic source data…" />;
 
