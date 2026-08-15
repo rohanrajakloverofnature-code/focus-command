@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { createInitialState, type FocusState } from "../lib/focus-command";
 import { createOfflineBackupArchive, parseOfflineBackupArchive } from "../lib/offline-backup-format";
 import {
+  getMonthlyArchiveLifetimeWindows,
   getMonthlyArchiveMetricSeries,
   getMonthlyArchiveMetricValue,
+  getMonthlyArchiveStudiedTopics,
   getMonthlyCommandArchive,
 } from "../lib/monthly-command-archive";
 
@@ -12,8 +14,8 @@ function makeState(): FocusState {
   return {
     profile: { timezone: "UTC" },
     missions: [
-      { id: "jan-mission", title: "January Physics", subject: "Physics", dueAt: "2025-01-11T12:00:00.000Z", status: "completed", completionHistory: [] },
-      { id: "feb-mission", title: "February Writing", subject: "Writing", dueAt: "2026-02-18T12:00:00.000Z", status: "completed", completionHistory: [] },
+      { id: "jan-mission", title: "January Physics", subject: "Physics", specificTopic: "Kinematics", dueAt: "2025-01-11T12:00:00.000Z", status: "completed", completionHistory: [] },
+      { id: "feb-mission", title: "February Writing", subject: "Writing", specificTopic: "Argument flow", dueAt: "2026-02-18T12:00:00.000Z", status: "completed", completionHistory: [] },
       { id: "march-plan", title: "March Planning", subject: "Planning", dueAt: "2026-03-02T12:00:00.000Z", status: "planned", completionHistory: [] },
     ],
     missionCompletions: [
@@ -34,6 +36,10 @@ function makeState(): FocusState {
     ],
     distractionLogs: [
       { id: "feb-distraction", missionId: "feb-mission", category: "phone", occurredAt: "2026-02-19T09:30:00.000Z" },
+    ],
+    srsTopics: [
+      { id: "kinematics-review", completionId: "jan-run", missionId: "jan-mission", subject: "Physics", topic: "Kinematics", status: "scheduled", stage: 1, dueDate: "2025-01-12", createdAt: "2025-01-11T10:00:00.000Z" },
+      { id: "argument-review", completionId: "feb-run", missionId: "feb-mission", subject: "Writing", topic: "Argument flow", status: "completed", stage: 3, dueDate: "2026-02-19", createdAt: "2026-02-18T09:30:00.000Z", completedAt: "2026-03-20T09:30:00.000Z" },
     ],
   } as unknown as FocusState;
 }
@@ -73,5 +79,23 @@ describe("getMonthlyCommandArchive", () => {
     const restored = parseOfflineBackupArchive(createOfflineBackupArchive(original).archive).state;
 
     expect(getMonthlyCommandArchive(restored)).toEqual(getMonthlyCommandArchive(original));
+  });
+
+  it("builds continuous bounded lifetime windows and never fabricates activity for calendar gaps", () => {
+    const windows = getMonthlyArchiveLifetimeWindows(getMonthlyCommandArchive(makeState()), 24);
+
+    expect(windows).toHaveLength(1);
+    expect(windows[0].points.map((point) => point.key)).toEqual(expect.arrayContaining(["2025-01", "2025-12", "2026-01", "2026-02"]));
+    expect(windows[0].points.find((point) => point.key === "2025-12")?.value).toBe(0);
+    expect(windows[0].points.find((point) => point.key === "2026-02")?.value).toBeGreaterThan(0);
+  });
+
+  it("reports only actually studied topics with their current existing revision-cadence percentage", () => {
+    const state = makeState();
+    const yearly = getMonthlyArchiveStudiedTopics(state, { year: 2026 });
+    const january = getMonthlyArchiveStudiedTopics(state, { monthKey: "2025-01" });
+
+    expect(yearly).toEqual([expect.objectContaining({ subject: "Writing", topic: "Argument flow", revisionCompletionPercent: 100, revisionStatus: "completed" })]);
+    expect(january).toEqual([expect.objectContaining({ subject: "Physics", topic: "Kinematics", revisionCompletionPercent: 33, revisionStatus: "scheduled" })]);
   });
 });

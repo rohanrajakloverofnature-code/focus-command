@@ -78,6 +78,37 @@ export interface MonthlyCommandArchive {
   years: MonthlyCommandArchiveYear[];
 }
 
+export interface MonthlyArchiveLifetimePoint {
+  key: string;
+  label: string;
+  value: number;
+  year: number;
+  monthIndex: number;
+}
+
+export interface MonthlyArchiveLifetimeWindow {
+  key: string;
+  label: string;
+  points: MonthlyArchiveLifetimePoint[];
+}
+
+export interface MonthlyArchiveStudiedTopic {
+  key: string;
+  subject: string;
+  topic: string;
+  firstCompletedAt: string;
+  firstMonthKey: string;
+  completedMissions: number;
+  revisionTopicId: string | null;
+  revisionCompletionPercent: number | null;
+  revisionStatus: "not_enrolled" | "scheduled" | "completed";
+}
+
+export interface ArchiveTopicPeriod {
+  year?: number;
+  monthKey?: string;
+}
+
 interface AggregateDay {
   xp: number;
   gold: number;
@@ -104,6 +135,7 @@ interface AggregateMonth extends AggregateDay {
 }
 
 const archiveCache = new WeakMap<FocusState, MonthlyCommandArchive>();
+const studiedTopicsCache = new WeakMap<FocusState, MonthlyArchiveStudiedTopic[]>();
 
 const FEELING_LABELS: Record<NonNullable<Reflection["feelingAfter"]>, string> = {
   drained: "Drained",
@@ -471,4 +503,112 @@ export function getMonthlyArchiveMetricLabel(metric: MonthlyArchiveMetric) {
     subjects: "Subjects",
     distractions: "Distractions",
   }[metric];
+}
+
+function nextMonth(year: number, monthIndex: number) {
+  return monthIndex === 11 ? { year: year + 1, monthIndex: 0 } : { year, monthIndex: monthIndex + 1 };
+}
+
+/**
+ * Returns consecutive chronological windows. Missing calendar months are intentionally
+ * represented as zero-growth points, so a real 2026–2029 trajectory remains continuous
+ * without fabricating any activity.
+ */
+export function getMonthlyArchiveLifetimeWindows(archive: MonthlyCommandArchive, monthsPerWindow = 24): MonthlyArchiveLifetimeWindow[] {
+  const recorded = archive.years
+    .flatMap((year) => year.months)
+    .filter((month) => month.hasData)
+    .sort((left, right) => left.key.localeCompare(right.key));
+  if (!recorded.length) return [];
+
+  const byKey = new Map(archive.years.flatMap((year) => year.months).map((month) => [month.key, month]));
+  const points: MonthlyArchiveLifetimePoint[] = [];
+  let { year, monthIndex } = recorded[0];
+  const last = recorded[recorded.length - 1];
+  while (year < last.year || (year === last.year && monthIndex <= last.monthIndex)) {
+    const key = monthKey(year, monthIndex);
+    const month = byKey.get(key);
+    points.push({
+      key,
+      label: monthIndex === 0 || monthIndex === 11 ? `${formatMonth(year, monthIndex, "short")} ${String(year).slice(-2)}` : "",
+      value: month?.growthScore ?? 0,
+      year,
+      monthIndex,
+    });
+    ({ year, monthIndex } = nextMonth(year, monthIndex));
+  }
+
+  const safeWindowSize = Math.max(6, Math.floor(monthsPerWindow));
+  const windows: MonthlyArchiveLifetimeWindow[] = [];
+  for (let index = 0; index < points.length; index += safeWindowSize) {
+    const windowPoints = points.slice(index, index + safeWindowSize);
+    const first = windowPoints[0];
+    const final = windowPoints[windowPoints.length - 1];
+    windows.push({
+      key: `${first.key}:${final.key}`,
+      label: first.year === final.year ? `${first.year}` : `${first.year}–${final.year}`,
+      points: windowPoints,
+    });
+  }
+  return windows;
+}
+
+function revisionPercent(topic: FocusState["srsTopics"][number]) {
+  if (topic.status === "completed") return 100;
+  return [0, 33, 67][Math.max(0, Math.min(2, topic.stage))] ?? 0;
+}
+
+function getAllArchiveStudiedTopics(state: FocusState) {
+  const cached = studiedTopicsCache.get(state);
+  if (cached) return cached;
+  const timezone = state.profile.timezone;
+  const missionsById = new Map(state.missions.map((mission) => [mission.id, mission]));
+  const revisionsByCompletionId = new Map((state.srsTopics ?? []).map((topic) => [topic.completionId, topic]));
+  const grouped = new Map<string, MonthlyArchiveStudiedTopic>();
+
+  getMissionCompletionRecords(state).forEach((completion) => {
+    const mission = missionsById.get(completion.missionId);
+    const sourceTopic = mission?.specificTopic?.trim() || completion.title.trim();
+    if (!sourceTopic) return;
+    const subject = mission?.subject?.trim() || completion.subject?.trim() || "Unassigned";
+    const localDate = toLocalDate(completion.completedAt, timezone);
+    const key = `${subject.toLocaleLowerCase()}::${sourceTopic.toLocaleLowerCase()}`;
+    const revision = revisionsByCompletionId.get(completion.id);
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.completedMissions += 1;
+      if (completion.completedAt < existing.firstCompletedAt) {
+        existing.firstCompletedAt = completion.completedAt;
+        existing.firstMonthKey = localDate.slice(0, 7);
+      }
+      return;
+    }
+    grouped.set(key, {
+      key,
+      subject,
+      topic: sourceTopic,
+      firstCompletedAt: completion.completedAt,
+      firstMonthKey: localDate.slice(0, 7),
+      completedMissions: 1,
+      revisionTopicId: revision?.id ?? null,
+      revisionCompletionPercent: revision ? revisionPercent(revision) : null,
+      revisionStatus: revision?.status === "completed" ? "completed" : revision ? "scheduled" : "not_enrolled",
+    });
+  });
+  const topics = Array.from(grouped.values()).sort((left, right) => left.subject.localeCompare(right.subject) || left.topic.localeCompare(right.topic));
+  studiedTopicsCache.set(state, topics);
+  return topics;
+}
+
+/**
+ * Lists only genuinely completed study topics, with their current existing revision-cadence
+ * status. A topic without a revision record intentionally reports no percentage instead of
+ * inventing study-completion progress.
+ */
+export function getMonthlyArchiveStudiedTopics(state: FocusState, period: ArchiveTopicPeriod = {}) {
+  return getAllArchiveStudiedTopics(state).filter((topic) => {
+    if (period.monthKey) return topic.firstMonthKey === period.monthKey;
+    if (period.year) return Number(topic.firstMonthKey.slice(0, 4)) === period.year;
+    return true;
+  });
 }

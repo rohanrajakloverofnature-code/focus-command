@@ -6,7 +6,7 @@ import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScree
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { Difficulty, MissionCompletionRecord, MissionFrequency, getDifficultyColor, getDifficultyLabel, getMissionCompletionRecords, getMissionInvestedMilliseconds, useFocusCommand, useFocusCommandActions } from "@/lib/focus-command";
+import { Difficulty, MissionCompletionRecord, MissionFrequency, getDifficultyColor, getDifficultyLabel, getMissionCompletionRecords, getMissionInvestedMilliseconds, toLocalDate, useFocusCommand, useFocusCommandActions } from "@/lib/focus-command";
 
 type MissionFilter = "open" | "active" | "completed";
 type MissionBoardListItem =
@@ -17,7 +17,7 @@ const difficultyOptions: Difficulty[] = ["easy", "medium", "hard"];
 
 export default function MissionsScreen() {
   const colors = useColors();
-  const { compose, filter: requestedFilter, bossId: requestedBossId } = useLocalSearchParams<{ compose?: string; filter?: MissionFilter; bossId?: string }>();
+  const { compose, filter: requestedFilter, bossId: requestedBossId, archiveMonth, archiveSubject } = useLocalSearchParams<{ compose?: string; filter?: MissionFilter; bossId?: string; archiveMonth?: string; archiveSubject?: string }>();
   const { state, ready, createMission, createBoss } = useFocusCommand();
   const [showComposer, setShowComposer] = useState(compose === "1");
   const [filter, setFilter] = useState<MissionFilter>(requestedFilter === "active" || requestedFilter === "completed" ? requestedFilter : "open");
@@ -47,7 +47,18 @@ export default function MissionsScreen() {
     if (filter === "active") return state.missions.filter((mission) => mission.status === "active" || mission.status === "paused");
     return state.missions.filter((mission) => mission.status === "planned");
   }, [filter, state.missions]);
-  const completionRecords = useMemo(() => getMissionCompletionRecords(state), [state]);
+  const archiveMonthKey = typeof archiveMonth === "string" && /^\d{4}-\d{2}$/.test(archiveMonth) ? archiveMonth : null;
+  const archiveSubjectValue = typeof archiveSubject === "string" && archiveSubject.trim() ? archiveSubject.trim() : null;
+  const completionRecords = useMemo(() => getMissionCompletionRecords(state).filter((completion) => {
+    if (archiveMonthKey && !toLocalDate(completion.completedAt, state.profile.timezone).startsWith(archiveMonthKey)) return false;
+    if (archiveSubjectValue && completion.subject.trim().localeCompare(archiveSubjectValue, undefined, { sensitivity: "accent" }) !== 0) return false;
+    return true;
+  }), [archiveMonthKey, archiveSubjectValue, state]);
+  const archiveHistoryLabel = useMemo(() => {
+    if (!archiveMonthKey && !archiveSubjectValue) return null;
+    const month = archiveMonthKey ? new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${archiveMonthKey}-01T12:00:00Z`)) : null;
+    return [month, archiveSubjectValue].filter(Boolean).join(" · ");
+  }, [archiveMonthKey, archiveSubjectValue]);
   const boardItems = useMemo<MissionBoardListItem[]>(() => {
     if (filter === "completed") return completionRecords.map((completion) => ({ key: `completion:${completion.id}`, kind: "completion", completion }));
     return missions.map((mission) => ({ key: `mission:${mission.id}`, kind: "mission", mission }));
@@ -235,7 +246,8 @@ export default function MissionsScreen() {
           ))}
         </View>
 
-        <SectionHeader title={filter === "open" ? "Planned missions" : filter === "active" ? "Live missions" : "Completed history"} action={filter === "open" ? "New mission" : undefined} onAction={filter === "open" ? () => setShowComposer(true) : undefined} />
+        <SectionHeader title={filter === "open" ? "Planned missions" : filter === "active" ? "Live missions" : archiveHistoryLabel ? `History · ${archiveHistoryLabel}` : "Completed history"} action={filter === "open" ? "New mission" : undefined} onAction={filter === "open" ? () => setShowComposer(true) : undefined} />
+        {filter === "completed" && archiveHistoryLabel ? <Text style={[styles.archiveHistoryHint, { color: colors.muted }]}>Archive context only — showing the related saved completed runs. Normal History is unchanged when opened from the Mission Board.</Text> : null}
         </View>}
         ListEmptyComponent={(
           <EmptyCommandState
@@ -386,6 +398,7 @@ const styles = StyleSheet.create({
   filterRow: { flexDirection: "row", gap: 8 },
   filter: { flex: 1, minHeight: 38, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center" },
   filterLabel: { fontSize: 12, lineHeight: 16, fontWeight: "800" },
+  archiveHistoryHint: { fontSize: 10, lineHeight: 14, fontWeight: "600", marginTop: -9 },
   missionStack: { gap: 11 },
   missionCard: { gap: 9 },
   missionTopline: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },

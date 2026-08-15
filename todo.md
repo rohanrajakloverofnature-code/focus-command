@@ -485,3 +485,8 @@
 - [x] Add the approved Dashboard archive entry and read-only year/month archive screens without moving or changing current Dashboard sections.
 - [x] Add virtualized archive rendering, stable metric switching, and memoized derivations to preserve smooth scrolling and immediate button responsiveness.
 - [x] Add deterministic archive, automatic rollover, backup-equivalence, and performance regression coverage; complete full validation without an APK build.
+- [x] Conduct a read-only inspection and present an approval-gated plan for a continuous multi-year Lifetime Growth Trajectory on the existing Command Archive page, preserving every current archive view and protected app mechanism.
+- [x] If approved, add the lifetime trajectory with bounded rendering, memoized multi-year derivation, and regression validation for smooth scrolling and immediate taps without changing existing archive behaviour.
+- [x] Conduct a read-only inspection and present a revised approval-gated plan for clickable monthly Command Summary and Subjects Map controls, a truthful monthly topic-revision view, and completion percentages derived from existing durable records.
+- [x] If approved, add bounded, virtualized monthly revision navigation and topic completion views with stable callbacks and regression validation, preserving all existing screens, records, calculations, and user-facing mechanisms.
+- [x] Revise the approval plan to include an additive, performance-bounded selected-year topic and revision-cadence completion summary, preserving the current annual graph and month grid exactly.
