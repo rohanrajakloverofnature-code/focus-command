@@ -9,7 +9,9 @@ import { useColors } from "@/hooks/use-colors";
 import { useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import {
   MONTHLY_ARCHIVE_METRICS,
+  MONTHLY_ARCHIVE_REVISION_PROGRESS_FILTERS,
   filterMonthlyArchiveStudiedTopics,
+  filterMonthlyArchiveStudiedTopicsByProgress,
   getMonthlyArchiveMonthComparison,
   getMonthlyArchiveMetricLabel,
   getMonthlyArchiveMetricSeries,
@@ -22,6 +24,7 @@ import {
   type MonthlyArchiveMetric,
   type MonthlyCommandArchiveMonth,
   type MonthlyCommandArchiveYear,
+  type MonthlyArchiveRevisionProgressFilter,
   type MonthlyArchiveStudiedTopic,
 } from "@/lib/monthly-command-archive";
 
@@ -102,7 +105,7 @@ function MonthTile({ month, onOpen }: { month: MonthlyCommandArchiveMonth; onOpe
   </TapFeedback>;
 }
 
-function ArchiveYearView({ year, years, onSelectYear, onOpenMonth, onOpenTopics, onOpenComparison, lifetimeWindows, activeLifetimeWindow, onSelectLifetimeWindow, lifetimeSubjects, activeLifetimeSubject, onSelectLifetimeSubject }: { year: MonthlyCommandArchiveYear; years: MonthlyCommandArchiveYear[]; onSelectYear: (year: number) => void; onOpenMonth: (key: string) => void; onOpenTopics: () => void; onOpenComparison: () => void; lifetimeWindows: ReturnType<typeof getMonthlyArchiveLifetimeWindows>; activeLifetimeWindow: number; onSelectLifetimeWindow: (index: number) => void; lifetimeSubjects: string[]; activeLifetimeSubject: string; onSelectLifetimeSubject: (subject: string) => void }) {
+function ArchiveYearView({ year, years, onSelectYear, onOpenMonth, onOpenTopics, onOpenLifetimeTopics, onOpenComparison, lifetimeWindows, activeLifetimeWindow, onSelectLifetimeWindow, lifetimeSubjects, activeLifetimeSubject, onSelectLifetimeSubject }: { year: MonthlyCommandArchiveYear; years: MonthlyCommandArchiveYear[]; onSelectYear: (year: number) => void; onOpenMonth: (key: string) => void; onOpenTopics: () => void; onOpenLifetimeTopics: () => void; onOpenComparison: () => void; lifetimeWindows: ReturnType<typeof getMonthlyArchiveLifetimeWindows>; activeLifetimeWindow: number; onSelectLifetimeWindow: (index: number) => void; lifetimeSubjects: string[]; activeLifetimeSubject: string; onSelectLifetimeSubject: (subject: string) => void }) {
   const colors = useColors();
   const growthPoints = useMemo<ChartPoint[]>(() => year.months.map((month, index) => ({
     label: index === 0 || index === 5 || index === 11 ? month.shortLabel : "",
@@ -144,6 +147,12 @@ function ArchiveYearView({ year, years, onSelectYear, onOpenMonth, onOpenTopics,
         {lifetimeWindows.length > 1 ? <FlatList horizontal data={lifetimeWindows} keyExtractor={(item) => item.key} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lifetimeSelector} renderItem={({ item, index }) => <Pressable accessibilityRole="button" accessibilityState={{ selected: index === activeLifetimeWindow }} accessibilityLabel={`Show lifetime trajectory ${item.label}`} onPress={() => onSelectLifetimeWindow(index)} style={({ pressed }) => [styles.lifetimeChip, { borderColor: index === activeLifetimeWindow ? "#F4C95D" : colors.border, backgroundColor: index === activeLifetimeWindow ? "#F4C95D1F" : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.metricChipText, { color: index === activeLifetimeWindow ? "#F4C95D" : colors.foreground }]}>{item.label}</Text></Pressable>} /> : null}
         <LineTrendChart points={lifetimePoints} color="#F4C95D" height={146} accessibilityLabel={`${lifetimeWindow.label} ${subjectFocused ? `${activeLifetimeSubject} subject focus` : "continuous lifetime command growth"} line chart`} />
       </CommandCard> : null}
+      <TapFeedback onPress={onOpenLifetimeTopics} accessibilityLabel="Open lifetime revision overview">
+        <View style={[styles.reviewEntry, styles.lifetimeReviewEntry, { borderColor: "#F4C95D66", backgroundColor: "#F4C95D12" }]}> 
+          <View style={styles.reviewEntryCopy}><Text style={[styles.subjectTitle, { color: colors.foreground }]}>Lifetime revision overview</Text><Text style={[styles.detail, { color: colors.muted }]}>Open every real revision topic across all years, with its current Day 1, Day 7, Day 30, or completed status.</Text></View>
+          <Text style={[styles.reviewEntryAction, { color: "#F4C95D" }]}>OPEN</Text>
+        </View>
+      </TapFeedback>
       <CommandCard accent="#A78BFA" style={styles.growthCard}>
         <View style={styles.growthHeading}>
           <View style={styles.growthCopy}>
@@ -161,14 +170,14 @@ function ArchiveYearView({ year, years, onSelectYear, onOpenMonth, onOpenTopics,
       <SectionHeader title="Select command year" />
       <YearSelector years={years} activeYear={year.year} onSelect={onSelectYear} />
       <SectionHeader title="Yearly revision overview" />
-      <TapFeedback onPress={onOpenTopics} accessibilityLabel={`Open ${year.year} studied topics and revision completion`}>
-        <View style={[styles.reviewEntry, { borderColor: "#5DD6C066", backgroundColor: "#5DD6C012" }]}>
-          <View style={styles.reviewEntryCopy}><Text style={[styles.subjectTitle, { color: colors.foreground }]}>Studied topics and revision cadence</Text><Text style={[styles.detail, { color: colors.muted }]}>Open every real topic first studied in {year.year}, grouped by subject, with its current revision-cadence completion percentage.</Text></View>
+      <TapFeedback onPress={onOpenTopics} accessibilityLabel={`Open ${year.year} revision topics and cadence`}>
+        <View style={[styles.reviewEntry, { borderColor: "#5DD6C066", backgroundColor: "#5DD6C012" }]}> 
+          <View style={styles.reviewEntryCopy}><Text style={[styles.subjectTitle, { color: colors.foreground }]}>Revision topics and cadence</Text><Text style={[styles.detail, { color: colors.muted }]}>Open real revision topics logged in {year.year}, grouped by subject, with their current cadence progress.</Text></View>
           <Text style={[styles.reviewEntryAction, { color: "#5DD6C0" }]}>OPEN</Text>
         </View>
       </TapFeedback>
       <TapFeedback onPress={onOpenComparison} accessibilityLabel="Compare two recorded command months">
-        <View style={[styles.reviewEntry, { borderColor: "#F4C95D66", backgroundColor: "#F4C95D12" }]}>
+        <View style={[styles.reviewEntry, styles.comparisonReviewEntry, { borderColor: "#F4C95D66", backgroundColor: "#F4C95D12" }]}> 
           <View style={styles.reviewEntryCopy}><Text style={[styles.subjectTitle, { color: colors.foreground }]}>Compare recorded months</Text><Text style={[styles.detail, { color: colors.muted }]}>Choose any two real months for a read-only side-by-side view of command, reflection, subject, and revision context.</Text></View>
           <Text style={[styles.reviewEntryAction, { color: "#F4C95D" }]}>COMPARE</Text>
         </View>
@@ -258,9 +267,9 @@ function ArchiveMonthView({ month, selectedMetric, onSelectMetric, onBack, onOpe
         <Text style={[styles.detail, { color: colors.muted }]}>This archive stores no duplicate history. It rebuilds from existing mission completions, rewards, reflections, planned due dates, and distraction records already covered by the Offline Backup File. After a restore, the same recorded months reappear automatically.</Text>
       </CommandCard>
       <SectionHeader title="Monthly revision review" />
-      <TapFeedback onPress={onOpenTopics} accessibilityLabel={`Open ${month.label} studied topics and revision completion`}>
-        <View style={[styles.reviewEntry, { borderColor: "#A78BFA66", backgroundColor: "#A78BFA12" }]}>
-          <View style={styles.reviewEntryCopy}><Text style={[styles.subjectTitle, { color: colors.foreground }]}>Topics studied this month</Text><Text style={[styles.detail, { color: colors.muted }]}>Open real topic names with their current revision-cadence completion percentage. A topic without an enrolled revision loop is shown truthfully as not enrolled.</Text></View>
+      <TapFeedback onPress={onOpenTopics} accessibilityLabel={`Open ${month.label} revision topics and cadence`}>
+        <View style={[styles.reviewEntry, { borderColor: "#A78BFA66", backgroundColor: "#A78BFA12" }]}> 
+          <View style={styles.reviewEntryCopy}><Text style={[styles.subjectTitle, { color: colors.foreground }]}>Revision topics logged this month</Text><Text style={[styles.detail, { color: colors.muted }]}>Open the real topic names logged into the existing revision loop, with their current cadence progress.</Text></View>
           <Text style={[styles.reviewEntryAction, { color: "#A78BFA" }]}>OPEN</Text>
         </View>
       </TapFeedback>
@@ -268,24 +277,25 @@ function ArchiveMonthView({ month, selectedMetric, onSelectMetric, onBack, onOpe
   />;
 }
 
-function ArchiveTopicListView({ topics, period, searchQuery, onSearchChange, onBack }: { topics: MonthlyArchiveStudiedTopic[]; period: ArchiveTopicPeriod; searchQuery: string; onSearchChange: (value: string) => void; onBack: () => void }) {
+function ArchiveTopicListView({ topics, period, searchQuery, progressFilter, onSearchChange, onProgressFilterChange, onBack }: { topics: MonthlyArchiveStudiedTopic[]; period: ArchiveTopicPeriod; searchQuery: string; progressFilter: MonthlyArchiveRevisionProgressFilter; onSearchChange: (value: string) => void; onProgressFilterChange: (value: MonthlyArchiveRevisionProgressFilter) => void; onBack: () => void }) {
   const colors = useColors();
   const router = useRouter();
-  const title = period.monthKey ? new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${period.monthKey}-01T12:00:00Z`)) : `${period.year} yearly revision overview`;
-  const searchable = Boolean(period.year && !period.monthKey);
+  const title = period.monthKey ? new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${period.monthKey}-01T12:00:00Z`)) : period.lifetime ? "Lifetime revision overview" : `${period.year} yearly revision overview`;
+  const searchable = Boolean((period.year || period.lifetime) && !period.monthKey);
+  const progressLabel = (phase: MonthlyArchiveStudiedTopic["revisionPhase"]) => MONTHLY_ARCHIVE_REVISION_PROGRESS_FILTERS.find((filter) => filter.id === phase)?.label ?? "Seed Sown";
   return <FlatList
     data={topics}
     keyExtractor={(item) => item.key}
     showsVerticalScrollIndicator={false}
     contentContainerStyle={styles.monthContent}
-    renderItem={({ item }) => <TapFeedback onPress={() => item.revisionTopicId ? router.push({ pathname: "/revisions", params: { topic: item.revisionTopicId } }) : router.push({ pathname: "/missions", params: { filter: "completed", archiveMonth: item.firstMonthKey, archiveSubject: item.subject } })} accessibilityLabel={item.revisionTopicId ? `Open revision for ${item.topic}` : `Open related history for ${item.topic}`}>
-      <View style={[styles.topicRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
-        <View style={styles.subjectCopy}><Text style={[styles.eyebrow, { color: "#55B7FF" }]}>{item.subject.toUpperCase()}</Text><Text style={[styles.subjectTitle, { color: colors.foreground }]}>{item.topic}</Text><Text style={[styles.detail, { color: colors.muted }]}>First studied {item.firstMonthKey} · {item.completedMissions} completed mission{item.completedMissions === 1 ? "" : "s"}</Text></View>
-        <View style={styles.topicProgress}><Text style={[styles.topicProgressValue, { color: item.revisionCompletionPercent === null ? colors.muted : "#5DD6C0" }]}>{item.revisionCompletionPercent === null ? "—" : `${item.revisionCompletionPercent}%`}</Text><Text style={[styles.topicProgressLabel, { color: colors.muted }]}>{item.revisionCompletionPercent === null ? "NOT ENROLLED" : item.revisionStatus === "completed" ? "CADENCE DONE" : "CADENCE"}</Text></View>
+    renderItem={({ item }) => <TapFeedback onPress={() => router.push({ pathname: "/revisions", params: { topic: item.revisionTopicId! } })} accessibilityLabel={`Open revision for ${item.topic}`}>
+      <View style={[styles.topicRow, { borderColor: colors.border, backgroundColor: colors.background }]}> 
+        <View style={styles.subjectCopy}><Text style={[styles.eyebrow, { color: "#55B7FF" }]}>{item.subject.toUpperCase()}</Text><Text style={[styles.subjectTitle, { color: colors.foreground }]}>{item.topic}</Text><Text style={[styles.detail, { color: colors.muted }]}>Logged {item.firstMonthKey} · {progressLabel(item.revisionPhase)}</Text></View>
+        <View style={styles.topicProgress}><Text style={[styles.topicProgressValue, { color: "#5DD6C0" }]}>{item.revisionCompletionPercent}%</Text><Text style={[styles.topicProgressLabel, { color: colors.muted }]}>{progressLabel(item.revisionPhase).toUpperCase()}</Text></View>
       </View>
     </TapFeedback>}
-    ListEmptyComponent={<CommandCard accent="#A78BFA" style={styles.emptySubjectCard}><Text style={[styles.detail, { color: colors.muted }]}>{searchable && searchQuery.trim() ? "No studied topic matches this search." : "No completed topics were captured for this period."}</Text></CommandCard>}
-    ListHeaderComponent={<><ScreenTitle eyebrow="Read-only revision view" title={title} detail="Each percentage reflects only the existing three-stage revision cadence: 0%, 33%, 67%, or 100%." right={<IconAction icon="xmark" label="Close topic review" onPress={onBack} />} /><TapFeedback onPress={onBack} accessibilityLabel="Return to command archive"><View style={[styles.returnControl, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.returnControlText, { color: colors.primary }]}>Return to command archive</Text></View></TapFeedback>{searchable ? <View style={[styles.topicSearch, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.eyebrow, { color: "#55B7FF" }]}>SEARCH THIS YEAR</Text><TextInput value={searchQuery} onChangeText={onSearchChange} placeholder="Topic or subject" placeholderTextColor={colors.muted} returnKeyType="done" accessibilityLabel="Search yearly studied topics by topic or subject" style={[styles.topicSearchInput, { color: colors.foreground }]} /></View> : null}<SectionHeader title="Studied topics" /></>}
+    ListEmptyComponent={<CommandCard accent="#A78BFA" style={styles.emptySubjectCard}><Text style={[styles.detail, { color: colors.muted }]}>{searchable && (searchQuery.trim() || progressFilter !== "all") ? "No revision topic matches this search or progress filter." : "No revision topics were logged for this period."}</Text></CommandCard>}
+    ListHeaderComponent={<><ScreenTitle eyebrow="Read-only revision view" title={title} detail="Each percentage reflects only the existing Day 1, Day 7, Day 30, and completed revision cadence." right={<IconAction icon="xmark" label="Close topic review" onPress={onBack} />} /><TapFeedback onPress={onBack} accessibilityLabel="Return to command archive"><View style={[styles.returnControl, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.returnControlText, { color: colors.primary }]}>Return to command archive</Text></View></TapFeedback>{searchable ? <><View style={[styles.topicSearch, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.eyebrow, { color: "#55B7FF" }]}>{period.lifetime ? "SEARCH LIFETIME" : "SEARCH THIS YEAR"}</Text><TextInput value={searchQuery} onChangeText={onSearchChange} placeholder="Topic or subject" placeholderTextColor={colors.muted} returnKeyType="done" accessibilityLabel={`Search ${period.lifetime ? "lifetime" : "yearly"} revision topics by topic or subject`} style={[styles.topicSearchInput, { color: colors.foreground }]} /></View><View style={styles.progressFilterBlock}><Text style={[styles.eyebrow, { color: "#5DD6C0" }]}>FILTER PROGRESS</Text><FlatList horizontal data={MONTHLY_ARCHIVE_REVISION_PROGRESS_FILTERS} keyExtractor={(item) => item.id} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.revisionProgressSelector} renderItem={({ item }) => { const active = item.id === progressFilter; return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`Filter revision topics by ${item.label}`} onPress={() => onProgressFilterChange(item.id)} style={({ pressed }) => [styles.revisionProgressChip, { borderColor: active ? "#5DD6C0" : colors.border, backgroundColor: active ? "#5DD6C01F" : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.metricChipText, { color: active ? "#5DD6C0" : colors.foreground }]}>{item.label}</Text></Pressable>; }} /></View></> : null}<SectionHeader title="Revision topics" /></>}
   />;
 }
 
@@ -354,6 +364,7 @@ export default function CommandArchiveScreen() {
   const [lifetimeSubject, setLifetimeSubject] = useState("");
   const [topicPeriod, setTopicPeriod] = useState<ArchiveTopicPeriod | null>(null);
   const [topicSearchQuery, setTopicSearchQuery] = useState("");
+  const [topicProgressFilter, setTopicProgressFilter] = useState<MonthlyArchiveRevisionProgressFilter>("all");
   const [comparisonSelection, setComparisonSelection] = useState<{ firstKey: string; secondKey: string } | null>(null);
   const activeYear = archive.years.find((year) => year.year === selectedYear) ?? archive.years[0] ?? null;
   const selectedMonth = activeYear?.months.find((month) => month.key === selectedMonthKey) ?? null;
@@ -362,7 +373,7 @@ export default function CommandArchiveScreen() {
   const activeLifetimeSubject = lifetimeSubjects.includes(lifetimeSubject) ? lifetimeSubject : "";
   const lifetimeWindows = useMemo(() => activeLifetimeSubject ? getMonthlyArchiveSubjectLifetimeWindows(archive, activeLifetimeSubject) : getMonthlyArchiveLifetimeWindows(archive), [activeLifetimeSubject, archive]);
   const archiveTopics = useMemo(() => topicPeriod ? getMonthlyArchiveStudiedTopics(state, topicPeriod) : [], [state, topicPeriod]);
-  const filteredArchiveTopics = useMemo(() => filterMonthlyArchiveStudiedTopics(archiveTopics, topicSearchQuery), [archiveTopics, topicSearchQuery]);
+  const filteredArchiveTopics = useMemo(() => filterMonthlyArchiveStudiedTopicsByProgress(filterMonthlyArchiveStudiedTopics(archiveTopics, topicSearchQuery), topicProgressFilter), [archiveTopics, topicProgressFilter, topicSearchQuery]);
   const allArchiveTopics = useMemo(() => getMonthlyArchiveStudiedTopics(state), [state]);
   const openComparison = useCallback(() => {
     const selected = activeYear?.months.filter((month) => month.hasData).at(-1) ?? recordedMonths.at(-1);
@@ -383,7 +394,7 @@ export default function CommandArchiveScreen() {
         <ScreenTitle eyebrow="Lifetime command record" title="Monthly command archive" detail="A read-only view of your existing local history." right={<IconAction icon="xmark" label="Close command archive" onPress={() => router.back()} />} />
         <ArchiveEmptyState />
       </>}
-    /> : topicPeriod ? <ArchiveTopicListView topics={filteredArchiveTopics} period={topicPeriod} searchQuery={topicSearchQuery} onSearchChange={setTopicSearchQuery} onBack={() => setTopicPeriod(null)} /> : comparisonSelection ? <ArchiveMonthComparisonView months={recordedMonths} topics={allArchiveTopics} firstKey={comparisonSelection.firstKey} secondKey={comparisonSelection.secondKey} onSelectFirst={(firstKey) => setComparisonSelection((current) => current ? { ...current, firstKey } : current)} onSelectSecond={(secondKey) => setComparisonSelection((current) => current ? { ...current, secondKey } : current)} onBack={() => setComparisonSelection(null)} /> : selectedMonth ? <ArchiveMonthView month={selectedMonth} selectedMetric={selectedMetric} onSelectMetric={setSelectedMetric} onBack={() => setSelectedMonthKey(null)} onOpenTopics={() => { setTopicSearchQuery(""); setTopicPeriod({ monthKey: selectedMonth.key }); }} /> : <ArchiveYearView year={activeYear} years={archive.years} onSelectYear={setSelectedYear} onOpenMonth={setSelectedMonthKey} onOpenTopics={() => { setTopicSearchQuery(""); setTopicPeriod({ year: activeYear.year }); }} onOpenComparison={openComparison} lifetimeWindows={lifetimeWindows} activeLifetimeWindow={lifetimeWindowIndex} onSelectLifetimeWindow={setLifetimeWindowIndex} lifetimeSubjects={lifetimeSubjects} activeLifetimeSubject={activeLifetimeSubject} onSelectLifetimeSubject={(subject) => { setLifetimeSubject(subject); setLifetimeWindowIndex(0); }} />}
+    /> : topicPeriod ? <ArchiveTopicListView topics={filteredArchiveTopics} period={topicPeriod} searchQuery={topicSearchQuery} progressFilter={topicProgressFilter} onSearchChange={setTopicSearchQuery} onProgressFilterChange={setTopicProgressFilter} onBack={() => setTopicPeriod(null)} /> : comparisonSelection ? <ArchiveMonthComparisonView months={recordedMonths} topics={allArchiveTopics} firstKey={comparisonSelection.firstKey} secondKey={comparisonSelection.secondKey} onSelectFirst={(firstKey) => setComparisonSelection((current) => current ? { ...current, firstKey } : current)} onSelectSecond={(secondKey) => setComparisonSelection((current) => current ? { ...current, secondKey } : current)} onBack={() => setComparisonSelection(null)} /> : selectedMonth ? <ArchiveMonthView month={selectedMonth} selectedMetric={selectedMetric} onSelectMetric={setSelectedMetric} onBack={() => setSelectedMonthKey(null)} onOpenTopics={() => { setTopicSearchQuery(""); setTopicProgressFilter("all"); setTopicPeriod({ monthKey: selectedMonth.key }); }} /> : <ArchiveYearView year={activeYear} years={archive.years} onSelectYear={setSelectedYear} onOpenMonth={setSelectedMonthKey} onOpenTopics={() => { setTopicSearchQuery(""); setTopicProgressFilter("all"); setTopicPeriod({ year: activeYear.year }); }} onOpenLifetimeTopics={() => { setTopicSearchQuery(""); setTopicProgressFilter("all"); setTopicPeriod({ lifetime: true }); }} onOpenComparison={openComparison} lifetimeWindows={lifetimeWindows} activeLifetimeWindow={lifetimeWindowIndex} onSelectLifetimeWindow={setLifetimeWindowIndex} lifetimeSubjects={lifetimeSubjects} activeLifetimeSubject={activeLifetimeSubject} onSelectLifetimeSubject={(subject) => { setLifetimeSubject(subject); setLifetimeWindowIndex(0); }} />}
   </ScreenContainer>;
 }
 
@@ -393,6 +404,7 @@ const styles = StyleSheet.create({
   emptyContent: { gap: 14, paddingTop: 12, paddingBottom: 32, flexGrow: 1 },
   growthCard: { gap: 12 },
   lifetimeCard: { gap: 12, marginBottom: 14 },
+  lifetimeReviewEntry: { marginBottom: 14 },
   growthHeading: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   lifetimeHeading: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   growthCopy: { flex: 1, gap: 3 },
@@ -437,6 +449,7 @@ const styles = StyleSheet.create({
   reviewEntry: { minHeight: 74, borderWidth: StyleSheet.hairlineWidth, borderRadius: 15, paddingHorizontal: 12, paddingVertical: 11, flexDirection: "row", gap: 10, alignItems: "center" },
   reviewEntryCopy: { flex: 1, gap: 3 },
   reviewEntryAction: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.8 },
+  comparisonReviewEntry: { marginTop: 14 },
   topicRow: { minHeight: 78, borderRadius: 15, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 12, paddingVertical: 11, flexDirection: "row", alignItems: "center", gap: 10 },
   topicProgress: { minWidth: 62, alignItems: "flex-end", gap: 2 },
   topicProgressValue: { fontSize: 17, lineHeight: 21, fontWeight: "900" },
@@ -445,6 +458,9 @@ const styles = StyleSheet.create({
   subjectLensChip: { minHeight: 32, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
   topicSearch: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 15, paddingHorizontal: 12, paddingVertical: 10, gap: 4 },
   topicSearchInput: { minHeight: 34, fontSize: 14, lineHeight: 18, fontWeight: "700", paddingVertical: 4 },
+  progressFilterBlock: { gap: 6 },
+  revisionProgressSelector: { gap: 7, paddingRight: 4 },
+  revisionProgressChip: { minHeight: 32, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
   comparisonCard: { gap: 10 },
   comparisonSelector: { gap: 7, paddingRight: 4 },
   comparisonChip: { minHeight: 32, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
