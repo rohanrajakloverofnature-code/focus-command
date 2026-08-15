@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-n
 
 import { CelebrationKind, CelebrationOverlay } from "@/components/celebration-overlay";
 import { DailyCommandBriefing } from "@/components/daily-command-briefing";
+import { EmotionPredictionTicker } from "@/components/emotion-prediction-ticker";
 import {
   CommandButton,
   CommandCard,
@@ -28,6 +29,7 @@ import { playFocusRole } from "@/lib/focus-audio";
 import { createCharacterEvolutionMilestone, hasMeaningfulCharacterEvolution } from "@/lib/character-development";
 import { getEligibleCelebration, type CelebrationMilestone } from "@/lib/celebration-lifecycle";
 import { getForecastMotivationMessages } from "@/lib/home-motivation";
+import { getEmotionPredictionTrio } from "@/lib/emotion-predictions";
 import { getDailyCommandBriefing } from "@/lib/daily-command-briefing";
 import { MINI_ACHIEVEMENT_TICKER_LAYOUT, MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE } from "@/lib/focus-layout";
 import { isLaunchSequenceActive } from "@/lib/launch-session";
@@ -151,6 +153,7 @@ export default function HomeScreen() {
     daily,
     dailyCommandBriefing,
     energy,
+    emotionPredictions,
     forecast,
     goldBalance,
     goldMultiplier,
@@ -174,13 +177,14 @@ export default function HomeScreen() {
       daily: getDailyProgress(state),
       dailyCommandBriefing: getDailyCommandBriefing(state),
       energy: getEnergy(state),
+      emotionPredictions: getEmotionPredictionTrio(currentForecast, state.reflections),
       forecast: currentForecast,
       goldBalance: getGoldBalance(state),
       goldMultiplier: activeGoldMultiplier(state),
       level: getLevelInfo(state),
       lifetimeGold: getLifetimeGold(state),
       miniAchievementHeadlines: getMiniAchievementHeadlines(dashboard.wallOfFame),
-      motivationMessages: getForecastMotivationMessages(currentForecast),
+      motivationMessages: getForecastMotivationMessages(currentForecast, state.reflections),
       pendingRevisions: getPendingRevisions(state),
       subjectCapture: getSubjectCapture({ missions: state.missions, srsTopics: state.srsTopics }),
       title: getCurrentTitle(state),
@@ -305,7 +309,10 @@ export default function HomeScreen() {
             detail={title.title}
             titleNumberOfLines={2}
             detailNumberOfLines={2}
-            right={<IconAction icon="line.3.horizontal" label="Open command settings" onPress={() => router.push("/settings")} />}
+            right={<View style={styles.headerActions}>
+              <EmotionPredictionTicker predictions={emotionPredictions} reduceMotion={state.profile.reduceMotion} />
+              <IconAction icon="line.3.horizontal" label="Open command settings" onPress={() => router.push("/settings")} />
+            </View>}
           />
           <MiniAchievementTicker achievements={miniAchievementHeadlines} reduceMotion={state.profile.reduceMotion} style={styles.miniAchievementTicker} onPress={() => router.push(MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE as never)} />
         </View>
@@ -522,6 +529,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   content: { gap: 18, paddingTop: 12, paddingBottom: 30 },
   headerZone: { minHeight: MINI_ACHIEVEMENT_TICKER_LAYOUT.headerZoneMinHeight, gap: MINI_ACHIEVEMENT_TICKER_LAYOUT.gap },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0 },
   miniAchievementTicker: { width: "100%" },
   heroCard: { minHeight: 266, padding: 18, position: "relative", overflow: "hidden" },
   fullWidth: { width: "100%" },
