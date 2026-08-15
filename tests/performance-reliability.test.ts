@@ -19,6 +19,7 @@ const missionSource = readFileSync(resolve(process.cwd(), "app/mission/[id].tsx"
 const settingsSource = readFileSync(resolve(process.cwd(), "app/settings.tsx"), "utf8");
 const homeMotionSource = readFileSync(resolve(process.cwd(), "components/home-motion.tsx"), "utf8");
 const dashboardSource = readFileSync(resolve(process.cwd(), "app/(tabs)/dashboard.tsx"), "utf8");
+const analyticsSource = readFileSync(resolve(process.cwd(), "app/analytics.tsx"), "utf8");
 const archiveSource = readFileSync(resolve(process.cwd(), "app/command-archive.tsx"), "utf8");
 const archiveHelperSource = readFileSync(resolve(process.cwd(), "lib/monthly-command-archive.ts"), "utf8");
 
@@ -79,9 +80,12 @@ describe("Performance and reliability contracts", () => {
     expect(focusAudioSource).toContain("getBundledPlayer(cueByRoleAndStyle.tap[resolved.style])");
   });
 
-  it("keeps Home equipment updates scoped and the live mission on its existing narrow selector", () => {
+  it("keeps Home equipment updates, durable render dependencies, and the live mission on narrow selectors", () => {
     expect(homeSource).toContain("selectEquippedCharacterGear");
     expect(homeSource).toContain("useFocusCommandSelector(selectEquippedCharacterGear");
+    expect(homeSource).toContain("selectHomeDependencies");
+    expect(homeSource).toContain("useFocusCommandSelector(selectHomeDependencies, hasSameHomeDependencies)");
+    expect(homeSource).toContain("const bossProgressById = useMemo(");
     expect(missionSource).toContain("useFocusCommandSelector((state) => selectMissionDetailSnapshot(state, id)");
   });
 
@@ -99,12 +103,16 @@ describe("Performance and reliability contracts", () => {
     expect(homeMotionSource).toContain('pointerEvents="none"');
   });
 
-  it("keeps Dashboard analytics behind an exact render-dependency boundary while retaining its existing derivations", () => {
+  it("keeps Dashboard and Analytics behind exact source-slice render boundaries while retaining existing derivations", () => {
     expect(dashboardSource).toContain("useFocusCommandSelector");
-    expect(dashboardSource).toContain("useFocusCommandSelector((state) => ({");
-    expect(dashboardSource).toContain("const state = getCurrentState();");
+    expect(dashboardSource).toContain("selectDashboardDependencies");
+    expect(dashboardSource).toContain("useFocusCommandSelector(selectDashboardDependencies, hasSameDashboardDependencies)");
+    expect(dashboardSource).not.toContain("getCurrentState");
     expect(dashboardSource).toContain("getDashboardStats(state)");
     expect(dashboardSource).toContain("getWeeklyAfterActionReview(state)");
+    expect(analyticsSource).toContain("type AnalyticsDependencies = Pick<FocusState");
+    expect(analyticsSource).toContain("useFocusCommandSelector(selectAnalyticsDependencies, hasSameAnalyticsDependencies)");
+    expect(analyticsSource).toContain("return {\n    profile: state.profile,");
   });
 
   it("keeps the lifetime archive derived, virtualized, and scoped to its durable source records", () => {
