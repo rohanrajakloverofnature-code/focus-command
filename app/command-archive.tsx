@@ -63,7 +63,7 @@ function MonthMetric({ label, value, accent, onPress }: { label: string; value: 
     <Text style={[styles.monthMetricValue, { color: accent }]}>{value}</Text>
     <Text style={[styles.monthMetricLabel, { color: colors.muted }]}>{label}</Text>
   </View>;
-  return onPress ? <TapFeedback onPress={onPress} accessibilityLabel={`Open ${label.toLowerCase()} activity history`}>{content}</TapFeedback> : content;
+  return <View style={styles.monthMetricSlot}>{onPress ? <TapFeedback style={styles.monthMetricTap} onPress={onPress} accessibilityLabel={`Open ${label.toLowerCase()} activity history`}>{content}</TapFeedback> : content}</View>;
 }
 
 function YearSelector({ years, activeYear, onSelect }: { years: MonthlyCommandArchiveYear[]; activeYear: number; onSelect: (year: number) => void }) {
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
   monthContent: { gap: 14, paddingTop: 12, paddingBottom: 32 },
   emptyContent: { gap: 14, paddingTop: 12, paddingBottom: 32, flexGrow: 1 },
   growthCard: { gap: 12 },
-  lifetimeCard: { gap: 12 },
+  lifetimeCard: { gap: 12, marginBottom: 14 },
   growthHeading: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   lifetimeHeading: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   growthCopy: { flex: 1, gap: 3 },
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
   lifetimeSelector: { gap: 7, paddingRight: 4 },
   lifetimeChip: { minHeight: 32, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
   gridIntro: { fontSize: 11, lineHeight: 16, fontWeight: "600", marginTop: -6 },
-  monthTileTap: { flex: 1 / 3, padding: 4 },
+  monthTileTap: { flex: 1 / 3, padding: 5 },
   monthTile: { minHeight: 94, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 10, paddingVertical: 10, gap: 2, justifyContent: "space-between" },
   monthTileLabel: { fontSize: 12, lineHeight: 16, fontWeight: "900" },
   monthTileValue: { fontSize: 22, lineHeight: 26, fontWeight: "900" },
@@ -421,7 +421,9 @@ const styles = StyleSheet.create({
   metricChip: { minHeight: 34, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingHorizontal: 11 },
   metricChipText: { fontSize: 10, lineHeight: 13, fontWeight: "900" },
   monthMetrics: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  monthMetric: { width: "48.8%", minHeight: 64, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 10, paddingVertical: 9, justifyContent: "center", gap: 2 },
+  monthMetricSlot: { width: "48.8%" },
+  monthMetricTap: { width: "100%" },
+  monthMetric: { width: "100%", minHeight: 68, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 10, paddingVertical: 9, justifyContent: "center", gap: 2 },
   monthMetricValue: { fontSize: 16, lineHeight: 21, fontWeight: "900" },
   monthMetricLabel: { fontSize: 8, lineHeight: 11, fontWeight: "900", letterSpacing: 0.6 },
   traitsCard: { gap: 10 },
