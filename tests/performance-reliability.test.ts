@@ -114,4 +114,14 @@ describe("Performance and reliability contracts", () => {
     expect(archiveSource).toContain("<FlatList");
     expect(archiveSource).toContain("getMonthlyCommandArchive(state)");
   });
+
+  it("bounds continuous lifetime rendering and defers yearly or monthly topic work until explicitly opened", () => {
+    expect(archiveHelperSource).toContain("export function getMonthlyArchiveLifetimeWindows");
+    expect(archiveHelperSource).toContain("const safeWindowSize = Math.max(6, Math.floor(monthsPerWindow))");
+    expect(archiveSource).toContain("lifetimeWindowIndex");
+    expect(archiveSource).toContain("topicPeriod");
+    expect(archiveSource).toContain("ArchiveTopicListView");
+    expect(missionBoardSource).toContain("archiveHistoryLabel");
+    expect(missionBoardSource).toContain("archiveMonthKey");
+  });
 });
