@@ -65,7 +65,43 @@ function syncLabel(phase: string, pending: number): string {
   return "Saved on this device";
 }
 
-function hasSameHomeDependencies(left: FocusState, right: FocusState): boolean {
+type HomeDependencies = Pick<FocusState,
+  "profile"
+  | "missions"
+  | "missionCompletions"
+  | "progression"
+  | "reflections"
+  | "journals"
+  | "srsTopics"
+  | "bosses"
+  | "combo"
+  | "transactions"
+  | "rewards"
+  | "inventory"
+  | "googleSheet"
+  | "hydrated"
+>;
+
+function selectHomeDependencies(state: FocusState): HomeDependencies {
+  return {
+    profile: state.profile,
+    missions: state.missions,
+    missionCompletions: state.missionCompletions,
+    progression: state.progression,
+    reflections: state.reflections,
+    journals: state.journals,
+    srsTopics: state.srsTopics,
+    bosses: state.bosses,
+    combo: state.combo,
+    transactions: state.transactions,
+    rewards: state.rewards,
+    inventory: state.inventory,
+    googleSheet: state.googleSheet,
+    hydrated: state.hydrated,
+  };
+}
+
+function hasSameHomeDependencies(left: HomeDependencies, right: HomeDependencies): boolean {
   return left.profile === right.profile
     && left.missions === right.missions
     && left.missionCompletions === right.missionCompletions
@@ -102,13 +138,67 @@ function hasSameEquippedCharacterGear(
 export default function HomeScreen() {
   const colors = useColors();
   const { width } = useWindowDimensions();
-  const state = useFocusCommandSelector((current) => current, hasSameHomeDependencies);
+  const state = useFocusCommandSelector(selectHomeDependencies, hasSameHomeDependencies) as FocusState;
   const equippedCharacterGear = useFocusCommandSelector(selectEquippedCharacterGear, hasSameEquippedCharacterGear);
   const ready = state.hydrated;
-  const { journals, missions, srsTopics } = state;
-  const level = getLevelInfo(state);
-  const title = getCurrentTitle(state);
-  const combo = getCurrentCombo(state);
+  const { journals } = state;
+  /* eslint-disable react-hooks/exhaustive-deps -- The Home view model is deliberately memoized by exact durable source references; using the broad selector object would reintroduce unrelated render work. */
+  const {
+    activeBosses,
+    daily,
+    dailyCommandBriefing,
+    energy,
+    forecast,
+    goldBalance,
+    goldMultiplier,
+    level,
+    lifetimeGold,
+    miniAchievementHeadlines,
+    motivationMessages,
+    pendingRevisions,
+    subjectCapture,
+    title,
+    todayInvestedMilliseconds,
+    totalPower,
+    totalXp,
+    combo,
+  } = useMemo(() => {
+    const currentForecast = getEmotionalPatternForecast(state);
+    const dashboard = getDashboardStats(state);
+    return {
+      activeBosses: state.bosses.filter((boss) => boss.status === "active"),
+      combo: getCurrentCombo(state),
+      daily: getDailyProgress(state),
+      dailyCommandBriefing: getDailyCommandBriefing(state),
+      energy: getEnergy(state),
+      forecast: currentForecast,
+      goldBalance: getGoldBalance(state),
+      goldMultiplier: activeGoldMultiplier(state),
+      level: getLevelInfo(state),
+      lifetimeGold: getLifetimeGold(state),
+      miniAchievementHeadlines: getMiniAchievementHeadlines(dashboard.wallOfFame),
+      motivationMessages: getForecastMotivationMessages(currentForecast),
+      pendingRevisions: getPendingRevisions(state),
+      subjectCapture: getSubjectCapture({ missions: state.missions, srsTopics: state.srsTopics }),
+      title: getCurrentTitle(state),
+      todayInvestedMilliseconds: getTodayInvestedMilliseconds(state),
+      totalPower: getTotalPower(state),
+      totalXp: getTotalXp(state),
+    };
+  }, [
+    state.bosses,
+    state.combo,
+    state.inventory,
+    state.missionCompletions,
+    state.missions,
+    state.profile,
+    state.progression,
+    state.reflections,
+    state.rewards,
+    state.srsTopics,
+    state.transactions,
+  ]);
+  /* eslint-enable react-hooks/exhaustive-deps */
   const milestones = useRef<CelebrationMilestone | null>(null);
   const characterMilestone = useRef<ReturnType<typeof createCharacterEvolutionMilestone> | null>(null);
   const [homeCelebration, setHomeCelebration] = useState<CelebrationKind | null>(null);
@@ -131,9 +221,6 @@ export default function HomeScreen() {
     milestones.current = current;
   }, [combo.multiplier, level.level, ready, state.profile.soundEnabled, state.profile.soundRoles, title.title]);
 
-  const forecast = getEmotionalPatternForecast(state);
-  const motivationMessages = getForecastMotivationMessages(forecast);
-
   useEffect(() => {
     setMotivationIndex(0);
   }, [forecast.available, forecast.outlook, forecast.sampleSize]);
@@ -146,7 +233,6 @@ export default function HomeScreen() {
     return () => clearInterval(rotation);
   }, [forecast.available, forecast.outlook, forecast.sampleSize, motivationMessages.length]);
 
-  const energy = getEnergy(state);
   const currentCharacterMilestone = useMemo(
     () => createCharacterEvolutionMilestone(title.title, level.level, equippedCharacterGear),
     [equippedCharacterGear, level.level, title.title],
@@ -159,18 +245,13 @@ export default function HomeScreen() {
     }
     characterMilestone.current = currentCharacterMilestone;
   }, [currentCharacterMilestone, ready]);
-  const daily = getDailyProgress(state);
-  const dailyCommandBriefing = useMemo(() => getDailyCommandBriefing(state), [state]);
-  const pendingRevisions = getPendingRevisions(state);
-  const activeBosses = state.bosses.filter((boss) => boss.status === "active");
-  const subjectCapture = useMemo(() => getSubjectCapture({ missions, srsTopics }), [missions, srsTopics]);
-  const miniAchievementHeadlines = useMemo(() => getMiniAchievementHeadlines(getDashboardStats(state).wallOfFame), [state]);
-  const totalPower = getTotalPower(state);
-  const totalXp = getTotalXp(state);
-  const goldBalance = getGoldBalance(state);
-  const lifetimeGold = getLifetimeGold(state);
-  const goldMultiplier = activeGoldMultiplier(state);
   const operatorScale = Math.min(1.2, 0.9 + totalPower / 5_000);
+  /* eslint-disable react-hooks/exhaustive-deps -- Boss progress only reads the listed durable sources; the full state object would invalidate the memo on unrelated UI updates. */
+  const bossProgressById = useMemo(
+    () => new Map(activeBosses.map((boss) => [boss.id, getBossProgress(state, boss.id)])),
+    [activeBosses, state.bosses, state.missionCompletions, state.missions, state.profile, state.progression, state.reflections],
+  );
+  /* eslint-enable react-hooks/exhaustive-deps */
   const { journalBars, maxJournalPoints } = useMemo(() => {
     const journalByDate = new Map(journals.map((entry) => [entry.localDate, entry.points]));
     const bars = Array.from({ length: 30 }, (_, index) => {
@@ -201,7 +282,7 @@ export default function HomeScreen() {
     { id: "xp", label: "Total XP", value: formatCompactNumber(totalXp), detail: combo.multiplier > 1 ? "Combo amplified" : "Base experience", icon: "bolt.fill" as const, accent: colors.primary },
     { id: "gold", label: "Gold Balance", value: formatCompactNumber(goldBalance), detail: `${formatCompactNumber(lifetimeGold)} earned`, icon: "star.fill" as const, accent: "#F4C95D", onPress: () => router.push("/rewards" as never) },
     { id: "target", label: "Mission Target", value: `${daily.earned}/${daily.target}`, detail: `${Math.round(daily.progress * 100)}% deployed`, icon: "target" as const, accent: colors.success, onPress: () => router.push("/missions" as never) },
-    { id: "time", label: "Invested Today", value: formatHours(getTodayInvestedMilliseconds(state)), detail: goldMultiplier > 1 ? `${goldMultiplier}× gold cache active` : "Exact active time", icon: "timer" as const, accent: colors.warning },
+    { id: "time", label: "Invested Today", value: formatHours(todayInvestedMilliseconds), detail: goldMultiplier > 1 ? `${goldMultiplier}× gold cache active` : "Exact active time", icon: "timer" as const, accent: colors.warning },
     { id: "combo", label: "Next combo tier", value: combo.daysToNext ? `${combo.daysToNext}d` : "MAX", detail: `${combo.multiplier.toFixed(2)}× is live`, icon: "flame.fill" as const, accent: "#F4C95D" },
     { id: "level", label: "XP to level", value: formatCompactNumber(level.powerForNextLevel), detail: `${formatCompactNumber(level.currentLevelPower)} at current level`, icon: "shield.fill" as const, accent: colors.primary },
   ];
@@ -382,7 +463,7 @@ export default function HomeScreen() {
         {activeBosses.length ? (
           <View style={styles.stack}>
             {activeBosses.slice(0, 2).map((boss) => {
-              const progress = getBossProgress(state, boss.id);
+              const progress = bossProgressById.get(boss.id) ?? 0;
               return (
                 <HomeFloat key={boss.id} reduceMotion={state.profile.reduceMotion} distance={3} sway={-1} duration={2_700} delay={180} style={styles.fullWidth}>
                   <CommandCard accent="#F4C95D" style={styles.bossCard}>

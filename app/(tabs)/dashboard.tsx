@@ -7,7 +7,7 @@ import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, Scre
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getTotalPower, getWellbeingInsight, toLocalDate, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
+import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getTotalPower, getWellbeingInsight, toLocalDate, type FocusState, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { RECOGNITION_WINDOW_LAYOUT } from "@/lib/focus-layout";
 import { getFocusFrictionInsight } from "@/lib/distraction-log";
 import { getWeeklyAfterActionReview } from "@/lib/weekly-after-action";
@@ -23,30 +23,49 @@ function createDaySeries(days: number, profileTimezone: string) {
 
 const feelingScore = { drained: 1, restless: 2, steady: 3, charged: 4, great: 5 } as const;
 
+type DashboardDependencies = Pick<FocusState,
+  "profile"
+  | "missions"
+  | "missionCompletions"
+  | "progression"
+  | "reflections"
+  | "distractionLogs"
+  | "srsTopics"
+  | "customGraphs"
+  | "lifeline"
+>;
+
+function selectDashboardDependencies(state: FocusState): DashboardDependencies {
+  return {
+    profile: state.profile,
+    missions: state.missions,
+    missionCompletions: state.missionCompletions,
+    progression: state.progression,
+    reflections: state.reflections,
+    distractionLogs: state.distractionLogs,
+    srsTopics: state.srsTopics,
+    customGraphs: state.customGraphs,
+    lifeline: state.lifeline,
+  };
+}
+
+function hasSameDashboardDependencies(left: DashboardDependencies, right: DashboardDependencies) {
+  return left.profile === right.profile
+    && left.missions === right.missions
+    && left.missionCompletions === right.missionCompletions
+    && left.progression === right.progression
+    && left.reflections === right.reflections
+    && left.distractionLogs === right.distractionLogs
+    && left.srsTopics === right.srsTopics
+    && left.customGraphs === right.customGraphs
+    && left.lifeline === right.lifeline;
+}
+
 export default function DashboardScreen() {
   const colors = useColors();
   const ready = useFocusCommandReady();
-  const { addLifelinePoint, removeLifelinePoint, getCurrentState } = useFocusCommandActions();
-  useFocusCommandSelector((state) => ({
-      profile: state.profile,
-      progression: state.progression,
-      missions: state.missions,
-      reflections: state.reflections,
-      distractionLogs: state.distractionLogs,
-      srsTopics: state.srsTopics,
-      customGraphs: state.customGraphs,
-      lifeline: state.lifeline,
-    }),
-    (left, right) => left.profile === right.profile
-      && left.progression === right.progression
-      && left.missions === right.missions
-      && left.reflections === right.reflections
-      && left.distractionLogs === right.distractionLogs
-      && left.srsTopics === right.srsTopics
-      && left.customGraphs === right.customGraphs
-      && left.lifeline === right.lifeline,
-  );
-  const state = getCurrentState();
+  const { addLifelinePoint, removeLifelinePoint } = useFocusCommandActions();
+  const state = useFocusCommandSelector(selectDashboardDependencies, hasSameDashboardDependencies) as FocusState;
   const [showLifelineEditor, setShowLifelineEditor] = useState(false);
   const [birthYear, setBirthYear] = useState(String(new Date().getFullYear() - 20));
   const [lifePerformance, setLifePerformance] = useState("5");
@@ -55,12 +74,14 @@ export default function DashboardScreen() {
   const [showLifelineDetails, setShowLifelineDetails] = useState(false);
 
   const daySeries = useMemo(() => createDaySeries(14, state.profile.timezone), [state.profile.timezone]);
-  const dashboard = useMemo(() => getDashboardStats(state), [state]);
-  const completionRecords = useMemo(() => getMissionCompletionRecords(state), [state]);
-  const forecast = useMemo(() => getEmotionalPatternForecast(state), [state]);
-  const wellbeing = useMemo(() => getWellbeingInsight(state), [state]);
-  const focusFriction = useMemo(() => getFocusFrictionInsight(state), [state]);
-  const weeklyReview = useMemo(() => getWeeklyAfterActionReview(state), [state]);
+  /* eslint-disable react-hooks/exhaustive-deps -- These pure helpers require a FocusState shape, while each memo intentionally tracks only the source references it actually reads. Adding the full state would reinstate unrelated interaction-path work. */
+  const dashboard = useMemo(() => getDashboardStats(state), [state.missionCompletions, state.missions, state.profile, state.progression, state.reflections]);
+  const completionRecords = useMemo(() => getMissionCompletionRecords(state), [state.missionCompletions, state.missions, state.progression, state.reflections]);
+  const forecast = useMemo(() => getEmotionalPatternForecast(state), [state.profile, state.reflections]);
+  const wellbeing = useMemo(() => getWellbeingInsight(state), [state.profile, state.reflections]);
+  const focusFriction = useMemo(() => getFocusFrictionInsight(state), [state.distractionLogs, state.missions, state.profile]);
+  const weeklyReview = useMemo(() => getWeeklyAfterActionReview(state), [state.distractionLogs, state.missionCompletions, state.missions, state.profile, state.progression, state.reflections]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   if (!ready) return <LoadingScreen label="Compiling command analytics…" />;
 
