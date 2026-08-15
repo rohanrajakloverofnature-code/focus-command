@@ -7,16 +7,73 @@ import { CommandButton, CommandCard, LoadingScreen, MetricTile, ProgressBar, Scr
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, formatHours, getMissionCompletionRecords, getMissionInvestedMilliseconds, getTotalPower, useFocusCommand } from "@/lib/focus-command";
+import { formatCompactNumber, formatHours, getMissionCompletionRecords, getMissionInvestedMilliseconds, getTotalPower, type FocusState, type MissionCompletionRecord, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { playFocusRole } from "@/lib/focus-audio";
+
+type MissionResultSnapshot = {
+  mission: FocusState["missions"][number] | undefined;
+  completion: FocusState["missionCompletions"][number] | undefined;
+  fallbackCompletion: MissionCompletionRecord | undefined;
+  event: FocusState["progression"][number] | undefined;
+  reflection: FocusState["reflections"][number] | undefined;
+  totalPower: number;
+  soundEnabled: boolean;
+  soundRoles: FocusState["profile"]["soundRoles"];
+  reduceMotion: boolean;
+};
+
+function hasSameMissionResultSnapshot(left: MissionResultSnapshot, right: MissionResultSnapshot) {
+  return left.mission === right.mission
+    && left.completion === right.completion
+    && left.fallbackCompletion === right.fallbackCompletion
+    && left.event === right.event
+    && left.reflection === right.reflection
+    && left.totalPower === right.totalPower
+    && left.soundEnabled === right.soundEnabled
+    && left.soundRoles === right.soundRoles
+    && left.reduceMotion === right.reduceMotion;
+}
+
+function selectMissionResultSnapshot(state: FocusState, missionId: string | undefined, completionId: string | undefined): MissionResultSnapshot {
+  const mission = state.missions.find((candidate) => candidate.id === missionId);
+  const completion = completionId ? state.missionCompletions.find((candidate) => candidate.id === completionId) : undefined;
+  // Current completions resolve directly by immutable identifiers. The cached
+  // history fallback retains the existing legacy deep-link behavior without
+  // putting an all-history assembly on the normal confirmation path.
+  const fallbackCompletion = completionId && !completion
+    ? getMissionCompletionRecords(state).find((candidate) => candidate.id === completionId)
+    : undefined;
+  const resolvedCompletion = fallbackCompletion ?? completion;
+  const event = resolvedCompletion
+    ? fallbackCompletion?.progression
+      ?? state.progression.find((candidate) => candidate.completionId === resolvedCompletion.id)
+      ?? state.progression.find((candidate) => candidate.id === resolvedCompletion.progressionEventId)
+    : state.progression.filter((candidate) => candidate.missionId === missionId).at(-1);
+  const reflection = resolvedCompletion
+    ? fallbackCompletion?.reflection
+      ?? state.reflections.find((candidate) => candidate.completionId === resolvedCompletion.id)
+      ?? state.reflections.find((candidate) => candidate.id === resolvedCompletion.reflectionId)
+    : state.reflections.filter((candidate) => candidate.missionId === missionId).at(-1);
+
+  return {
+    mission,
+    completion,
+    fallbackCompletion,
+    event,
+    reflection,
+    totalPower: getTotalPower(state),
+    soundEnabled: state.profile.soundEnabled,
+    soundRoles: state.profile.soundRoles,
+    reduceMotion: state.profile.reduceMotion,
+  };
+}
 
 export default function MissionResultScreen() {
   const colors = useColors();
   const { id, completionId } = useLocalSearchParams<{ id: string; completionId?: string }>();
-  const { state, ready } = useFocusCommand();
-  const mission = state.missions.find((candidate) => candidate.id === id);
-  const completion = completionId ? getMissionCompletionRecords(state).find((candidate) => candidate.id === completionId) : null;
-  const event = completion?.progression ?? state.progression.filter((candidate) => candidate.missionId === id).at(-1);
+  const ready = useFocusCommandReady();
+  const result = useFocusCommandSelector((state) => selectMissionResultSnapshot(state, id, completionId), hasSameMissionResultSnapshot);
+  const { mission, completion, fallbackCompletion, event, reflection, totalPower, soundEnabled, soundRoles, reduceMotion } = result;
   const [celebration, setCelebration] = useState<CelebrationKind | null>(null);
 
   useEffect(() => {
@@ -24,12 +81,12 @@ export default function MissionResultScreen() {
     const kind: CelebrationKind = event.titleAfter && event.titleAfter !== event.titleBefore ? "title" : event.levelAfter && event.levelAfter > (event.levelBefore ?? event.levelAfter) ? "level" : event.comboAfter && event.comboAfter > (event.comboBefore ?? event.comboAfter) ? "combo" : "mission";
     setCelebration(kind);
     const role = kind === "title" ? "titleUnlock" : kind === "level" ? "levelUp" : kind === "combo" ? "comboTier" : "missionWin";
-    void playFocusRole(role, state.profile.soundEnabled, state.profile.soundRoles[role]);
-  }, [completionId, event, ready, state.profile.soundEnabled, state.profile.soundRoles]);
+    void playFocusRole(role, soundEnabled, soundRoles[role]);
+  }, [completionId, event, ready, soundEnabled, soundRoles]);
 
   if (!ready) return <LoadingScreen label="Calculating mission result…" />;
 
-  if (!mission && !completion) {
+  if (!mission && !completion && !fallbackCompletion) {
     return (
       <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
         <View style={styles.missing}>
@@ -40,11 +97,9 @@ export default function MissionResultScreen() {
     );
   }
 
-  const reflection = completion?.reflection ?? state.reflections.filter((candidate) => candidate.missionId === id).at(-1);
-  const duration = completion?.durationMs ?? (mission ? getMissionInvestedMilliseconds(mission) : 0);
-  const totalPower = getTotalPower(state);
-  const title = completion?.title ?? mission?.title ?? "Mission";
-  const baseXp = completion?.baseXp ?? mission?.baseXp ?? 0;
+  const duration = completion?.durationMs ?? fallbackCompletion?.durationMs ?? (mission ? getMissionInvestedMilliseconds(mission) : 0);
+  const title = fallbackCompletion?.title ?? completion?.missionTitle ?? mission?.title ?? "Mission";
+  const baseXp = fallbackCompletion?.baseXp ?? completion?.missionBaseXp ?? mission?.baseXp ?? event?.baseXp ?? 0;
 
   return (
     <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
@@ -103,7 +158,7 @@ export default function MissionResultScreen() {
           <CommandButton label="Mission board" icon="checklist" variant="secondary" onPress={() => router.replace("/missions" as never)} style={styles.actionButton} />
         </View>
       </ScrollView>
-      {celebration ? <CelebrationOverlay kind={celebration} reduceMotion={state.profile.reduceMotion} onDone={() => setCelebration(null)} /> : null}
+      {celebration ? <CelebrationOverlay kind={celebration} reduceMotion={reduceMotion} onDone={() => setCelebration(null)} /> : null}
     </ScreenContainer>
   );
 }
