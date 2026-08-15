@@ -81,11 +81,12 @@ export function EmotionPredictionTicker({ predictions, reduceMotion }: { predict
           <View style={styles.readingSection}>
             <Text style={[styles.sectionLabel, { color: current.accent }]}>HOW IT IS READ</Text>
             <Text style={[styles.sectionText, { color: colors.foreground }]}>The on-device reading compares logged start and end feelings, energy, focus, clarity, drive, stress, distraction, friction, and optional reflection answers. It never uses XP, level, missions, streaks, or Dashboard figures.</Text>
+          </View>
 
-          <View style={[styles.libraryInfo, { borderColor: colors.border, backgroundColor: color: colors.background }]}>
+          <View style={[styles.libraryInfo, { borderColor: colors.border, backgroundColor: colors.background }]}>
             <Text style={[styles.sectionLabel, { color: colors.primary }]}>LIBRARY DESIGN</Text>
-            <Text style={[styles.librarySummary, { color: colors.foreground }]}>{EMOTION_PREDICTION_TRACK_COUNT} emotional pattern tracks Â· {EMOTION_PREDICTION_LIBRRARY_COUNT} compact readings Â· 3 matching readings shown at once.</Text>
-            <Text style={[styles.libraryDetail, { color: color: colors.muted }]}>When your reflection pattern changes, a new matching trio is selected from this fixed offline library. Every capsule label is capped at {PREDICTION_LABEL_MAX_LENGTH} characters so it remains fully visible.</Text>
+            <Text style={[styles.librarySummary, { color: colors.foreground }]}>{EMOTION_PREDICTION_TRACK_COUNT} emotional pattern tracks · {EMOTION_PREDICTION_LIBRARY_COUNT} compact readings · 3 matching readings shown at once.</Text>
+            <Text style={[styles.libraryDetail, { color: colors.muted }]}>When your reflection pattern changes, a new matching trio is selected from this fixed offline library. Every capsule label is capped at {PREDICTION_LABEL_MAX_LENGTH} characters so it remains fully visible.</Text>
           </View>
         </CommandCard>
       </View>
@@ -118,7 +119,7 @@ const styles = StyleSheet.create({
   readingSection: { gap: 4 },
   sectionLabel: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.9 },
   sectionText: { fontSize: 12, lineHeight: 17, fontWeight: "600" },
-  libraryInfo: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 11, gap: 4 },
+  libraryInfo: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 11, gap: 4 },
   librarySummary: { fontSize: 12, lineHeight: 17, fontWeight: "800" },
   libraryDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600" },
 });
