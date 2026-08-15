@@ -1134,12 +1134,53 @@ export function beginMissionSession(mission: Mission, startedAt = Date.now()): M
 
 const missionCompletionRecordsCache = new WeakMap<FocusState, MissionCompletionRecord[]>();
 
+interface MissionCompletionSourceCacheEntry {
+  records: MissionCompletionRecord[];
+  missions: FocusState["missions"];
+  reflections: FocusState["reflections"];
+  progression: FocusState["progression"];
+}
+
+const missionCompletionSourceCache = new WeakMap<FocusState["missionCompletions"], MissionCompletionSourceCacheEntry>();
+
 export function getMissionCompletionRecords(state: FocusState): MissionCompletionRecord[] {
   const cached = missionCompletionRecordsCache.get(state);
   if (cached) return cached;
+  const sourceCached = missionCompletionSourceCache.get(state.missionCompletions);
+  if (
+    sourceCached
+    && sourceCached.missions === state.missions
+    && sourceCached.reflections === state.reflections
+    && sourceCached.progression === state.progression
+  ) {
+    missionCompletionRecordsCache.set(state, sourceCached.records);
+    return sourceCached.records;
+  }
   const missionsById = new Map(state.missions.map((mission) => [mission.id, mission]));
   const reflectionsByCompletion = new Map(state.reflections.filter((reflection) => reflection.completionId).map((reflection) => [reflection.completionId as string, reflection]));
   const progressionByCompletion = new Map(state.progression.filter((event) => event.completionId).map((event) => [event.completionId as string, event]));
+  const reflectionsById = new Map(state.reflections.map((reflection) => [reflection.id, reflection]));
+  const progressionById = new Map(state.progression.map((event) => [event.id, event]));
+  const firstReflectionByMissionMoment = new Map<string, Reflection>();
+  const firstReflectionByMission = new Map<string, Reflection>();
+  const firstProgressionByMissionMoment = new Map<string, ProgressionEvent>();
+  const firstProgressionByMission = new Map<string, ProgressionEvent>();
+  state.reflections.forEach((reflection) => {
+    if (reflection.missionId) {
+      if (!firstReflectionByMission.has(reflection.missionId)) firstReflectionByMission.set(reflection.missionId, reflection);
+      if (reflection.createdAt) {
+        const key = `${reflection.missionId}:${reflection.createdAt}`;
+        if (!firstReflectionByMissionMoment.has(key)) firstReflectionByMissionMoment.set(key, reflection);
+      }
+    }
+  });
+  state.progression.forEach((event) => {
+    if (event.missionId) {
+      if (!firstProgressionByMission.has(event.missionId)) firstProgressionByMission.set(event.missionId, event);
+      const key = `${event.missionId}:${event.occurredAt}`;
+      if (!firstProgressionByMissionMoment.has(key)) firstProgressionByMissionMoment.set(key, event);
+    }
+  });
   const persistedCompletions = state.missionCompletions ?? [];
   const representedProgression = new Set(persistedCompletions.flatMap((completion) => [completion.id, completion.progressionEventId]).filter(Boolean));
   const representedMissionMoments = new Set(persistedCompletions.map((completion) => `${completion.missionId}:${completion.completedAt}`));
@@ -1153,7 +1194,7 @@ export function getMissionCompletionRecords(state: FocusState): MissionCompletio
         startedAt: toIsoTimestamp(mission?.startedAt) ?? event.occurredAt,
         completedAt: event.occurredAt,
         durationMs: mission?.completedAt === event.occurredAt ? getMissionInvestedMilliseconds(mission) : 0,
-        reflectionId: state.reflections.find((reflection) => reflection.missionId === event.missionId && reflection.createdAt === event.occurredAt)?.id ?? "",
+        reflectionId: firstReflectionByMissionMoment.get(`${event.missionId}:${event.occurredAt}`)?.id ?? "",
         progressionEventId: event.id,
         missionTitle: mission?.title,
         missionSubject: mission?.subject,
@@ -1164,18 +1205,19 @@ export function getMissionCompletionRecords(state: FocusState): MissionCompletio
         allowMultipleDailyCompletions: mission?.allowMultipleDailyCompletions,
       };
     });
+  const legacyProgressionMoments = new Set(legacyProgressionCompletions.map((completion) => `${completion.missionId}:${completion.completedAt}`));
   const legacyMissionCompletions: MissionCompletion[] = state.missions.flatMap((mission) => {
     const timestamps = mission.completionHistory.length ? mission.completionHistory : mission.completedAt ? [mission.completedAt] : [];
     return timestamps
-      .filter((completedAt) => !representedMissionMoments.has(`${mission.id}:${completedAt}`) && !legacyProgressionCompletions.some((completion) => completion.missionId === mission.id && completion.completedAt === completedAt))
+      .filter((completedAt) => !representedMissionMoments.has(`${mission.id}:${completedAt}`) && !legacyProgressionMoments.has(`${mission.id}:${completedAt}`))
       .map((completedAt) => ({
         id: mission.id,
         missionId: mission.id,
         startedAt: toIsoTimestamp(mission.startedAt) ?? completedAt,
         completedAt,
         durationMs: mission.completedAt === completedAt ? getMissionInvestedMilliseconds(mission) : 0,
-        reflectionId: state.reflections.find((reflection) => reflection.missionId === mission.id && reflection.createdAt === completedAt)?.id ?? "",
-        progressionEventId: state.progression.find((event) => event.missionId === mission.id && event.occurredAt === completedAt)?.id ?? "",
+        reflectionId: firstReflectionByMissionMoment.get(`${mission.id}:${completedAt}`)?.id ?? "",
+        progressionEventId: firstProgressionByMissionMoment.get(`${mission.id}:${completedAt}`)?.id ?? "",
         missionTitle: mission.title,
         missionSubject: mission.subject,
         missionCategory: mission.category,
@@ -1190,14 +1232,14 @@ export function getMissionCompletionRecords(state: FocusState): MissionCompletio
   const records = completionInstances.map((completion) => {
     const mission = missionsById.get(completion.missionId);
     const reflection = reflectionsByCompletion.get(completion.id)
-      ?? state.reflections.find((candidate) => candidate.id === completion.reflectionId)
-      ?? state.reflections.find((candidate) => candidate.missionId === completion.missionId && candidate.createdAt === completion.completedAt)
-      ?? state.reflections.find((candidate) => candidate.missionId === completion.missionId)
+      ?? reflectionsById.get(completion.reflectionId)
+      ?? firstReflectionByMissionMoment.get(`${completion.missionId}:${completion.completedAt}`)
+      ?? firstReflectionByMission.get(completion.missionId)
       ?? null;
     const progression = progressionByCompletion.get(completion.id)
-      ?? state.progression.find((candidate) => candidate.id === completion.progressionEventId)
-      ?? state.progression.find((candidate) => candidate.missionId === completion.missionId && candidate.occurredAt === completion.completedAt)
-      ?? state.progression.find((candidate) => candidate.missionId === completion.missionId)
+      ?? progressionById.get(completion.progressionEventId)
+      ?? firstProgressionByMissionMoment.get(`${completion.missionId}:${completion.completedAt}`)
+      ?? firstProgressionByMission.get(completion.missionId)
       ?? null;
     return {
       ...completion,
@@ -1213,7 +1255,33 @@ export function getMissionCompletionRecords(state: FocusState): MissionCompletio
     };
   }).sort((left, right) => right.completedAt.localeCompare(left.completedAt));
   missionCompletionRecordsCache.set(state, records);
+  missionCompletionSourceCache.set(state.missionCompletions, {
+    records,
+    missions: state.missions,
+    reflections: state.reflections,
+    progression: state.progression,
+  });
   return records;
+}
+
+/**
+ * Completion records are descending by completion timestamp. Limit summaries to their
+ * visible local-date interval so a current-week review does not scan every prior year.
+ */
+export function getMissionCompletionRecordsInLocalDateRange(
+  state: FocusState,
+  start: string,
+  end: string,
+  timezone = state.profile.timezone,
+): MissionCompletionRecord[] {
+  const matching: MissionCompletionRecord[] = [];
+  for (const completion of getMissionCompletionRecords(state)) {
+    const localDate = toLocalDate(completion.completedAt, timezone);
+    if (localDate > end) continue;
+    if (localDate < start) break;
+    matching.push(completion);
+  }
+  return matching;
 }
 
 function rebuildComboFromCompletions(state: FocusState): ComboState {
@@ -1670,11 +1738,39 @@ function buildDashboardStats(state: FocusState) {
 
 const dashboardStatsCache = new WeakMap<FocusState, ReturnType<typeof buildDashboardStats>>();
 
+interface DashboardSourceCacheEntry {
+  dashboard: ReturnType<typeof buildDashboardStats>;
+  timezone: string;
+  missions: FocusState["missions"];
+  reflections: FocusState["reflections"];
+  progression: FocusState["progression"];
+}
+
+const dashboardSourceCache = new WeakMap<FocusState["missionCompletions"], DashboardSourceCacheEntry>();
+
 export function getDashboardStats(state: FocusState) {
   const cached = dashboardStatsCache.get(state);
   if (cached) return cached;
+  const sourceCached = dashboardSourceCache.get(state.missionCompletions);
+  if (
+    sourceCached
+    && sourceCached.timezone === state.profile.timezone
+    && sourceCached.missions === state.missions
+    && sourceCached.reflections === state.reflections
+    && sourceCached.progression === state.progression
+  ) {
+    dashboardStatsCache.set(state, sourceCached.dashboard);
+    return sourceCached.dashboard;
+  }
   const result = buildDashboardStats(state);
   dashboardStatsCache.set(state, result);
+  dashboardSourceCache.set(state.missionCompletions, {
+    dashboard: result,
+    timezone: state.profile.timezone,
+    missions: state.missions,
+    reflections: state.reflections,
+    progression: state.progression,
+  });
   return result;
 }
 

@@ -165,6 +165,21 @@ interface AggregateMonth extends AggregateDay {
 const archiveCache = new WeakMap<FocusState, MonthlyCommandArchive>();
 const studiedTopicsCache = new WeakMap<FocusState, MonthlyArchiveStudiedTopic[]>();
 
+interface ArchiveSourceCacheEntry {
+  archive: MonthlyCommandArchive;
+  timezone: string;
+  missions: FocusState["missions"];
+  reflections: FocusState["reflections"];
+  progression: FocusState["progression"];
+  transactions: FocusState["transactions"];
+  distractionLogs: FocusState["distractionLogs"];
+}
+
+// State updates are immutable, but many routine interactions leave archive source
+// arrays untouched. Reuse the same derived archive across those snapshots without
+// persisting an index or altering the durable source-of-truth records.
+const archiveSourceCache = new WeakMap<FocusState["missionCompletions"], ArchiveSourceCacheEntry>();
+
 const FEELING_LABELS: Record<NonNullable<Reflection["feelingAfter"]>, string> = {
   drained: "Drained",
   restless: "Restless",
@@ -398,6 +413,20 @@ export function getMonthlyCommandArchive(state: FocusState): MonthlyCommandArchi
   const cached = archiveCache.get(state);
   if (cached) return cached;
 
+  const sourceCached = archiveSourceCache.get(state.missionCompletions);
+  if (
+    sourceCached
+    && sourceCached.timezone === state.profile.timezone
+    && sourceCached.missions === state.missions
+    && sourceCached.reflections === state.reflections
+    && sourceCached.progression === state.progression
+    && sourceCached.transactions === state.transactions
+    && sourceCached.distractionLogs === state.distractionLogs
+  ) {
+    archiveCache.set(state, sourceCached.archive);
+    return sourceCached.archive;
+  }
+
   const timezone = state.profile.timezone;
   const months = new Map<string, AggregateMonth>();
   const linkedReflectionIds = new Set<string>();
@@ -482,6 +511,15 @@ export function getMonthlyCommandArchive(state: FocusState): MonthlyCommandArchi
       .sort((left, right) => right.year - left.year),
   } satisfies MonthlyCommandArchive;
   archiveCache.set(state, archive);
+  archiveSourceCache.set(state.missionCompletions, {
+    archive,
+    timezone,
+    missions: state.missions,
+    reflections: state.reflections,
+    progression: state.progression,
+    transactions: state.transactions,
+    distractionLogs: state.distractionLogs,
+  });
   return archive;
 }
 

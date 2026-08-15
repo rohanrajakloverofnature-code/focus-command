@@ -1,4 +1,4 @@
-import { getMissionCompletionRecords, toLocalDate, type DistractionLogEntry, type FocusState, type Reflection } from "./focus-command";
+import { getMissionCompletionRecordsInLocalDateRange, toLocalDate, type DistractionLogEntry, type FocusState, type Reflection } from "./focus-command";
 import { DISTRACTION_CATEGORY_LABELS } from "./distraction-log";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -72,9 +72,7 @@ function average(values: Array<number | undefined | null>) {
 export function getWeeklyAfterActionReview(state: FocusState, now = new Date()): WeeklyAfterActionReview {
   const timezone = state.profile.timezone;
   const { localToday, weekStart, weekEnd } = getWeekRange(now, timezone);
-  const completions = getMissionCompletionRecords(state).filter((completion) =>
-    isInRange(toLocalDate(completion.completedAt, timezone), weekStart, weekEnd),
-  );
+  const completions = getMissionCompletionRecordsInLocalDateRange(state, weekStart, weekEnd, timezone);
   const completedMissionIds = new Set(completions.map((completion) => completion.missionId));
   const scheduledMissionRows = state.missions.filter((mission) => mission.dueAt && isInRange(toLocalDate(mission.dueAt, timezone), weekStart, weekEnd));
   const completedPlans = scheduledMissionRows.filter((mission) => mission.status === "completed" || completedMissionIds.has(mission.id)).length;
