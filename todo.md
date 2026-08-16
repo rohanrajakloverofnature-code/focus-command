@@ -584,3 +584,5 @@
 - [x] Implement the approved protected Home profile-card appearance control with independent Global Palette, Active Character Palette, and Custom sources, limited to render-only decorative card colors.
 - [x] Add backward-compatible Home-card appearance regression coverage and complete TypeScript, full-test, lint, static web-export, and Android JavaScript-bundle preflight validation without starting an APK build.
 - [x] Apply the approved strictly render-only premium transparent-glass treatment to the user-marked opaque cinematic background panels without changing protected timing, media, rewards, interaction, layout, or behavior.
+- [x] Correct the approved cinematic outer stage and reward template to neutral, genuinely transparent true glass with no character-derived background tint while retaining character colours only on existing decorative accents.
+- [x] Add neutral true-glass regression coverage and complete TypeScript, full-test, lint, static web-export, and Android JavaScript-bundle preflight validation without starting an APK build.
