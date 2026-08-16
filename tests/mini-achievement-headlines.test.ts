@@ -74,7 +74,7 @@ describe("Mini Achievements headline selection", () => {
 
   it("retains readable two-line achievement copy, the rating badge, and the low-cost rotation cadence", () => {
     expect(tickerSource).toContain('numberOfLines={2} ellipsizeMode="tail" style={styles.title}');
-    expect(tickerSource).toContain("<View style={styles.ratingBadge}>");
+    expect(tickerSource).toContain('style={[styles.ratingBadge, { borderColor: `${resolvedAccentColor}35`, backgroundColor: `${resolvedAccentColor}18` }]}');
     expect(tickerSource).toContain("activeAchievement.rating.toFixed(1)");
     expect(tickerSource).toContain("setInterval(rotate, MINI_ACHIEVEMENT_HEADLINE_INTERVAL_MS)");
     expect(tickerSource).toContain("if (achievements.length <= 1 || reduceMotion) return;");
@@ -87,6 +87,6 @@ describe("Mini Achievements headline selection", () => {
     expect(tickerSource).toContain("ambientGlow:");
     expect(tickerSource).toContain("topline:");
     expect(tickerSource).toContain("iconRing:");
-    expect(tickerSource).toContain('borderColor: "#F4C95D35"');
+    expect(tickerSource).toContain('borderColor: `${resolvedAccentColor}35`');
   });
 });

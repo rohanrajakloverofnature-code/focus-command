@@ -14,7 +14,14 @@ import {
 
 export const EMOTION_PREDICTION_CAPSULE_WIDTH = 132;
 
-export const EmotionPredictionTicker = memo(function EmotionPredictionTicker({ predictions, reduceMotion }: { predictions: EmotionPrediction[]; reduceMotion: boolean }) {
+export const EmotionPredictionTicker = memo(function EmotionPredictionTicker({ predictions, reduceMotion, surfaceColor, accentColor }: {
+  predictions: EmotionPrediction[];
+  reduceMotion: boolean;
+  /** Render-only visual token. The prediction library and rotation remain unchanged. */
+  surfaceColor?: string;
+  /** Render-only visual token. The prediction library and rotation remain unchanged. */
+  accentColor?: string;
+}) {
   const colors = useColors();
   const [visible, setVisible] = useState(false);
   const [index, setIndex] = useState(0);
@@ -35,20 +42,22 @@ export const EmotionPredictionTicker = memo(function EmotionPredictionTicker({ p
 
   if (!current) return null;
   const close = () => setVisible(false);
+  const resolvedSurfaceColor = surfaceColor ?? "#14122C";
+  const resolvedAccentColor = accentColor ?? current.accent;
 
   return <>
     <TapFeedback onPress={() => setVisible(true)} accessibilityLabel={`Open emotion prediction library. Current prediction: ${current.label}`} style={styles.capsulePressable}>
-      <View style={[styles.capsule, { borderColor: `${current.accent}9A` }]}>
-        <View pointerEvents="none" style={[styles.capsuleGlow, { backgroundColor: `${current.accent}14` }]} />
-        <View pointerEvents="none" style={[styles.accentRail, { backgroundColor: current.accent }]} />
+      <View style={[styles.capsule, { backgroundColor: resolvedSurfaceColor, borderColor: `${resolvedAccentColor}9A` }]}>
+        <View pointerEvents="none" style={[styles.capsuleGlow, { backgroundColor: `${resolvedAccentColor}14` }]} />
+        <View pointerEvents="none" style={[styles.accentRail, { backgroundColor: resolvedAccentColor }]} />
         <Animated.View style={[styles.capsuleReading, fadeStyle]}>
-          <View style={[styles.predictionIcon, { backgroundColor: `${current.accent}22`, borderColor: `${current.accent}55` }]}>
-            <View pointerEvents="none" style={[styles.iconHalo, { borderColor: `${current.accent}4A` }]} />
-            <IconSymbol name={current.icon} size={14} color={current.accent} />
+          <View style={[styles.predictionIcon, { backgroundColor: `${resolvedAccentColor}22`, borderColor: `${resolvedAccentColor}55` }]}>
+            <View pointerEvents="none" style={[styles.iconHalo, { borderColor: `${resolvedAccentColor}4A` }]} />
+            <IconSymbol name={current.icon} size={14} color={resolvedAccentColor} />
           </View>
           <Text numberOfLines={1} ellipsizeMode="clip" maxFontSizeMultiplier={1} style={styles.predictionLabel}>{current.label}</Text>
         </Animated.View>
-        <View style={[styles.chevronFrame, { borderColor: `${current.accent}30` }]}>
+        <View style={[styles.chevronFrame, { borderColor: `${resolvedAccentColor}30` }]}>
           <IconSymbol name="chevron.right" size={12} color="#D9D1F7" />
         </View>
       </View>
@@ -101,7 +110,7 @@ export const EmotionPredictionTicker = memo(function EmotionPredictionTicker({ p
 
 const styles = StyleSheet.create({
   capsulePressable: { width: EMOTION_PREDICTION_CAPSULE_WIDTH, flexShrink: 0 },
-  capsule: { width: EMOTION_PREDICTION_CAPSULE_WIDTH, minHeight: 42, borderWidth: 1, borderRadius: 13, paddingHorizontal: 5, flexDirection: "row", alignItems: "center", gap: 3, overflow: "hidden", backgroundColor: "#14122C" },
+  capsule: { width: EMOTION_PREDICTION_CAPSULE_WIDTH, minHeight: 42, borderWidth: 1, borderRadius: 13, paddingHorizontal: 5, flexDirection: "row", alignItems: "center", gap: 3, overflow: "hidden" },
   capsuleGlow: { position: "absolute", width: 62, height: 62, borderRadius: 31, right: -25, top: -20 },
   accentRail: { position: "absolute", left: 0, top: 10, bottom: 10, width: 2, borderRadius: 99 },
   capsuleReading: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: 2 },

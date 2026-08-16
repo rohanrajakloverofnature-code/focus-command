@@ -54,4 +54,17 @@ describe("cinematic override profile persistence", () => {
     expect(hydratedSaved.localCinematicMusicOverrides.tactical?.duringVideo?.uri).toContain("recruit-during.mp3");
     expect(hydratedSaved.customCharacterForms[0]).toMatchObject({ name: "Arcane Commander", activationLevel: 600 });
   });
+
+  it("safely supplies empty visual caches and global ticker preferences to legacy profiles", () => {
+    const legacy = JSON.parse(JSON.stringify(createInitialState())) as FocusState;
+    delete (legacy.profile as Partial<FocusState["profile"]>).characterCinematicColors;
+    delete (legacy.profile as Partial<FocusState["profile"]>).tickerColorPreferences;
+
+    const hydrated = normalizeHydratedState(legacy).profile;
+    expect(hydrated.characterCinematicColors).toEqual({});
+    expect(hydrated.tickerColorPreferences).toEqual({
+      miniAchievement: { source: "global", surface: null, accent: null },
+      prediction: { source: "global", surface: null, accent: null },
+    });
+  });
 });

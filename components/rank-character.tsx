@@ -211,6 +211,7 @@ export function RankCharacterAchievement({
   equipment = {},
   mode = "evolution",
   totalXp = 0,
+  totalPower = 0,
   goldBalance = 0,
 }: {
   title: string;
@@ -222,6 +223,7 @@ export function RankCharacterAchievement({
   equipment?: EquippedCharacterGear;
   mode?: CharacterPresentationMode;
   totalXp?: number;
+  totalPower?: number;
   goldBalance?: number;
 }) {
   const colors = useColors();
@@ -229,6 +231,17 @@ export function RankCharacterAchievement({
   const activeCustomForm = getActiveCustomCharacterForm(state.profile, level);
   const profile = getRankProfile(title, level, state.profile.customCharacterForms);
   const evolution = useMemo(() => getCharacterEvolutionProfile(title, level), [level, title]);
+  const characterColorSource = activeCustomForm?.portrait?.uri
+    ?? activeCustomForm?.video?.uri
+    ?? state.profile.localCinematicOverrides[evolution.cinematicVariant]?.uri
+    ?? null;
+  const cachedCharacterColors = characterColorSource ? state.profile.characterCinematicColors[characterColorSource] : undefined;
+  const cinematicColors = cachedCharacterColors ?? {
+    accent: evolution.accent,
+    backdrop: "#020914EE",
+    rod: evolution.secondaryAccent,
+    aura: evolution.accent,
+  };
   const cinematicVideoDurationMs = getCharacterEvolutionVideoDurationMs(evolution.cinematicVariant);
   const cinematicVideoSource = activeCustomForm?.video?.uri
     ?? state.profile.localCinematicOverrides[evolution.cinematicVariant]?.uri
@@ -534,7 +547,7 @@ export function RankCharacterAchievement({
   const rewardStyle = useAnimatedStyle(() => ({ opacity: reward.value, transform: [{ translateY: 14 * (1 - reward.value) }, { scale: 0.94 + reward.value * 0.06 }] }));
 
   const tierText = `${evolution.formName.toUpperCase()} · LEVEL ${level} · STAGE ${evolution.stage + 1}`;
-  const xpText = Math.max(0, Math.round(totalXp)).toLocaleString("en-IN");
+  const powerText = Math.max(0, Math.round(totalPower)).toLocaleString("en-IN");
   const goldText = Math.max(0, Math.round(goldBalance)).toLocaleString("en-IN");
   const phaseCopy = phase === "armor"
     ? evolution.materializationLabel
@@ -544,36 +557,36 @@ export function RankCharacterAchievement({
 
   return (
     <Modal transparent visible={visible} animationType="none" statusBarTranslucent onRequestClose={onDismiss}>
-      <Animated.View style={[styles.modalBackdrop, backdropStyle]}>
+      <Animated.View style={[styles.modalBackdrop, { backgroundColor: cinematicColors.backdrop }, backdropStyle]}>
         <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss character evolution" style={styles.modalPressable}>
           <Animated.View accessibilityRole="alert" accessibilityLabel={`${title} level ${level} ${mode === "evolution" ? "character evolution sequence" : "current character form"}`} style={[styles.cinematicStage, stageStyle]}>
-            <Animated.View pointerEvents="none" style={[styles.cinematicFlash, { backgroundColor: evolution.accent }, flashStyle]} />
+            <Animated.View pointerEvents="none" style={[styles.cinematicFlash, { backgroundColor: cinematicColors.accent }, flashStyle]} />
             <View pointerEvents="none" style={styles.cinematicNoise} />
-            <View pointerEvents="none" style={styles.cinematicTopline}><Text style={[styles.cinematicProtocol, { color: evolution.accent }]}>{phaseCopy}</Text><Text style={styles.cinematicDismiss}>TAP TO DISMISS</Text></View>
-            <Animated.View pointerEvents="none" style={[styles.cinematicPortal, { borderColor: `${evolution.accent}D8` }, portalStyle]} />
-            <Animated.View pointerEvents="none" style={[styles.cinematicPortalInner, { borderColor: `${evolution.secondaryAccent}A8` }, innerPortalStyle]} />
-            <Animated.View pointerEvents="none" style={[styles.cinematicShockwave, { borderColor: `${evolution.accent}B8` }, shockwaveStyle]} />
-            <Animated.View pointerEvents="none" style={[styles.cinematicRibbon, { backgroundColor: evolution.accent, shadowColor: evolution.accent }, ribbonStyle]}><View style={[styles.cinematicRibbonCore, { backgroundColor: evolution.secondaryAccent }]} /></Animated.View>
-            <Animated.View pointerEvents="none" style={[styles.cinematicParticles, particleStyle]}>{Array.from({ length: 22 }, (_, index) => <View key={index} style={[styles.cinematicParticle, { backgroundColor: index % 4 === 0 ? evolution.secondaryAccent : evolution.accent, transform: [{ rotate: `${index * 16.35}deg` }, { translateY: -92 - (index % 5) * 29 }] }]} />)}</Animated.View>
+            <View pointerEvents="none" style={[styles.cinematicTopline]}><Text style={[styles.cinematicProtocol, { color: cinematicColors.accent }]}>{phaseCopy}</Text><Text style={styles.cinematicDismiss}>TAP TO DISMISS</Text></View>
+            <Animated.View pointerEvents="none" style={[styles.cinematicPortal, { borderColor: `${cinematicColors.accent}D8` }, portalStyle]} />
+            <Animated.View pointerEvents="none" style={[styles.cinematicPortalInner, { borderColor: `${cinematicColors.rod}A8` }, innerPortalStyle]} />
+            <Animated.View pointerEvents="none" style={[styles.cinematicShockwave, { borderColor: `${cinematicColors.accent}B8` }, shockwaveStyle]} />
+            <Animated.View pointerEvents="none" style={[styles.cinematicRibbon, { backgroundColor: cinematicColors.rod, shadowColor: cinematicColors.rod }, ribbonStyle]}><View style={[styles.cinematicRibbonCore, { backgroundColor: cinematicColors.accent }]} /></Animated.View>
+            <Animated.View pointerEvents="none" style={[styles.cinematicParticles, particleStyle]}>{Array.from({ length: 22 }, (_, index) => <View key={index} style={[styles.cinematicParticle, { backgroundColor: index % 4 === 0 ? cinematicColors.rod : cinematicColors.accent, transform: [{ rotate: `${index * 16.35}deg` }, { translateY: -92 - (index % 5) * 29 }] }]} />)}</Animated.View>
             <Animated.View style={[styles.cinematicAvatarSystem, portraitStyle]}>
-              <View pointerEvents="none" style={[styles.cinematicAvatarAura, { backgroundColor: `${evolution.accent}28`, shadowColor: evolution.accent }]} />
+              <View pointerEvents="none" style={[styles.cinematicAvatarAura, { backgroundColor: `${cinematicColors.aura}28`, shadowColor: cinematicColors.aura }]} />
               <Image source={profile.portrait} resizeMode="contain" style={styles.cinematicPortrait} />
-              {videoVisible ? <Animated.View pointerEvents="none" style={[styles.cinematicVideoFrame, { borderColor: `${evolution.accent}72`, shadowColor: evolution.accent }, videoStyle]}>
+              {videoVisible ? <Animated.View pointerEvents="none" style={[styles.cinematicVideoFrame, { borderColor: `${cinematicColors.accent}72`, shadowColor: cinematicColors.aura }, videoStyle]}>
                 <VideoView player={videoPlayer} contentFit={CINEMATIC_VIDEO_CONTENT_FIT} nativeControls={false} surfaceType="textureView" style={styles.cinematicArmorVideo} />
               </Animated.View> : null}
             </Animated.View>
             <Animated.View style={[styles.cinematicReveal, revealStyle]}>
               <Text style={[styles.cinematicTitle, { color: colors.foreground }]}>{title}</Text>
-              <Text style={[styles.cinematicRank, { color: evolution.accent }]}>{tierText}</Text>
-              <EquipmentReadout gear={gear} accent={evolution.accent} secondaryAccent={evolution.secondaryAccent} foreground={colors.foreground} />
+              <Text style={[styles.cinematicRank, { color: cinematicColors.accent }]}>{tierText}</Text>
+              <EquipmentReadout gear={gear} accent={cinematicColors.accent} secondaryAccent={cinematicColors.rod} foreground={colors.foreground} />
               <Text style={[styles.cinematicAura, { color: colors.muted }]}>{evolution.aura.toUpperCase()}</Text>
             </Animated.View>
-            <Animated.View style={[styles.cinematicReward, { borderColor: `${evolution.accent}9E`, backgroundColor: `${evolution.accent}14` }, rewardStyle]}>
-              <View><Text style={[styles.cinematicRewardEyebrow, { color: evolution.secondaryAccent }]}>LEVEL REACHED</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>LEVEL {level}</Text></View>
+            <Animated.View style={[styles.cinematicReward, { borderColor: `${cinematicColors.accent}9E`, backgroundColor: `${cinematicColors.accent}14` }, rewardStyle]}>
+              <View><Text style={[styles.cinematicRewardEyebrow, { color: cinematicColors.rod }]}>LEVEL REACHED</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>LEVEL {level}</Text></View>
               <View style={styles.cinematicRewardDivider} />
-              <View><Text style={[styles.cinematicRewardEyebrow, { color: evolution.secondaryAccent }]}>TOTAL XP</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>{xpText}</Text></View>
+              <View><Text style={[styles.cinematicRewardEyebrow, { color: cinematicColors.rod }]}>TOTAL POWER</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>{powerText}</Text></View>
               <View style={styles.cinematicRewardDivider} />
-              <View><Text style={[styles.cinematicRewardEyebrow, { color: evolution.secondaryAccent }]}>GOLD CACHE</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>{goldText}</Text></View>
+              <View><Text style={[styles.cinematicRewardEyebrow, { color: cinematicColors.rod }]}>GOLD CACHE</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>{goldText}</Text></View>
             </Animated.View>
           </Animated.View>
         </Pressable>

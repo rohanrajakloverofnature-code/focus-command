@@ -570,3 +570,8 @@
 - [x] Change only the existing Mini Achievement ticker card base background to jet black while retaining all layout, content, route, rating, rotation, and interaction behavior.
 - [x] Add and run regression coverage for revision activity recording, legacy-data normalization, period and timezone boundaries, named phase filters, backup round-trip, existing revision-cycle preservation, and ticker surface protection; complete the full release preflight.
 - [x] Synchronize only the validated Revision Activity History, revision-overview, backup, ticker-surface, checklist, and regression-test source to private GitHub main; do not start an APK build. GitHub private main confirmed at `419b4c8`.
+- [x] Audit the protected character-evolution cinematic, Total Power display, color-customization system, and Home tickers; prepare a concise proposal only, with no implementation until explicit approval.
+- [x] Add cached automatic dominant-accent extraction for every active built-in or uploaded character presentation, and apply only the derived backdrop, vertical rod, and rear aura colors to the protected cinematic.
+- [x] Replace only the cinematic reward-strip Total XP label/value with the existing Total Power calculation.
+- [x] Preserve global palette application across every app section and add protected dedicated color-source/custom-color controls for the Mini Achievement and Prediction tickers without changing their mechanisms.
+- [x] Add regression coverage and complete full validation for automatic color derivation, caching, palette precedence, Total Power presentation, ticker customization, and protected cinematic behavior.

@@ -1,10 +1,11 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, FlatList, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { CommandCard, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { deriveCharacterCinematicColors } from "@/lib/character-visual-colors";
 import { type CharacterCinematicVariant } from "@/lib/character-development";
 import { pickAndPersistCharacterMusic, pickAndPersistCharacterPortrait, pickAndPersistCharacterVideo, removePersistedCharacterMedia, type CharacterMusicSlot } from "@/lib/character-form-media";
 import { getResolvedRankTitles, type CharacterCinematicMusicPair, type CustomCharacterForm, useFocusCommand } from "@/lib/focus-command";
@@ -59,8 +60,16 @@ export default function CinematicLibraryScreen() {
   const colors = useColors();
   const { state, ready, setCinematicOverride, removeCinematicOverride, updateProfile } = useFocusCommand();
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const savedColorUris = useRef(new Set(Object.keys(state.profile.characterCinematicColors)));
 
   if (!ready) return <LoadingScreen label="Opening cinematic library…" />;
+
+  const cacheSavedCharacterColors = async (uri: string) => {
+    if (savedColorUris.current.has(uri)) return;
+    savedColorUris.current.add(uri);
+    const characterColors = await deriveCharacterCinematicColors(uri);
+    updateProfile({ characterCinematicColors: { [uri]: characterColors } });
+  };
 
   const chooseVideo = async (entry: CinematicEntry) => {
     if (busyKey) return;
@@ -70,6 +79,7 @@ export default function CinematicLibraryScreen() {
       if (!selected) return;
       const previous = state.profile.localCinematicOverrides[entry.variant];
       setCinematicOverride(entry.variant, selected);
+      void cacheSavedCharacterColors(selected.uri);
       if (previous?.uri && previous.uri !== selected.uri) await removePersistedCinematicVideo(previous.uri);
       Alert.alert("Custom cinematic saved", `${selected.name} will play for ${entry.name} on your next character cinematic.`);
     } catch (error) {
@@ -171,11 +181,13 @@ export default function CinematicLibraryScreen() {
         const selected = await pickAndPersistCharacterPortrait(form.id);
         if (!selected) return;
         updateCustomForm(form.id, { portrait: selected });
+        void cacheSavedCharacterColors(selected.uri);
         if (form.portrait?.uri !== selected.uri) await removePersistedCharacterMedia(form.portrait?.uri ?? "");
       } else if (slot === "video") {
         const selected = await pickAndPersistCharacterVideo(form.id);
         if (!selected) return;
         updateCustomForm(form.id, { video: selected });
+        void cacheSavedCharacterColors(selected.uri);
         if (form.video?.uri !== selected.uri) await removePersistedCharacterMedia(form.video?.uri ?? "");
       } else {
         const selected = await pickAndPersistCharacterMusic(form.id, slot);

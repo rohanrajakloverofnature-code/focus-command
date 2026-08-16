@@ -8,7 +8,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useGoogleSheetsAuth } from "@/hooks/use-google-sheets-auth";
-import { ComboTier, getComboTiers, PaletteToken, SoundRoleId, SoundStyle, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
+import { ComboTier, getComboTiers, PaletteToken, SoundRoleId, SoundStyle, type TickerColorPreference, type TickerColorSource, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { clearSelectedFocusWorkbook, createFocusWorkbook, getFocusWorkbookMetadata, getGoogleAccessToken, getSelectedFocusWorkbook, getSpreadsheet, readFocusWorkbook, saveSelectedFocusWorkbook, writeFocusWorkbook } from "@/lib/google-sheets";
 import { configureDailyMissionReminder, enableFocusReminders, refreshScheduledReminderSounds } from "@/lib/focus-reminders";
 import { chooseAndValidateOfflineBackup, createAndShareOfflineBackup, discardMaterializedOfflineBackup, materializeOfflineBackupMedia } from "@/lib/offline-backup";
@@ -112,6 +112,19 @@ export default function SettingsScreen() {
     if (normalized) next[token] = normalized;
     else delete next[token];
     updateProfile({ palette: next });
+  };
+  const tickerSources: { source: TickerColorSource; label: string }[] = [
+    { source: "global", label: "Global palette" },
+    { source: "character", label: "Active character" },
+    { source: "custom", label: "Custom" },
+  ];
+  const updateTickerPreference = (ticker: "miniAchievement" | "prediction", patch: Partial<TickerColorPreference>) => {
+    updateProfile({
+      tickerColorPreferences: {
+        ...state.profile.tickerColorPreferences,
+        [ticker]: { ...state.profile.tickerColorPreferences[ticker], ...patch },
+      },
+    });
   };
 
   const patchNotificationRules = async (patch: Partial<typeof state.profile.notificationRules>) => {
@@ -560,6 +573,32 @@ export default function SettingsScreen() {
               </View>;
             })}
           </View>
+          <Divider />
+          <View style={styles.tickerAppearanceHeader}>
+            <Text style={[styles.settingTitle, { color: colors.foreground }]}>Home ticker appearance</Text>
+            <Text style={[styles.settingDetail, { color: colors.muted }]}>Each ticker keeps its current position, content, timing, and interaction. These controls change only its visual surface and accent.</Text>
+          </View>
+          {([
+            { id: "miniAchievement" as const, title: "Mini Achievement Ticker" },
+            { id: "prediction" as const, title: "Prediction Ticker" },
+          ]).map(({ id, title }) => {
+            const preference = state.profile.tickerColorPreferences[id];
+            return <View key={id} style={[styles.tickerAppearanceCard, { borderColor: colors.border, backgroundColor: colors.background }]}>
+              <Text style={[styles.paletteLabel, { color: colors.foreground }]}>{title}</Text>
+              <View style={styles.tickerSourceChoices}>
+                {tickerSources.map(({ source, label }) => {
+                  const active = preference.source === source;
+                  return <Pressable key={source} accessibilityRole="button" onPress={() => updateTickerPreference(id, { source })} style={({ pressed }) => [styles.tickerSourceChoice, { backgroundColor: active ? `${colors.primary}1C` : colors.surface, borderColor: active ? colors.primary : colors.border, opacity: pressed ? 0.72 : 1 }]}>
+                    <Text style={[styles.tickerSourceText, { color: active ? colors.primary : colors.muted }]}>{label.toUpperCase()}</Text>
+                  </Pressable>;
+                })}
+              </View>
+              {preference.source === "custom" ? <View style={styles.tickerCustomInputs}>
+                <TextInput value={preference.surface ?? ""} onChangeText={(surface) => updateTickerPreference(id, { surface: surface.trim() || null })} autoCapitalize="characters" placeholder="Surface #101827" placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+                <TextInput value={preference.accent ?? ""} onChangeText={(accent) => updateTickerPreference(id, { accent: accent.trim() || null })} autoCapitalize="characters" placeholder="Accent #8B5CF6" placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+              </View> : null}
+            </View>;
+          })}
         </CommandCard>
 
         <SectionHeader title="Loot box probability" />
@@ -727,6 +766,12 @@ const styles = StyleSheet.create({
   paletteSwatch: { width: 18, height: 18, borderRadius: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "#FFFFFF55" },
   paletteLabel: { fontSize: 12, lineHeight: 16, fontWeight: "800" },
   paletteInput: { minHeight: 40, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 10, fontSize: 12, lineHeight: 16, fontWeight: "800", fontVariant: ["tabular-nums"] },
+  tickerAppearanceHeader: { gap: 3 },
+  tickerAppearanceCard: { gap: 8, borderWidth: StyleSheet.hairlineWidth, borderRadius: 13, padding: 10 },
+  tickerSourceChoices: { flexDirection: "row", gap: 6 },
+  tickerSourceChoice: { flex: 1, minHeight: 33, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
+  tickerSourceText: { fontSize: 8, lineHeight: 11, fontWeight: "900", letterSpacing: 0.4, textAlign: "center" },
+  tickerCustomInputs: { gap: 7 },
   soundRoleList: { gap: 9 },
   soundRole: { gap: 8, borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, padding: 10 },
   soundRoleActions: { gap: 8 },

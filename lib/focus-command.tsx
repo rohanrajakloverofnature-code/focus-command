@@ -199,6 +199,21 @@ export interface LaunchAnimationSettings {
   audio: LocalCinematicAudioOverride | null;
 }
 
+export interface CharacterCinematicColors {
+  accent: string;
+  backdrop: string;
+  rod: string;
+  aura: string;
+}
+
+export type TickerColorSource = "global" | "character" | "custom";
+
+export interface TickerColorPreference {
+  source: TickerColorSource;
+  surface: string | null;
+  accent: string | null;
+}
+
 export interface PlayerProfile {
   firstName: string;
   timezone: string;
@@ -225,6 +240,12 @@ export interface PlayerProfile {
   highContrast: boolean;
   theme: "system" | "dark" | "light";
   palette: Partial<Record<PaletteToken, string>>;
+  /** Cached once per saved character media URI; never recomputed during cinematic playback. */
+  characterCinematicColors: Record<string, CharacterCinematicColors>;
+  tickerColorPreferences: {
+    miniAchievement: TickerColorPreference;
+    prediction: TickerColorPreference;
+  };
   notificationRules: NotificationRules;
   emotionalCharts: EmotionalChartConfig[];
   forecastEnabled: boolean;
@@ -881,6 +902,11 @@ function defaultProfile(): PlayerProfile {
     highContrast: false,
     theme: "dark",
     palette: {},
+    characterCinematicColors: {},
+    tickerColorPreferences: {
+      miniAchievement: { source: "global", surface: null, accent: null },
+      prediction: { source: "global", surface: null, accent: null },
+    },
     notificationRules: {
       dailyMissionEnabled: false,
       dailyMissionTime: "09:00",
@@ -1956,6 +1982,11 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       customCharacterForms,
       maxLevel: Math.max(Number(rawProfile.maxLevel) || defaults.profile.maxLevel, minimumMaxLevel),
       palette: { ...defaults.profile.palette, ...(input.profile?.palette ?? {}) },
+      characterCinematicColors: { ...defaults.profile.characterCinematicColors, ...(input.profile?.characterCinematicColors ?? {}) },
+      tickerColorPreferences: {
+        miniAchievement: { ...defaults.profile.tickerColorPreferences.miniAchievement, ...(input.profile?.tickerColorPreferences?.miniAchievement ?? {}) },
+        prediction: { ...defaults.profile.tickerColorPreferences.prediction, ...(input.profile?.tickerColorPreferences?.prediction ?? {}) },
+      },
       notificationRules: { ...defaults.profile.notificationRules, ...(input.profile?.notificationRules ?? {}) },
       soundRoles: (() => {
         const persisted = input.profile?.soundRoles;
@@ -2792,6 +2823,15 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         palette: patch.palette
           ? { ...current.profile.palette, ...patch.palette }
           : current.profile.palette,
+        characterCinematicColors: patch.characterCinematicColors
+          ? { ...current.profile.characterCinematicColors, ...patch.characterCinematicColors }
+          : current.profile.characterCinematicColors,
+        tickerColorPreferences: patch.tickerColorPreferences
+          ? {
+              miniAchievement: { ...current.profile.tickerColorPreferences.miniAchievement, ...(patch.tickerColorPreferences.miniAchievement ?? {}) },
+              prediction: { ...current.profile.tickerColorPreferences.prediction, ...(patch.tickerColorPreferences.prediction ?? {}) },
+            }
+          : current.profile.tickerColorPreferences,
         localCinematicMusicOverrides: patch.localCinematicMusicOverrides
           ? { ...current.profile.localCinematicMusicOverrides, ...patch.localCinematicMusicOverrides }
           : current.profile.localCinematicMusicOverrides,

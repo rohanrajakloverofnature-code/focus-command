@@ -16,11 +16,17 @@ export const MiniAchievementTicker = memo(function MiniAchievementTicker({
   reduceMotion,
   style,
   onPress,
+  surfaceColor,
+  accentColor,
 }: {
   achievements: readonly MiniAchievementHeadline[];
   reduceMotion: boolean;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
+  /** Render-only visual token. Does not affect ticker content, cadence, or interaction. */
+  surfaceColor?: string;
+  /** Render-only visual token. Does not affect ticker content, cadence, or interaction. */
+  accentColor?: string;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const changeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -62,6 +68,8 @@ export const MiniAchievementTicker = memo(function MiniAchievementTicker({
   const headlineStyle = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ translateY: offsetY.value }] }));
   const activeAchievement = achievements[activeIndex % Math.max(1, achievements.length)];
   const displayTitle = activeAchievement ? getMiniAchievementTickerSummary(activeAchievement.title) : "";
+  const resolvedSurfaceColor = surfaceColor ?? "#000000";
+  const resolvedAccentColor = accentColor ?? "#F4C95D";
 
   if (!activeAchievement) return null;
 
@@ -72,23 +80,23 @@ export const MiniAchievementTicker = memo(function MiniAchievementTicker({
       accessibilityHint={onPress ? "Opens the Wall of Fame" : undefined}
       accessibilityRole={onPress ? "button" : undefined}
       onPress={onPress}
-      style={({ pressed }) => [styles.ticker, style, onPress && pressed ? styles.tickerPressed : null]}
+      style={({ pressed }) => [styles.ticker, { backgroundColor: resolvedSurfaceColor, borderColor: `${resolvedAccentColor}62` }, style, onPress && pressed ? styles.tickerPressed : null]}
     >
-      <View pointerEvents="none" style={styles.ambientGlow} />
-      <View pointerEvents="none" style={styles.topline} />
-      <View style={styles.accent} />
+      <View pointerEvents="none" style={[styles.ambientGlow, { backgroundColor: `${resolvedAccentColor}0E` }]} />
+      <View pointerEvents="none" style={[styles.topline, { backgroundColor: `${resolvedAccentColor}42` }]} />
+      <View style={[styles.accent, { backgroundColor: resolvedAccentColor }]} />
       <Animated.View style={[styles.headline, headlineStyle]}>
-        <View style={styles.iconFrame}>
-          <View pointerEvents="none" style={styles.iconRing} />
-          <IconSymbol name="trophy.fill" size={13} color="#F4C95D" />
+        <View style={[styles.iconFrame, { backgroundColor: `${resolvedAccentColor}16`, borderColor: `${resolvedAccentColor}2C` }]}>
+          <View pointerEvents="none" style={[styles.iconRing, { borderColor: `${resolvedAccentColor}26` }]} />
+          <IconSymbol name="trophy.fill" size={13} color={resolvedAccentColor} />
         </View>
         <View style={styles.copy}>
-          <Text numberOfLines={1} style={styles.eyebrow}>MINI ACHIEVEMENT · WALL OF FAME</Text>
+          <Text numberOfLines={1} style={[styles.eyebrow, { color: resolvedAccentColor }]}>MINI ACHIEVEMENT · WALL OF FAME</Text>
           <Text numberOfLines={2} ellipsizeMode="tail" style={styles.title}>{displayTitle}</Text>
         </View>
-        <View style={styles.ratingBadge}>
-          <IconSymbol name="star.fill" size={9} color="#F4C95D" />
-          <Text style={styles.rating}>{activeAchievement.rating.toFixed(1)}</Text>
+        <View style={[styles.ratingBadge, { borderColor: `${resolvedAccentColor}35`, backgroundColor: `${resolvedAccentColor}18` }]}>
+          <IconSymbol name="star.fill" size={9} color={resolvedAccentColor} />
+          <Text style={[styles.rating, { color: resolvedAccentColor }]}>{activeAchievement.rating.toFixed(1)}</Text>
         </View>
       </Animated.View>
     </Pressable>
@@ -101,20 +109,18 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: "#F4C95D62",
-    backgroundColor: "#000000",
     position: "relative",
   },
   tickerPressed: { opacity: 0.82, transform: [{ scale: 0.985 }] },
-  ambientGlow: { position: "absolute", width: 170, height: 120, borderRadius: 88, top: -72, right: -42, backgroundColor: "#F4C95D0E" },
-  topline: { position: "absolute", left: 17, right: 17, top: 0, height: 1, backgroundColor: "#F7D87842" },
-  accent: { position: "absolute", left: 0, top: 13, bottom: 13, width: 4, borderRadius: 99, backgroundColor: "#F4C95D" },
+  ambientGlow: { position: "absolute", width: 170, height: 120, borderRadius: 88, top: -72, right: -42 },
+  topline: { position: "absolute", left: 17, right: 17, top: 0, height: 1 },
+  accent: { position: "absolute", left: 0, top: 13, bottom: 13, width: 4, borderRadius: 99 },
   headline: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 14, paddingLeft: 17, paddingVertical: 11 },
-  iconFrame: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#F4C95D16", borderWidth: StyleSheet.hairlineWidth, borderColor: "#F4C95D2C", overflow: "hidden" },
-  iconRing: { position: "absolute", width: 29, height: 29, borderRadius: 15, borderWidth: 1, borderColor: "#F4C95D26" },
+  iconFrame: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
+  iconRing: { position: "absolute", width: 29, height: 29, borderRadius: 15, borderWidth: 1 },
   copy: { flex: 1, minWidth: 0, justifyContent: "center" },
-  eyebrow: { color: "#D9B65A", fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.75 },
+  eyebrow: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.75 },
   title: { minHeight: 36, color: "#F5F9FF", fontSize: 14, lineHeight: 18, fontWeight: "800", marginTop: 2 },
-  ratingBadge: { minWidth: 54, height: 36, paddingHorizontal: 9, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, borderColor: "#F4C95D35", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: "#F4C95D18" },
-  rating: { color: "#F4C95D", fontSize: 12.5, lineHeight: 16, fontWeight: "900" },
+  ratingBadge: { minWidth: 54, height: 36, paddingHorizontal: 9, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
+  rating: { fontSize: 12.5, lineHeight: 16, fontWeight: "900" },
 });

@@ -26,7 +26,7 @@ import { RankCharacter, RankCharacterAchievement, type CharacterPresentationMode
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { playFocusRole } from "@/lib/focus-audio";
-import { createCharacterEvolutionMilestone, hasMeaningfulCharacterEvolution } from "@/lib/character-development";
+import { createCharacterEvolutionMilestone, getCharacterCinematicVariant, hasMeaningfulCharacterEvolution } from "@/lib/character-development";
 import { getEligibleCelebration, type CelebrationMilestone } from "@/lib/celebration-lifecycle";
 import { getForecastMotivationMessages } from "@/lib/home-motivation";
 import { getEmotionPredictionTrio } from "@/lib/emotion-predictions";
@@ -38,6 +38,7 @@ import {
   formatHours,
   formatTimeUntil,
   getActiveGoldMultiplier as activeGoldMultiplier,
+  getActiveCustomCharacterForm,
   getBossProgress,
   getCurrentCombo,
   getCurrentTitle,
@@ -58,6 +59,7 @@ import {
 } from "@/lib/focus-command";
 import { getMiniAchievementHeadlines } from "@/lib/mini-achievement-headlines";
 import { canStartPowerUp, getCharacterTapPresentation } from "@/lib/power-up-profile";
+import { resolveTickerVisualColors } from "@/lib/ticker-visual-colors";
 
 function syncLabel(phase: string, pending: number): string {
   if (phase === "needs_setup") return "Connect your sheet";
@@ -245,6 +247,20 @@ export default function HomeScreen() {
     () => createCharacterEvolutionMilestone(title.title, level.level, equippedCharacterGear),
     [equippedCharacterGear, level.level, title.title],
   );
+  const activeCharacterColors = useMemo(() => {
+    const customForm = getActiveCustomCharacterForm(state.profile, level.level);
+    const colorSource = customForm?.portrait?.uri
+      ?? customForm?.video?.uri
+      ?? state.profile.localCinematicOverrides[getCharacterCinematicVariant(title.title, level.level)]?.uri;
+    return colorSource ? state.profile.characterCinematicColors[colorSource] : undefined;
+  }, [level.level, state.profile, title.title]);
+  const tickerVisualColors = useMemo(() => {
+    const globalColors = { surfaceColor: colors.surface, accentColor: colors.primary };
+    return {
+      miniAchievement: resolveTickerVisualColors(state.profile.tickerColorPreferences.miniAchievement, globalColors, activeCharacterColors),
+      prediction: resolveTickerVisualColors(state.profile.tickerColorPreferences.prediction, globalColors, activeCharacterColors),
+    };
+  }, [activeCharacterColors, colors.primary, colors.surface, state.profile.tickerColorPreferences]);
 
   useEffect(() => {
     if (!ready) return;
@@ -310,11 +326,11 @@ export default function HomeScreen() {
             titleNumberOfLines={2}
             detailNumberOfLines={2}
             right={<View style={styles.headerActions}>
-              <EmotionPredictionTicker predictions={emotionPredictions} reduceMotion={state.profile.reduceMotion} />
+              <EmotionPredictionTicker predictions={emotionPredictions} reduceMotion={state.profile.reduceMotion} surfaceColor={tickerVisualColors.prediction.surfaceColor} accentColor={tickerVisualColors.prediction.accentColor} />
               <IconAction icon="line.3.horizontal" label="Open command settings" onPress={() => router.push("/settings")} />
             </View>}
           />
-          <MiniAchievementTicker achievements={miniAchievementHeadlines} reduceMotion={state.profile.reduceMotion} style={styles.miniAchievementTicker} onPress={() => router.push(MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE as never)} />
+          <MiniAchievementTicker achievements={miniAchievementHeadlines} reduceMotion={state.profile.reduceMotion} style={styles.miniAchievementTicker} onPress={() => router.push(MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE as never)} surfaceColor={tickerVisualColors.miniAchievement.surfaceColor} accentColor={tickerVisualColors.miniAchievement.accentColor} />
         </View>
 
         <CommandCard accent={colors.primary} style={[styles.heroCard, { backgroundColor: "#0E1D2E", borderColor: "#234865" }]}>
@@ -521,7 +537,7 @@ export default function HomeScreen() {
         </HomeFloat>
       </ScrollView>
       {homeCelebration ? <CelebrationOverlay kind={homeCelebration} reduceMotion={state.profile.reduceMotion} onDone={() => setHomeCelebration(null)} /> : null}
-      <RankCharacterAchievement title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} soundEnabled={state.profile.soundEnabled && state.profile.soundRoles.achievement.enabled} equipment={equippedCharacterGear} mode={characterPresentationMode} totalXp={totalXp} goldBalance={goldBalance} visible={showRankAchievement} onDismiss={() => setShowRankAchievement(false)} />
+      <RankCharacterAchievement title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} soundEnabled={state.profile.soundEnabled && state.profile.soundRoles.achievement.enabled} equipment={equippedCharacterGear} mode={characterPresentationMode} totalXp={totalXp} totalPower={totalPower} goldBalance={goldBalance} visible={showRankAchievement} onDismiss={() => setShowRankAchievement(false)} />
     </ScreenContainer>
   );
 }

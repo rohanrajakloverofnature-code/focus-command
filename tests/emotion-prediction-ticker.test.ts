@@ -27,7 +27,8 @@ describe("EmotionPredictionTicker regression contract", () => {
 
   it("keeps the approved premium compact slots contained without sacrificing readable prediction copy", () => {
     expect(source).toContain('capsule: { width: EMOTION_PREDICTION_CAPSULE_WIDTH, minHeight: 42');
-    expect(source).toContain('overflow: "hidden", backgroundColor: "#14122C"');
+    expect(source).toContain('const resolvedSurfaceColor = surfaceColor ?? "#14122C"');
+    expect(source).toContain('style={[styles.capsule, { backgroundColor: resolvedSurfaceColor, borderColor: `${resolvedAccentColor}9A` }]}');
     expect(source).toContain("predictionIcon: { width: 20");
     expect(source).toContain("flexShrink: 0, overflow: \"hidden\" }");
     expect(source).toContain("chevronFrame: { width: 19");
