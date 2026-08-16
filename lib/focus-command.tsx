@@ -252,6 +252,7 @@ export interface PlayerProfile {
     miniAchievement: TickerColorPreference;
     prediction: TickerColorPreference;
   };
+  homeProfileCardColorPreference: TickerColorPreference;
   notificationRules: NotificationRules;
   emotionalCharts: EmotionalChartConfig[];
   forecastEnabled: boolean;
@@ -913,6 +914,7 @@ function defaultProfile(): PlayerProfile {
       miniAchievement: { source: "global", surface: null, accent: null },
       prediction: { source: "global", surface: null, accent: null },
     },
+    homeProfileCardColorPreference: { source: "global", surface: null, accent: null },
     notificationRules: {
       dailyMissionEnabled: false,
       dailyMissionTime: "09:00",
@@ -1996,6 +1998,10 @@ export function normalizeHydratedState(input: FocusState): FocusState {
         miniAchievement: { ...defaults.profile.tickerColorPreferences.miniAchievement, ...(input.profile?.tickerColorPreferences?.miniAchievement ?? {}) },
         prediction: { ...defaults.profile.tickerColorPreferences.prediction, ...(input.profile?.tickerColorPreferences?.prediction ?? {}) },
       },
+      homeProfileCardColorPreference: {
+        ...defaults.profile.homeProfileCardColorPreference,
+        ...(input.profile?.homeProfileCardColorPreference ?? {}),
+      },
       notificationRules: { ...defaults.profile.notificationRules, ...(input.profile?.notificationRules ?? {}) },
       soundRoles: (() => {
         const persisted = input.profile?.soundRoles;
@@ -2841,6 +2847,9 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
               prediction: { ...current.profile.tickerColorPreferences.prediction, ...(patch.tickerColorPreferences.prediction ?? {}) },
             }
           : current.profile.tickerColorPreferences,
+        homeProfileCardColorPreference: patch.homeProfileCardColorPreference
+          ? { ...current.profile.homeProfileCardColorPreference, ...patch.homeProfileCardColorPreference }
+          : current.profile.homeProfileCardColorPreference,
         localCinematicMusicOverrides: patch.localCinematicMusicOverrides
           ? { ...current.profile.localCinematicMusicOverrides, ...patch.localCinematicMusicOverrides }
           : current.profile.localCinematicMusicOverrides,

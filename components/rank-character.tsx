@@ -30,6 +30,9 @@ export type RankCharacterProps = {
   level: number;
   reduceMotion: boolean;
   compact?: boolean;
+  /** Optional Home-card-only decorative overrides; never used by the cinematic achievement presentation. */
+  compactAccentColor?: string;
+  compactSupportColor?: string;
   onPress?: () => void;
   equipment?: EquippedCharacterGear;
   acknowledgementNonce?: number;
@@ -123,10 +126,12 @@ function CharacterGrowthLayers({ stage, accent, secondaryAccent, equipment, comp
   );
 }
 
-export function RankCharacter({ title, level, reduceMotion, compact = false, onPress, equipment, acknowledgementNonce = 0 }: RankCharacterProps) {
+export function RankCharacter({ title, level, reduceMotion, compact = false, compactAccentColor, compactSupportColor, onPress, equipment, acknowledgementNonce = 0 }: RankCharacterProps) {
   const colors = useColors();
   const { state } = useFocusCommand();
   const profile = getRankProfile(title, level, state.profile.customCharacterForms);
+  const accentColor = compact ? compactAccentColor ?? profile.accent : profile.accent;
+  const supportColor = compact ? compactSupportColor ?? profile.secondaryAccent : profile.secondaryAccent;
   const float = useSharedValue(0);
   const glow = useSharedValue(0.55);
   const transition = useSharedValue(1);
@@ -161,10 +166,10 @@ export function RankCharacter({ title, level, reduceMotion, compact = false, onP
 
   const characterVisual = (
     <View style={styles.characterVisual}>
-      <Animated.View style={[styles.aura, { width: size + 18, height: size + 18, borderRadius: (size + 18) / 2, backgroundColor: `${profile.accent}1C` }, auraStyle]} />
-      <Animated.View style={[styles.portraitFrame, { width: size, height: size, borderRadius: size / 2, borderColor: profile.accent }, motionStyle, portraitStyle]}>
+      <Animated.View style={[styles.aura, { width: size + 18, height: size + 18, borderRadius: (size + 18) / 2, backgroundColor: `${accentColor}1C` }, auraStyle]} />
+      <Animated.View style={[styles.portraitFrame, { width: size, height: size, borderRadius: size / 2, borderColor: accentColor }, motionStyle, portraitStyle]}>
         <Image key={`${profile.name}-${title}-${profile.stage}`} source={profile.portrait} resizeMode="cover" style={[styles.portrait, { transform: [{ scale: stageScale }] }]} />
-        <CharacterGrowthLayers stage={profile.stage} accent={profile.accent} secondaryAccent={profile.secondaryAccent} equipment={equipment} compact={compact} />
+        <CharacterGrowthLayers stage={profile.stage} accent={accentColor} secondaryAccent={supportColor} equipment={equipment} compact={compact} />
       </Animated.View>
     </View>
   );
@@ -172,10 +177,10 @@ export function RankCharacter({ title, level, reduceMotion, compact = false, onP
   return (
     <View accessibilityLabel={`${profile.name} character for ${title}, level ${level}`} style={[styles.wrap, compact && styles.compactWrap]}>
       {onPress ? <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Inspect ${title} development`} accessibilityHint="Shows a new development reveal only after you earn progression or equip new gear" style={({ pressed }) => [styles.characterPressable, { opacity: pressed ? 0.82 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>{characterVisual}</Pressable> : characterVisual}
-      <View style={[styles.label, { borderColor: `${profile.accent}99`, backgroundColor: colors.background }]}>
-        <Text style={[styles.labelText, { color: profile.accent }]}>{profile.name.toUpperCase()} · L{level}</Text>
+      <View style={[styles.label, { borderColor: `${accentColor}99`, backgroundColor: colors.background }]}>
+        <Text style={[styles.labelText, { color: accentColor }]}>{profile.name.toUpperCase()} · L{level}</Text>
         <Text numberOfLines={1} style={[styles.detailText, { color: colors.muted }]}>{title}</Text>
-        {gearCount ? <View style={styles.gearPips}>{Array.from({ length: gearCount }, (_, index) => <View key={index} style={[styles.gearPip, { backgroundColor: index === 0 ? profile.accent : profile.secondaryAccent }]} />)}</View> : null}
+        {gearCount ? <View style={styles.gearPips}>{Array.from({ length: gearCount }, (_, index) => <View key={index} style={[styles.gearPip, { backgroundColor: index === 0 ? accentColor : supportColor }]} />)}</View> : null}
       </View>
     </View>
   );

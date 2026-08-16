@@ -41,7 +41,17 @@ export function HomeFloat({
   return <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>;
 }
 
-export const HomeAmbientScene = memo(function HomeAmbientScene({ reduceMotion }: { reduceMotion: boolean }) {
+export const HomeAmbientScene = memo(function HomeAmbientScene({
+  reduceMotion,
+  accentColor = "#A78BFA",
+  supportColor = "#F4C95D",
+  signalColor = accentColor,
+}: {
+  reduceMotion: boolean;
+  accentColor?: string;
+  supportColor?: string;
+  signalColor?: string;
+}) {
   const phase = useSharedValue(0);
 
   useEffect(() => {
@@ -69,9 +79,9 @@ export const HomeAmbientScene = memo(function HomeAmbientScene({ reduceMotion }:
 
   return (
     <>
-      <Animated.View pointerEvents="none" style={[styles.orb, styles.firstOrb, firstOrb]} />
-      <Animated.View pointerEvents="none" style={[styles.orb, styles.secondOrb, secondOrb]} />
-      <Animated.View pointerEvents="none" style={[styles.signal, signal]} />
+      <Animated.View pointerEvents="none" style={[styles.orb, styles.firstOrb, { backgroundColor: accentColor }, firstOrb]} />
+      <Animated.View pointerEvents="none" style={[styles.orb, styles.secondOrb, { backgroundColor: supportColor }, secondOrb]} />
+      <Animated.View pointerEvents="none" style={[styles.signal, { backgroundColor: signalColor }, signal]} />
     </>
   );
 });

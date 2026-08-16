@@ -581,4 +581,5 @@
 - [x] Generate and deliver a non-production reference image that illustrates the corrected cinematic color-contrast treatment.
 - [x] Audit the current protected cinematic against the supplied premium reference style and present a strictly scoped multi-color cinematic redesign proposal; do not implement until explicit approval.
 - [x] Implement the approved protected reference-style cinematic reconstruction: cached automatic multi-color roles, premium decorative layers, compatibility safeguards, regression coverage, and full preflight validation.
-- [x] Synchronize only the validated protected reference-style cinematic reconstruction to private GitHub main through temporary authorized access; do not start an APK build.
+- [x] Implement the approved protected Home profile-card appearance control with independent Global Palette, Active Character Palette, and Custom sources, limited to render-only decorative card colors.
+- [x] Add backward-compatible Home-card appearance regression coverage and complete TypeScript, full-test, lint, static web-export, and Android JavaScript-bundle preflight validation without starting an APK build.

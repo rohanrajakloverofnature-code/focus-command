@@ -126,6 +126,14 @@ export default function SettingsScreen() {
       },
     });
   };
+  const updateHomeProfileCardPreference = (patch: Partial<TickerColorPreference>) => {
+    updateProfile({
+      homeProfileCardColorPreference: {
+        ...state.profile.homeProfileCardColorPreference,
+        ...patch,
+      },
+    });
+  };
 
   const patchNotificationRules = async (patch: Partial<typeof state.profile.notificationRules>) => {
     const notificationRules = { ...state.profile.notificationRules, ...patch };
@@ -597,8 +605,24 @@ export default function SettingsScreen() {
                 <TextInput value={preference.surface ?? ""} onChangeText={(surface) => updateTickerPreference(id, { surface: surface.trim() || null })} autoCapitalize="characters" placeholder="Surface #101827" placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
                 <TextInput value={preference.accent ?? ""} onChangeText={(accent) => updateTickerPreference(id, { accent: accent.trim() || null })} autoCapitalize="characters" placeholder="Accent #8B5CF6" placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
               </View> : null}
-            </View>;
+              </View>;
           })}
+          <View style={[styles.tickerAppearanceCard, { borderColor: colors.border, backgroundColor: colors.background }]}>
+            <Text style={[styles.paletteLabel, { color: colors.foreground }]}>Home Profile Card</Text>
+            <Text style={[styles.settingDetail, { color: colors.muted }]}>Changes only the marked Home profile card’s visual surface and decorative accents.</Text>
+            <View style={styles.tickerSourceChoices}>
+              {tickerSources.map(({ source, label }) => {
+                const active = state.profile.homeProfileCardColorPreference.source === source;
+                return <Pressable key={source} accessibilityRole="button" onPress={() => updateHomeProfileCardPreference({ source })} style={({ pressed }) => [styles.tickerSourceChoice, { backgroundColor: active ? `${colors.primary}1C` : colors.surface, borderColor: active ? colors.primary : colors.border, opacity: pressed ? 0.72 : 1 }]}>
+                  <Text style={[styles.tickerSourceText, { color: active ? colors.primary : colors.muted }]}>{label.toUpperCase()}</Text>
+                </Pressable>;
+              })}
+            </View>
+            {state.profile.homeProfileCardColorPreference.source === "custom" ? <View style={styles.tickerCustomInputs}>
+              <TextInput value={state.profile.homeProfileCardColorPreference.surface ?? ""} onChangeText={(surface) => updateHomeProfileCardPreference({ surface: surface.trim() || null })} autoCapitalize="characters" placeholder="Surface #101827" placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+              <TextInput value={state.profile.homeProfileCardColorPreference.accent ?? ""} onChangeText={(accent) => updateHomeProfileCardPreference({ accent: accent.trim() || null })} autoCapitalize="characters" placeholder="Accent #8B5CF6" placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+            </View> : null}
+          </View>
         </CommandCard>
 
         <SectionHeader title="Loot box probability" />

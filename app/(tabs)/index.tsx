@@ -59,6 +59,7 @@ import {
 } from "@/lib/focus-command";
 import { getMiniAchievementHeadlines } from "@/lib/mini-achievement-headlines";
 import { canStartPowerUp, getCharacterTapPresentation } from "@/lib/power-up-profile";
+import { resolveHomeProfileCardVisualColors } from "@/lib/home-profile-card-visual-colors";
 import { resolveTickerVisualColors } from "@/lib/ticker-visual-colors";
 
 function syncLabel(phase: string, pending: number): string {
@@ -261,6 +262,19 @@ export default function HomeScreen() {
       prediction: resolveTickerVisualColors(state.profile.tickerColorPreferences.prediction, globalColors, activeCharacterColors),
     };
   }, [activeCharacterColors, colors.primary, colors.surface, state.profile.tickerColorPreferences]);
+  const homeProfileCardColors = useMemo(() => resolveHomeProfileCardVisualColors({
+    preference: state.profile.homeProfileCardColorPreference,
+    characterColors: activeCharacterColors,
+    globalColors: {
+      surfaceColor: colors.surface,
+      borderColor: colors.border,
+      gridColor: `${colors.primary}36`,
+      accentColor: colors.primary,
+      supportColor: colors.primary,
+      energyColor: colors.primary,
+      atmosphereColor: "#F4C95D",
+    },
+  }), [activeCharacterColors, colors.border, colors.primary, colors.surface, state.profile.homeProfileCardColorPreference]);
 
   useEffect(() => {
     if (!ready) return;
@@ -333,15 +347,15 @@ export default function HomeScreen() {
           <MiniAchievementTicker achievements={miniAchievementHeadlines} reduceMotion={state.profile.reduceMotion} style={styles.miniAchievementTicker} onPress={() => router.push(MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE as never)} surfaceColor={tickerVisualColors.miniAchievement.surfaceColor} accentColor={tickerVisualColors.miniAchievement.accentColor} />
         </View>
 
-        <CommandCard accent={colors.primary} style={[styles.heroCard, { backgroundColor: "#0E1D2E", borderColor: "#234865" }]}>
+        <CommandCard accent={homeProfileCardColors.accentColor} style={[styles.heroCard, { backgroundColor: homeProfileCardColors.surfaceColor, borderColor: homeProfileCardColors.borderColor }]}>
           <View style={[styles.heroGrid, { pointerEvents: "none" }]}>
-            <View style={[styles.gridLineVertical, { left: "20%" }]} />
-            <View style={[styles.gridLineVertical, { left: "52%" }]} />
-            <View style={[styles.gridLineVertical, { left: "81%" }]} />
-            <View style={[styles.gridLineHorizontal, { top: "28%" }]} />
-            <View style={[styles.gridLineHorizontal, { top: "61%" }]} />
+            <View style={[styles.gridLineVertical, { left: "20%", backgroundColor: homeProfileCardColors.gridColor }]} />
+            <View style={[styles.gridLineVertical, { left: "52%", backgroundColor: homeProfileCardColors.gridColor }]} />
+            <View style={[styles.gridLineVertical, { left: "81%", backgroundColor: homeProfileCardColors.gridColor }]} />
+            <View style={[styles.gridLineHorizontal, { top: "28%", backgroundColor: homeProfileCardColors.gridColor }]} />
+            <View style={[styles.gridLineHorizontal, { top: "61%", backgroundColor: homeProfileCardColors.gridColor }]} />
           </View>
-          <HomeAmbientScene reduceMotion={state.profile.reduceMotion} />
+          <HomeAmbientScene reduceMotion={state.profile.reduceMotion} accentColor={homeProfileCardColors.accentColor} supportColor={homeProfileCardColors.supportColor} signalColor={homeProfileCardColors.energyColor} />
           <HomeFloat reduceMotion={state.profile.reduceMotion} distance={2} sway={1} duration={2_400} style={styles.fullWidth}>
             <View style={styles.heroTopline}>
               <StatusPill label={`LEVEL ${level.level}`} tone="primary" icon="shield.fill" />
@@ -351,7 +365,7 @@ export default function HomeScreen() {
           <View style={styles.heroContent}>
             <HomeFloat reduceMotion={state.profile.reduceMotion} distance={8} sway={2} duration={2_800} delay={180}>
               <View style={[styles.operatorColumn, { transform: [{ scale: operatorScale }] }]}>
-              <RankCharacter title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} compact onPress={openRankAchievement} equipment={equippedCharacterGear} acknowledgementNonce={characterAcknowledgement} />
+              <RankCharacter title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} compact compactAccentColor={homeProfileCardColors.accentColor} compactSupportColor={homeProfileCardColors.supportColor} onPress={openRankAchievement} equipment={equippedCharacterGear} acknowledgementNonce={characterAcknowledgement} />
               <HomeFire reduceMotion={state.profile.reduceMotion} />
               <Text numberOfLines={1} style={styles.operatorPlayerName}>{state.profile.firstName.toUpperCase()}</Text>
                 <Text numberOfLines={1} style={styles.operatorName}>{title.title.toUpperCase()}</Text>
@@ -368,7 +382,7 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.heroStatDivider} />
                 <View>
-                  <Text style={[styles.heroStatValue, { color: colors.primary }]}>{combo.multiplier.toFixed(2)}×</Text>
+                  <Text style={[styles.heroStatValue, { color: homeProfileCardColors.accentColor }]}>{combo.multiplier.toFixed(2)}×</Text>
                   <Text style={styles.heroStatLabel}>ACTIVE COMBO</Text>
                 </View>
               </View>
