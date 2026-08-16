@@ -12,6 +12,7 @@ import React, {
 } from "react";
 import { calculateEquippedXpModifier, calculateEquippedEnergyModifier } from "./equipment-modifiers";
 import type { CharacterCinematicVariant } from "./character-development";
+import { deriveCinematicTokensFromAccent } from "./character-cinematic-tokens";
 
 type AppStateSubscription = { remove: () => void };
 type AppStateModule = { addEventListener: (event: "change", listener: (nextState: string) => void) => AppStateSubscription };
@@ -1982,7 +1983,10 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       customCharacterForms,
       maxLevel: Math.max(Number(rawProfile.maxLevel) || defaults.profile.maxLevel, minimumMaxLevel),
       palette: { ...defaults.profile.palette, ...(input.profile?.palette ?? {}) },
-      characterCinematicColors: { ...defaults.profile.characterCinematicColors, ...(input.profile?.characterCinematicColors ?? {}) },
+      characterCinematicColors: Object.fromEntries(
+        Object.entries({ ...defaults.profile.characterCinematicColors, ...(input.profile?.characterCinematicColors ?? {}) })
+          .map(([formId, colors]) => [formId, deriveCinematicTokensFromAccent(colors.accent)]),
+      ),
       tickerColorPreferences: {
         miniAchievement: { ...defaults.profile.tickerColorPreferences.miniAchievement, ...(input.profile?.tickerColorPreferences?.miniAchievement ?? {}) },
         prediction: { ...defaults.profile.tickerColorPreferences.prediction, ...(input.profile?.tickerColorPreferences?.prediction ?? {}) },

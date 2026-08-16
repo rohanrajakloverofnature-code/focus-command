@@ -575,3 +575,6 @@
 - [x] Replace only the cinematic reward-strip Total XP label/value with the existing Total Power calculation.
 - [x] Preserve global palette application across every app section and add protected dedicated color-source/custom-color controls for the Mini Achievement and Prediction tickers without changing their mechanisms.
 - [x] Add regression coverage and complete full validation for automatic color derivation, caching, palette precedence, Total Power presentation, ticker customization, and protected cinematic behavior.
+- [x] Diagnose the reported before-and-after cinematic visual regression and present a protected correction plan before making any additional change.
+- [x] Improve save-time cached character color selection and derive reliably distinct cinematic backdrop, rod/portal, and aura tokens without changing any protected cinematic mechanism.
+- [x] Add focused contrast regression coverage, complete release validation, and push only the validated protected correction to GitHub without starting an APK build.

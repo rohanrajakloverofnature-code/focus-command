@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { createInitialState, normalizeHydratedState, type FocusState } from "../lib/focus-command";
+import { createInitialState, normalizeHydratedState } from "../lib/focus-command";
+import type { FocusState } from "../lib/focus-command";
+import { deriveCinematicTokensFromAccent } from "../lib/character-cinematic-tokens";
 
 describe("cinematic override profile persistence", () => {
   it("starts with no local override so every character retains its bundled cinematic", () => {
@@ -66,5 +68,20 @@ describe("cinematic override profile persistence", () => {
       miniAchievement: { source: "global", surface: null, accent: null },
       prediction: { source: "global", surface: null, accent: null },
     });
+  });
+
+  it("repairs existing cached character accents during hydration without reading media again", () => {
+    const saved = createInitialState();
+    saved.profile.characterCinematicColors = {
+      command: {
+        accent: "#C9982E",
+        backdrop: "#101827",
+        rod: "#405060",
+        aura: "#1A2230",
+      },
+    };
+
+    expect(normalizeHydratedState(saved).profile.characterCinematicColors.command)
+      .toEqual(deriveCinematicTokensFromAccent("#C9982E"));
   });
 });

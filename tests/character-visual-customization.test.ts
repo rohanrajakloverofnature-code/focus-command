@@ -10,37 +10,50 @@ const nativeMocks = vi.hoisted(() => ({
 vi.mock("react-native-image-colors", () => ({ getColors: nativeMocks.getColors }));
 vi.mock("expo-video-thumbnails", () => ({ getThumbnailAsync: nativeMocks.getThumbnailAsync }));
 
-import { deriveCharacterCinematicColors } from "../lib/character-visual-colors";
+import {
+  deriveCharacterCinematicColors,
+} from "../lib/character-visual-colors";
+import {
+  chooseCharacterAccent,
+  colorContrastRatio,
+  deriveCinematicTokensFromAccent,
+} from "../lib/character-cinematic-tokens";
 import { resolveTickerVisualColors } from "../lib/ticker-visual-colors";
 
 describe("character visual customization", () => {
   it("uses the stable cinematic fallback when native color sampling is unavailable", async () => {
     nativeMocks.getColors.mockRejectedValueOnce(new Error("unavailable"));
 
-    await expect(deriveCharacterCinematicColors("file:///character.png")).resolves.toEqual({
-      accent: "#8B5CF9",
-      backdrop: "#10102A",
-      rod: "#A78BFA",
-      aura: "#7C3AED",
-    });
+    await expect(deriveCharacterCinematicColors("file:///character.png")).resolves.toEqual(
+      deriveCinematicTokensFromAccent("#8B5CF9"),
+    );
   });
 
-  it("selects the most saturated sampled accent before deriving static cinematic tokens", async () => {
+  it("prefers a meaningful dominant mid-tone over a small saturated highlight", async () => {
     nativeMocks.getColors.mockResolvedValueOnce({
       platform: "android",
-      vibrant: "#FF0000",
-      lightVibrant: "#777777",
-      dominant: "#123456",
+      vibrant: "#00A2FF",
+      lightVibrant: "#B1EBFF",
+      dominant: "#C9982E",
       muted: null,
-      darkVibrant: "#222222",
+      darkVibrant: "#06101B",
     });
 
-    await expect(deriveCharacterCinematicColors("file:///character.png")).resolves.toEqual({
-      accent: "#FF0000",
-      backdrop: "#240E18",
-      rod: "#FF3333",
-      aura: "#D90000",
-    });
+    await expect(deriveCharacterCinematicColors("file:///character.png")).resolves.toMatchObject({ accent: "#C9982E" });
+    expect(chooseCharacterAccent([
+      { value: "#00A2FF", priority: 0.86 },
+      { value: "#C9982E", priority: 1.16 },
+      { value: "#06101B", priority: 0.5 },
+    ])).toBe("#C9982E");
+  });
+
+  it("derives a bright rod and visible aura that remain distinct from the character-tinted backdrop", () => {
+    const tokens = deriveCinematicTokensFromAccent("#C9982E");
+
+    expect(colorContrastRatio(tokens.rod, tokens.backdrop)).toBeGreaterThanOrEqual(4.5);
+    expect(colorContrastRatio(tokens.aura, tokens.backdrop)).toBeGreaterThanOrEqual(3);
+    expect(tokens.backdrop).not.toBe(tokens.rod);
+    expect(tokens.backdrop).not.toBe(tokens.aura);
   });
 
   it("resolves ticker colors by global, cached-character, and validated-custom precedence", () => {
