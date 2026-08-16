@@ -7,9 +7,9 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { DistractionLogger } from "@/components/distraction-logger";
 import { useColors } from "@/hooks/use-colors";
-import { CustomQuestion, Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getMissionInvestedMilliseconds, isLongMissionReflectionEligible, ReflectionDraft, type FocusState, useFocusCommandActions, useFocusCommandSelector } from "@/lib/focus-command";
+import { CustomQuestion, Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getDueMissionRevisions, getMissionInvestedMilliseconds, isLongMissionReflectionEligible, ReflectionDraft, type FocusState, type SrsTopic, useFocusCommandActions, useFocusCommandSelector } from "@/lib/focus-command";
 import { playFocusSuccessCue } from "@/lib/focus-audio";
-import { scheduleAchievementRecap } from "@/lib/focus-reminders";
+import { scheduleAchievementRecap, scheduleRevisionReminder } from "@/lib/focus-reminders";
 
 const feelings: { value: Feeling; label: string; color: string }[] = [
   { value: "charged", label: "Charged", color: "#49D17D" },
@@ -23,10 +23,13 @@ type MissionDetailSnapshot = {
   hydrated: boolean;
   mission: FocusState["missions"][number] | undefined;
   missionDistractionCount: number;
+  missionRevisionTopics: FocusState["srsTopics"];
   activeBosses: FocusState["bosses"];
   customQuestions: FocusState["customQuestions"];
   soundEnabled: boolean;
   missionWinSound: FocusState["profile"]["soundRoles"]["missionWin"];
+  revisionReminderSound: FocusState["profile"]["soundRoles"]["revisionReminder"];
+  timezone: FocusState["profile"]["timezone"];
   notificationsEnabled: boolean;
   notificationRules: FocusState["profile"]["notificationRules"];
   achievementRecapSound: FocusState["profile"]["soundRoles"]["achievementRecap"];
@@ -40,10 +43,13 @@ function hasSameMissionDetailSnapshot(left: MissionDetailSnapshot, right: Missio
   return left.hydrated === right.hydrated
     && left.mission === right.mission
     && left.missionDistractionCount === right.missionDistractionCount
+    && hasSameReferences(left.missionRevisionTopics, right.missionRevisionTopics)
     && hasSameReferences(left.activeBosses, right.activeBosses)
     && left.customQuestions === right.customQuestions
     && left.soundEnabled === right.soundEnabled
     && left.missionWinSound === right.missionWinSound
+    && left.revisionReminderSound === right.revisionReminderSound
+    && left.timezone === right.timezone
     && left.notificationsEnabled === right.notificationsEnabled
     && left.notificationRules === right.notificationRules
     && left.achievementRecapSound === right.achievementRecapSound;
@@ -54,10 +60,13 @@ function selectMissionDetailSnapshot(state: FocusState, missionId: string | unde
     hydrated: state.hydrated,
     mission: state.missions.find((candidate) => candidate.id === missionId),
     missionDistractionCount: state.distractionLogs.filter((entry) => entry.missionId === missionId).length,
+    missionRevisionTopics: state.srsTopics.filter((topic) => topic.missionId === missionId),
     activeBosses: state.bosses.filter((boss) => boss.status === "active"),
     customQuestions: state.customQuestions,
     soundEnabled: state.profile.soundEnabled,
     missionWinSound: state.profile.soundRoles.missionWin,
+    revisionReminderSound: state.profile.soundRoles.revisionReminder,
+    timezone: state.profile.timezone,
     notificationsEnabled: state.profile.notificationsEnabled,
     notificationRules: state.profile.notificationRules,
     achievementRecapSound: state.profile.soundRoles.achievementRecap,
@@ -67,9 +76,9 @@ function selectMissionDetailSnapshot(state: FocusState, missionId: string | unde
 export default function MissionDetailScreen() {
   const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { startMission, toggleMissionPause, finishMission, logDistraction, logRevisionTopic, updateMission, removeMission } = useFocusCommandActions();
+  const { startMission, toggleMissionPause, finishMission, logDistraction, logRevisionTopic, completeRevision, updateMission, removeMission } = useFocusCommandActions();
   const detail = useFocusCommandSelector((state) => selectMissionDetailSnapshot(state, id), hasSameMissionDetailSnapshot);
-  const { hydrated: ready, mission, missionDistractionCount, activeBosses, customQuestions, soundEnabled, missionWinSound, notificationsEnabled, notificationRules, achievementRecapSound } = detail;
+  const { hydrated: ready, mission, missionDistractionCount, missionRevisionTopics, activeBosses, customQuestions, soundEnabled, missionWinSound, revisionReminderSound, timezone, notificationsEnabled, notificationRules, achievementRecapSound } = detail;
   const [nowMs, setNowMs] = useState(Date.now());
   const [revisionTopic, setRevisionTopic] = useState("");
   const [showReflection, setShowReflection] = useState(false);
@@ -88,6 +97,7 @@ export default function MissionDetailScreen() {
   const submissionLock = useRef(false);
   const startLock = useRef(false);
   const deletionLock = useRef(false);
+  const revisionCompletionLocks = useRef(new Set<string>());
 
   useEffect(() => {
     // Refresh immediately whenever this session becomes visible, then maintain
@@ -100,6 +110,15 @@ export default function MissionDetailScreen() {
 
   const duration = useMemo(() => mission ? getMissionInvestedMilliseconds(mission, nowMs) : 0, [mission, nowMs]);
   const isLongMission = mission ? isLongMissionReflectionEligible(mission, nowMs) : false;
+  const dueMissionRevisions = useMemo(() => mission ? getDueMissionRevisions(missionRevisionTopics, mission.id, timezone, new Date(nowMs).toISOString()) : [], [mission, missionRevisionTopics, nowMs, timezone]);
+  const dueMissionRevisionKey = dueMissionRevisions.map((topic) => topic.id).join("|");
+
+  useEffect(() => {
+    const dueTopicIds = new Set(dueMissionRevisionKey ? dueMissionRevisionKey.split("|") : []);
+    for (const topicId of revisionCompletionLocks.current) {
+      if (!dueTopicIds.has(topicId)) revisionCompletionLocks.current.delete(topicId);
+    }
+  }, [dueMissionRevisionKey]);
 
   if (!ready) return <LoadingScreen label="Opening mission…" />;
   if (!mission) {
@@ -169,6 +188,18 @@ export default function MissionDetailScreen() {
     if (!revisionTopic.trim()) return;
     logRevisionTopic(mission.id, revisionTopic, mission.subject);
     setRevisionTopic("");
+  };
+
+  const completeLiveMissionRevision = (topic: SrsTopic) => {
+    if (revisionCompletionLocks.current.has(topic.id)) return;
+    revisionCompletionLocks.current.add(topic.id);
+    const nextDelayDays = topic.stage === 0 ? 7 : topic.stage === 1 ? 30 : null;
+    completeRevision(topic.id);
+    if (notificationsEnabled && nextDelayDays) {
+      const nextDue = new Date();
+      nextDue.setDate(nextDue.getDate() + nextDelayDays);
+      void scheduleRevisionReminder(topic.topic, nextDue.toISOString(), notificationRules, revisionReminderSound);
+    }
   };
 
   const startOnce = () => {
@@ -309,6 +340,21 @@ export default function MissionDetailScreen() {
                 <Text style={[styles.revisionDetail, { color: colors.muted }]}>Every topic enters the Day 1 → Day 7 → Day 30 review loop.</Text>
               </View>
             </View>
+            {(mission.status === "active" || mission.status === "paused") && dueMissionRevisions.length ? (
+              <View style={[styles.dueRevisionSection, { borderColor: `${colors.warning}45`, backgroundColor: `${colors.warning}0D` }]}>
+                <Text style={[styles.dueRevisionEyebrow, { color: colors.warning }]}>DUE FOR REVIEW</Text>
+                {dueMissionRevisions.map((topic) => (
+                  <View key={topic.id} style={[styles.dueRevisionRow, { borderColor: `${colors.warning}38`, backgroundColor: colors.background }]}>
+                    <View style={styles.dueRevisionCopy}>
+                      <StatusPill label={`DAY ${[1, 7, 30][Math.min(topic.stage, 2)] ?? 30}`} tone="warning" icon="arrow.clockwise" />
+                      <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.dueRevisionTitle, { color: colors.foreground }]}>{topic.topic}</Text>
+                      <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.dueRevisionDetail, { color: colors.muted }]}>{topic.subject} · Due {topic.dueDate}</Text>
+                    </View>
+                    <CommandButton label="Complete review" icon="checklist" onPress={() => completeLiveMissionRevision(topic)} style={styles.dueRevisionAction} />
+                  </View>
+                ))}
+              </View>
+            ) : null}
             <View style={styles.revisionInputRow}>
               <TextInput value={revisionTopic} onChangeText={setRevisionTopic} placeholder="Topic name" placeholderTextColor={colors.muted} style={[styles.revisionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} returnKeyType="done" onSubmitEditing={logTopic} />
               <CommandButton label="Log" onPress={logTopic} />
@@ -459,6 +505,13 @@ const styles = StyleSheet.create({
   revisionInputRow: { flexDirection: "row", gap: 8 },
   revisionInput: { flex: 1, minHeight: 44, borderWidth: StyleSheet.hairlineWidth, borderRadius: 13, paddingHorizontal: 11, fontSize: 13, lineHeight: 18, fontWeight: "600" },
   loggedTopicText: { fontSize: 11, lineHeight: 15, fontWeight: "700" },
+  dueRevisionSection: { gap: 8, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 10 },
+  dueRevisionEyebrow: { fontSize: 10, lineHeight: 13, letterSpacing: 0.9, fontWeight: "900" },
+  dueRevisionRow: { gap: 10, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, padding: 10 },
+  dueRevisionCopy: { gap: 4, minWidth: 0 },
+  dueRevisionTitle: { fontSize: 14, lineHeight: 19, fontWeight: "900" },
+  dueRevisionDetail: { fontSize: 11, lineHeight: 15, fontWeight: "600" },
+  dueRevisionAction: { alignSelf: "stretch" },
   reflectionCard: { gap: 13 },
   reflectionTitle: { fontSize: 19, lineHeight: 24, fontWeight: "900" },
   reflectionDetail: { fontSize: 12, lineHeight: 17, fontWeight: "500", marginTop: 2 },

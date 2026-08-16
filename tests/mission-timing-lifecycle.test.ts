@@ -137,8 +137,9 @@ describe("mission timing lifecycle compatibility", () => {
   });
 
   it("locks a completed duration for persistence and today’s invested-time totals after reload", () => {
-    const startedAt = new Date(Date.now() - 120 * MINUTE).toISOString();
-    const endedAt = new Date(Date.now() - 12 * MINUTE).toISOString();
+    const referenceTime = Date.now();
+    const startedAt = new Date(referenceTime - 120 * MINUTE).toISOString();
+    const endedAt = new Date(referenceTime - 12 * MINUTE).toISOString();
     const completedMission = mission({
       id: "completed_timing",
       startedAt,
@@ -147,7 +148,7 @@ describe("mission timing lifecycle compatibility", () => {
       endedAt,
       completedAt: endedAt,
     });
-    const durationMs = getMissionInvestedMilliseconds(completedMission, Date.now() + 24 * 60 * MINUTE);
+    const durationMs = getMissionInvestedMilliseconds(completedMission, referenceTime + 24 * 60 * MINUTE);
     const state = createInitialState();
     state.missions = [completedMission];
     state.missionCompletions = [{

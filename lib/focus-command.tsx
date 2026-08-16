@@ -1500,6 +1500,12 @@ export function getPendingRevisions(state: FocusState): SrsTopic[] {
   return state.srsTopics.filter((topic) => topic.status !== "completed" && topic.dueDate <= today).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 }
 
+/** Returns only due non-completed revision records linked to one mission. */
+export function getDueMissionRevisions(topics: readonly SrsTopic[], missionId: string, timezone: string, referenceIso = nowIso()): SrsTopic[] {
+  const today = toLocalDate(referenceIso, timezone);
+  return topics.filter((topic) => topic.missionId === missionId && topic.status !== "completed" && topic.dueDate <= today).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+}
+
 export function getBossProgress(state: FocusState, bossId: string): number {
   const linked = state.missions.filter((mission) => mission.bossId === bossId);
   if (!linked.length) return 0;
