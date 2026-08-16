@@ -569,4 +569,4 @@
 - [x] Update the offline backup export, validation, and restore flow so Revision Activity History round-trips safely without losing existing data.
 - [x] Change only the existing Mini Achievement ticker card base background to jet black while retaining all layout, content, route, rating, rotation, and interaction behavior.
 - [x] Add and run regression coverage for revision activity recording, legacy-data normalization, period and timezone boundaries, named phase filters, backup round-trip, existing revision-cycle preservation, and ticker surface protection; complete the full release preflight.
-- [ ] Synchronize only the validated Revision Activity History, revision-overview, backup, ticker-surface, checklist, and regression-test source to private GitHub main; do not start an APK build.
+- [x] Synchronize only the validated Revision Activity History, revision-overview, backup, ticker-surface, checklist, and regression-test source to private GitHub main; do not start an APK build. GitHub private main confirmed at `419b4c8`.
