@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
+import { BlurView } from "expo-blur";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { AppState, Image, Modal, Pressable, type ImageSourcePropType, StyleSheet, Text, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
@@ -568,10 +569,13 @@ export function RankCharacterAchievement({
   return (
     <Modal transparent visible={visible} animationType="none" statusBarTranslucent onRequestClose={onDismiss}>
       <Animated.View style={[styles.modalBackdrop, backdropStyle]}>
+        <BlurView pointerEvents="none" intensity={8} tint="default" experimentalBlurMethod="dimezisBlurView" style={styles.cinematicGlassBlur} />
         <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss character evolution" style={styles.modalPressable}>
           <Animated.View accessibilityRole="alert" accessibilityLabel={`${title} level ${level} ${mode === "evolution" ? "character evolution sequence" : "current character form"}`} style={[styles.cinematicStage, stageStyle]}>
             <Animated.View pointerEvents="none" style={[styles.cinematicFlash, { backgroundColor: cinematicColors.accent }, flashStyle]} />
             <View pointerEvents="none" style={styles.cinematicStageHighlight} />
+            <View pointerEvents="none" style={styles.cinematicStageInnerEdge} />
+            <View pointerEvents="none" style={styles.cinematicStageSpecular} />
             <View pointerEvents="none" style={styles.cinematicAtmosphere} />
             <View pointerEvents="none" style={styles.cinematicNoise} />
             <View pointerEvents="none" style={[styles.cinematicTopline]}><Text style={[styles.cinematicProtocol, { color: cinematicColors.accent }]}>{phaseCopy}</Text><Text style={styles.cinematicDismiss}>TAP TO DISMISS</Text></View>
@@ -598,6 +602,8 @@ export function RankCharacterAchievement({
             </Animated.View>
             <Animated.View style={[styles.cinematicReward, rewardStyle]}>
               <View pointerEvents="none" style={styles.cinematicRewardTopline} />
+              <View pointerEvents="none" style={styles.cinematicRewardInnerEdge} />
+              <View pointerEvents="none" style={styles.cinematicRewardSpecular} />
               <View pointerEvents="none" style={styles.cinematicRewardCore} />
               <View style={styles.cinematicRewardColumn}><Text style={[styles.cinematicRewardEyebrow, { color: cinematicColors.energy }]}>LEVEL REACHED</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>LEVEL {level}</Text></View>
               <View style={styles.cinematicRewardDivider} />
@@ -634,10 +640,13 @@ const styles = StyleSheet.create({
   gearPips: { flexDirection: "row", gap: 3, marginTop: 1 },
   gearPip: { width: 4, height: 4, borderRadius: 2 },
   modalBackdrop: { flex: 1, backgroundColor: "transparent", alignItems: "center", justifyContent: "center" },
+  cinematicGlassBlur: { ...StyleSheet.absoluteFillObject },
   modalPressable: { width: "100%", alignItems: "center", justifyContent: "center", flex: 1 },
-  cinematicStage: { width: "100%", maxWidth: 440, height: "100%", minHeight: 600, paddingHorizontal: 18, paddingTop: 48, paddingBottom: 34, alignItems: "center", justifyContent: "center", overflow: "hidden", backgroundColor: "rgba(255, 255, 255, 0.018)", borderColor: "rgba(255, 255, 255, 0.12)", borderWidth: StyleSheet.hairlineWidth },
+  cinematicStage: { width: "100%", maxWidth: 440, height: "100%", minHeight: 600, paddingHorizontal: 18, paddingTop: 48, paddingBottom: 34, alignItems: "center", justifyContent: "center", overflow: "hidden", backgroundColor: "rgba(255, 255, 255, 0.018)", borderColor: "rgba(255, 255, 255, 0.12)", borderWidth: StyleSheet.hairlineWidth, shadowColor: "#000000", shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
   cinematicFlash: { ...StyleSheet.absoluteFillObject },
   cinematicStageHighlight: { position: "absolute", top: 0, left: 24, right: 24, height: 1, borderRadius: 1, backgroundColor: "rgba(255, 255, 255, 0.48)" },
+  cinematicStageInnerEdge: { position: "absolute", top: 1, left: 1, right: 1, bottom: 1, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255, 255, 255, 0.07)" },
+  cinematicStageSpecular: { position: "absolute", top: 8, left: "12%", width: "32%", height: 1, borderRadius: 1, backgroundColor: "rgba(255, 255, 255, 0.27)", transform: [{ rotate: "-7deg" }] },
   cinematicAtmosphere: { position: "absolute", width: "145%", height: "145%", borderRadius: 999, opacity: 0.74, backgroundColor: "rgba(255, 255, 255, 0.012)" },
   cinematicNoise: { position: "absolute", width: "136%", height: "136%", borderRadius: 999, backgroundColor: "rgba(255, 255, 255, 0.012)" },
   cinematicTopline: { position: "absolute", top: 55, left: 22, right: 22, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
@@ -685,6 +694,8 @@ const styles = StyleSheet.create({
   cinematicAura: { fontSize: 8, lineHeight: 11, fontWeight: "700", letterSpacing: 0.55, textAlign: "center" },
   cinematicReward: { position: "absolute", bottom: 29, left: 18, right: 18, borderWidth: 1, borderColor: "rgba(255, 255, 255, 0.16)", backgroundColor: "rgba(255, 255, 255, 0.035)", borderRadius: 14, minHeight: 58, paddingHorizontal: 12, paddingVertical: 9, flexDirection: "row", justifyContent: "space-between", alignItems: "center", shadowColor: "#FFFFFF", shadowOpacity: 0.18, shadowRadius: 16, elevation: 10, overflow: "hidden" },
   cinematicRewardTopline: { position: "absolute", top: 0, left: "18%", right: "18%", height: 1.2, opacity: 0.96, backgroundColor: "rgba(255, 255, 255, 0.55)" },
+  cinematicRewardInnerEdge: { position: "absolute", top: 1, left: 1, right: 1, bottom: 1, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255, 255, 255, 0.08)" },
+  cinematicRewardSpecular: { position: "absolute", top: 6, left: "11%", width: "37%", height: 1, borderRadius: 1, backgroundColor: "rgba(255, 255, 255, 0.29)", transform: [{ rotate: "-6deg" }] },
   cinematicRewardCore: { position: "absolute", top: -7, left: "50%", width: 14, height: 14, marginLeft: -7, borderWidth: 1.5, borderColor: "rgba(255, 255, 255, 0.42)", backgroundColor: "rgba(255, 255, 255, 0.05)", transform: [{ rotate: "45deg" }], borderRadius: 2 },
   cinematicRewardColumn: { flex: 1, minWidth: 0, alignItems: "center" },
   cinematicRewardDivider: { width: StyleSheet.hairlineWidth, height: 29, backgroundColor: "rgba(255, 255, 255, 0.22)" },

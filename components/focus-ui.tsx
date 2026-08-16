@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import * as Haptics from "expo-haptics";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from "react-native-reanimated";
 import {
@@ -140,6 +140,7 @@ export function IconAction({
   const colors = useColors();
   const feedback = useInteractionFeedback();
   const impact = useSharedValue(1);
+  const singleFireRef = useRef(false);
   const impactStyle = useAnimatedStyle(() => ({ transform: [{ scale: impact.value }, { rotate: `${(impact.value - 1) * 4}deg` }] }));
   const acknowledgeCompletedPress = () => {
     impact.value = withSequence(withTiming(0.91, { duration: 55 }), withTiming(1.03, { duration: 100 }), withTiming(1, { duration: 110 }));
@@ -147,8 +148,11 @@ export function IconAction({
     if (feedback.hapticsEnabled && Platform.OS !== "web") void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
   };
   const handlePress = () => {
+    if (singleFireRef.current) return;
+    singleFireRef.current = true;
     onPress();
     acknowledgeCompletedPress();
+    requestAnimationFrame(() => { singleFireRef.current = false; });
   };
   return (
     <Animated.View style={impactStyle}><Pressable
@@ -185,6 +189,7 @@ export function CommandButton({
   const colors = useColors();
   const feedback = useInteractionFeedback();
   const impact = useSharedValue(1);
+  const singleFireRef = useRef(false);
   const impactStyle = useAnimatedStyle(() => ({ transform: [{ scale: impact.value }] }));
   const acknowledgeCompletedPress = () => {
     impact.value = withSequence(withTiming(0.955, { duration: 45 }), withTiming(1.02, { duration: 90 }), withTiming(1, { duration: 120 }));
@@ -192,8 +197,11 @@ export function CommandButton({
     if (feedback.hapticsEnabled && Platform.OS !== "web") void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
   };
   const handlePress = () => {
+    if (singleFireRef.current) return;
+    singleFireRef.current = true;
     onPress();
     acknowledgeCompletedPress();
+    requestAnimationFrame(() => { singleFireRef.current = false; });
   };
   const palette = {
     primary: { background: colors.primary, foreground: "#071018", border: colors.primary },

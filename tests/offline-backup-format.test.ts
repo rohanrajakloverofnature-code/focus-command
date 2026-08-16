@@ -19,6 +19,9 @@ function createPopulatedState(): FocusState {
   state.distractionLogs = [{ id: "friction_backup", missionId: "mission_backup", occurredAt: "2026-08-14T07:30:00.000Z", category: "phone" } as unknown as FocusState["distractionLogs"][number]];
   state.progression = [{ id: "xp_backup", sourceCompletionId: "completion_backup", amount: 80 } as unknown as FocusState["progression"][number]];
   state.srsActivityLog = [{ id: "revision_activity_backup", topicId: "revision_backup", missionId: "mission_backup", subject: "Math", topic: "Vectors", phase: "emerging", actionDate: "2026-08-14", occurredAt: "2026-08-14T08:00:00.000Z" }];
+  state.profile.characterCinematicColors = { tactical: { accent: "#16C7E8", backdrop: "#061423", rod: "#F0C75E", aura: "#16C7E833", support: "#6E5AE6", energy: "#68E2FF", metallic: "#F0C75E", atmosphere: "#071B2D", frame: "#020914" } };
+  state.profile.tickerColorPreferences = { miniAchievement: { source: "character", surface: null, accent: null }, prediction: { source: "custom", surface: "#17102B", accent: "#16C7E8" } };
+  state.profile.homeProfileCardColorPreference = { source: "custom", surface: "#101820", accent: "#F0C75E" };
   return state;
 }
 
@@ -55,6 +58,9 @@ describe("offline Focus Command backup format", () => {
       { path: "media/cinematics/recruit.mp4", bytes: cinematic },
       { path: "media/sounds/missionWin.mp3", bytes: sound },
     ]);
+    expect(parsed.state.profile.characterCinematicColors).toEqual(state.profile.characterCinematicColors);
+    expect(parsed.state.profile.tickerColorPreferences).toEqual(state.profile.tickerColorPreferences);
+    expect(parsed.state.profile.homeProfileCardColorPreference).toEqual(state.profile.homeProfileCardColorPreference);
   });
 
   it("restores older valid backup files without a revision activity ledger as an empty ledger", () => {

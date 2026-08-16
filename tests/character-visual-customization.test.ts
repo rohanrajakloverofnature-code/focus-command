@@ -100,14 +100,22 @@ describe("character visual customization", () => {
     expect(cinematic).toContain(">{powerText}</Text>");
   });
 
-  it("uses neutral true-glass surfaces without adding live blur or playback work to the protected cinematic", () => {
+  it("uses a single ultra-thin neutral blur with optical glass details while keeping the protected cinematic cache-only", () => {
     const cinematic = readFileSync(resolve(process.cwd(), "components/rank-character.tsx"), "utf8");
 
+    expect(cinematic).toContain('import { BlurView } from "expo-blur"');
+    expect(cinematic).toContain('intensity={8}');
+    expect(cinematic).toContain('tint="default"');
+    expect(cinematic).toContain('experimentalBlurMethod="dimezisBlurView"');
     expect(cinematic).toContain('modalBackdrop: { flex: 1, backgroundColor: "transparent"');
     expect(cinematic).toContain('backgroundColor: "rgba(255, 255, 255, 0.018)"');
     expect(cinematic).toContain('borderColor: "rgba(255, 255, 255, 0.12)"');
+    expect(cinematic).toContain('cinematicStageInnerEdge');
+    expect(cinematic).toContain('cinematicStageSpecular');
     expect(cinematic).toContain('backgroundColor: "rgba(255, 255, 255, 0.035)"');
     expect(cinematic).toContain('borderColor: "rgba(255, 255, 255, 0.16)"');
+    expect(cinematic).toContain('cinematicRewardInnerEdge');
+    expect(cinematic).toContain('cinematicRewardSpecular');
     expect(cinematic).not.toContain('{ backgroundColor: cinematicColors.backdrop }');
     expect(cinematic).not.toContain('backgroundColor: `${cinematicColors.atmosphere}6A`');
     expect(cinematic).not.toContain('backgroundColor: `${cinematicColors.frame}78`');
@@ -116,8 +124,6 @@ describe("character visual customization", () => {
     expect(cinematic).toContain('cinematicColors.energy}B4');
     expect(cinematic).toContain('cinematicColors.energy : cinematicColors.accent');
     expect(cinematic).toContain('cinematicColors.atmosphere}A0');
-    expect(cinematic).not.toContain("expo-blur");
-    expect(cinematic).not.toContain("BlurView");
     expect(cinematic).not.toContain("deriveCharacterCinematicColors");
   });
 });

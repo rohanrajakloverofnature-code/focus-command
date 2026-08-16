@@ -72,6 +72,15 @@ describe("Performance and reliability contracts", () => {
     expect(tabSource).toContain("useFocusCommandSelector(selectTabFeedback");
   });
 
+  it("uses a one-frame shared single-fire guard without delaying intended later actions or press feedback", () => {
+    expect(focusUiSource).toContain('import { useRef, type ReactNode } from "react"');
+    expect(focusUiSource).toContain("const singleFireRef = useRef(false);");
+    expect(focusUiSource).toContain("if (singleFireRef.current) return;");
+    expect(focusUiSource).toContain("singleFireRef.current = true;");
+    expect(focusUiSource).toContain("requestAnimationFrame(() => { singleFireRef.current = false; });");
+    expect(focusUiSource).not.toContain("singleFireRef.current = false;\n    setTimeout");
+  });
+
   it("starts TapFeedback's visual acknowledgement on press-in while preserving semantic action and avoiding audio or haptic work on an aborted touch", () => {
     const tapFeedbackSource = focusUiSource.slice(
       focusUiSource.indexOf("export function TapFeedback"),
