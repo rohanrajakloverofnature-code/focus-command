@@ -578,3 +578,7 @@
 - [x] Diagnose the reported before-and-after cinematic visual regression and present a protected correction plan before making any additional change.
 - [x] Improve save-time cached character color selection and derive reliably distinct cinematic backdrop, rod/portal, and aura tokens without changing any protected cinematic mechanism.
 - [x] Add focused contrast regression coverage, complete release validation, and push only the validated protected correction to GitHub without starting an APK build.
+- [x] Generate and deliver a non-production reference image that illustrates the corrected cinematic color-contrast treatment.
+- [x] Audit the current protected cinematic against the supplied premium reference style and present a strictly scoped multi-color cinematic redesign proposal; do not implement until explicit approval.
+- [x] Implement the approved protected reference-style cinematic reconstruction: cached automatic multi-color roles, premium decorative layers, compatibility safeguards, regression coverage, and full preflight validation.
+- [ ] Synchronize only the validated protected reference-style cinematic reconstruction to private GitHub main through temporary authorized access; do not start an APK build.

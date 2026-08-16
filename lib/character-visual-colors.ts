@@ -3,7 +3,8 @@ import { getColors } from "react-native-image-colors";
 import type { CharacterCinematicColors } from "./focus-command";
 import {
   chooseCharacterAccent,
-  deriveCinematicTokensFromAccent,
+  chooseCharacterSupport,
+  deriveCinematicTokensFromPalette,
   type CharacterColorCandidate,
 } from "./character-cinematic-tokens";
 
@@ -24,22 +25,24 @@ export async function deriveCharacterCinematicColors(uri: string): Promise<Chara
   }
   try {
     const result = await getColors(sampleUri, { cache: true, key: `focus-character:${uri}`, quality: "lowest", pixelSpacing: 16, fallback: FALLBACK_ACCENT });
-    const accent = result.platform === "ios"
-      ? chooseCharacterAccent([
+    const candidates: CharacterColorCandidate[] = result.platform === "ios"
+      ? [
         { value: result.primary, priority: 1.16 },
         { value: result.detail, priority: 0.94 },
         { value: result.secondary, priority: 0.98 },
         { value: result.background, priority: 0.42 },
-      ])
-      : chooseCharacterAccent([
+      ]
+      : [
         { value: result.dominant, priority: 1.16 },
         { value: result.vibrant, priority: 0.86 },
         { value: result.lightVibrant, priority: 0.9 },
         { value: result.muted, priority: 0.56 },
         { value: result.darkVibrant, priority: 0.5 },
-      ]);
-    return deriveCinematicTokensFromAccent(accent);
+      ];
+    const accent = chooseCharacterAccent(candidates);
+    const support = chooseCharacterSupport(candidates, accent);
+    return deriveCinematicTokensFromPalette(accent, support);
   } catch {
-    return deriveCinematicTokensFromAccent(FALLBACK_ACCENT);
+    return deriveCinematicTokensFromPalette(FALLBACK_ACCENT);
   }
 }

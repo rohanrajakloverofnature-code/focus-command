@@ -241,6 +241,11 @@ export function RankCharacterAchievement({
     backdrop: "#020914EE",
     rod: evolution.secondaryAccent,
     aura: evolution.accent,
+    support: evolution.secondaryAccent,
+    energy: "#62E8FF",
+    metallic: "#FFD16A",
+    atmosphere: "#102C4A",
+    frame: "#07101F",
   };
   const cinematicVideoDurationMs = getCharacterEvolutionVideoDurationMs(evolution.cinematicVariant);
   const cinematicVideoSource = activeCustomForm?.video?.uri
@@ -561,17 +566,21 @@ export function RankCharacterAchievement({
         <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss character evolution" style={styles.modalPressable}>
           <Animated.View accessibilityRole="alert" accessibilityLabel={`${title} level ${level} ${mode === "evolution" ? "character evolution sequence" : "current character form"}`} style={[styles.cinematicStage, stageStyle]}>
             <Animated.View pointerEvents="none" style={[styles.cinematicFlash, { backgroundColor: cinematicColors.accent }, flashStyle]} />
+            <View pointerEvents="none" style={[styles.cinematicAtmosphere, { backgroundColor: `${cinematicColors.atmosphere}C8` }]} />
             <View pointerEvents="none" style={styles.cinematicNoise} />
             <View pointerEvents="none" style={[styles.cinematicTopline]}><Text style={[styles.cinematicProtocol, { color: cinematicColors.accent }]}>{phaseCopy}</Text><Text style={styles.cinematicDismiss}>TAP TO DISMISS</Text></View>
-            <Animated.View pointerEvents="none" style={[styles.cinematicPortal, { borderColor: `${cinematicColors.accent}D8` }, portalStyle]} />
-            <Animated.View pointerEvents="none" style={[styles.cinematicPortalInner, { borderColor: `${cinematicColors.rod}A8` }, innerPortalStyle]} />
-            <Animated.View pointerEvents="none" style={[styles.cinematicShockwave, { borderColor: `${cinematicColors.accent}B8` }, shockwaveStyle]} />
-            <Animated.View pointerEvents="none" style={[styles.cinematicRibbon, { backgroundColor: cinematicColors.rod, shadowColor: cinematicColors.rod }, ribbonStyle]}><View style={[styles.cinematicRibbonCore, { backgroundColor: cinematicColors.accent }]} /></Animated.View>
-            <Animated.View pointerEvents="none" style={[styles.cinematicParticles, particleStyle]}>{Array.from({ length: 22 }, (_, index) => <View key={index} style={[styles.cinematicParticle, { backgroundColor: index % 4 === 0 ? cinematicColors.rod : cinematicColors.accent, transform: [{ rotate: `${index * 16.35}deg` }, { translateY: -92 - (index % 5) * 29 }] }]} />)}</Animated.View>
+            <Animated.View pointerEvents="none" style={[styles.cinematicPortal, { borderColor: `${cinematicColors.metallic}EA`, shadowColor: cinematicColors.metallic }, portalStyle]} />
+            <Animated.View pointerEvents="none" style={[styles.cinematicPortalHalo, { borderColor: `${cinematicColors.energy}B4`, shadowColor: cinematicColors.energy }, portalStyle]} />
+            <Animated.View pointerEvents="none" style={[styles.cinematicPortalInner, { borderColor: `${cinematicColors.accent}CE`, shadowColor: cinematicColors.energy }, innerPortalStyle]} />
+            <Animated.View pointerEvents="none" style={[styles.cinematicShockwave, { borderColor: `${cinematicColors.energy}CC`, shadowColor: cinematicColors.energy }, shockwaveStyle]} />
+            <Animated.View pointerEvents="none" style={[styles.cinematicRibbon, { backgroundColor: cinematicColors.metallic, shadowColor: cinematicColors.metallic }, ribbonStyle]}><View style={[styles.cinematicRibbonCore, { backgroundColor: cinematicColors.energy }]} /></Animated.View>
+            <Animated.View pointerEvents="none" style={[styles.cinematicParticles, particleStyle]}>{Array.from({ length: 22 }, (_, index) => <View key={index} style={[styles.cinematicParticle, { backgroundColor: index % 5 === 0 ? cinematicColors.metallic : index % 2 === 0 ? cinematicColors.energy : cinematicColors.accent, transform: [{ rotate: `${index * 16.35}deg` }, { translateY: -92 - (index % 5) * 29 }] }]} />)}</Animated.View>
             <Animated.View style={[styles.cinematicAvatarSystem, portraitStyle]}>
-              <View pointerEvents="none" style={[styles.cinematicAvatarAura, { backgroundColor: `${cinematicColors.aura}28`, shadowColor: cinematicColors.aura }]} />
+              <View pointerEvents="none" style={[styles.cinematicAvatarAuraOuter, { backgroundColor: `${cinematicColors.atmosphere}A0`, shadowColor: cinematicColors.energy }]} />
+              <View pointerEvents="none" style={[styles.cinematicAvatarAura, { backgroundColor: `${cinematicColors.energy}32`, shadowColor: cinematicColors.energy }]} />
               <Image source={profile.portrait} resizeMode="contain" style={styles.cinematicPortrait} />
-              {videoVisible ? <Animated.View pointerEvents="none" style={[styles.cinematicVideoFrame, { borderColor: `${cinematicColors.accent}72`, shadowColor: cinematicColors.aura }, videoStyle]}>
+              <View pointerEvents="none" style={[styles.cinematicAvatarFrame, { borderColor: `${cinematicColors.metallic}A8` }]} />
+              {videoVisible ? <Animated.View pointerEvents="none" style={[styles.cinematicVideoFrame, { borderColor: `${cinematicColors.energy}A8`, shadowColor: cinematicColors.energy }, videoStyle]}>
                 <VideoView player={videoPlayer} contentFit={CINEMATIC_VIDEO_CONTENT_FIT} nativeControls={false} surfaceType="textureView" style={styles.cinematicArmorVideo} />
               </Animated.View> : null}
             </Animated.View>
@@ -581,12 +590,14 @@ export function RankCharacterAchievement({
               <EquipmentReadout gear={gear} accent={cinematicColors.accent} secondaryAccent={cinematicColors.rod} foreground={colors.foreground} />
               <Text style={[styles.cinematicAura, { color: colors.muted }]}>{evolution.aura.toUpperCase()}</Text>
             </Animated.View>
-            <Animated.View style={[styles.cinematicReward, { borderColor: `${cinematicColors.accent}9E`, backgroundColor: `${cinematicColors.accent}14` }, rewardStyle]}>
-              <View><Text style={[styles.cinematicRewardEyebrow, { color: cinematicColors.rod }]}>LEVEL REACHED</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>LEVEL {level}</Text></View>
-              <View style={styles.cinematicRewardDivider} />
-              <View><Text style={[styles.cinematicRewardEyebrow, { color: cinematicColors.rod }]}>TOTAL POWER</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>{powerText}</Text></View>
-              <View style={styles.cinematicRewardDivider} />
-              <View><Text style={[styles.cinematicRewardEyebrow, { color: cinematicColors.rod }]}>GOLD CACHE</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>{goldText}</Text></View>
+            <Animated.View style={[styles.cinematicReward, { borderColor: `${cinematicColors.metallic}CC`, backgroundColor: `${cinematicColors.frame}F5`, shadowColor: cinematicColors.energy }, rewardStyle]}>
+              <View pointerEvents="none" style={[styles.cinematicRewardTopline, { backgroundColor: cinematicColors.metallic }]} />
+              <View pointerEvents="none" style={[styles.cinematicRewardCore, { borderColor: cinematicColors.accent, backgroundColor: cinematicColors.frame }]} />
+              <View style={styles.cinematicRewardColumn}><Text style={[styles.cinematicRewardEyebrow, { color: cinematicColors.energy }]}>LEVEL REACHED</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>LEVEL {level}</Text></View>
+              <View style={[styles.cinematicRewardDivider, { backgroundColor: `${cinematicColors.metallic}88` }]} />
+              <View style={styles.cinematicRewardColumn}><Text style={[styles.cinematicRewardEyebrow, { color: cinematicColors.energy }]}>TOTAL POWER</Text><Text style={[styles.cinematicRewardValue, { color: cinematicColors.metallic }]}>{powerText}</Text></View>
+              <View style={[styles.cinematicRewardDivider, { backgroundColor: `${cinematicColors.metallic}88` }]} />
+              <View style={styles.cinematicRewardColumn}><Text style={[styles.cinematicRewardEyebrow, { color: cinematicColors.energy }]}>GOLD CACHE</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>{goldText}</Text></View>
             </Animated.View>
           </Animated.View>
         </Pressable>
@@ -620,20 +631,24 @@ const styles = StyleSheet.create({
   modalPressable: { width: "100%", alignItems: "center", justifyContent: "center", flex: 1 },
   cinematicStage: { width: "100%", maxWidth: 440, height: "100%", minHeight: 600, paddingHorizontal: 18, paddingTop: 48, paddingBottom: 34, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   cinematicFlash: { ...StyleSheet.absoluteFillObject },
-  cinematicNoise: { position: "absolute", width: "136%", height: "136%", borderRadius: 999, backgroundColor: "#0A234650" },
+  cinematicAtmosphere: { position: "absolute", width: "145%", height: "145%", borderRadius: 999, opacity: 0.74 },
+  cinematicNoise: { position: "absolute", width: "136%", height: "136%", borderRadius: 999, backgroundColor: "#0207137A" },
   cinematicTopline: { position: "absolute", top: 55, left: 22, right: 22, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   cinematicProtocol: { flex: 1, fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 1.45 },
   cinematicDismiss: { color: "#9CAFBE", fontSize: 8, lineHeight: 11, fontWeight: "800", letterSpacing: 0.75 },
-  cinematicPortal: { position: "absolute", width: 334, height: 334, borderRadius: 167, borderWidth: 1.6, borderStyle: "dashed", shadowOpacity: 0.7, shadowRadius: 14, elevation: 8 },
-  cinematicPortalInner: { position: "absolute", width: 256, height: 256, borderRadius: 128, borderWidth: 1.3, borderStyle: "dotted" },
-  cinematicShockwave: { position: "absolute", width: 170, height: 170, borderRadius: 85, borderWidth: 2 },
-  cinematicRibbon: { position: "absolute", width: 36, height: 450, borderRadius: 42, opacity: 0.72, shadowOpacity: 0.95, shadowRadius: 24, elevation: 10, transform: [{ rotate: "-16deg" }] },
-  cinematicRibbonCore: { width: 9, height: "100%", alignSelf: "center", borderRadius: 10, opacity: 0.82 },
+  cinematicPortal: { position: "absolute", width: 350, height: 350, borderRadius: 175, borderWidth: 2, borderStyle: "dashed", shadowOpacity: 0.78, shadowRadius: 18, elevation: 8 },
+  cinematicPortalHalo: { position: "absolute", width: 306, height: 306, borderRadius: 153, borderWidth: 1.2, borderStyle: "dotted", shadowOpacity: 0.72, shadowRadius: 15, elevation: 7 },
+  cinematicPortalInner: { position: "absolute", width: 242, height: 242, borderRadius: 121, borderWidth: 1.7, borderStyle: "dashed", shadowOpacity: 0.7, shadowRadius: 13, elevation: 7 },
+  cinematicShockwave: { position: "absolute", width: 170, height: 170, borderRadius: 85, borderWidth: 2, shadowOpacity: 0.82, shadowRadius: 14, elevation: 9 },
+  cinematicRibbon: { position: "absolute", width: 42, height: 506, borderRadius: 42, opacity: 0.86, shadowOpacity: 0.95, shadowRadius: 28, elevation: 10 },
+  cinematicRibbonCore: { width: 10, height: "100%", alignSelf: "center", borderRadius: 10, opacity: 0.96 },
   cinematicParticles: { position: "absolute", width: 8, height: 8, alignItems: "center", justifyContent: "center" },
   cinematicParticle: { position: "absolute", width: 3, height: 20, borderRadius: 4, opacity: 0.9 },
   cinematicAvatarSystem: { width: 300, height: 365, alignItems: "center", justifyContent: "flex-end", position: "relative" },
-  cinematicAvatarAura: { position: "absolute", width: 230, height: 230, borderRadius: 115, bottom: 55, shadowOpacity: 0.9, shadowRadius: 30, elevation: 6 },
+  cinematicAvatarAuraOuter: { position: "absolute", width: 276, height: 276, borderRadius: 138, bottom: 29, opacity: 0.55, shadowOpacity: 0.82, shadowRadius: 34, elevation: 5 },
+  cinematicAvatarAura: { position: "absolute", width: 232, height: 232, borderRadius: 116, bottom: 53, shadowOpacity: 0.94, shadowRadius: 34, elevation: 6 },
   cinematicPortrait: { width: 294, height: 352, zIndex: 1 },
+  cinematicAvatarFrame: { position: "absolute", width: 300, height: 358, bottom: -3, borderRadius: 22, borderWidth: 1, zIndex: 2, opacity: 0.76 },
   cinematicVideoFrame: { position: "absolute", width: 194, aspectRatio: CINEMATIC_VIDEO_ASPECT_RATIO, bottom: 2, borderRadius: 22, borderWidth: 1, overflow: "hidden", zIndex: 4, backgroundColor: "#020914", shadowOpacity: 0.76, shadowRadius: 20, elevation: 17 },
   cinematicArmorVideo: { width: "100%", height: "100%" },
   cinematicVisor: { position: "absolute", width: 92, height: 18, top: 93, borderRadius: 11, borderWidth: 2, backgroundColor: "#04142699", zIndex: 4, shadowOpacity: 0.95, shadowRadius: 11, elevation: 14, overflow: "hidden" },
@@ -661,7 +676,10 @@ const styles = StyleSheet.create({
   cinematicGearSlot: { fontSize: 6, lineHeight: 8, fontWeight: "900", letterSpacing: 0.65 },
   cinematicGearName: { width: "100%", fontSize: 7, lineHeight: 9, fontWeight: "800", textAlign: "center" },
   cinematicAura: { fontSize: 8, lineHeight: 11, fontWeight: "700", letterSpacing: 0.55, textAlign: "center" },
-  cinematicReward: { position: "absolute", bottom: 29, left: 18, right: 18, borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, minHeight: 54, paddingHorizontal: 12, paddingVertical: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  cinematicReward: { position: "absolute", bottom: 29, left: 18, right: 18, borderWidth: 1, borderRadius: 14, minHeight: 58, paddingHorizontal: 12, paddingVertical: 9, flexDirection: "row", justifyContent: "space-between", alignItems: "center", shadowOpacity: 0.55, shadowRadius: 16, elevation: 10, overflow: "hidden" },
+  cinematicRewardTopline: { position: "absolute", top: 0, left: "18%", right: "18%", height: 1.2, opacity: 0.96 },
+  cinematicRewardCore: { position: "absolute", top: -7, left: "50%", width: 14, height: 14, marginLeft: -7, borderWidth: 1.5, transform: [{ rotate: "45deg" }], borderRadius: 2 },
+  cinematicRewardColumn: { flex: 1, minWidth: 0, alignItems: "center" },
   cinematicRewardDivider: { width: StyleSheet.hairlineWidth, height: 29, backgroundColor: "#6B91A866" },
   cinematicRewardEyebrow: { fontSize: 6, lineHeight: 9, fontWeight: "900", letterSpacing: 0.75 },
   cinematicRewardValue: { fontSize: 13, lineHeight: 16, fontWeight: "900", letterSpacing: -0.1, marginTop: 1 },

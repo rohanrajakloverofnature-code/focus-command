@@ -15,8 +15,10 @@ import {
 } from "../lib/character-visual-colors";
 import {
   chooseCharacterAccent,
+  chooseCharacterSupport,
   colorContrastRatio,
   deriveCinematicTokensFromAccent,
+  deriveCinematicTokensFromPalette,
 } from "../lib/character-cinematic-tokens";
 import { resolveTickerVisualColors } from "../lib/ticker-visual-colors";
 
@@ -56,12 +58,30 @@ describe("character visual customization", () => {
     expect(tokens.backdrop).not.toBe(tokens.aura);
   });
 
+  it("keeps a distinct saved-media support color and derives readable energy and metallic cinematic roles", () => {
+    const candidates = [
+      { value: "#6E32C9", priority: 1.16 },
+      { value: "#00B8D4", priority: 0.94 },
+      { value: "#2A174A", priority: 0.42 },
+    ];
+    const accent = chooseCharacterAccent(candidates);
+    const support = chooseCharacterSupport(candidates, accent);
+    const palette = deriveCinematicTokensFromPalette(accent, support);
+
+    expect(accent).toBe("#6E32C9");
+    expect(support).toBe("#00B8D4");
+    expect(palette.energy).not.toBe(palette.accent);
+    expect(palette.metallic).not.toBe(palette.energy);
+    expect(colorContrastRatio(palette.energy, palette.backdrop)).toBeGreaterThanOrEqual(3.4);
+    expect(colorContrastRatio(palette.metallic, palette.backdrop)).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("resolves ticker colors by global, cached-character, and validated-custom precedence", () => {
     const globalColors = { surfaceColor: "#101827", accentColor: "#22C55E" };
-    const characterColors = { accent: "#F59E0B", backdrop: "#201606", rod: "#FFD066", aura: "#CE8500" };
+    const characterColors = deriveCinematicTokensFromAccent("#F59E0B");
 
     expect(resolveTickerVisualColors({ source: "global", surface: null, accent: null }, globalColors, characterColors)).toEqual(globalColors);
-    expect(resolveTickerVisualColors({ source: "character", surface: null, accent: null }, globalColors, characterColors)).toEqual({ surfaceColor: "#201606", accentColor: "#F59E0B" });
+    expect(resolveTickerVisualColors({ source: "character", surface: null, accent: null }, globalColors, characterColors)).toEqual({ surfaceColor: characterColors.backdrop, accentColor: characterColors.accent });
     expect(resolveTickerVisualColors({ source: "custom", surface: "#0A0B0C", accent: "#ABCDEF" }, globalColors, characterColors)).toEqual({ surfaceColor: "#0A0B0C", accentColor: "#ABCDEF" });
     expect(resolveTickerVisualColors({ source: "custom", surface: "invalid", accent: null }, globalColors, characterColors)).toEqual(globalColors);
   });
@@ -73,6 +93,8 @@ describe("character visual customization", () => {
 
     expect(cinematicLibrary).toContain("deriveCharacterCinematicColors");
     expect(cinematic).not.toContain("deriveCharacterCinematicColors");
+    expect(cinematic).toContain("cinematicColors.energy");
+    expect(cinematic).toContain("cinematicColors.metallic");
     expect(cinematic).toContain("const powerText = Math.max(0, Math.round(totalPower))");
     expect(cinematic).toContain(">TOTAL POWER</Text>");
     expect(cinematic).toContain(">{powerText}</Text>");

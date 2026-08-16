@@ -12,7 +12,7 @@ import React, {
 } from "react";
 import { calculateEquippedXpModifier, calculateEquippedEnergyModifier } from "./equipment-modifiers";
 import type { CharacterCinematicVariant } from "./character-development";
-import { deriveCinematicTokensFromAccent } from "./character-cinematic-tokens";
+import { deriveCinematicTokensFromPalette } from "./character-cinematic-tokens";
 
 type AppStateSubscription = { remove: () => void };
 type AppStateModule = { addEventListener: (event: "change", listener: (nextState: string) => void) => AppStateSubscription };
@@ -205,6 +205,11 @@ export interface CharacterCinematicColors {
   backdrop: string;
   rod: string;
   aura: string;
+  support: string;
+  energy: string;
+  metallic: string;
+  atmosphere: string;
+  frame: string;
 }
 
 export type TickerColorSource = "global" | "character" | "custom";
@@ -1985,7 +1990,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       palette: { ...defaults.profile.palette, ...(input.profile?.palette ?? {}) },
       characterCinematicColors: Object.fromEntries(
         Object.entries({ ...defaults.profile.characterCinematicColors, ...(input.profile?.characterCinematicColors ?? {}) })
-          .map(([formId, colors]) => [formId, deriveCinematicTokensFromAccent(colors.accent)]),
+          .map(([formId, colors]) => [formId, deriveCinematicTokensFromPalette(colors.accent, colors.support)]),
       ),
       tickerColorPreferences: {
         miniAchievement: { ...defaults.profile.tickerColorPreferences.miniAchievement, ...(input.profile?.tickerColorPreferences?.miniAchievement ?? {}) },

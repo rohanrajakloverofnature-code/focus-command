@@ -79,7 +79,7 @@ describe("cinematic override profile persistence", () => {
         rod: "#405060",
         aura: "#1A2230",
       },
-    };
+    } as unknown as typeof saved.profile.characterCinematicColors;
 
     expect(normalizeHydratedState(saved).profile.characterCinematicColors.command)
       .toEqual(deriveCinematicTokensFromAccent("#C9982E"));
