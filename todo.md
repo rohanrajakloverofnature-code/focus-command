@@ -563,4 +563,4 @@
 - [x] Audit and present an approval-only plan for showing due mission-linked revision topics inside the existing live-mission screen, with in-place completion that advances the established Day 1 → Day 7 → Day 30 record while preserving manual topic logging and every unrelated mechanism.
 - [x] Implement the approved in-place live-mission due-revision rows and exact-record completion action, while retaining manual topic logging, due-date rules, notification behavior, and existing queue/Home fallback behavior.
 - [x] Add and run regression coverage for live-mission due-topic selection, Day 1/7/30 advancement, mission ownership, duplicate-name independence, reminder timing, and rapid-tap locking; complete the full local release preflight.
-- [ ] Synchronize only the validated live-mission revision-completion source and tests to private GitHub main through the available approved repository key; do not start an APK build.
+- [x] Synchronize only the validated live-mission revision-completion source and tests to private GitHub main through the available approved repository key; do not start an APK build. GitHub private main confirmed at `ac70baa`.
