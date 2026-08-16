@@ -134,6 +134,12 @@ export interface MonthlyArchiveStudiedTopic {
   key: string;
   subject: string;
   topic: string;
+  /** Calendar date on which this exact revision action occurred. */
+  actionDate: string;
+  /** Exact timestamp retained for deterministic ordering within one date. */
+  occurredAt: string;
+  /** Human-readable version of the immutable revision action phase. */
+  actionLabel: string;
   firstCompletedAt: string;
   firstMonthKey: string;
   completedMissions: number;
@@ -724,48 +730,50 @@ export function getMonthlyArchiveMonthComparison(
   };
 }
 
-function revisionPercent(topic: FocusState["srsTopics"][number]) {
-  if (topic.status === "completed") return 100;
-  return [0, 33, 67][Math.max(0, Math.min(2, topic.stage))] ?? 0;
+export function getRevisionActivityPercent(phase: MonthlyArchiveStudiedTopic["revisionPhase"]) {
+  return phase === "matured" ? 100 : phase === "developing" ? 67 : phase === "emerging" ? 33 : 0;
 }
 
-function revisionPhase(percent: number): MonthlyArchiveStudiedTopic["revisionPhase"] {
-  if (percent >= 100) return "matured";
-  if (percent >= 67) return "developing";
-  if (percent >= 33) return "emerging";
-  return "seed_sown";
+export function getRevisionActivityLabel(phase: MonthlyArchiveStudiedTopic["revisionPhase"]) {
+  return phase === "matured" ? "Matured" : phase === "developing" ? "Developing" : phase === "emerging" ? "Emerging" : "Seed Sown";
 }
 
 function getAllArchiveStudiedTopics(state: FocusState) {
   const cached = studiedTopicsCache.get(state);
   if (cached) return cached;
-  const timezone = state.profile.timezone;
-  const topics = (state.srsTopics ?? [])
-    .map((revision) => {
-      const loggedAt = revision.createdAt;
-      const percent = revisionPercent(revision);
+  const revisionsById = new Map((state.srsTopics ?? []).map((revision) => [revision.id, revision]));
+  const topics = (state.srsActivityLog ?? [])
+    .map((activity) => {
+      const revision = revisionsById.get(activity.topicId);
+      const phase = activity.phase;
+      const actionDate = activity.actionDate;
+      const percent = getRevisionActivityPercent(phase);
       return {
-        key: revision.id,
-        subject: revision.subject.trim() || "General",
-        topic: revision.topic.trim(),
-        firstCompletedAt: loggedAt,
-        firstMonthKey: toLocalDate(loggedAt, timezone).slice(0, 7),
-        completedMissions: revision.completionId ? 1 : 0,
-        revisionTopicId: revision.id,
+        key: activity.id,
+        subject: activity.subject.trim() || "General",
+        topic: activity.topic.trim(),
+        actionDate,
+        occurredAt: activity.occurredAt,
+        actionLabel: getRevisionActivityLabel(phase),
+        // Retained aliases preserve existing archive card and comparison contracts.
+        firstCompletedAt: actionDate,
+        firstMonthKey: actionDate.slice(0, 7),
+        completedMissions: revision?.completionId ? 1 : 0,
+        revisionTopicId: activity.topicId,
         revisionCompletionPercent: percent,
-        revisionStatus: revision.status,
-        revisionPhase: revisionPhase(percent),
+        revisionStatus: revision?.status ?? "not_enrolled",
+        revisionPhase: phase,
       } satisfies MonthlyArchiveStudiedTopic;
     })
-    .filter((topic) => Boolean(topic.topic))
-    .sort((left, right) => left.subject.localeCompare(right.subject) || left.topic.localeCompare(right.topic) || left.firstCompletedAt.localeCompare(right.firstCompletedAt));
+    .filter((topic) => Boolean(topic.topic) && /^\d{4}-\d{2}-\d{2}$/.test(topic.actionDate))
+    .sort((left, right) => right.actionDate.localeCompare(left.actionDate) || right.occurredAt.localeCompare(left.occurredAt) || left.subject.localeCompare(right.subject) || left.topic.localeCompare(right.topic));
   studiedTopicsCache.set(state, topics);
   return topics;
 }
 
 /**
- * Lists real saved spaced-revision topics. Period membership uses the local date that a topic
- * entered the existing review loop, never a mission title or a reconstructed completion record.
+ * Lists immutable real revision actions. Period membership uses the exact saved local action
+ * date, so Day 1, Day 7, and Day 30 work appear in the period when they were completed.
  */
 export function getMonthlyArchiveStudiedTopics(state: FocusState, period: ArchiveTopicPeriod = {}) {
   return getAllArchiveStudiedTopics(state).filter((topic) => {

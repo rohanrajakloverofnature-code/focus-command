@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1,
     borderColor: "#F4C95D62",
-    backgroundColor: "#10233AF7",
+    backgroundColor: "#000000",
     position: "relative",
   },
   tickerPressed: { opacity: 0.82, transform: [{ scale: 0.985 }] },

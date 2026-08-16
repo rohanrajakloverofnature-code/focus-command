@@ -1,5 +1,6 @@
 import { getMissionCompletionRecordsInLocalDateRange, toLocalDate, type DistractionLogEntry, type FocusState, type Reflection } from "./focus-command";
 import { DISTRACTION_CATEGORY_LABELS } from "./distraction-log";
+import { getMonthlyArchiveStudiedTopics, type MonthlyArchiveStudiedTopic } from "./monthly-command-archive";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -32,6 +33,10 @@ export interface WeeklyAfterActionReview {
     topCategory: string | null;
     topCategoryCount: number;
     timeWindow: string | null;
+  };
+  revision: {
+    activities: MonthlyArchiveStudiedTopic[];
+    uniqueTopicCount: number;
   };
   recommendation: string;
 }
@@ -118,6 +123,9 @@ export function getWeeklyAfterActionReview(state: FocusState, now = new Date()):
   });
   const topCategory = Array.from(categoryCounts.entries()).sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))[0];
   const timeWindow = Array.from(timeWindowCounts.entries()).sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))[0]?.[0] ?? null;
+  const revisionActivities = getMonthlyArchiveStudiedTopics(state, { lifetime: true })
+    .filter((activity) => isInRange(activity.actionDate, weekStart, weekEnd));
+  const uniqueRevisionTopicCount = new Set(revisionActivities.map((activity) => activity.revisionTopicId)).size;
 
   const strongest = strongestSubject ? { label: strongestSubject[0], durationMs: strongestSubject[1] } : null;
   const totalInvestedMs = completions.reduce((total, completion) => total + completion.durationMs, 0);
@@ -142,6 +150,7 @@ export function getWeeklyAfterActionReview(state: FocusState, now = new Date()):
     strongestSubject: strongest,
     reflection: { count: reflections.length, mostCommonFeeling, averageFocus, energyShift, lowestSignal },
     friction: { total: weeklyFriction.length, topCategory: topCategory?.[0] ?? null, topCategoryCount: topCategory?.[1] ?? 0, timeWindow },
+    revision: { activities: revisionActivities, uniqueTopicCount: uniqueRevisionTopicCount },
     recommendation,
   };
 }

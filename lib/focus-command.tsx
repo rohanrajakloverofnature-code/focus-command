@@ -307,6 +307,20 @@ export interface SrsTopic {
   completionId?: string;
 }
 
+/** Immutable record of one real revision-system action, retained for activity-based overviews. */
+export interface SrsActivityEntry {
+  id: string;
+  topicId: string;
+  missionId: string | null;
+  subject: string;
+  topic: string;
+  phase: "seed_sown" | "emerging" | "developing" | "matured";
+  /** Local calendar date in the user's configured timezone (YYYY-MM-DD). */
+  actionDate: string;
+  /** Exact timestamp for stable ordering when actions share a calendar date. */
+  occurredAt: string;
+}
+
 export interface Boss {
   id: string;
   title: string;
@@ -542,6 +556,7 @@ export interface FocusState {
   missionCompletions: MissionCompletion[];
   reflections: Reflection[];
   srsTopics: SrsTopic[];
+  srsActivityLog: SrsActivityEntry[];
   bosses: Boss[];
   journals: JournalEntry[];
   distractionLogs: DistractionLogEntry[];
@@ -726,6 +741,14 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+/** Adds one immutable action to the revision ledger; prior records are never modified or removed. */
+export function appendSrsActivity(
+  log: SrsActivityEntry[],
+  entry: Omit<SrsActivityEntry, "id">,
+): SrsActivityEntry[] {
+  return [...log, { ...entry, id: createId("srs_act") }];
+}
+
 export function toLocalDate(iso: string, timeZone?: string): string {
   const date = new Date(iso);
   try {
@@ -894,6 +917,7 @@ export function createInitialState(): FocusState {
     missionCompletions: [],
     reflections: [],
     srsTopics: [],
+    srsActivityLog: [],
     bosses: [],
     journals: [],
     distractionLogs: [],
@@ -1999,6 +2023,21 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       };
     }),
     missionCompletions: [...existingCompletions, ...migratedLegacyCompletions],
+    srsActivityLog: Array.isArray(input.srsActivityLog)
+      ? input.srsActivityLog.filter((entry): entry is SrsActivityEntry =>
+          Boolean(
+            entry
+            && typeof entry.id === "string"
+            && typeof entry.topicId === "string"
+            && (typeof entry.missionId === "string" || entry.missionId === null)
+            && typeof entry.subject === "string"
+            && typeof entry.topic === "string"
+            && ["seed_sown", "emerging", "developing", "matured"].includes(entry.phase)
+            && typeof entry.actionDate === "string"
+            && typeof entry.occurredAt === "string",
+          ),
+        )
+      : [],
     distractionLogs: (input.distractionLogs ?? []).filter((entry): entry is DistractionLogEntry =>
       Boolean(entry && typeof entry.id === "string" && typeof entry.missionId === "string" && typeof entry.occurredAt === "string" && DISTRACTION_CATEGORIES.includes(entry.category)),
     ).map((entry) => ({ ...entry, note: typeof entry.note === "string" && entry.note.trim() ? entry.note.trim().slice(0, 140) : undefined })),
@@ -2243,7 +2282,9 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     commit((current) => {
       const mission = current.missions.find((candidate) => candidate.id === missionId);
       const id = createId("srs");
-      const today = toLocalDate(nowIso(), current.profile.timezone);
+      const occurredAt = nowIso();
+      const today = toLocalDate(occurredAt, current.profile.timezone);
+      const resolvedSubject = subject?.trim() || mission?.subject || "General";
       return withQueuedOperation({
         ...current,
         missions: current.missions.map((candidate) => candidate.id === missionId ? { ...candidate, revisionTopicIds: [...candidate.revisionTopicIds, id] } : candidate),
@@ -2252,15 +2293,24 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
           {
             id,
             missionId,
-            subject: subject?.trim() || mission?.subject || "General",
+            subject: resolvedSubject,
             topic: trimmed,
             stage: 0,
             dueDate: addDays(today, 1),
             completedAt: null,
-            createdAt: nowIso(),
+            createdAt: occurredAt,
             status: "scheduled",
           },
         ],
+        srsActivityLog: appendSrsActivity(current.srsActivityLog, {
+          topicId: id,
+          missionId,
+          subject: resolvedSubject,
+          topic: trimmed,
+          phase: "seed_sown",
+          actionDate: today,
+          occurredAt,
+        }),
       });
     });
   }, [commit]);
@@ -2391,19 +2441,30 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       }
       const consumedInventory = current.inventory.map((item) => item.active && !item.consumedAt && item.effectiveOn === completionDate ? { ...item, consumedAt: endedAt, active: false, consumedByCompletionId: completionId } : item);
       const srsTopics = [...current.srsTopics];
+      let srsActivityLog = current.srsActivityLog;
       if (completedMission.revisionEnabled && completedMission.specificTopic.trim() && !completedMission.revisionTopicIds.length) {
         const topicId = createId("srs");
+        const topic = completedMission.specificTopic.trim();
         srsTopics.push({
           id: topicId,
           missionId,
           subject: completedMission.subject,
-          topic: completedMission.specificTopic.trim(),
+          topic,
           stage: 0,
           dueDate: addDays(completionDate, 1),
           completedAt: null,
           createdAt: endedAt,
           status: "scheduled",
           completionId,
+        });
+        srsActivityLog = appendSrsActivity(srsActivityLog, {
+          topicId,
+          missionId,
+          subject: completedMission.subject,
+          topic,
+          phase: "seed_sown",
+          actionDate: completionDate,
+          occurredAt: endedAt,
         });
         updatedMission.revisionTopicIds = [topicId];
       }
@@ -2496,6 +2557,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         missionCompletions: [...current.missionCompletions, completion],
         reflections: [...current.reflections, reflection],
         srsTopics,
+        srsActivityLog,
         progression: [...current.progression, progression],
         transactions,
         inventory: nextInventory,
@@ -2508,14 +2570,19 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
 
   const completeRevision = useCallback((topicId: string) => {
     commit((current) => {
-      const today = toLocalDate(nowIso(), current.profile.timezone);
+      const occurredAt = nowIso();
+      const today = toLocalDate(occurredAt, current.profile.timezone);
+      const target = current.srsTopics.find((topic) => topic.id === topicId && topic.status !== "completed");
+      const phase: SrsActivityEntry["phase"] | null = target
+        ? target.stage === 0 ? "emerging" : target.stage === 1 ? "developing" : "matured"
+        : null;
       return withQueuedOperation({
         ...current,
         srsTopics: current.srsTopics.map((topic) => {
           if (topic.id !== topicId || topic.status === "completed") return topic;
           const nextStage = topic.stage + 1;
           if (nextStage >= 3) {
-            return { ...topic, stage: nextStage, status: "completed", completedAt: nowIso() };
+            return { ...topic, stage: nextStage, status: "completed", completedAt: occurredAt };
           }
           const intervals = [1, 7, 30];
           return {
@@ -2523,9 +2590,20 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
             stage: nextStage,
             dueDate: addDays(today, intervals[nextStage]),
             status: "scheduled",
-            completedAt: nowIso(),
+            completedAt: occurredAt,
           };
         }),
+        srsActivityLog: target && phase
+          ? appendSrsActivity(current.srsActivityLog, {
+              topicId: target.id,
+              missionId: target.missionId,
+              subject: target.subject,
+              topic: target.topic,
+              phase,
+              actionDate: today,
+              occurredAt,
+            })
+          : current.srsActivityLog,
       });
     });
   }, [commit]);

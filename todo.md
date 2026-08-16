@@ -564,3 +564,9 @@
 - [x] Implement the approved in-place live-mission due-revision rows and exact-record completion action, while retaining manual topic logging, due-date rules, notification behavior, and existing queue/Home fallback behavior.
 - [x] Add and run regression coverage for live-mission due-topic selection, Day 1/7/30 advancement, mission ownership, duplicate-name independence, reminder timing, and rapid-tap locking; complete the full local release preflight.
 - [x] Synchronize only the validated live-mission revision-completion source and tests to private GitHub main through the available approved repository key; do not start an APK build. GitHub private main confirmed at `ac70baa`.
+- [x] Add the approved durable Revision Activity History with backward-compatible state normalization, recording real topic logging and Day 1/Day 7/Day 30 completion actions without changing the established spaced-revision cycle.
+- [x] Update the Dashboard weekly review and existing monthly, yearly, and lifetime Revision Overviews to show real period-based revision activity with the existing named phase filters and exact record navigation.
+- [x] Update the offline backup export, validation, and restore flow so Revision Activity History round-trips safely without losing existing data.
+- [x] Change only the existing Mini Achievement ticker card base background to jet black while retaining all layout, content, route, rating, rotation, and interaction behavior.
+- [x] Add and run regression coverage for revision activity recording, legacy-data normalization, period and timezone boundaries, named phase filters, backup round-trip, existing revision-cycle preservation, and ticker surface protection; complete the full release preflight.
+- [ ] Synchronize only the validated Revision Activity History, revision-overview, backup, ticker-surface, checklist, and regression-test source to private GitHub main; do not start an APK build.

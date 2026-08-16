@@ -16,6 +16,13 @@ function makeState(): FocusState {
     }],
     reflections: [{ id: "reflection-1", missionId: "completed", createdAt: "2026-08-11T09:30:00.000Z", feelingAfter: "steady", focusQuality: 4, energyBefore: 2, energyAfter: 3, clarityLevel: 4, motivationLevel: 3 }],
     distractionLogs: [{ id: "distraction-1", missionId: "completed", category: "phone", occurredAt: "2026-08-11T18:00:00.000Z" }],
+    srsTopics: [{ id: "vectors", missionId: "completed", subject: "Physics", topic: "Vectors", stage: 2, dueDate: "2026-08-18", completedAt: null, createdAt: "2026-08-09T08:00:00.000Z", status: "scheduled" }],
+    srsActivityLog: [
+      { id: "vectors-before-week", topicId: "vectors", missionId: "completed", subject: "Physics", topic: "Vectors", phase: "seed_sown", actionDate: "2026-08-09", occurredAt: "2026-08-09T08:00:00.000Z" },
+      { id: "vectors-emerging", topicId: "vectors", missionId: "completed", subject: "Physics", topic: "Vectors", phase: "emerging", actionDate: "2026-08-11", occurredAt: "2026-08-11T10:00:00.000Z" },
+      { id: "vectors-developing", topicId: "vectors", missionId: "completed", subject: "Physics", topic: "Vectors", phase: "developing", actionDate: "2026-08-15", occurredAt: "2026-08-15T10:00:00.000Z" },
+      { id: "vectors-after-week", topicId: "vectors", missionId: "completed", subject: "Physics", topic: "Vectors", phase: "matured", actionDate: "2026-08-17", occurredAt: "2026-08-17T10:00:00.000Z" },
+    ],
     progression: [],
   } as unknown as FocusState;
 }
@@ -35,6 +42,11 @@ describe("getWeeklyAfterActionReview", () => {
     expect(review.missedPlans.map((mission) => mission.title)).toEqual(["Chemistry Notes"]);
     expect(review.reflection.mostCommonFeeling).toBe("Steady");
     expect(review.friction).toMatchObject({ total: 1, topCategory: "Phone", timeWindow: "Evening" });
+    expect(review.revision.uniqueTopicCount).toBe(1);
+    expect(review.revision.activities).toEqual([
+      expect.objectContaining({ key: "vectors-developing", actionDate: "2026-08-15", revisionPhase: "developing" }),
+      expect.objectContaining({ key: "vectors-emerging", actionDate: "2026-08-11", revisionPhase: "emerging" }),
+    ]);
     expect(review.recommendation).toContain("Chemistry Notes");
     expect(state.distractionLogs).toHaveLength(1);
   });

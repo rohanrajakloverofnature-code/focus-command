@@ -18,6 +18,7 @@ function makeOversizedState(): FocusState {
     missionCompletions: [],
     reflections: [],
     srsTopics: [],
+    srsActivityLog: [],
     bosses: [],
     journals: [{
       id: "oversized-journal",

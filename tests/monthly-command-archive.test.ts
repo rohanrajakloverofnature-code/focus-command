@@ -46,6 +46,11 @@ function makeState(): FocusState {
       { id: "argument-review", completionId: "feb-run", missionId: "feb-mission", subject: "Writing", topic: "Argument flow", status: "completed", stage: 3, dueDate: "2026-02-19", createdAt: "2026-02-18T09:30:00.000Z", completedAt: "2026-03-20T09:30:00.000Z" },
       { id: "manual-topic-review", missionId: "feb-mission", subject: "Writing", topic: "Thesis evidence", status: "due", stage: 0, dueDate: "2026-06-05", createdAt: "2026-06-04T09:30:00.000Z" },
     ],
+    srsActivityLog: [
+      { id: "kinematics-emerging", topicId: "kinematics-review", missionId: "jan-mission", subject: "Physics", topic: "Kinematics", phase: "emerging", actionDate: "2025-01-12", occurredAt: "2025-01-12T09:00:00.000Z" },
+      { id: "argument-matured", topicId: "argument-review", missionId: "feb-mission", subject: "Writing", topic: "Argument flow", phase: "matured", actionDate: "2026-03-20", occurredAt: "2026-03-20T09:30:00.000Z" },
+      { id: "thesis-seed", topicId: "manual-topic-review", missionId: "feb-mission", subject: "Writing", topic: "Thesis evidence", phase: "seed_sown", actionDate: "2026-06-04", occurredAt: "2026-06-04T09:30:00.000Z" },
+    ],
   } as unknown as FocusState;
 }
 
@@ -95,17 +100,36 @@ describe("getMonthlyCommandArchive", () => {
     expect(windows[0].points.find((point) => point.key === "2026-02")?.value).toBeGreaterThan(0);
   });
 
-  it("reports only actual saved revision topics and their existing Day 1/7/30 cadence progress", () => {
+  it("reports only real saved revision actions in their actual activity period", () => {
     const state = makeState();
     const yearly = getMonthlyArchiveStudiedTopics(state, { year: 2026 });
     const january = getMonthlyArchiveStudiedTopics(state, { monthKey: "2025-01" });
 
     expect(yearly).toEqual(expect.arrayContaining([
-      expect.objectContaining({ subject: "Writing", topic: "Argument flow", revisionCompletionPercent: 100, revisionStatus: "completed", revisionPhase: "matured" }),
-      expect.objectContaining({ subject: "Writing", topic: "Thesis evidence", revisionCompletionPercent: 0, revisionStatus: "due", revisionPhase: "seed_sown", revisionTopicId: "manual-topic-review" }),
+      expect.objectContaining({ subject: "Writing", topic: "Argument flow", actionDate: "2026-03-20", actionLabel: "Matured", revisionCompletionPercent: 100, revisionStatus: "completed", revisionPhase: "matured" }),
+      expect.objectContaining({ subject: "Writing", topic: "Thesis evidence", actionDate: "2026-06-04", actionLabel: "Seed Sown", revisionCompletionPercent: 0, revisionStatus: "due", revisionPhase: "seed_sown", revisionTopicId: "manual-topic-review" }),
     ]));
     expect(yearly.some((topic) => topic.topic === "February Writing")).toBe(false);
-    expect(january).toEqual([expect.objectContaining({ subject: "Physics", topic: "Kinematics", revisionCompletionPercent: 33, revisionStatus: "scheduled", revisionPhase: "emerging" })]);
+    expect(january).toEqual([expect.objectContaining({ subject: "Physics", topic: "Kinematics", actionDate: "2025-01-12", revisionCompletionPercent: 33, revisionStatus: "scheduled", revisionPhase: "emerging" })]);
+  });
+
+  it("shows every real action for a topic in the month and year when that action occurred", () => {
+    const state = makeState();
+    state.srsActivityLog = [
+      ...state.srsActivityLog,
+      { id: "argument-seed", topicId: "argument-review", missionId: "feb-mission", subject: "Writing", topic: "Argument flow", phase: "seed_sown", actionDate: "2026-02-18", occurredAt: "2026-02-18T09:30:00.000Z" },
+      { id: "argument-developing", topicId: "argument-review", missionId: "feb-mission", subject: "Writing", topic: "Argument flow", phase: "developing", actionDate: "2026-03-01", occurredAt: "2026-03-01T09:30:00.000Z" },
+    ];
+
+    expect(getMonthlyArchiveStudiedTopics(state, { monthKey: "2026-02" })).toEqual([
+      expect.objectContaining({ topic: "Argument flow", revisionPhase: "seed_sown", actionDate: "2026-02-18" }),
+    ]);
+    expect(getMonthlyArchiveStudiedTopics(state, { monthKey: "2026-03" })).toEqual(expect.arrayContaining([
+      expect.objectContaining({ topic: "Argument flow", revisionPhase: "developing", actionDate: "2026-03-01" }),
+      expect.objectContaining({ topic: "Argument flow", revisionPhase: "matured", actionDate: "2026-03-20" }),
+    ]));
+    expect(getMonthlyArchiveStudiedTopics(state, { year: 2026 }).filter((entry) => entry.topic === "Argument flow")).toHaveLength(3);
+    expect(getMonthlyArchiveStudiedTopics(state, { lifetime: true }).filter((entry) => entry.topic === "Argument flow")).toHaveLength(3);
   });
 
   it("builds a subject-only lifetime lens from that subject’s own completed runs, earned XP, and invested time", () => {
@@ -147,6 +171,10 @@ describe("getMonthlyCommandArchive", () => {
     state.srsTopics = [
       ...state.srsTopics,
       { id: "developing-topic-review", missionId: "feb-mission", subject: "Writing", topic: "Paragraph flow", status: "scheduled", stage: 2, dueDate: "2026-07-05", createdAt: "2026-07-04T09:30:00.000Z", completedAt: null },
+    ];
+    state.srsActivityLog = [
+      ...state.srsActivityLog,
+      { id: "paragraph-developing", topicId: "developing-topic-review", missionId: "feb-mission", subject: "Writing", topic: "Paragraph flow", phase: "developing", actionDate: "2026-07-04", occurredAt: "2026-07-04T09:30:00.000Z" },
     ];
     const allTopics = getMonthlyArchiveStudiedTopics(state, { lifetime: true });
 

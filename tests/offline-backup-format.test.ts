@@ -18,6 +18,7 @@ function createPopulatedState(): FocusState {
   state.journals = [{ id: "journal_backup", title: "A complete command log", body: "Long-form local journal data remains in the archive." } as unknown as FocusState["journals"][number]];
   state.distractionLogs = [{ id: "friction_backup", missionId: "mission_backup", occurredAt: "2026-08-14T07:30:00.000Z", category: "phone" } as unknown as FocusState["distractionLogs"][number]];
   state.progression = [{ id: "xp_backup", sourceCompletionId: "completion_backup", amount: 80 } as unknown as FocusState["progression"][number]];
+  state.srsActivityLog = [{ id: "revision_activity_backup", topicId: "revision_backup", missionId: "mission_backup", subject: "Math", topic: "Vectors", phase: "emerging", actionDate: "2026-08-14", occurredAt: "2026-08-14T08:00:00.000Z" }];
   return state;
 }
 
@@ -54,6 +55,21 @@ describe("offline Focus Command backup format", () => {
       { path: "media/cinematics/recruit.mp4", bytes: cinematic },
       { path: "media/sounds/missionWin.mp3", bytes: sound },
     ]);
+  });
+
+  it("restores older valid backup files without a revision activity ledger as an empty ledger", () => {
+    const { archive } = createOfflineBackupArchive(createPopulatedState());
+    const legacy = mutateArchive(archive, (entries) => {
+      const state = JSON.parse(strFromU8(entries["state.json"])) as Record<string, unknown>;
+      delete state.srsActivityLog;
+      const stateBytes = strToU8(JSON.stringify(state));
+      entries["state.json"] = stateBytes;
+      const manifest = readManifest(entries);
+      manifest.stateSha256 = hashBackupBytes(stateBytes);
+      writeManifest(entries, manifest);
+    });
+
+    expect(parseOfflineBackupArchive(legacy).state.srsActivityLog).toEqual([]);
   });
 
   it("round-trips built-in form music plus a complete custom form media set", () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  appendSrsActivity,
   createInitialState,
   getActiveGoldMultiplier,
   getBossProgress,
@@ -58,6 +59,28 @@ function stateWithToday(): FocusState {
 }
 
 describe("Focus Command deterministic gameplay rules", () => {
+  it("starts with an empty immutable revision activity ledger and only appends new records", () => {
+    const state = stateWithToday();
+    const seed = {
+      topicId: "revision_1",
+      missionId: "mission_1",
+      subject: "Math",
+      topic: "Vectors",
+      phase: "seed_sown" as const,
+      actionDate: "2026-08-14",
+      occurredAt: "2026-08-14T08:00:00.000Z",
+    };
+    const withSeed = appendSrsActivity(state.srsActivityLog, seed);
+    const withEmerging = appendSrsActivity(withSeed, { ...seed, phase: "emerging", actionDate: "2026-08-15", occurredAt: "2026-08-15T08:00:00.000Z" });
+
+    expect(state.srsActivityLog).toEqual([]);
+    expect(withSeed).toHaveLength(1);
+    expect(withEmerging).toHaveLength(2);
+    expect(withEmerging[0]).toMatchObject({ ...seed });
+    expect(withEmerging[1]).toMatchObject({ phase: "emerging", actionDate: "2026-08-15" });
+    expect(new Set(withEmerging.map((entry) => entry.id)).size).toBe(2);
+  });
+
   it("calculates power levels and titles from the immutable progression ledger", () => {
     const state = stateWithToday();
     state.progression.push(

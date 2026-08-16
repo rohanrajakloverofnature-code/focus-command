@@ -187,7 +187,12 @@ export function parseOfflineBackupArchive(archive: Uint8Array): ParsedOfflineBac
   }
   let state: FocusState;
   try {
-    state = JSON.parse(strFromU8(stateBytes)) as FocusState;
+    const parsedState = JSON.parse(strFromU8(stateBytes)) as Partial<FocusState>;
+    // Revision activity history was introduced after the initial offline-backup format.
+    // Preserve all valid older backups by treating the missing append-only ledger as empty;
+    // no past activity is reconstructed or invented during restore.
+    if (!Array.isArray(parsedState.srsActivityLog)) parsedState.srsActivityLog = [];
+    state = parsedState as FocusState;
   } catch {
     throw new OfflineBackupValidationError("The backup command data cannot be read.");
   }
