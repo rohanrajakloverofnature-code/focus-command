@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from "react-native-reanimated";
 
@@ -14,7 +14,7 @@ import {
 
 export const EMOTION_PREDICTION_CAPSULE_WIDTH = 132;
 
-export function EmotionPredictionTicker({ predictions, reduceMotion }: { predictions: EmotionPrediction[]; reduceMotion: boolean }) {
+export const EmotionPredictionTicker = memo(function EmotionPredictionTicker({ predictions, reduceMotion }: { predictions: EmotionPrediction[]; reduceMotion: boolean }) {
   const colors = useColors();
   const [visible, setVisible] = useState(false);
   const [index, setIndex] = useState(0);
@@ -38,14 +38,19 @@ export function EmotionPredictionTicker({ predictions, reduceMotion }: { predict
 
   return <>
     <TapFeedback onPress={() => setVisible(true)} accessibilityLabel={`Open emotion prediction library. Current prediction: ${current.label}`} style={styles.capsulePressable}>
-      <View style={[styles.capsule, { borderColor: `${current.accent}88` }]}>
+      <View style={[styles.capsule, { borderColor: `${current.accent}9A` }]}>
+        <View pointerEvents="none" style={[styles.capsuleGlow, { backgroundColor: `${current.accent}14` }]} />
+        <View pointerEvents="none" style={[styles.accentRail, { backgroundColor: current.accent }]} />
         <Animated.View style={[styles.capsuleReading, fadeStyle]}>
           <View style={[styles.predictionIcon, { backgroundColor: `${current.accent}22`, borderColor: `${current.accent}55` }]}>
+            <View pointerEvents="none" style={[styles.iconHalo, { borderColor: `${current.accent}4A` }]} />
             <IconSymbol name={current.icon} size={14} color={current.accent} />
           </View>
           <Text numberOfLines={1} ellipsizeMode="clip" maxFontSizeMultiplier={1} style={styles.predictionLabel}>{current.label}</Text>
         </Animated.View>
-        <IconSymbol name="chevron.right" size={14} color="#B8A7E8" />
+        <View style={[styles.chevronFrame, { borderColor: `${current.accent}30` }]}>
+          <IconSymbol name="chevron.right" size={12} color="#D9D1F7" />
+        </View>
       </View>
     </TapFeedback>
 
@@ -92,14 +97,18 @@ export function EmotionPredictionTicker({ predictions, reduceMotion }: { predict
       </View>
     </Modal>
   </>;
-}
+});
 
 const styles = StyleSheet.create({
   capsulePressable: { width: EMOTION_PREDICTION_CAPSULE_WIDTH, flexShrink: 0 },
-  capsule: { width: EMOTION_PREDICTION_CAPSULE_WIDTH, minHeight: 42, borderWidth: StyleSheet.hairlineWidth, borderRadius: 13, paddingHorizontal: 5, flexDirection: "row", alignItems: "center", gap: 2, overflow: "hidden", backgroundColor: "#14122C" },
-  capsuleReading: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 3 },
-  predictionIcon: { width: 18, height: 18, borderRadius: 9, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  predictionLabel: { flex: 1, minWidth: 0, color: "#F5F3FF", fontSize: 8, lineHeight: 11, letterSpacing: 0.1, fontWeight: "900" },
+  capsule: { width: EMOTION_PREDICTION_CAPSULE_WIDTH, minHeight: 42, borderWidth: 1, borderRadius: 13, paddingHorizontal: 5, flexDirection: "row", alignItems: "center", gap: 3, overflow: "hidden", backgroundColor: "#14122C" },
+  capsuleGlow: { position: "absolute", width: 62, height: 62, borderRadius: 31, right: -25, top: -20 },
+  accentRail: { position: "absolute", left: 0, top: 10, bottom: 10, width: 2, borderRadius: 99 },
+  capsuleReading: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: 2 },
+  predictionIcon: { width: 20, height: 20, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" },
+  iconHalo: { position: "absolute", width: 14, height: 14, borderRadius: 7, borderWidth: 1 },
+  predictionLabel: { flex: 1, minWidth: 0, color: "#F8F7FF", fontSize: 8, lineHeight: 11, letterSpacing: 0.28, fontWeight: "900" },
+  chevronFrame: { width: 19, height: 22, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", backgroundColor: "#0F1022A8", flexShrink: 0 },
   overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "#020617B8", padding: 14 },
   sheet: { gap: 13, maxHeight: "84%", backgroundColor: "#111A2B" },
   sheetTopline: { flexDirection: "row", alignItems: "flex-start", gap: 12 },

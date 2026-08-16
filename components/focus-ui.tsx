@@ -349,12 +349,11 @@ export function TapFeedback({
   const feedback = useInteractionFeedback();
   const scale = useSharedValue(1);
   const tapStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const acknowledgeCompletedPress = () => {
-    if (!feedback.reduceMotion) scale.value = withSequence(withTiming(0.972, { duration: 45 }), withTiming(1.012, { duration: 90 }), withTiming(1, { duration: 110 }));
+  const acknowledgePressIn = () => {
+    if (!feedback.reduceMotion) scale.value = withTiming(0.972, { duration: 45 });
   };
-  const handlePress = () => {
-    onPress();
-    acknowledgeCompletedPress();
+  const restorePressScale = () => {
+    if (!feedback.reduceMotion) scale.value = withTiming(1, { duration: 110 });
   };
   return (
     <Animated.View style={[tapStyle, style]}>
@@ -362,7 +361,9 @@ export function TapFeedback({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         disabled={disabled}
-        onPress={handlePress}
+        onPressIn={acknowledgePressIn}
+        onPressOut={restorePressScale}
+        onPress={onPress}
         hitSlop={4}
         style={({ pressed }) => ({ opacity: disabled ? 0.45 : pressed ? 0.76 : 1 })}
       >

@@ -529,4 +529,33 @@
 - [x] Implement the approved compact header prediction capsule with three icon-paired, one- or two-word emotion predictions per profile that rotate every three seconds without duplicating existing Home or Dashboard content.
 - [x] Add the approved tappable Prediction Library explanation view with current prediction chips, transparent non-clinical emotional-source explanation, and reduce-motion-safe presentation.
 - [x] Add complete tests and real narrow-width verification for prediction uniqueness, icon pairing, timing, source constraints, no clipping, header safety, and preservation of protected Home behavior.
-- [ ] Synchronize the validated emotion-guidance and compact Prediction Library checkpoint to the private GitHub main branch without starting an APK build or workflow.
+- [x] Synchronize the validated emotion-guidance and compact Prediction Library checkpoint to the private GitHub main branch without starting an APK build or workflow. GitHub private main confirmed at `e06457e`.
+- [x] Audit the supplied responsiveness video and Focus Command touch-to-action paths, render boundaries, navigation, animations, persistence, and long-history safeguards; propose an approval-gated internal smoothness plan without changing user-facing behavior.
+- [x] Implement the approved navigation-first mission-result completion scheduling and non-critical subscriber follow-up batching without changing durable completion semantics, rewards, feedback, or visible controls.
+- [x] Tighten remaining mission-result transition render boundaries and defer only non-essential result-screen setup after the first navigation frame, preserving all report content and behavior.
+- [x] Add deterministic latency, ordering, double-tap-lock, persistence, and render-boundary regression coverage; complete TypeScript, full test, lint, and static-export validation without starting an APK build.
+- [x] Preserve checkpoint `65797978` as the recovery point and inspect the exact private GitHub Actions Android APK failure logs without changing application code or workflow files.
+- [x] Identify and present an approval-gated minimal repository-only APK workflow repair that cannot alter Focus Command features, mechanisms, calculations, or protected build inputs.
+- [x] After explicit approval, apply only the validated workflow repair, run all non-APK local checks, preserve a checkpoint, and provide safe GitHub Actions rerun guidance.
+- [x] Synchronize the already-validated Touch-to-Action & Smoothness checkpoint and only the confirmed ticker JSX parser correction to private GitHub main, with no workflow or APK build trigger.
+- [x] Preserve checkpoint `91525b3c` as the recovery point and retrieve the exact failed Android APK Actions log for private-main commit `3c3a029` without changing repository files.
+- [x] Audit the complete release-build path for independent parser, TypeScript, Metro, dependency-lock, Expo configuration, native Android, Gradle, and workflow blockers; present a root-cause-verified approval-gated plan.
+- [x] After explicit approval, apply only the minimal verified repair, validate all available local release checks, preserve a checkpoint, and provide safe manual rerun guidance without triggering an APK build.
+
+- [x] Replace only private-main’s corrupted `components/emotion-prediction-ticker.tsx` through authenticated Git transport, verify the exact remote SHA-256 against the validated local component, and inspect the one-file commit scope.
+- [x] Preserve checkpoint `1b3a21c8`, retrieve the exact Android APK build-#45 raw log for commit `2aaad93`, identify the first actual release failure, and audit all directly related blockers without changing repository source.
+- [x] Present an evidence-based, approval-gated remediation plan for build #45; do not change GitHub, workflow, Android, dependencies, or Focus Command behavior before approval.
+
+- [x] Atomically replace only the two proven truncated private-main production libraries (`lib/home-motivation.ts` and `lib/emotion-predictions.ts`) with their checksum-verified validated versions, then audit the committed remote tree and repeat release-safety validation without starting an APK build.
+
+- [x] Establish a verified private-repository Git transport credential after the OAuth device token’s confirmed lack of `repo` access, then complete only the approved two-file atomic parity repair and remote-tree verification.
+
+- [x] Generate a one-time repository-scoped SSH deploy key, have the owner add its public half with write access, and use it only for the approved two-file atomic repair.
+- [x] Have the repository owner remove the temporary `Focus Command two-file repair (temporary)` deploy key, then delete its local private half from the sandbox.
+
+- [x] Audit the Home prediction ticker and Mini Achievement ticker in their existing positions for protected visual-polish opportunities, interaction safety, animation cost, and compact-layout resilience without changing features or mechanisms.
+- [x] Audit Home touch-to-action latency, render boundaries, persistence timing, and navigation scheduling for further internal smoothness improvements; present an approval-gated plan before modifying source.
+
+- [x] Implement only the approved prediction-ticker and Mini Achievement ticker visual polish, exact-input rendering boundaries, and immediate existing press acknowledgement without changing their position, content logic, route, or data semantics.
+- [x] Add and run regression coverage for ticker compactness, reduced-motion preservation, routes, memoized rendering boundaries, and rapid-tap safety; complete the full local release preflight.
+- [ ] Synchronize only the validated ticker-polish and internal responsiveness changes to private GitHub main through a verified Git transport credential; do not start an APK build.

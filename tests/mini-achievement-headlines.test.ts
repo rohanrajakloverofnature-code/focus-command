@@ -1,11 +1,18 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
   getMiniAchievementTickerSummary,
   getMiniAchievementHeadlines,
   getNextMiniAchievementHeadlineIndex,
+  MINI_ACHIEVEMENT_HEADLINE_INTERVAL_MS,
 } from "../lib/mini-achievement-headlines";
 import type { WallOfFameEntry } from "../lib/focus-command";
+import { MINI_ACHIEVEMENT_TICKER_LAYOUT, MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE } from "../lib/focus-layout";
+
+const tickerSource = readFileSync(resolve(process.cwd(), "components/mini-achievement-ticker.tsx"), "utf8");
+const homeSource = readFileSync(resolve(process.cwd(), "app/(tabs)/index.tsx"), "utf8");
 
 const entry = (overrides: Partial<WallOfFameEntry> = {}): WallOfFameEntry => ({
   id: "entry_1",
@@ -55,5 +62,31 @@ describe("Mini Achievements headline selection", () => {
 
     expect(getMiniAchievementTickerSummary(fullTitle)).toBe("Completed deep");
     expect(getMiniAchievementHeadlines([entry({ miniAchievement: fullTitle })])[0]?.title).toBe(fullTitle);
+  });
+
+  it("keeps the ticker in its protected header slot and preserves the Wall of Fame route", () => {
+    expect(MINI_ACHIEVEMENT_TICKER_LAYOUT).toEqual({ height: 78, gap: 12, headerZoneMinHeight: 0 });
+    expect(MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE).toBe("/analytics?metric=fame");
+    expect(homeSource).toContain("<MiniAchievementTicker");
+    expect(homeSource).toContain("router.push(MINI_ACHIEVEMENT_WALL_OF_FAME_ROUTE as never)");
+    expect(tickerSource).toContain('accessibilityHint={onPress ? "Opens the Wall of Fame" : undefined}');
+  });
+
+  it("retains readable two-line achievement copy, the rating badge, and the low-cost rotation cadence", () => {
+    expect(tickerSource).toContain('numberOfLines={2} ellipsizeMode="tail" style={styles.title}');
+    expect(tickerSource).toContain("<View style={styles.ratingBadge}>");
+    expect(tickerSource).toContain("activeAchievement.rating.toFixed(1)");
+    expect(tickerSource).toContain("setInterval(rotate, MINI_ACHIEVEMENT_HEADLINE_INTERVAL_MS)");
+    expect(tickerSource).toContain("if (achievements.length <= 1 || reduceMotion) return;");
+    expect(MINI_ACHIEVEMENT_HEADLINE_INTERVAL_MS).toBe(4_600);
+  });
+
+  it("keeps the approved premium collectible treatment inside the existing ticker bounds", () => {
+    expect(tickerSource).toContain("export const MiniAchievementTicker = memo(function MiniAchievementTicker");
+    expect(tickerSource).toContain("height: MINI_ACHIEVEMENT_TICKER_LAYOUT.height");
+    expect(tickerSource).toContain("ambientGlow:");
+    expect(tickerSource).toContain("topline:");
+    expect(tickerSource).toContain("iconRing:");
+    expect(tickerSource).toContain('borderColor: "#F4C95D35"');
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
@@ -11,7 +11,7 @@ import {
 } from "@/lib/mini-achievement-headlines";
 import { MINI_ACHIEVEMENT_TICKER_LAYOUT } from "@/lib/focus-layout";
 
-export function MiniAchievementTicker({
+export const MiniAchievementTicker = memo(function MiniAchievementTicker({
   achievements,
   reduceMotion,
   style,
@@ -74,9 +74,12 @@ export function MiniAchievementTicker({
       onPress={onPress}
       style={({ pressed }) => [styles.ticker, style, onPress && pressed ? styles.tickerPressed : null]}
     >
+      <View pointerEvents="none" style={styles.ambientGlow} />
+      <View pointerEvents="none" style={styles.topline} />
       <View style={styles.accent} />
       <Animated.View style={[styles.headline, headlineStyle]}>
         <View style={styles.iconFrame}>
+          <View pointerEvents="none" style={styles.iconRing} />
           <IconSymbol name="trophy.fill" size={13} color="#F4C95D" />
         </View>
         <View style={styles.copy}>
@@ -90,24 +93,28 @@ export function MiniAchievementTicker({
       </Animated.View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   ticker: {
     height: MINI_ACHIEVEMENT_TICKER_LAYOUT.height,
     overflow: "hidden",
-    borderRadius: 13,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#F4C95D50",
-    backgroundColor: "#10233AEC",
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#F4C95D62",
+    backgroundColor: "#10233AF7",
+    position: "relative",
   },
   tickerPressed: { opacity: 0.82, transform: [{ scale: 0.985 }] },
-  accent: { position: "absolute", left: 0, top: 14, bottom: 14, width: 3, borderRadius: 99, backgroundColor: "#F4C95D" },
+  ambientGlow: { position: "absolute", width: 170, height: 120, borderRadius: 88, top: -72, right: -42, backgroundColor: "#F4C95D0E" },
+  topline: { position: "absolute", left: 17, right: 17, top: 0, height: 1, backgroundColor: "#F7D87842" },
+  accent: { position: "absolute", left: 0, top: 13, bottom: 13, width: 4, borderRadius: 99, backgroundColor: "#F4C95D" },
   headline: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 14, paddingLeft: 17, paddingVertical: 11 },
-  iconFrame: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#F4C95D16" },
+  iconFrame: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#F4C95D16", borderWidth: StyleSheet.hairlineWidth, borderColor: "#F4C95D2C", overflow: "hidden" },
+  iconRing: { position: "absolute", width: 29, height: 29, borderRadius: 15, borderWidth: 1, borderColor: "#F4C95D26" },
   copy: { flex: 1, minWidth: 0, justifyContent: "center" },
   eyebrow: { color: "#D9B65A", fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.75 },
   title: { minHeight: 36, color: "#F5F9FF", fontSize: 14, lineHeight: 18, fontWeight: "800", marginTop: 2 },
-  ratingBadge: { minWidth: 54, height: 36, paddingHorizontal: 9, borderRadius: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: "#F4C95D18" },
+  ratingBadge: { minWidth: 54, height: 36, paddingHorizontal: 9, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, borderColor: "#F4C95D35", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: "#F4C95D18" },
   rating: { color: "#F4C95D", fontSize: 12.5, lineHeight: 16, fontWeight: "900" },
 });

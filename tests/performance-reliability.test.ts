@@ -72,6 +72,21 @@ describe("Performance and reliability contracts", () => {
     expect(tabSource).toContain("useFocusCommandSelector(selectTabFeedback");
   });
 
+  it("starts TapFeedback's visual acknowledgement on press-in while preserving semantic action and avoiding audio or haptic work on an aborted touch", () => {
+    const tapFeedbackSource = focusUiSource.slice(
+      focusUiSource.indexOf("export function TapFeedback"),
+      focusUiSource.indexOf("export function SectionHeader"),
+    );
+
+    expect(tapFeedbackSource).toContain("const acknowledgePressIn = () => {");
+    expect(tapFeedbackSource).toContain("scale.value = withTiming(0.972, { duration: 45 })");
+    expect(tapFeedbackSource).toContain("onPressIn={acknowledgePressIn}");
+    expect(tapFeedbackSource).toContain("onPressOut={restorePressScale}");
+    expect(tapFeedbackSource).toContain("onPress={onPress}");
+    expect(tapFeedbackSource).not.toContain("playFocusTap");
+    expect(tapFeedbackSource).not.toContain("Haptics.");
+  });
+
   it("prepares optional tap feedback only after launch is inactive and never plays sound during preparation", () => {
     expect(tapBridgeSource).toContain("subscribeLaunchSequenceActivity");
     expect(tapBridgeSource).toContain("isLaunchSequenceActive()");

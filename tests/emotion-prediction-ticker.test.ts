@@ -24,4 +24,23 @@ describe("EmotionPredictionTicker regression contract", () => {
     expect(source).toContain("capsulePressable: { width: EMOTION_PREDICTION_CAPSULE_WIDTH, flexShrink: 0 }");
     expect(source).toContain("predictionLabel: { flex: 1, minWidth: 0");
   });
+
+  it("keeps the approved premium compact slots contained without sacrificing readable prediction copy", () => {
+    expect(source).toContain('capsule: { width: EMOTION_PREDICTION_CAPSULE_WIDTH, minHeight: 42');
+    expect(source).toContain('overflow: "hidden", backgroundColor: "#14122C"');
+    expect(source).toContain("predictionIcon: { width: 20");
+    expect(source).toContain("flexShrink: 0, overflow: \"hidden\" }");
+    expect(source).toContain("chevronFrame: { width: 19");
+    expect(source).toContain("backgroundColor: \"#0F1022A8\", flexShrink: 0");
+    expect(source).toContain("capsuleGlow:");
+    expect(source).toContain("accentRail:");
+    expect(source).toContain("iconHalo:");
+  });
+
+  it("keeps a memoized ticker boundary and resets rotation only when the prediction identity set changes", () => {
+    expect(source).toContain("export const EmotionPredictionTicker = memo(function EmotionPredictionTicker");
+    expect(source).toContain("const key = useMemo(() => predictions.map((prediction) => prediction.id).join(\"|\"), [predictions]);");
+    expect(source).toContain("useEffect(() => { setIndex(0); }, [key]);");
+    expect(source).toContain("}, [key, opacity, predictions.length, reduceMotion]);");
+  });
 });
