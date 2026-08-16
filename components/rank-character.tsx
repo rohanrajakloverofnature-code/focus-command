@@ -571,7 +571,7 @@ export function RankCharacterAchievement({
         <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss character evolution" style={styles.modalPressable}>
           <Animated.View accessibilityRole="alert" accessibilityLabel={`${title} level ${level} ${mode === "evolution" ? "character evolution sequence" : "current character form"}`} style={[styles.cinematicStage, stageStyle]}>
             <Animated.View pointerEvents="none" style={[styles.cinematicFlash, { backgroundColor: cinematicColors.accent }, flashStyle]} />
-            <View pointerEvents="none" style={[styles.cinematicAtmosphere, { backgroundColor: `${cinematicColors.atmosphere}C8` }]} />
+            <View pointerEvents="none" style={[styles.cinematicAtmosphere, { backgroundColor: `${cinematicColors.atmosphere}6A` }]} />
             <View pointerEvents="none" style={styles.cinematicNoise} />
             <View pointerEvents="none" style={[styles.cinematicTopline]}><Text style={[styles.cinematicProtocol, { color: cinematicColors.accent }]}>{phaseCopy}</Text><Text style={styles.cinematicDismiss}>TAP TO DISMISS</Text></View>
             <Animated.View pointerEvents="none" style={[styles.cinematicPortal, { borderColor: `${cinematicColors.metallic}EA`, shadowColor: cinematicColors.metallic }, portalStyle]} />
@@ -595,9 +595,9 @@ export function RankCharacterAchievement({
               <EquipmentReadout gear={gear} accent={cinematicColors.accent} secondaryAccent={cinematicColors.rod} foreground={colors.foreground} />
               <Text style={[styles.cinematicAura, { color: colors.muted }]}>{evolution.aura.toUpperCase()}</Text>
             </Animated.View>
-            <Animated.View style={[styles.cinematicReward, { borderColor: `${cinematicColors.metallic}CC`, backgroundColor: `${cinematicColors.frame}F5`, shadowColor: cinematicColors.energy }, rewardStyle]}>
+            <Animated.View style={[styles.cinematicReward, { borderColor: `${cinematicColors.metallic}CC`, backgroundColor: `${cinematicColors.frame}78`, shadowColor: cinematicColors.energy }, rewardStyle]}>
               <View pointerEvents="none" style={[styles.cinematicRewardTopline, { backgroundColor: cinematicColors.metallic }]} />
-              <View pointerEvents="none" style={[styles.cinematicRewardCore, { borderColor: cinematicColors.accent, backgroundColor: cinematicColors.frame }]} />
+              <View pointerEvents="none" style={[styles.cinematicRewardCore, { borderColor: cinematicColors.accent, backgroundColor: `${cinematicColors.frame}B8` }]} />
               <View style={styles.cinematicRewardColumn}><Text style={[styles.cinematicRewardEyebrow, { color: cinematicColors.energy }]}>LEVEL REACHED</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>LEVEL {level}</Text></View>
               <View style={[styles.cinematicRewardDivider, { backgroundColor: `${cinematicColors.metallic}88` }]} />
               <View style={styles.cinematicRewardColumn}><Text style={[styles.cinematicRewardEyebrow, { color: cinematicColors.energy }]}>TOTAL POWER</Text><Text style={[styles.cinematicRewardValue, { color: cinematicColors.metallic }]}>{powerText}</Text></View>
@@ -632,12 +632,12 @@ const styles = StyleSheet.create({
   detailText: { fontSize: 8, lineHeight: 11, fontWeight: "800", maxWidth: 120, textAlign: "center" },
   gearPips: { flexDirection: "row", gap: 3, marginTop: 1 },
   gearPip: { width: 4, height: 4, borderRadius: 2 },
-  modalBackdrop: { flex: 1, backgroundColor: "#020914EE", alignItems: "center", justifyContent: "center" },
+  modalBackdrop: { flex: 1, backgroundColor: "transparent", alignItems: "center", justifyContent: "center" },
   modalPressable: { width: "100%", alignItems: "center", justifyContent: "center", flex: 1 },
   cinematicStage: { width: "100%", maxWidth: 440, height: "100%", minHeight: 600, paddingHorizontal: 18, paddingTop: 48, paddingBottom: 34, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   cinematicFlash: { ...StyleSheet.absoluteFillObject },
   cinematicAtmosphere: { position: "absolute", width: "145%", height: "145%", borderRadius: 999, opacity: 0.74 },
-  cinematicNoise: { position: "absolute", width: "136%", height: "136%", borderRadius: 999, backgroundColor: "#0207137A" },
+  cinematicNoise: { position: "absolute", width: "136%", height: "136%", borderRadius: 999, backgroundColor: "#02071326" },
   cinematicTopline: { position: "absolute", top: 55, left: 22, right: 22, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   cinematicProtocol: { flex: 1, fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 1.45 },
   cinematicDismiss: { color: "#9CAFBE", fontSize: 8, lineHeight: 11, fontWeight: "800", letterSpacing: 0.75 },

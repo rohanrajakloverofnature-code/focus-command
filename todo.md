@@ -583,3 +583,4 @@
 - [x] Implement the approved protected reference-style cinematic reconstruction: cached automatic multi-color roles, premium decorative layers, compatibility safeguards, regression coverage, and full preflight validation.
 - [x] Implement the approved protected Home profile-card appearance control with independent Global Palette, Active Character Palette, and Custom sources, limited to render-only decorative card colors.
 - [x] Add backward-compatible Home-card appearance regression coverage and complete TypeScript, full-test, lint, static web-export, and Android JavaScript-bundle preflight validation without starting an APK build.
+- [x] Apply the approved strictly render-only premium transparent-glass treatment to the user-marked opaque cinematic background panels without changing protected timing, media, rewards, interaction, layout, or behavior.

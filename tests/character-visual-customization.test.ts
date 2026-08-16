@@ -99,4 +99,17 @@ describe("character visual customization", () => {
     expect(cinematic).toContain(">TOTAL POWER</Text>");
     expect(cinematic).toContain(">{powerText}</Text>");
   });
+
+  it("uses genuine transparent glass surfaces without adding live blur or playback work to the protected cinematic", () => {
+    const cinematic = readFileSync(resolve(process.cwd(), "components/rank-character.tsx"), "utf8");
+
+    expect(cinematic).toContain('modalBackdrop: { flex: 1, backgroundColor: "transparent"');
+    expect(cinematic).toContain('backgroundColor: `${cinematicColors.atmosphere}6A`');
+    expect(cinematic).toContain('backgroundColor: "#02071326"');
+    expect(cinematic).toContain('backgroundColor: `${cinematicColors.frame}78`');
+    expect(cinematic).toContain('backgroundColor: `${cinematicColors.frame}B8`');
+    expect(cinematic).not.toContain("expo-blur");
+    expect(cinematic).not.toContain("BlurView");
+    expect(cinematic).not.toContain("deriveCharacterCinematicColors");
+  });
 });
