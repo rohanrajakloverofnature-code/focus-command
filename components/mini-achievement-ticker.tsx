@@ -11,6 +11,8 @@ import {
 } from "@/lib/mini-achievement-headlines";
 import { MINI_ACHIEVEMENT_TICKER_LAYOUT } from "@/lib/focus-layout";
 
+const MINI_ACHIEVEMENT_TYPING_INTERVAL_MS = 32;
+
 export const MiniAchievementTicker = memo(function MiniAchievementTicker({
   achievements,
   reduceMotion,
@@ -29,7 +31,9 @@ export const MiniAchievementTicker = memo(function MiniAchievementTicker({
   accentColor?: string;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [typedTitle, setTypedTitle] = useState("");
   const changeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const opacity = useSharedValue(1);
   const offsetY = useSharedValue(0);
   const achievementSignature = useMemo(() => achievements.map((achievement) => `${achievement.id}:${achievement.occurredAt}`).join("|"), [achievements]);
@@ -71,6 +75,26 @@ export const MiniAchievementTicker = memo(function MiniAchievementTicker({
   const resolvedSurfaceColor = surfaceColor ?? "#000000";
   const resolvedAccentColor = accentColor ?? "#F4C95D";
 
+  useEffect(() => {
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    if (reduceMotion) {
+      setTypedTitle(displayTitle);
+      return undefined;
+    }
+
+    setTypedTitle("");
+    let characterIndex = 0;
+    const typeNextCharacter = () => {
+      characterIndex += 1;
+      setTypedTitle(displayTitle.slice(0, characterIndex));
+      if (characterIndex < displayTitle.length) typingTimerRef.current = setTimeout(typeNextCharacter, MINI_ACHIEVEMENT_TYPING_INTERVAL_MS);
+    };
+    if (displayTitle) typingTimerRef.current = setTimeout(typeNextCharacter, MINI_ACHIEVEMENT_TYPING_INTERVAL_MS);
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    };
+  }, [activeAchievement?.id, displayTitle, reduceMotion]);
+
   if (!activeAchievement) return null;
 
   return (
@@ -92,7 +116,7 @@ export const MiniAchievementTicker = memo(function MiniAchievementTicker({
         </View>
         <View style={styles.copy}>
           <Text numberOfLines={1} style={[styles.eyebrow, { color: resolvedAccentColor }]}>MINI ACHIEVEMENT · WALL OF FAME</Text>
-          <Text numberOfLines={2} ellipsizeMode="tail" style={styles.title}>{displayTitle}</Text>
+          <Text accessibilityLabel={displayTitle} adjustsFontSizeToFit minimumFontScale={0.76} numberOfLines={1} style={styles.title}>{typedTitle}</Text>
         </View>
         <View style={[styles.ratingBadge, { borderColor: `${resolvedAccentColor}35`, backgroundColor: `${resolvedAccentColor}18` }]}>
           <IconSymbol name="star.fill" size={9} color={resolvedAccentColor} />
@@ -120,7 +144,7 @@ const styles = StyleSheet.create({
   iconRing: { position: "absolute", width: 29, height: 29, borderRadius: 15, borderWidth: 1 },
   copy: { flex: 1, minWidth: 0, justifyContent: "center" },
   eyebrow: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.75 },
-  title: { minHeight: 36, color: "#F5F9FF", fontSize: 14, lineHeight: 18, fontWeight: "800", marginTop: 2 },
+  title: { color: "#F5F9FF", fontSize: 14, lineHeight: 18, fontWeight: "800", marginTop: 2 },
   ratingBadge: { minWidth: 54, height: 36, paddingHorizontal: 9, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
   rating: { fontSize: 12.5, lineHeight: 16, fontWeight: "900" },
 });

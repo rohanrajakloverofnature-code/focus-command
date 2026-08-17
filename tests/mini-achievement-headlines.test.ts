@@ -6,6 +6,7 @@ import {
   getMiniAchievementTickerSummary,
   getMiniAchievementHeadlines,
   getNextMiniAchievementHeadlineIndex,
+  isMiniAchievementTickerSummaryCompact,
   MINI_ACHIEVEMENT_HEADLINE_INTERVAL_MS,
 } from "../lib/mini-achievement-headlines";
 import type { WallOfFameEntry } from "../lib/focus-command";
@@ -53,15 +54,23 @@ describe("Mini Achievements headline selection", () => {
     expect(getNextMiniAchievementHeadlineIndex(1, headlines.length)).toBe(0);
   });
 
-  it("keeps normal achievement titles intact for the readable two-line ticker", () => {
-    expect(getMiniAchievementTickerSummary("Held a distraction-free block")).toBe("Held a distraction-free block");
+  it("uses a compact semantic summary instead of clipping initial title words", () => {
+    expect(getMiniAchievementTickerSummary("Held a distraction-free block")).toBe("FOCUS BLOCK");
   });
 
-  it("uses a concise two-word display summary for unusually long achievement text without changing the saved title", () => {
-    const fullTitle = "Completed a deep work review and maintained focus through the final reflection";
+  it("reduces emotion, activity, and outcome into the approved three-word semantic format without changing the saved title", () => {
+    const fullTitle = "Feels great because I completed two hours of study and five sums";
 
-    expect(getMiniAchievementTickerSummary(fullTitle)).toBe("Completed deep");
+    expect(getMiniAchievementTickerSummary(fullTitle)).toBe("GREAT STUDY & SUMS");
     expect(getMiniAchievementHeadlines([entry({ miniAchievement: fullTitle })])[0]?.title).toBe(fullTitle);
+  });
+
+  it("keeps every rendered summary at three real words or fewer, including fallback copy", () => {
+    [
+      "Completed a deep work review and maintained focus through the final reflection",
+      "A beautifully focused command block with nothing else to prove",
+      "",
+    ].forEach((title) => expect(isMiniAchievementTickerSummaryCompact(getMiniAchievementTickerSummary(title))).toBe(true));
   });
 
   it("keeps the ticker in its protected header slot and preserves the Wall of Fame route", () => {
@@ -72,8 +81,12 @@ describe("Mini Achievements headline selection", () => {
     expect(tickerSource).toContain('accessibilityHint={onPress ? "Opens the Wall of Fame" : undefined}');
   });
 
-  it("retains readable two-line achievement copy, the rating badge, and the low-cost rotation cadence", () => {
-    expect(tickerSource).toContain('numberOfLines={2} ellipsizeMode="tail" style={styles.title}');
+  it("retains full-text compact fitting, cancellable typing, the rating badge, and the low-cost rotation cadence", () => {
+    expect(tickerSource).toContain('adjustsFontSizeToFit minimumFontScale={0.76} numberOfLines={1} style={styles.title}');
+    expect(tickerSource).toContain("const MINI_ACHIEVEMENT_TYPING_INTERVAL_MS = 32");
+    expect(tickerSource).toContain("typingTimerRef");
+    expect(tickerSource).toContain("if (reduceMotion) {");
+    expect(tickerSource).toContain("clearTimeout(typingTimerRef.current)");
     expect(tickerSource).toContain('style={[styles.ratingBadge, { borderColor: `${resolvedAccentColor}35`, backgroundColor: `${resolvedAccentColor}18` }]}');
     expect(tickerSource).toContain("activeAchievement.rating.toFixed(1)");
     expect(tickerSource).toContain("setInterval(rotate, MINI_ACHIEVEMENT_HEADLINE_INTERVAL_MS)");

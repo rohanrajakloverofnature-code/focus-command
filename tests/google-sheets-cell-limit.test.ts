@@ -33,6 +33,7 @@ function makeOversizedState(): FocusState {
     transactions: [],
     inventory: [],
     progression: [],
+    characterMilestones: [],
     lifeline: [],
     customQuestions: [],
     customGraphs: [],

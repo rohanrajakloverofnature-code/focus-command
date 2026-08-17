@@ -28,6 +28,7 @@ type DashboardDependencies = Pick<FocusState,
   | "missions"
   | "missionCompletions"
   | "progression"
+  | "characterMilestones"
   | "reflections"
   | "distractionLogs"
   | "srsTopics"
@@ -41,6 +42,7 @@ function selectDashboardDependencies(state: FocusState): DashboardDependencies {
     missions: state.missions,
     missionCompletions: state.missionCompletions,
     progression: state.progression,
+    characterMilestones: state.characterMilestones,
     reflections: state.reflections,
     distractionLogs: state.distractionLogs,
     srsTopics: state.srsTopics,
@@ -54,6 +56,7 @@ function hasSameDashboardDependencies(left: DashboardDependencies, right: Dashbo
     && left.missions === right.missions
     && left.missionCompletions === right.missionCompletions
     && left.progression === right.progression
+    && left.characterMilestones === right.characterMilestones
     && left.reflections === right.reflections
     && left.distractionLogs === right.distractionLogs
     && left.srsTopics === right.srsTopics
@@ -198,6 +201,19 @@ export default function DashboardScreen() {
                 <Text style={[styles.commandArchiveDetail, { color: colors.muted }]}>Explore every recorded local year and month, with growth, focus, rewards, subjects, and friction kept in one read-only record.</Text>
               </View>
               <IconSymbol name="chevron.right" size={22} color="#A78BFA" />
+            </View>
+          </CommandCard>
+        </TapFeedback>
+
+        <TapFeedback onPress={() => router.push("/character-achievement-path" as never)} accessibilityLabel="Open character achievement path">
+          <CommandCard accent="#F4C95D" style={styles.commandArchiveCard}>
+            <View style={styles.commandArchiveHeading}>
+              <View style={styles.commandArchiveCopy}>
+                <Text style={[styles.commandArchiveEyebrow, { color: "#F4C95D" }]}>LIFETIME CHARACTER PATH</Text>
+                <Text style={[styles.commandArchiveTitle, { color: colors.foreground }]}>Your earned form achievements</Text>
+                <Text style={[styles.commandArchiveDetail, { color: colors.muted }]}>{state.characterMilestones.length ? `${state.characterMilestones.length} unlocked form${state.characterMilestones.length === 1 ? "" : "s"} · tap to follow the path` : "Your next earned form change will be recorded here automatically."}</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={22} color="#F4C95D" />
             </View>
           </CommandCard>
         </TapFeedback>

@@ -90,7 +90,7 @@ function assertStateShape(value: unknown): asserts value is FocusState {
   const state = value as Partial<FocusState>;
   const requiredCollections: Array<keyof FocusState> = [
     "missions", "missionCompletions", "reflections", "srsTopics", "bosses", "journals",
-    "distractionLogs", "rewards", "transactions", "inventory", "progression", "lifeline",
+    "distractionLogs", "rewards", "transactions", "inventory", "progression", "characterMilestones", "lifeline",
     "customQuestions", "customGraphs", "allEquipment", "userEquipment",
   ];
   if (!state.profile || typeof state.profile !== "object" || !state.combo || typeof state.combo !== "object") {
@@ -192,6 +192,10 @@ export function parseOfflineBackupArchive(archive: Uint8Array): ParsedOfflineBac
     // Preserve all valid older backups by treating the missing append-only ledger as empty;
     // no past activity is reconstructed or invented during restore.
     if (!Array.isArray(parsedState.srsActivityLog)) parsedState.srsActivityLog = [];
+    // Character milestones were introduced after the initial offline-backup format.
+    // A missing collection is hydrated as empty and then safely reconstructed from
+    // immutable progression data by the central compatibility layer.
+    if (!Array.isArray(parsedState.characterMilestones)) parsedState.characterMilestones = [];
     state = parsedState as FocusState;
   } catch {
     throw new OfflineBackupValidationError("The backup command data cannot be read.");

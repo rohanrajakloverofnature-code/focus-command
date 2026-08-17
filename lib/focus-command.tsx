@@ -11,7 +11,7 @@ import React, {
   useSyncExternalStore,
 } from "react";
 import { calculateEquippedXpModifier, calculateEquippedEnergyModifier } from "./equipment-modifiers";
-import type { CharacterCinematicVariant } from "./character-development";
+import { getCharacterEvolutionProfile, type CharacterCinematicVariant } from "./character-development";
 import { deriveCinematicTokensFromPalette } from "./character-cinematic-tokens";
 
 type AppStateSubscription = { remove: () => void };
@@ -427,6 +427,21 @@ export interface ProgressionEvent {
   comboAfter?: number;
 }
 
+/**
+ * One immutable automatic character-form achievement. A record is written only
+ * when earned progression activates a new visual form; it is never created by
+ * manually editing character media or appearance preferences.
+ */
+export interface CharacterMilestone {
+  id: string;
+  formKey: string;
+  formName: string;
+  portraitUri?: string;
+  achievedAt: string;
+  levelAtAchievement: number;
+  totalPowerAtAchievement: number;
+}
+
 /** Immutable record of one valid mission completion. */
 export interface MissionCompletion {
   id: string;
@@ -592,6 +607,7 @@ export interface FocusState {
   transactions: Transaction[];
   inventory: InventoryItem[];
   progression: ProgressionEvent[];
+  characterMilestones: CharacterMilestone[];
   lifeline: LifelinePoint[];
   customQuestions: CustomQuestion[];
   customGraphs: CustomGraph[];
@@ -838,6 +854,144 @@ export function getLevelPowerThreshold(level: number, basePower: number): number
   return Math.round(Math.max(1, basePower) * completedLevels * growthMultiplier);
 }
 
+/** The path is bounded so a decades-long offline history stays instant to open and virtualize. */
+export const MAX_CHARACTER_MILESTONES = 256;
+
+type CharacterMilestoneProfile = Pick<PlayerProfile, "powerPerLevel" | "maxLevel" | "rankTitles" | "titles" | "titleChangeInterval" | "customCharacterForms" | "localCinematicOverrides">;
+
+function getLevelForTotalPower(profile: Pick<PlayerProfile, "powerPerLevel" | "maxLevel">, totalPower: number): number {
+  const maxLevel = Math.max(1, Math.floor(profile.maxLevel));
+  const basePower = Math.max(1, profile.powerPerLevel);
+  let level = 1;
+  while (level < maxLevel && totalPower >= getLevelPowerThreshold(level + 1, basePower)) level += 1;
+  return level;
+}
+
+function getTitleForLevel(profile: Pick<PlayerProfile, "rankTitles" | "titles" | "titleChangeInterval">, level: number): string {
+  const titles = getResolvedRankTitles(profile);
+  return titles.reduce((selected, entry) => entry.startLevel <= level ? entry : selected, titles[0] ?? { name: "Commander" }).name;
+}
+
+function getCharacterMilestoneSnapshot(
+  profile: CharacterMilestoneProfile,
+  title: string,
+  level: number,
+  achievedAt: string,
+) {
+  const createdByAchievement = (profile.customCharacterForms ?? []).filter((form) =>
+    !form.createdAt || !Number.isFinite(Date.parse(form.createdAt)) || form.createdAt <= achievedAt,
+  );
+  const activeCustomForm = getActiveCustomCharacterForm({ customCharacterForms: createdByAchievement }, level);
+  if (activeCustomForm) {
+    return {
+      formKey: `custom:${activeCustomForm.id}`,
+      formName: activeCustomForm.name,
+      portraitUri: activeCustomForm.portrait?.uri,
+    };
+  }
+  const evolution = getCharacterEvolutionProfile(title, level);
+  return {
+    formKey: `builtin:${evolution.cinematicVariant}:${evolution.stage}`,
+    formName: `${title} · ${evolution.formName}`,
+    portraitUri: profile.localCinematicOverrides[evolution.cinematicVariant]?.uri,
+  };
+}
+
+function limitCharacterMilestones(milestones: CharacterMilestone[]): CharacterMilestone[] {
+  return milestones.length > MAX_CHARACTER_MILESTONES ? milestones.slice(-MAX_CHARACTER_MILESTONES) : milestones;
+}
+
+function normalizeCharacterMilestones(value: unknown): CharacterMilestone[] {
+  if (!Array.isArray(value)) return [];
+  const ids = new Set<string>();
+  const normalized: CharacterMilestone[] = [];
+  for (const record of value) {
+    if (!record || typeof record !== "object") continue;
+    const milestone = record as Partial<CharacterMilestone>;
+    const levelAtAchievement = milestone.levelAtAchievement;
+    const totalPowerAtAchievement = milestone.totalPowerAtAchievement;
+    if (
+      typeof milestone.id !== "string" || !milestone.id || ids.has(milestone.id)
+      || typeof milestone.formKey !== "string" || !milestone.formKey
+      || typeof milestone.formName !== "string" || !milestone.formName
+      || typeof milestone.achievedAt !== "string" || !Number.isFinite(Date.parse(milestone.achievedAt))
+      || typeof levelAtAchievement !== "number" || !Number.isFinite(levelAtAchievement)
+      || typeof totalPowerAtAchievement !== "number" || !Number.isFinite(totalPowerAtAchievement)
+    ) continue;
+    ids.add(milestone.id);
+    normalized.push({
+      id: milestone.id,
+      formKey: milestone.formKey,
+      formName: milestone.formName,
+      portraitUri: typeof milestone.portraitUri === "string" && milestone.portraitUri ? milestone.portraitUri : undefined,
+      achievedAt: milestone.achievedAt,
+      levelAtAchievement: Math.max(1, Math.floor(levelAtAchievement)),
+      totalPowerAtAchievement: Math.max(0, totalPowerAtAchievement),
+    });
+  }
+  return limitCharacterMilestones(normalized);
+}
+
+/** Reconstructs only genuine historic form transitions from existing immutable progression. */
+export function rebuildCharacterMilestonesFromProgression(
+  profile: CharacterMilestoneProfile,
+  progression: ProgressionEvent[],
+): CharacterMilestone[] {
+  let totalPower = 0;
+  const milestones: CharacterMilestone[] = [];
+  const knownIds = new Set<string>();
+  for (const event of progression) {
+    const powerBefore = totalPower;
+    totalPower += Math.max(0, event.powerAwarded || 0);
+    const levelBefore = Math.max(1, Math.floor(event.levelBefore ?? getLevelForTotalPower(profile, powerBefore)));
+    const levelAfter = Math.max(levelBefore, Math.floor(event.levelAfter ?? getLevelForTotalPower(profile, totalPower)));
+    const titleBefore = event.titleBefore?.trim() || getTitleForLevel(profile, levelBefore);
+    const titleAfter = event.titleAfter?.trim() || getTitleForLevel(profile, levelAfter);
+    const occurredAt = Number.isFinite(Date.parse(event.occurredAt)) ? event.occurredAt : new Date(0).toISOString();
+    const before = getCharacterMilestoneSnapshot(profile, titleBefore, levelBefore, occurredAt);
+    const after = getCharacterMilestoneSnapshot(profile, titleAfter, levelAfter, occurredAt);
+    const id = `character_milestone_${event.id}`;
+    if (before.formKey === after.formKey || knownIds.has(id)) continue;
+    knownIds.add(id);
+    milestones.push({
+      id,
+      ...after,
+      achievedAt: occurredAt,
+      levelAtAchievement: levelAfter,
+      totalPowerAtAchievement: totalPower,
+    });
+  }
+  return limitCharacterMilestones(milestones);
+}
+
+function appendCharacterMilestoneForProgression(
+  existing: CharacterMilestone[],
+  profile: CharacterMilestoneProfile,
+  progression: ProgressionEvent,
+  totalPowerBefore: number,
+): CharacterMilestone[] {
+  const achievedAt = progression.occurredAt;
+  const levelBefore = Math.max(1, Math.floor(progression.levelBefore ?? getLevelForTotalPower(profile, totalPowerBefore)));
+  const totalPowerAfter = totalPowerBefore + Math.max(0, progression.powerAwarded || 0);
+  const levelAfter = Math.max(levelBefore, Math.floor(progression.levelAfter ?? getLevelForTotalPower(profile, totalPowerAfter)));
+  const titleBefore = progression.titleBefore?.trim() || getTitleForLevel(profile, levelBefore);
+  const titleAfter = progression.titleAfter?.trim() || getTitleForLevel(profile, levelAfter);
+  const before = getCharacterMilestoneSnapshot(profile, titleBefore, levelBefore, achievedAt);
+  const after = getCharacterMilestoneSnapshot(profile, titleAfter, levelAfter, achievedAt);
+  const id = `character_milestone_${progression.id}`;
+  if (before.formKey === after.formKey || existing.some((milestone) => milestone.id === id)) return existing;
+  return limitCharacterMilestones([
+    ...existing,
+    {
+      id,
+      ...after,
+      achievedAt,
+      levelAtAchievement: levelAfter,
+      totalPowerAtAchievement: totalPowerAfter,
+    },
+  ]);
+}
+
 function defaultDashboardWidgets(): DashboardWidgetConfig[] {
   return [
     {
@@ -1008,6 +1162,7 @@ export function createInitialState(): FocusState {
     transactions: [],
     inventory: [],
     progression: [],
+    characterMilestones: [],
     lifeline: [],
     customQuestions: [],
     customGraphs: [
@@ -1984,6 +2139,17 @@ export function normalizeHydratedState(input: FocusState): FocusState {
     titles: rankTitles.map((entry) => entry.name),
     customCharacterForms,
   });
+  const milestoneProfile: CharacterMilestoneProfile = {
+    ...rawProfile,
+    rankTitles,
+    titles: rankTitles.map((entry) => entry.name),
+    customCharacterForms,
+    localCinematicOverrides: input.profile?.localCinematicOverrides ?? {},
+  };
+  const normalizedMilestones = normalizeCharacterMilestones(input.characterMilestones);
+  const characterMilestones = normalizedMilestones.length
+    ? normalizedMilestones
+    : rebuildCharacterMilestonesFromProgression(milestoneProfile, input.progression ?? []);
   return {
     ...defaults,
     ...input,
@@ -2075,6 +2241,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       };
     }),
     missionCompletions: [...existingCompletions, ...migratedLegacyCompletions],
+    characterMilestones,
     srsActivityLog: Array.isArray(input.srsActivityLog)
       ? input.srsActivityLog.filter((entry): entry is SrsActivityEntry =>
           Boolean(
@@ -2611,6 +2778,12 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         srsTopics,
         srsActivityLog,
         progression: [...current.progression, progression],
+        characterMilestones: appendCharacterMilestoneForProgression(
+          current.characterMilestones,
+          current.profile,
+          progression,
+          getTotalPower(current),
+        ),
         transactions,
         inventory: nextInventory,
         combo: updatedCombo,
