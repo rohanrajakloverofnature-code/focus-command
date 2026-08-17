@@ -220,6 +220,8 @@ export function RankCharacterAchievement({
   totalXp = 0,
   totalPower = 0,
   goldBalance = 0,
+  historicPortraitUri,
+  historicFormName,
 }: {
   title: string;
   level: number;
@@ -232,11 +234,22 @@ export function RankCharacterAchievement({
   totalXp?: number;
   totalPower?: number;
   goldBalance?: number;
+  /** A read-only portrait captured by a historic achievement-path node. */
+  historicPortraitUri?: string;
+  /** A read-only form name captured by a historic achievement-path node. */
+  historicFormName?: string;
 }) {
   const colors = useColors();
   const { state } = useFocusCommand();
   const activeCustomForm = getActiveCustomCharacterForm(state.profile, level);
-  const profile = getRankProfile(title, level, state.profile.customCharacterForms);
+  const resolvedProfile = getRankProfile(title, level, state.profile.customCharacterForms);
+  const profile = historicPortraitUri || historicFormName
+    ? {
+      ...resolvedProfile,
+      name: historicFormName?.trim() || resolvedProfile.name,
+      portrait: historicPortraitUri ? { uri: historicPortraitUri } as ImageSourcePropType : resolvedProfile.portrait,
+    }
+    : resolvedProfile;
   const evolution = useMemo(() => getCharacterEvolutionProfile(title, level), [level, title]);
   const characterColorSource = activeCustomForm?.portrait?.uri
     ?? activeCustomForm?.video?.uri

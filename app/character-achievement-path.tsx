@@ -1,5 +1,6 @@
 import { router } from "expo-router";
-import { memo, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Image, type ImageSourcePropType, StyleSheet, Text, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 
@@ -65,13 +66,14 @@ function resolveEquippedCharacterGear(state: AchievementPathDependencies) {
   return equipped;
 }
 
-const PathConnector = memo(function PathConnector({ index, reduceMotion }: { index: number; reduceMotion: boolean }) {
+const PathConnector = memo(function PathConnector({ index, count, reduceMotion, animationRun }: { index: number; count: number; reduceMotion: boolean; animationRun: number }) {
   const lineHeight = useSharedValue(reduceMotion ? 56 : 0);
   useEffect(() => {
+    lineHeight.value = reduceMotion ? 56 : 0;
     if (reduceMotion) return;
-    lineHeight.value = 0;
-    lineHeight.value = withDelay(Math.min(index * 80, 880), withTiming(56, { duration: 300, easing: Easing.out(Easing.cubic) }));
-  }, [index, lineHeight, reduceMotion]);
+    const upwardOrder = Math.max(0, count - index - 2);
+    lineHeight.value = withDelay(Math.min(upwardOrder * 80, 880), withTiming(56, { duration: 300, easing: Easing.out(Easing.cubic) }));
+  }, [animationRun, count, index, lineHeight, reduceMotion]);
   const lineStyle = useAnimatedStyle(() => ({ height: lineHeight.value, opacity: lineHeight.value ? 1 : 0 }));
   return (
     <View style={styles.connectorArea} pointerEvents="none">
@@ -87,6 +89,7 @@ const AchievementNode = memo(function AchievementNode({
   count,
   portrait,
   reduceMotion,
+  animationRun,
   onPress,
 }: {
   entry: CharacterAchievementPathEntry;
@@ -94,6 +97,7 @@ const AchievementNode = memo(function AchievementNode({
   count: number;
   portrait: ImageSourcePropType;
   reduceMotion: boolean;
+  animationRun: number;
   onPress: () => void;
 }) {
   const colors = useColors();
@@ -117,9 +121,14 @@ const AchievementNode = memo(function AchievementNode({
             <PathMetric icon="timer" label="Focus" value={formatHours(entry.investedMs)} accent={colors.primary} />
             <PathMetric icon="shield.fill" label="Power" value={formatCompactNumber(entry.powerEarned)} accent="#F4C95D" />
           </View>
+          <View style={[styles.periodMetrics, { borderColor: `${colors.border}78` }]}>
+            <PathPeriodMetric label="Missions" value={String(entry.completedMissions)} />
+            <PathPeriodMetric label="Gold earned" value={formatCompactNumber(entry.goldEarned)} accent="#F4C95D" />
+            <PathPeriodMetric label="Level range" value={`L${entry.levelStart} → ${entry.levelEnd}`} />
+          </View>
         </CommandCard>
       </TapFeedback>
-      {index < count - 1 ? <PathConnector index={index} reduceMotion={reduceMotion} /> : null}
+      {index < count - 1 ? <PathConnector index={index} count={count} reduceMotion={reduceMotion} animationRun={animationRun} /> : null}
     </View>
   );
 });
@@ -135,10 +144,24 @@ function PathMetric({ icon, label, value, accent }: { icon: "star.fill" | "timer
   );
 }
 
+function PathPeriodMetric({ label, value, accent }: { label: string; value: string; accent?: string }) {
+  const colors = useColors();
+  return (
+    <View style={styles.periodMetric}>
+      <Text numberOfLines={1} style={[styles.periodMetricLabel, { color: colors.muted }]}>{label}</Text>
+      <Text numberOfLines={1} style={[styles.periodMetricValue, { color: accent ?? colors.foreground }]}>{value}</Text>
+    </View>
+  );
+}
+
 export default function CharacterAchievementPathScreen() {
   const ready = useFocusCommandReady();
   const state = useFocusCommandSelector(selectAchievementPathDependencies, hasSameAchievementPathDependencies) as AchievementPathDependencies;
   const [selectedAchievement, setSelectedAchievement] = useState<CharacterAchievementPathEntry | null>(null);
+  const [pathAnimationRun, setPathAnimationRun] = useState(0);
+  useFocusEffect(useCallback(() => {
+    setPathAnimationRun((run) => run + 1);
+  }, []));
   const entries = useMemo(
     () => getCharacterAchievementPath(state),
     [state],
@@ -161,6 +184,7 @@ export default function CharacterAchievementPathScreen() {
             count={displayEntries.length}
             portrait={resolvePortrait(item, state)}
             reduceMotion={state.profile.reduceMotion}
+            animationRun={pathAnimationRun}
             onPress={() => setSelectedAchievement(item)}
           />
         )}
@@ -195,7 +219,9 @@ export default function CharacterAchievementPathScreen() {
           equipment={equippedCharacterGear}
           mode="evolution"
           totalPower={selectedAchievement.totalPowerAtAchievement}
-          goldBalance={0}
+          goldBalance={selectedAchievement.goldEarned}
+          historicPortraitUri={selectedAchievement.portraitUri}
+          historicFormName={selectedAchievement.formName}
           visible
           onDismiss={() => setSelectedAchievement(null)}
         />
@@ -229,7 +255,11 @@ const styles = StyleSheet.create({
   metric: { flex: 1, minWidth: 0, gap: 2 },
   metricLabel: { fontSize: 8, lineHeight: 11, fontWeight: "800", letterSpacing: 0.35 },
   metricValue: { fontSize: 12, lineHeight: 16, fontWeight: "900" },
-  connectorArea: { alignItems: "center", height: 56, overflow: "hidden" },
+  periodMetrics: { flexDirection: "row", borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 9, gap: 6 },
+  periodMetric: { flex: 1, minWidth: 0, gap: 2 },
+  periodMetricLabel: { fontSize: 8, lineHeight: 11, fontWeight: "800", letterSpacing: 0.3 },
+  periodMetricValue: { fontSize: 11, lineHeight: 15, fontWeight: "900" },
+  connectorArea: { alignItems: "center", justifyContent: "flex-end", height: 56, overflow: "hidden" },
   connectorGlow: { position: "absolute", top: 0, width: 11, height: 56, borderRadius: 99, backgroundColor: "#F4C95D10" },
   connector: { width: 2, borderRadius: 99, backgroundColor: "#F4C95D" },
 });

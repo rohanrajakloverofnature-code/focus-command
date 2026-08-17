@@ -611,3 +611,6 @@
 - [x] Add and run deterministic one-confirmation/one-audible-cue regression coverage without changing any feature mechanism.
 - [x] Run full release validation for the approved foreground Achievement-Recap Audio Isolation repair without starting an APK build or workflow.
 - [x] Checkpoint and synchronize only the approved foreground Achievement-Recap Audio Isolation repair to private GitHub main.
+- [x] Remove stale character milestones with their originating deleted progression events and rebuild correct surviving character-period boundaries.
+- [x] Add the approved upward connector draw, compact Missions/Gold/level-range node details, and explicit historic reward snapshots without altering the protected Home cinematic.
+- [ ] Add correction regressions, run full release validation, checkpoint, and safely synchronize the approved correction to GitHub without an APK build.

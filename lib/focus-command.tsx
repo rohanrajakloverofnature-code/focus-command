@@ -434,6 +434,8 @@ export interface ProgressionEvent {
  */
 export interface CharacterMilestone {
   id: string;
+  /** The immutable progression award that activated this earned character form. */
+  sourceProgressionEventId?: string;
   formKey: string;
   formName: string;
   portraitUri?: string;
@@ -919,8 +921,15 @@ function normalizeCharacterMilestones(value: unknown): CharacterMilestone[] {
       || typeof totalPowerAtAchievement !== "number" || !Number.isFinite(totalPowerAtAchievement)
     ) continue;
     ids.add(milestone.id);
+    const explicitSourceProgressionEventId = typeof milestone.sourceProgressionEventId === "string"
+      ? milestone.sourceProgressionEventId.trim()
+      : "";
+    const legacySourceProgressionEventId = milestone.id.startsWith("character_milestone_")
+      ? milestone.id.slice("character_milestone_".length)
+      : "";
     normalized.push({
       id: milestone.id,
+      sourceProgressionEventId: explicitSourceProgressionEventId || legacySourceProgressionEventId || undefined,
       formKey: milestone.formKey,
       formName: milestone.formName,
       portraitUri: typeof milestone.portraitUri === "string" && milestone.portraitUri ? milestone.portraitUri : undefined,
@@ -955,6 +964,7 @@ export function rebuildCharacterMilestonesFromProgression(
     knownIds.add(id);
     milestones.push({
       id,
+      sourceProgressionEventId: event.id,
       ...after,
       achievedAt: occurredAt,
       levelAtAchievement: levelAfter,
@@ -984,6 +994,7 @@ function appendCharacterMilestoneForProgression(
     ...existing,
     {
       id,
+      sourceProgressionEventId: progression.id,
       ...after,
       achievedAt,
       levelAtAchievement: levelAfter,
@@ -1628,6 +1639,9 @@ export function removeCompletedMissionRun(state: FocusState, completionId: strin
         ? { ...item, consumedAt: null, active: true, consumedByCompletionId: undefined }
         : item),
     progression: nextProgression,
+    characterMilestones: nextProgression.length
+      ? state.characterMilestones.filter((milestone) => !progressionIds.has(milestone.sourceProgressionEventId ?? ""))
+      : [],
     distractionLogs: state.distractionLogs.filter((entry) =>
       entry.missionId !== completion.missionId || entry.occurredAt < completion.startedAt || entry.occurredAt > completion.completedAt,
     ),
