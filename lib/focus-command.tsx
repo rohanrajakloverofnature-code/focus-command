@@ -16,11 +16,22 @@ import { deriveCinematicTokensFromPalette } from "./character-cinematic-tokens";
 
 type AppStateSubscription = { remove: () => void };
 type AppStateModule = { addEventListener: (event: "change", listener: (nextState: string) => void) => AppStateSubscription };
+type InteractionTask = { cancel?: () => void };
+type InteractionManagerModule = { runAfterInteractions: (task: () => void) => InteractionTask };
 
 function getRuntimeAppState(): AppStateModule | null {
   if (typeof require !== "function") return null;
   try {
     return (require("react-native") as { AppState?: AppStateModule }).AppState ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function getRuntimeInteractionManager(): InteractionManagerModule | null {
+  if (typeof require !== "function") return null;
+  try {
+    return (require("react-native") as { InteractionManager?: InteractionManagerModule }).InteractionManager ?? null;
   } catch {
     return null;
   }
@@ -2294,6 +2305,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   const persistenceQueue = useRef<Promise<void>>(Promise.resolve());
   const pendingPersistence = useRef<FocusState | null>(null);
   const persistenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const interactionPersistenceTask = useRef<InteractionTask | null>(null);
 
   const enqueuePersistence = useCallback((snapshot: FocusState) => {
     const { hydrated, ...persistable } = snapshot;
@@ -2305,10 +2317,16 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     return persistenceQueue.current;
   }, []);
 
-  const flushPendingPersistence = useCallback(() => {
+  const flushPendingPersistence = useCallback((fromInteractionTask = false) => {
     if (persistenceTimer.current) {
       clearTimeout(persistenceTimer.current);
       persistenceTimer.current = null;
+    }
+    if (fromInteractionTask) {
+      interactionPersistenceTask.current = null;
+    } else if (interactionPersistenceTask.current) {
+      interactionPersistenceTask.current.cancel?.();
+      interactionPersistenceTask.current = null;
     }
     const snapshot = pendingPersistence.current;
     pendingPersistence.current = null;
@@ -2319,6 +2337,10 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     if (persistenceTimer.current) {
       clearTimeout(persistenceTimer.current);
       persistenceTimer.current = null;
+    }
+    if (interactionPersistenceTask.current) {
+      interactionPersistenceTask.current.cancel?.();
+      interactionPersistenceTask.current = null;
     }
     pendingPersistence.current = null;
   }, []);
@@ -2380,7 +2402,13 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     pendingPersistence.current = state;
     if (persistenceTimer.current) clearTimeout(persistenceTimer.current);
     persistenceTimer.current = setTimeout(() => {
-      void flushPendingPersistence();
+      persistenceTimer.current = null;
+      const flushWhenIdle = () => {
+        void flushPendingPersistence(true);
+      };
+      const interactionManager = getRuntimeInteractionManager();
+      interactionPersistenceTask.current = interactionManager?.runAfterInteractions(flushWhenIdle) ?? null;
+      if (!interactionPersistenceTask.current) flushWhenIdle();
     }, PERSISTENCE_DEBOUNCE_MS);
   }, [flushPendingPersistence, state]);
 

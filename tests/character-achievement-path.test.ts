@@ -68,8 +68,12 @@ describe("getCharacterAchievementPath", () => {
 
     expect(screen).toContain("useFocusEffect(useCallback(() => {");
     expect(screen).toContain("setPathAnimationRun((run) => run + 1)");
-    expect(screen).toContain("lineHeight.value = reduceMotion ? 56 : 0");
-    expect(screen).toContain("const upwardOrder = Math.max(0, count - index - 2)");
+    expect(screen).toContain("const CONNECTOR_DRAW_DURATION_MS = 420");
+    expect(screen).toContain("const CONNECTOR_HANDOFF_MS = 120");
+    expect(screen).toContain("withSequence(");
+    expect(screen).toContain("onScrollBeginDrag={cancelAutoFollow}");
+    expect(screen).toContain("if (!autoFollowActive.current) return");
+    expect(screen).toContain("if (!displayEntries.length || state.profile.reduceMotion)");
     expect(screen).toContain("goldBalance={selectedAchievement.goldEarned}");
     expect(screen).toContain("historicPortraitUri={selectedAchievement.portraitUri}");
     expect(screen).toContain("historicFormName={selectedAchievement.formName}");

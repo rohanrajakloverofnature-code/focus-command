@@ -9,6 +9,7 @@ import {
   OfflineBackupValidationError,
   parseOfflineBackupArchive,
   ParsedOfflineBackup,
+  remapHistoricMilestonePortraitUris,
 } from "@/lib/offline-backup-format";
 import { SOUND_ROLE_IDS, type FocusState, type SoundRoleId } from "@/lib/focus-command";
 import type { CharacterCinematicVariant } from "@/lib/character-development";
@@ -169,8 +170,9 @@ function createRestoredMediaFile(directory: Directory, name: string, bytes: Uint
  * removed and the existing application state remains untouched.
  */
 export function materializeOfflineBackupMedia(backup: ParsedOfflineBackup): OfflineRestoreMaterialization {
-  const state = JSON.parse(JSON.stringify(backup.state)) as FocusState;
+  let state = JSON.parse(JSON.stringify(backup.state)) as FocusState;
   const createdUris: string[] = [];
+  const restoredPortraitUris = new Map<string, string>();
   const restoreStamp = timestampFileStem();
   try {
     for (const [variant, override] of Object.entries(state.profile.localCinematicOverrides)) {
@@ -204,12 +206,15 @@ export function materializeOfflineBackupMedia(backup: ParsedOfflineBackup): Offl
     }
     state.profile.customCharacterForms = state.profile.customCharacterForms.map((form) => {
       const prefix = `${FORM_PREFIX}${safeFileName(form.id, "form")}/`;
+      const historicPortraitUri = form.portrait?.uri;
       const portrait = restoreMediaOverride(backup, prefix, "portrait", form.portrait, PORTRAIT_DIRECTORY, restoreStamp, "png", createdUris);
       const video = restoreMediaOverride(backup, prefix, "video", form.video, CINEMATIC_DIRECTORY, restoreStamp, "mp4", createdUris);
       const duringVideo = restoreMediaOverride(backup, prefix, "duringVideo", form.music.duringVideo, SOUND_DIRECTORY, restoreStamp, "mp3", createdUris);
       const postVideo = restoreMediaOverride(backup, prefix, "postVideo", form.music.postVideo, SOUND_DIRECTORY, restoreStamp, "mp3", createdUris);
+      if (historicPortraitUri && portrait?.uri) restoredPortraitUris.set(historicPortraitUri, portrait.uri);
       return { ...form, portrait, video, music: { duringVideo, postVideo } };
     });
+    state = remapHistoricMilestonePortraitUris(state, restoredPortraitUris);
     state.profile.launchAnimation.visual = restoreMediaOverride(backup, LAUNCH_PREFIX, "visual", state.profile.launchAnimation.visual, CINEMATIC_DIRECTORY, restoreStamp, "gif", createdUris);
     state.profile.launchAnimation.audio = restoreMediaOverride(backup, LAUNCH_PREFIX, "audio", state.profile.launchAnimation.audio, SOUND_DIRECTORY, restoreStamp, "mp3", createdUris);
     return { state, createdUris };

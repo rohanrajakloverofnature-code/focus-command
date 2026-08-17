@@ -67,6 +67,23 @@ function cloneBackupState(state: FocusState): FocusState {
   return { ...state, hydrated: false };
 }
 
+/**
+ * Restored local portrait files receive new device URIs. Keep an immutable
+ * achievement node connected to its captured portrait when that source file
+ * has been recreated from the same validated offline archive.
+ */
+export function remapHistoricMilestonePortraitUris(state: FocusState, restoredPortraitUris: ReadonlyMap<string, string>): FocusState {
+  if (!restoredPortraitUris.size || !state.characterMilestones.length) return state;
+  let changed = false;
+  const characterMilestones = state.characterMilestones.map((milestone) => {
+    const restoredPortraitUri = milestone.portraitUri ? restoredPortraitUris.get(milestone.portraitUri) : null;
+    if (!restoredPortraitUri) return milestone;
+    changed = true;
+    return { ...milestone, portraitUri: restoredPortraitUri };
+  });
+  return changed ? { ...state, characterMilestones } : state;
+}
+
 function buildSummary(state: FocusState, mediaFiles: number): OfflineBackupSummary {
   return {
     missions: state.missions.length,

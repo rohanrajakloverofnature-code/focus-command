@@ -614,3 +614,10 @@
 - [x] Remove stale character milestones with their originating deleted progression events and rebuild correct surviving character-period boundaries.
 - [x] Add the approved upward connector draw, compact Missions/Gold/level-range node details, and explicit historic reward snapshots without altering the protected Home cinematic.
 - [x] Add correction regressions, run full release validation, checkpoint, and safely synchronize the approved correction to GitHub without an APK build.
+- [x] Inspect and propose a slower, glowing, long-history-safe upward connector animation for the Character Achievement Path without changing its ordering or interactions.
+- [x] Audit offline backup creation and restoration for all currently persisted character-path data, with backward-compatible round-trip coverage.
+- [x] Profile current interaction, scrolling, rendering, and persistence hot paths; propose only protected internal performance recovery changes for long-term smoothness.
+- [x] Implement the approved sequential glowing path draw with user-controlled follow cancellation and Reduced Motion completion.
+- [x] Preserve historic milestone portraits through offline backup restore, with compatibility coverage for path data and older archives.
+- [x] Apply only measured internal responsiveness improvements and validate long-history interaction, scrolling, persistence, and single-fire tap behavior.
+- [ ] Run the full release validation suite and publish the approved update to GitHub without starting an APK build.

@@ -7,6 +7,7 @@ import {
   hashBackupBytes,
   OfflineBackupValidationError,
   parseOfflineBackupArchive,
+  remapHistoricMilestonePortraitUris,
 } from "../lib/offline-backup-format";
 
 function createPopulatedState(): FocusState {
@@ -22,6 +23,7 @@ function createPopulatedState(): FocusState {
   state.profile.characterCinematicColors = { tactical: { accent: "#16C7E8", backdrop: "#061423", rod: "#F0C75E", aura: "#16C7E833", support: "#6E5AE6", energy: "#68E2FF", metallic: "#F0C75E", atmosphere: "#071B2D", frame: "#020914" } };
   state.profile.tickerColorPreferences = { miniAchievement: { source: "character", surface: null, accent: null }, prediction: { source: "custom", surface: "#17102B", accent: "#16C7E8" } };
   state.profile.homeProfileCardColorPreference = { source: "custom", surface: "#101820", accent: "#F0C75E" };
+  state.characterMilestones = [{ id: "milestone_backup", sourceProgressionEventId: "xp_backup", formKey: "custom:arcane_commander", formName: "Arcane Commander", portraitUri: "file:///portraits/arcane.png", achievedAt: "2026-08-14T08:00:00.000Z", levelAtAchievement: 600, totalPowerAtAchievement: 120_000 }];
   return state;
 }
 
@@ -61,6 +63,20 @@ describe("offline Focus Command backup format", () => {
     expect(parsed.state.profile.characterCinematicColors).toEqual(state.profile.characterCinematicColors);
     expect(parsed.state.profile.tickerColorPreferences).toEqual(state.profile.tickerColorPreferences);
     expect(parsed.state.profile.homeProfileCardColorPreference).toEqual(state.profile.homeProfileCardColorPreference);
+    expect(parsed.state.characterMilestones).toEqual(state.characterMilestones);
+  });
+
+  it("remaps only restored custom-form portrait URIs inside historic milestone snapshots", () => {
+    const state = createPopulatedState();
+    const remapped = remapHistoricMilestonePortraitUris(state, new Map([["file:///portraits/arcane.png", "file:///restored/arcane.png"]]));
+
+    expect(remapped.characterMilestones[0]).toMatchObject({
+      portraitUri: "file:///restored/arcane.png",
+      sourceProgressionEventId: "xp_backup",
+      totalPowerAtAchievement: 120_000,
+    });
+    expect(state.characterMilestones[0].portraitUri).toBe("file:///portraits/arcane.png");
+    expect(remapHistoricMilestonePortraitUris(state, new Map())).toBe(state);
   });
 
   it("restores older valid backup files without a revision activity ledger as an empty ledger", () => {
