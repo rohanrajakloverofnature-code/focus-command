@@ -620,4 +620,4 @@
 - [x] Implement the approved sequential glowing path draw with user-controlled follow cancellation and Reduced Motion completion.
 - [x] Preserve historic milestone portraits through offline backup restore, with compatibility coverage for path data and older archives.
 - [x] Apply only measured internal responsiveness improvements and validate long-history interaction, scrolling, persistence, and single-fire tap behavior.
-- [ ] Run the full release validation suite and publish the approved update to GitHub without starting an APK build.
+- [x] Run the full release validation suite and publish the approved update to GitHub without starting an APK build.
