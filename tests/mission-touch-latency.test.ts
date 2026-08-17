@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const focusCommandSource = readFileSync(join(process.cwd(), "lib", "focus-command.tsx"), "utf8");
 const missionSource = readFileSync(join(process.cwd(), "app", "mission", "[id].tsx"), "utf8");
 const missionResultSource = readFileSync(join(process.cwd(), "app", "mission-result", "[id].tsx"), "utf8");
+const notificationAudioBridgeSource = readFileSync(join(process.cwd(), "components", "focus-notification-audio-bridge.tsx"), "utf8");
 
 describe("Mission touch-to-action latency contracts", () => {
   it("commits the completion immediately while deferring only subscriber follow-up for the confirmed mission-result transition", () => {
@@ -33,6 +34,7 @@ describe("Mission touch-to-action latency contracts", () => {
     expect(missionResultSource).toContain("if (playedResultEventId.current === event.id) return;");
     expect(missionResultSource).toContain("playedResultEventId.current = event.id;");
     expect(missionResultSource).toContain("void playFocusRole(role, soundEnabled, soundRoles[role]);");
+    expect(notificationAudioBridgeSource).toContain("if (!shouldPlayForegroundReminderAudio(kind)) return;");
   });
 
   it("keeps a successfully queued result locked against rapid repeat confirmation while failed submissions remain retryable", () => {

@@ -584,16 +584,30 @@
 - [x] Implement the approved protected Home profile-card appearance control with independent Global Palette, Active Character Palette, and Custom sources, limited to render-only decorative card colors.
 - [x] Add backward-compatible Home-card appearance regression coverage and complete TypeScript, full-test, lint, static web-export, and Android JavaScript-bundle preflight validation without starting an APK build.
 - [x] Apply the approved strictly render-only premium transparent-glass treatment to the user-marked opaque cinematic background panels without changing protected timing, media, rewards, interaction, layout, or behavior.
-- [x] Correct the approved cinematic outer stage and reward template to neutral, genuinely transparent true glass with no character-derived background tint while retaining character colours only on existing decorative accents.
-- [x] Add neutral true-glass regression coverage and complete TypeScript, full-test, lint, static web-export, and Android JavaScript-bundle preflight validation without starting an APK build.
-- [x] Apply the approved premium neutral glass refinement: one 8/100 ultra-thin blur behind protected cinematic content, double neutral edge, short upper reflection, and soft outer separation, with no tint or behavior change.
-- [x] Extend offline-backup regression coverage for current visual preferences, cached cinematic colours, revision activity history, and custom media without changing backup or restore behavior.
-- [x] Add scoped same-frame action guards and focused regression coverage for duplicate native action delivery, then complete the full release validation suite without starting an APK build.
-- [x] Apply automatic all-character premium dark-glass readability treatment with a neutral jet-black vignette, text-safe contrast zones, and stronger neutral typography contrast while retaining true transparency and protected cinematic behavior.
-- [x] Refine the protected cinematic rod so its glass/glaze side rails derive from the active global card-surface color while its centre core derives from the active character primary color, without changing cinematic timing, media, rewards, interactions, or other decoration.
-- [x] Validate and synchronize only the approved automatic surface-and-primary rod treatment without starting an APK build or workflow.
+- [x] Diagnose and repair the repeated managed development-preview load failure after server restart by forcing interactive Expo startup, without changing app features, data, or user-facing behavior.
+- [x] Generate and deliver a non-production visual reference that demonstrates the intended genuinely transparent, character-tinted cinematic glass-panel treatment.
+- [x] Generate and deliver a higher-transparency cinematic glass visual reference in which the portal geometry and atmosphere are clearly visible through the panels.
+- [x] Inspect and, only after approval, correct the cinematic layer order so the complete marked outer background and reward template become genuinely transparent premium glass over the actual underlying cinematic visual, without changing media, timing, rewards, interactions, or any user-facing mechanism.
+
+- [x] Revise the approved-pending cinematic glass treatment so its full outer and reward surfaces are neutral transparent glass with no derived-colour tint, while derived character colours remain limited to the existing rod, portal, particle, and text accent layers.
+
+- [x] Generate and deliver a plan-faithful non-production reference showing the complete outer cinematic area and reward template as nearly clear premium glass over the real underlying cinematic visual, for approval before implementation.
+- [x] Refine only the approved neutral cinematic glass material with a double neutral edge, short upper specular sweep, soft outer separation, and restrained ultra-thin blur while preserving Home visibility, performance, and all protected cinematic behavior.
+- [x] Audit and, only after approval, extend the offline backup round-trip contract for all applicable current saved feature data without changing existing restore behavior or inventing data.
+- [x] Audit and, only after approval, strengthen one-tap action guards so a single user tap cannot trigger duplicate state transitions while preserving every existing action and interaction rule.
+- [x] Audit and, only after approval, address measured rendering and interaction hot paths for sustained smooth scrolling and faster touch-to-action response without changing user-facing mechanisms.
+- [x] Audit and, only after approval, refine protected cinematic text legibility with automatic all-character high-contrast neutral jet-black-compatible readability zones and a restrained neutral vignette, without changing cinematic wording, hierarchy, timing, media, rewards, or interactions.
+- [x] Audit and, only after approval, refine the protected cinematic rod so its glass/glaze side rails derive from the active global card-surface color while its centre core derives from the active character primary color, without changing cinematic timing, media, rewards, interactions, or any other decoration.
+- [x] Validate, checkpoint, and synchronize only the approved automatic surface-and-primary rod treatment to private GitHub main without starting an APK build or workflow.
 - [x] Inspect the reported duplicate audio when confirming mission results, verify the related confirmation and sound paths, and propose a safe repair without changing any approved user-facing mechanism.
 - [x] Audit core feature logic and long-term performance hot paths, then propose only user-approved changes for instant touch response, smooth scrolling, and durable lifetime-scale performance.
 - [x] Make Mission Report the route-safe single owner of one mission-result sound, preserve existing sound settings and navigation, and add deterministic duplicate-audio regression coverage.
 - [x] Strengthen internal mission-completion and lifetime-history performance safeguards without changing stored data, screens, actions, or feature mechanisms.
-- [x] Run full release validation, checkpoint, and synchronize only the approved single-cue and performance-preservation update without starting an APK build or workflow.
+- [x] Run full release validation for the approved single-cue and performance-preservation update without starting an APK build or workflow.
+- [x] Checkpoint and synchronize only the approved single-cue and performance-preservation update to private GitHub main.
+- [x] Re-inspect the latest reported duplicate mission-result audio recording and trace every remaining playback path before proposing any repair.
+- [x] Propose and, only after explicit approval, apply a strictly scoped duplicate-audio repair without altering any user-facing mechanism.
+- [x] Isolate foreground Achievement Recap audio from the Mission Report result cue while retaining the existing recap notification banner and all other reminder audio roles.
+- [x] Add and run deterministic one-confirmation/one-audible-cue regression coverage without changing any feature mechanism.
+- [x] Run full release validation for the approved foreground Achievement-Recap Audio Isolation repair without starting an APK build or workflow.
+- [x] Checkpoint and synchronize only the approved foreground Achievement-Recap Audio Isolation repair to private GitHub main.
