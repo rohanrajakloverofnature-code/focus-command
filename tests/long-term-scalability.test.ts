@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { createInitialState, getDashboardStats, getMissionCompletionRecordsInLocalDateRange, type FocusState } from "../lib/focus-command";
+import { createInitialState, getDashboardStats, getMissionCompletionRecordsInLocalDateRange, getTotalPower, type FocusState } from "../lib/focus-command";
 import { getMonthlyArchiveLifetimeWindows, getMonthlyCommandArchive } from "../lib/monthly-command-archive";
 
 const analyticsSource = readFileSync(resolve(process.cwd(), "app/analytics.tsx"), "utf8");
@@ -115,6 +115,17 @@ describe("Long-term scalability contracts", () => {
     } as FocusState;
 
     expect(getDashboardStats(unrelatedUpdate)).toBe(original);
+  });
+
+  it("reuses the immutable lifetime power aggregate after an unrelated update", () => {
+    const state = makeLongHistoryState();
+    const original = getTotalPower(state);
+    const unrelatedUpdate = {
+      ...state,
+      profile: { ...state.profile, soundEnabled: !state.profile.soundEnabled },
+    } as FocusState;
+
+    expect(getTotalPower(unrelatedUpdate)).toBe(original);
   });
 
   it("returns an exact visible-week completion slice from a multi-year descending history", () => {

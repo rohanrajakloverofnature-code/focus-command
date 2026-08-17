@@ -1067,8 +1067,14 @@ export function getCurrentCombo(state: FocusState, referenceDate = toLocalDate(n
   return { tier, multiplier: tier.multiplier, missedDays, daysToNext };
 }
 
+const totalPowerCache = new WeakMap<FocusState["progression"], number>();
+
 export function getTotalPower(state: FocusState): number {
-  return state.progression.reduce((total, event) => total + event.powerAwarded, 0);
+  const cached = totalPowerCache.get(state.progression);
+  if (cached !== undefined) return cached;
+  const totalPower = state.progression.reduce((total, event) => total + event.powerAwarded, 0);
+  totalPowerCache.set(state.progression, totalPower);
+  return totalPower;
 }
 
 export function getTotalXp(state: FocusState): number {

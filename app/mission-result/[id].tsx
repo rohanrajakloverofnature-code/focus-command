@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { CelebrationKind, CelebrationOverlay } from "@/components/celebration-overlay";
@@ -75,9 +75,12 @@ export default function MissionResultScreen() {
   const result = useFocusCommandSelector((state) => selectMissionResultSnapshot(state, id, completionId), hasSameMissionResultSnapshot);
   const { mission, completion, fallbackCompletion, event, reflection, totalPower, soundEnabled, soundRoles, reduceMotion } = result;
   const [celebration, setCelebration] = useState<CelebrationKind | null>(null);
+  const playedResultEventId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!ready || !event || completionId) return;
+    if (!ready || !event) return;
+    if (playedResultEventId.current === event.id) return;
+    playedResultEventId.current = event.id;
     const kind: CelebrationKind = event.titleAfter && event.titleAfter !== event.titleBefore ? "title" : event.levelAfter && event.levelAfter > (event.levelBefore ?? event.levelAfter) ? "level" : event.comboAfter && event.comboAfter > (event.comboBefore ?? event.comboAfter) ? "combo" : "mission";
     setCelebration(kind);
     const role = kind === "title" ? "titleUnlock" : kind === "level" ? "levelUp" : kind === "combo" ? "comboTier" : "missionWin";

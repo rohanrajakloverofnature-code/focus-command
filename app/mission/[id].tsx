@@ -8,7 +8,6 @@ import { ScreenContainer } from "@/components/screen-container";
 import { DistractionLogger } from "@/components/distraction-logger";
 import { useColors } from "@/hooks/use-colors";
 import { CustomQuestion, Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getDueMissionRevisions, getMissionInvestedMilliseconds, isLongMissionReflectionEligible, ReflectionDraft, type FocusState, type SrsTopic, useFocusCommandActions, useFocusCommandSelector } from "@/lib/focus-command";
-import { playFocusSuccessCue } from "@/lib/focus-audio";
 import { scheduleAchievementRecap, scheduleRevisionReminder } from "@/lib/focus-reminders";
 
 const feelings: { value: Feeling; label: string; color: string }[] = [
@@ -26,8 +25,6 @@ type MissionDetailSnapshot = {
   missionRevisionTopics: FocusState["srsTopics"];
   activeBosses: FocusState["bosses"];
   customQuestions: FocusState["customQuestions"];
-  soundEnabled: boolean;
-  missionWinSound: FocusState["profile"]["soundRoles"]["missionWin"];
   revisionReminderSound: FocusState["profile"]["soundRoles"]["revisionReminder"];
   timezone: FocusState["profile"]["timezone"];
   notificationsEnabled: boolean;
@@ -46,8 +43,6 @@ function hasSameMissionDetailSnapshot(left: MissionDetailSnapshot, right: Missio
     && hasSameReferences(left.missionRevisionTopics, right.missionRevisionTopics)
     && hasSameReferences(left.activeBosses, right.activeBosses)
     && left.customQuestions === right.customQuestions
-    && left.soundEnabled === right.soundEnabled
-    && left.missionWinSound === right.missionWinSound
     && left.revisionReminderSound === right.revisionReminderSound
     && left.timezone === right.timezone
     && left.notificationsEnabled === right.notificationsEnabled
@@ -63,8 +58,6 @@ function selectMissionDetailSnapshot(state: FocusState, missionId: string | unde
     missionRevisionTopics: state.srsTopics.filter((topic) => topic.missionId === missionId),
     activeBosses: state.bosses.filter((boss) => boss.status === "active"),
     customQuestions: state.customQuestions,
-    soundEnabled: state.profile.soundEnabled,
-    missionWinSound: state.profile.soundRoles.missionWin,
     revisionReminderSound: state.profile.soundRoles.revisionReminder,
     timezone: state.profile.timezone,
     notificationsEnabled: state.profile.notificationsEnabled,
@@ -78,7 +71,7 @@ export default function MissionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { startMission, toggleMissionPause, finishMission, logDistraction, logRevisionTopic, completeRevision, updateMission, removeMission } = useFocusCommandActions();
   const detail = useFocusCommandSelector((state) => selectMissionDetailSnapshot(state, id), hasSameMissionDetailSnapshot);
-  const { hydrated: ready, mission, missionDistractionCount, missionRevisionTopics, activeBosses, customQuestions, soundEnabled, missionWinSound, revisionReminderSound, timezone, notificationsEnabled, notificationRules, achievementRecapSound } = detail;
+  const { hydrated: ready, mission, missionDistractionCount, missionRevisionTopics, activeBosses, customQuestions, revisionReminderSound, timezone, notificationsEnabled, notificationRules, achievementRecapSound } = detail;
   const [nowMs, setNowMs] = useState(Date.now());
   const [revisionTopic, setRevisionTopic] = useState("");
   const [showReflection, setShowReflection] = useState(false);
@@ -166,7 +159,6 @@ export default function MissionDetailScreen() {
       requestAnimationFrame(() => {
         router.replace({ pathname: "/mission-result/[id]" as never, params: { id: mission.id, completionId: result.completionId } });
         setTimeout(() => {
-          void playFocusSuccessCue(soundEnabled, missionWinSound);
           if (notificationsEnabled) void scheduleAchievementRecap(mission.title, notificationRules, achievementRecapSound);
         }, 0);
       });

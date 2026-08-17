@@ -592,3 +592,8 @@
 - [x] Apply automatic all-character premium dark-glass readability treatment with a neutral jet-black vignette, text-safe contrast zones, and stronger neutral typography contrast while retaining true transparency and protected cinematic behavior.
 - [x] Refine the protected cinematic rod so its glass/glaze side rails derive from the active global card-surface color while its centre core derives from the active character primary color, without changing cinematic timing, media, rewards, interactions, or other decoration.
 - [x] Validate and synchronize only the approved automatic surface-and-primary rod treatment without starting an APK build or workflow.
+- [x] Inspect the reported duplicate audio when confirming mission results, verify the related confirmation and sound paths, and propose a safe repair without changing any approved user-facing mechanism.
+- [x] Audit core feature logic and long-term performance hot paths, then propose only user-approved changes for instant touch response, smooth scrolling, and durable lifetime-scale performance.
+- [x] Make Mission Report the route-safe single owner of one mission-result sound, preserve existing sound settings and navigation, and add deterministic duplicate-audio regression coverage.
+- [x] Strengthen internal mission-completion and lifetime-history performance safeguards without changing stored data, screens, actions, or feature mechanisms.
+- [x] Run full release validation, checkpoint, and synchronize only the approved single-cue and performance-preservation update without starting an APK build or workflow.
