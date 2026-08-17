@@ -116,6 +116,13 @@ describe("character visual customization", () => {
     expect(cinematic).toContain('borderColor: "rgba(255, 255, 255, 0.16)"');
     expect(cinematic).toContain('cinematicRewardInnerEdge');
     expect(cinematic).toContain('cinematicRewardSpecular');
+    expect(cinematic).toContain('cinematicNeutralReadabilityVignette');
+    expect(cinematic).toContain('stopOpacity="0.32"');
+    expect(cinematic).toContain('cinematicToplineReadabilityRail');
+    expect(cinematic).toContain('cinematicTitleReadabilityPlume');
+    expect(cinematic).toContain('cinematicRewardReadabilityVeil');
+    expect(cinematic).toContain('backgroundColor: "rgba(0, 0, 0, 0.28)"');
+    expect(cinematic).toContain('textShadowColor: "rgba(0, 0, 0, 0.98)"');
     expect(cinematic).not.toContain('{ backgroundColor: cinematicColors.backdrop }');
     expect(cinematic).not.toContain('backgroundColor: `${cinematicColors.atmosphere}6A`');
     expect(cinematic).not.toContain('backgroundColor: `${cinematicColors.frame}78`');

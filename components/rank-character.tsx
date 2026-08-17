@@ -4,6 +4,7 @@ import { BlurView } from "expo-blur";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { AppState, Image, Modal, Pressable, type ImageSourcePropType, StyleSheet, Text, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
+import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 
 import { useColors } from "@/hooks/use-colors";
 import {
@@ -576,8 +577,21 @@ export function RankCharacterAchievement({
             <View pointerEvents="none" style={styles.cinematicStageHighlight} />
             <View pointerEvents="none" style={styles.cinematicStageInnerEdge} />
             <View pointerEvents="none" style={styles.cinematicStageSpecular} />
+            <View pointerEvents="none" style={styles.cinematicNeutralVignette}>
+              <Svg width="100%" height="100%" preserveAspectRatio="none">
+                <Defs>
+                  <RadialGradient id="cinematicNeutralReadabilityVignette" cx="50%" cy="47%" r="74%">
+                    <Stop offset="0%" stopColor="#000000" stopOpacity="0" />
+                    <Stop offset="55%" stopColor="#000000" stopOpacity="0.025" />
+                    <Stop offset="100%" stopColor="#000000" stopOpacity="0.32" />
+                  </RadialGradient>
+                </Defs>
+                <Rect width="100%" height="100%" fill="url(#cinematicNeutralReadabilityVignette)" />
+              </Svg>
+            </View>
             <View pointerEvents="none" style={styles.cinematicAtmosphere} />
             <View pointerEvents="none" style={styles.cinematicNoise} />
+            <View pointerEvents="none" style={styles.cinematicToplineReadabilityRail} />
             <View pointerEvents="none" style={[styles.cinematicTopline]}><Text style={[styles.cinematicProtocol, { color: cinematicColors.accent }]}>{phaseCopy}</Text><Text style={styles.cinematicDismiss}>TAP TO DISMISS</Text></View>
             <Animated.View pointerEvents="none" style={[styles.cinematicPortal, { borderColor: `${cinematicColors.metallic}EA`, shadowColor: cinematicColors.metallic }, portalStyle]} />
             <Animated.View pointerEvents="none" style={[styles.cinematicPortalHalo, { borderColor: `${cinematicColors.energy}B4`, shadowColor: cinematicColors.energy }, portalStyle]} />
@@ -595,6 +609,7 @@ export function RankCharacterAchievement({
               </Animated.View> : null}
             </Animated.View>
             <Animated.View style={[styles.cinematicReveal, revealStyle]}>
+              <View pointerEvents="none" style={styles.cinematicTitleReadabilityPlume} />
               <Text style={[styles.cinematicTitle, { color: colors.foreground }]}>{title}</Text>
               <Text style={[styles.cinematicRank, { color: cinematicColors.accent }]}>{tierText}</Text>
               <EquipmentReadout gear={gear} accent={cinematicColors.accent} secondaryAccent={cinematicColors.rod} foreground={colors.foreground} />
@@ -605,6 +620,7 @@ export function RankCharacterAchievement({
               <View pointerEvents="none" style={styles.cinematicRewardInnerEdge} />
               <View pointerEvents="none" style={styles.cinematicRewardSpecular} />
               <View pointerEvents="none" style={styles.cinematicRewardCore} />
+              <View pointerEvents="none" style={styles.cinematicRewardReadabilityVeil} />
               <View style={styles.cinematicRewardColumn}><Text style={[styles.cinematicRewardEyebrow, { color: cinematicColors.energy }]}>LEVEL REACHED</Text><Text style={[styles.cinematicRewardValue, { color: colors.foreground }]}>LEVEL {level}</Text></View>
               <View style={styles.cinematicRewardDivider} />
               <View style={styles.cinematicRewardColumn}><Text style={[styles.cinematicRewardEyebrow, { color: cinematicColors.energy }]}>TOTAL POWER</Text><Text style={[styles.cinematicRewardValue, { color: cinematicColors.metallic }]}>{powerText}</Text></View>
@@ -647,11 +663,13 @@ const styles = StyleSheet.create({
   cinematicStageHighlight: { position: "absolute", top: 0, left: 24, right: 24, height: 1, borderRadius: 1, backgroundColor: "rgba(255, 255, 255, 0.48)" },
   cinematicStageInnerEdge: { position: "absolute", top: 1, left: 1, right: 1, bottom: 1, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255, 255, 255, 0.07)" },
   cinematicStageSpecular: { position: "absolute", top: 8, left: "12%", width: "32%", height: 1, borderRadius: 1, backgroundColor: "rgba(255, 255, 255, 0.27)", transform: [{ rotate: "-7deg" }] },
+  cinematicNeutralVignette: { ...StyleSheet.absoluteFillObject },
   cinematicAtmosphere: { position: "absolute", width: "145%", height: "145%", borderRadius: 999, opacity: 0.74, backgroundColor: "rgba(255, 255, 255, 0.012)" },
   cinematicNoise: { position: "absolute", width: "136%", height: "136%", borderRadius: 999, backgroundColor: "rgba(255, 255, 255, 0.012)" },
+  cinematicToplineReadabilityRail: { position: "absolute", top: 46, left: 14, right: 14, height: 37, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255, 255, 255, 0.06)", backgroundColor: "rgba(0, 0, 0, 0.24)" },
   cinematicTopline: { position: "absolute", top: 55, left: 22, right: 22, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  cinematicProtocol: { flex: 1, fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 1.45 },
-  cinematicDismiss: { color: "#9CAFBE", fontSize: 8, lineHeight: 11, fontWeight: "800", letterSpacing: 0.75 },
+  cinematicProtocol: { flex: 1, fontSize: 10, lineHeight: 13, fontWeight: "900", letterSpacing: 1.35, textShadowColor: "rgba(0, 0, 0, 0.94)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 },
+  cinematicDismiss: { color: "#E9F1FA", fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.75, textShadowColor: "rgba(0, 0, 0, 0.94)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 },
   cinematicPortal: { position: "absolute", width: 350, height: 350, borderRadius: 175, borderWidth: 2, borderStyle: "dashed", shadowOpacity: 0.78, shadowRadius: 18, elevation: 8 },
   cinematicPortalHalo: { position: "absolute", width: 306, height: 306, borderRadius: 153, borderWidth: 1.2, borderStyle: "dotted", shadowOpacity: 0.72, shadowRadius: 15, elevation: 7 },
   cinematicPortalInner: { position: "absolute", width: 242, height: 242, borderRadius: 121, borderWidth: 1.7, borderStyle: "dashed", shadowOpacity: 0.7, shadowRadius: 13, elevation: 7 },
@@ -684,21 +702,23 @@ const styles = StyleSheet.create({
   cinematicWeaponCore: { position: "absolute", width: 14, height: 14, borderRadius: 7, top: 63, shadowOpacity: 0.95, shadowRadius: 12, elevation: 17 },
   cinematicWeaponTip: { position: "absolute", bottom: -14, width: 16, height: 32, borderRadius: 9 },
   cinematicReveal: { position: "absolute", left: 22, right: 22, bottom: 114, alignItems: "center", gap: 6 },
-  cinematicTitle: { fontSize: 30, lineHeight: 35, fontWeight: "900", textAlign: "center", letterSpacing: -0.45 },
-  cinematicRank: { fontSize: 9, lineHeight: 13, fontWeight: "900", letterSpacing: 1.05, textAlign: "center" },
-  cinematicReadout: { fontSize: 8, lineHeight: 11, fontWeight: "900", letterSpacing: 0.85, textAlign: "center" },
+  cinematicTitleReadabilityPlume: { position: "absolute", top: -15, left: -18, right: -18, bottom: -13, borderRadius: 34, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255, 255, 255, 0.05)", backgroundColor: "rgba(0, 0, 0, 0.27)" },
+  cinematicTitle: { fontSize: 31, lineHeight: 36, fontWeight: "900", textAlign: "center", letterSpacing: -0.45, textShadowColor: "rgba(0, 0, 0, 0.96)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 7 },
+  cinematicRank: { fontSize: 10, lineHeight: 14, fontWeight: "900", letterSpacing: 1.05, textAlign: "center", textShadowColor: "rgba(0, 0, 0, 0.96)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6 },
+  cinematicReadout: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.85, textAlign: "center", textShadowColor: "rgba(0, 0, 0, 0.96)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 },
   cinematicGearRow: { width: "100%", flexDirection: "row", gap: 5, marginTop: 1 },
   cinematicGearChip: { flex: 1, minWidth: 0, borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 4, paddingVertical: 4, alignItems: "center", gap: 1 },
-  cinematicGearSlot: { fontSize: 6, lineHeight: 8, fontWeight: "900", letterSpacing: 0.65 },
-  cinematicGearName: { width: "100%", fontSize: 7, lineHeight: 9, fontWeight: "800", textAlign: "center" },
-  cinematicAura: { fontSize: 8, lineHeight: 11, fontWeight: "700", letterSpacing: 0.55, textAlign: "center" },
+  cinematicGearSlot: { fontSize: 7, lineHeight: 9, fontWeight: "900", letterSpacing: 0.65, textShadowColor: "rgba(0, 0, 0, 0.96)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+  cinematicGearName: { width: "100%", fontSize: 8, lineHeight: 10, fontWeight: "800", textAlign: "center", textShadowColor: "rgba(0, 0, 0, 0.96)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+  cinematicAura: { fontSize: 9, lineHeight: 12, fontWeight: "800", letterSpacing: 0.55, textAlign: "center", textShadowColor: "rgba(0, 0, 0, 0.96)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 },
   cinematicReward: { position: "absolute", bottom: 29, left: 18, right: 18, borderWidth: 1, borderColor: "rgba(255, 255, 255, 0.16)", backgroundColor: "rgba(255, 255, 255, 0.035)", borderRadius: 14, minHeight: 58, paddingHorizontal: 12, paddingVertical: 9, flexDirection: "row", justifyContent: "space-between", alignItems: "center", shadowColor: "#FFFFFF", shadowOpacity: 0.18, shadowRadius: 16, elevation: 10, overflow: "hidden" },
   cinematicRewardTopline: { position: "absolute", top: 0, left: "18%", right: "18%", height: 1.2, opacity: 0.96, backgroundColor: "rgba(255, 255, 255, 0.55)" },
   cinematicRewardInnerEdge: { position: "absolute", top: 1, left: 1, right: 1, bottom: 1, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255, 255, 255, 0.08)" },
   cinematicRewardSpecular: { position: "absolute", top: 6, left: "11%", width: "37%", height: 1, borderRadius: 1, backgroundColor: "rgba(255, 255, 255, 0.29)", transform: [{ rotate: "-6deg" }] },
   cinematicRewardCore: { position: "absolute", top: -7, left: "50%", width: 14, height: 14, marginLeft: -7, borderWidth: 1.5, borderColor: "rgba(255, 255, 255, 0.42)", backgroundColor: "rgba(255, 255, 255, 0.05)", transform: [{ rotate: "45deg" }], borderRadius: 2 },
+  cinematicRewardReadabilityVeil: { ...StyleSheet.absoluteFillObject, borderRadius: 14, backgroundColor: "rgba(0, 0, 0, 0.28)" },
   cinematicRewardColumn: { flex: 1, minWidth: 0, alignItems: "center" },
-  cinematicRewardDivider: { width: StyleSheet.hairlineWidth, height: 29, backgroundColor: "rgba(255, 255, 255, 0.22)" },
-  cinematicRewardEyebrow: { fontSize: 6, lineHeight: 9, fontWeight: "900", letterSpacing: 0.75 },
-  cinematicRewardValue: { fontSize: 13, lineHeight: 16, fontWeight: "900", letterSpacing: -0.1, marginTop: 1 },
+  cinematicRewardDivider: { width: StyleSheet.hairlineWidth, height: 31, backgroundColor: "rgba(255, 255, 255, 0.34)" },
+  cinematicRewardEyebrow: { fontSize: 7, lineHeight: 10, fontWeight: "900", letterSpacing: 0.68, textShadowColor: "rgba(0, 0, 0, 0.98)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+  cinematicRewardValue: { fontSize: 14, lineHeight: 17, fontWeight: "900", letterSpacing: -0.1, marginTop: 1, textShadowColor: "rgba(0, 0, 0, 0.98)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 },
 });

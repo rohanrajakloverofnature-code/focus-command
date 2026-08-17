@@ -589,3 +589,4 @@
 - [x] Apply the approved premium neutral glass refinement: one 8/100 ultra-thin blur behind protected cinematic content, double neutral edge, short upper reflection, and soft outer separation, with no tint or behavior change.
 - [x] Extend offline-backup regression coverage for current visual preferences, cached cinematic colours, revision activity history, and custom media without changing backup or restore behavior.
 - [x] Add scoped same-frame action guards and focused regression coverage for duplicate native action delivery, then complete the full release validation suite without starting an APK build.
+- [x] Apply automatic all-character premium dark-glass readability treatment with a neutral jet-black vignette, text-safe contrast zones, and stronger neutral typography contrast while retaining true transparency and protected cinematic behavior.
