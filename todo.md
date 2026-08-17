@@ -631,4 +631,4 @@
 - [x] Coalesce only duplicate foreground persistence work, preserve immediate lifecycle flushes, and keep safe media/audio runtime release behavior.
 - [x] Remove only the compact Home portrait’s seven face-covering decorative layers while leaving the cinematic, portrait frame, aura, and all other card elements unchanged.
 - [x] Add long-session, selector, persistence, media-lifecycle, compact-portrait, and large-history regressions; complete release validation without an APK build.
-- [ ] Commit and publish only the validated final smoothness and compact-portrait update to GitHub without starting an APK build or workflow.
+- [x] Commit and publish only the validated final smoothness and compact-portrait update to GitHub without starting an APK build or workflow.
