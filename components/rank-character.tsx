@@ -597,7 +597,7 @@ export function RankCharacterAchievement({
             <Animated.View pointerEvents="none" style={[styles.cinematicPortalHalo, { borderColor: `${cinematicColors.energy}B4`, shadowColor: cinematicColors.energy }, portalStyle]} />
             <Animated.View pointerEvents="none" style={[styles.cinematicPortalInner, { borderColor: `${cinematicColors.accent}CE`, shadowColor: cinematicColors.energy }, innerPortalStyle]} />
             <Animated.View pointerEvents="none" style={[styles.cinematicShockwave, { borderColor: `${cinematicColors.energy}CC`, shadowColor: cinematicColors.energy }, shockwaveStyle]} />
-            <Animated.View pointerEvents="none" style={[styles.cinematicRibbon, { backgroundColor: cinematicColors.metallic, shadowColor: cinematicColors.metallic }, ribbonStyle]}><View style={[styles.cinematicRibbonCore, { backgroundColor: cinematicColors.energy }]} /></Animated.View>
+            <Animated.View pointerEvents="none" style={[styles.cinematicRibbon, { backgroundColor: colors.surface, shadowColor: colors.surface }, ribbonStyle]}><View pointerEvents="none" style={styles.cinematicRibbonGlassGlaze} /><View style={[styles.cinematicRibbonCore, { backgroundColor: cinematicColors.accent }]} /></Animated.View>
             <Animated.View pointerEvents="none" style={[styles.cinematicParticles, particleStyle]}>{Array.from({ length: 22 }, (_, index) => <View key={index} style={[styles.cinematicParticle, { backgroundColor: index % 5 === 0 ? cinematicColors.metallic : index % 2 === 0 ? cinematicColors.energy : cinematicColors.accent, transform: [{ rotate: `${index * 16.35}deg` }, { translateY: -92 - (index % 5) * 29 }] }]} />)}</Animated.View>
             <Animated.View style={[styles.cinematicAvatarSystem, portraitStyle]}>
               <View pointerEvents="none" style={[styles.cinematicAvatarAuraOuter, { backgroundColor: `${cinematicColors.atmosphere}A0`, shadowColor: cinematicColors.energy }]} />
@@ -674,7 +674,8 @@ const styles = StyleSheet.create({
   cinematicPortalHalo: { position: "absolute", width: 306, height: 306, borderRadius: 153, borderWidth: 1.2, borderStyle: "dotted", shadowOpacity: 0.72, shadowRadius: 15, elevation: 7 },
   cinematicPortalInner: { position: "absolute", width: 242, height: 242, borderRadius: 121, borderWidth: 1.7, borderStyle: "dashed", shadowOpacity: 0.7, shadowRadius: 13, elevation: 7 },
   cinematicShockwave: { position: "absolute", width: 170, height: 170, borderRadius: 85, borderWidth: 2, shadowOpacity: 0.82, shadowRadius: 14, elevation: 9 },
-  cinematicRibbon: { position: "absolute", width: 42, height: 506, borderRadius: 42, opacity: 0.86, shadowOpacity: 0.95, shadowRadius: 28, elevation: 10 },
+  cinematicRibbon: { position: "absolute", width: 42, height: 506, borderRadius: 42, opacity: 0.86, shadowOpacity: 0.95, shadowRadius: 28, elevation: 10, overflow: "hidden" },
+  cinematicRibbonGlassGlaze: { position: "absolute", top: 4, left: 3, right: 3, height: "40%", borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255, 255, 255, 0.3)", backgroundColor: "rgba(255, 255, 255, 0.055)" },
   cinematicRibbonCore: { width: 10, height: "100%", alignSelf: "center", borderRadius: 10, opacity: 0.96 },
   cinematicParticles: { position: "absolute", width: 8, height: 8, alignItems: "center", justifyContent: "center" },
   cinematicParticle: { position: "absolute", width: 3, height: 20, borderRadius: 4, opacity: 0.9 },

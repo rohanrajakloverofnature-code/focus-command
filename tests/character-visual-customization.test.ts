@@ -133,4 +133,18 @@ describe("character visual customization", () => {
     expect(cinematic).toContain('cinematicColors.atmosphere}A0');
     expect(cinematic).not.toContain("deriveCharacterCinematicColors");
   });
+
+  it("maps only the rod side rails to the global Card Surface and its core to the saved character primary color", () => {
+    const cinematic = readFileSync(resolve(process.cwd(), "components/rank-character.tsx"), "utf8");
+
+    expect(cinematic).toContain('styles.cinematicRibbon, { backgroundColor: colors.surface, shadowColor: colors.surface }');
+    expect(cinematic).toContain('styles.cinematicRibbonCore, { backgroundColor: cinematicColors.accent }');
+    expect(cinematic).toContain('styles.cinematicRibbonGlassGlaze');
+    expect(cinematic).toContain('borderColor: "rgba(255, 255, 255, 0.3)"');
+    expect(cinematic).not.toContain('styles.cinematicRibbon, { backgroundColor: cinematicColors.metallic');
+    expect(cinematic).not.toContain('styles.cinematicRibbonCore, { backgroundColor: cinematicColors.energy }');
+    expect(cinematic).toContain('const cinematicColors = cachedCharacterColors ?? {');
+    expect(cinematic).toContain('accent: evolution.accent');
+    expect(cinematic).not.toContain("deriveCharacterCinematicColors");
+  });
 });

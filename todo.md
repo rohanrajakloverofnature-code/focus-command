@@ -590,3 +590,5 @@
 - [x] Extend offline-backup regression coverage for current visual preferences, cached cinematic colours, revision activity history, and custom media without changing backup or restore behavior.
 - [x] Add scoped same-frame action guards and focused regression coverage for duplicate native action delivery, then complete the full release validation suite without starting an APK build.
 - [x] Apply automatic all-character premium dark-glass readability treatment with a neutral jet-black vignette, text-safe contrast zones, and stronger neutral typography contrast while retaining true transparency and protected cinematic behavior.
+- [x] Refine the protected cinematic rod so its glass/glaze side rails derive from the active global card-surface color while its centre core derives from the active character primary color, without changing cinematic timing, media, rewards, interactions, or other decoration.
+- [x] Validate and synchronize only the approved automatic surface-and-primary rod treatment without starting an APK build or workflow.
