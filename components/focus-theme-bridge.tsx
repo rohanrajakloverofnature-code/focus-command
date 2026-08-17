@@ -1,19 +1,23 @@
 import { useEffect } from "react";
 import { Appearance } from "react-native";
 
-import { useFocusCommand } from "@/lib/focus-command";
+import { shallowEqual, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { useThemeContext } from "@/lib/theme-provider";
 
 export function FocusThemeBridge() {
-  const { state, ready } = useFocusCommand();
+  const ready = useFocusCommandReady();
+  const appearance = useFocusCommandSelector(
+    (state) => ({ palette: state.profile.palette, theme: state.profile.theme }),
+    shallowEqual,
+  );
   const { setColorScheme, setPalette } = useThemeContext();
 
   useEffect(() => {
     if (!ready) return;
-    const selected = state.profile.theme === "system" ? Appearance.getColorScheme() ?? "light" : state.profile.theme;
+    const selected = appearance.theme === "system" ? Appearance.getColorScheme() ?? "light" : appearance.theme;
     setColorScheme(selected);
-    setPalette(state.profile.palette);
-  }, [ready, setColorScheme, setPalette, state.profile.palette, state.profile.theme]);
+    setPalette(appearance.palette);
+  }, [appearance.palette, appearance.theme, ready, setColorScheme, setPalette]);
 
   return null;
 }

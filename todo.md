@@ -621,3 +621,14 @@
 - [x] Preserve historic milestone portraits through offline backup restore, with compatibility coverage for path data and older archives.
 - [x] Apply only measured internal responsiveness improvements and validate long-history interaction, scrolling, persistence, and single-fire tap behavior.
 - [x] Run the full release validation suite and publish the approved update to GitHub without starting an APK build.
+- [x] Audit long-session memory, cache, timers, media, subscriptions, rendering, persistence, and list behavior; identify the evidence-based cause of the reported 2–3 minute responsiveness degradation without altering app behavior.
+- [x] Prepare an approval-only final optimization plan that preserves every existing Focus Command feature and user-facing mechanism.
+- [x] Inspect the Home character profile-card portrait layers and identify only unwanted face-covering decorative shapes, without touching the protected cinematic or other card elements.
+- [x] Revise the final approval-only long-session optimization plan to include the strictly scoped portrait-overlay cleanup.
+- [x] Reinspect every performance-sensitive Focus Command mechanism from scratch in read-only mode before final approval: subscriptions, screens, animations, timers, media, audio, storage, calculations, lists, lifecycle cleanup, and cache bounds.
+- [x] Re-rank only evidence-based internal optimizations and provide one revised final protected plan without changing code during the audit.
+- [x] Convert verified broad state subscriptions to fine-grained existing selectors, preserve stable command access, and pause only non-visible derived work.
+- [x] Coalesce only duplicate foreground persistence work, preserve immediate lifecycle flushes, and keep safe media/audio runtime release behavior.
+- [x] Remove only the compact Home portrait’s seven face-covering decorative layers while leaving the cinematic, portrait frame, aura, and all other card elements unchanged.
+- [x] Add long-session, selector, persistence, media-lifecycle, compact-portrait, and large-history regressions; complete release validation without an APK build.
+- [ ] Commit and publish only the validated final smoothness and compact-portrait update to GitHub without starting an APK build or workflow.

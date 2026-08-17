@@ -6,19 +6,28 @@ import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScree
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { Difficulty, MissionCompletionRecord, MissionFrequency, getDifficultyColor, getDifficultyLabel, getMissionCompletionRecords, getMissionInvestedMilliseconds, toLocalDate, useFocusCommand, useFocusCommandActions } from "@/lib/focus-command";
+import { Difficulty, Mission, MissionCompletionRecord, MissionFrequency, getDifficultyColor, getDifficultyLabel, getMissionCompletionRecords, getMissionInvestedMilliseconds, shallowEqual, toLocalDate, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 
 type MissionFilter = "open" | "active" | "completed";
 type MissionBoardListItem =
   | { key: string; kind: "completion"; completion: MissionCompletionRecord }
-  | { key: string; kind: "mission"; mission: ReturnType<typeof useFocusCommand>["state"]["missions"][number] };
+  | { key: string; kind: "mission"; mission: Mission };
 
 const difficultyOptions: Difficulty[] = ["easy", "medium", "hard"];
 
 export default function MissionsScreen() {
   const colors = useColors();
   const { compose, filter: requestedFilter, bossId: requestedBossId, archiveMonth, archiveSubject } = useLocalSearchParams<{ compose?: string; filter?: MissionFilter; bossId?: string; archiveMonth?: string; archiveSubject?: string }>();
-  const { state, ready, createMission, createBoss } = useFocusCommand();
+  const ready = useFocusCommandReady();
+  const { bosses, missionCompletions, missions: allMissions, progression, reflections, timezone } = useFocusCommandSelector((state) => ({
+    bosses: state.bosses,
+    missionCompletions: state.missionCompletions,
+    missions: state.missions,
+    progression: state.progression,
+    reflections: state.reflections,
+    timezone: state.profile.timezone,
+  }), shallowEqual);
+  const { createMission, createBoss } = useFocusCommandActions();
   const [showComposer, setShowComposer] = useState(compose === "1");
   const [filter, setFilter] = useState<MissionFilter>(requestedFilter === "active" || requestedFilter === "completed" ? requestedFilter : "open");
   const [title, setTitle] = useState("");
@@ -37,23 +46,25 @@ export default function MissionsScreen() {
   const [bossDeadline, setBossDeadline] = useState("");
 
   useEffect(() => {
-    if (requestedBossId && state.bosses.some((boss) => boss.id === requestedBossId && boss.status === "active")) {
+    if (requestedBossId && bosses.some((boss) => boss.id === requestedBossId && boss.status === "active")) {
       setBossId(requestedBossId);
       setShowComposer(true);
     }
-  }, [requestedBossId, state.bosses]);
+  }, [bosses, requestedBossId]);
 
+  const activeBosses = useMemo(() => bosses.filter((boss) => boss.status === "active"), [bosses]);
   const missions = useMemo(() => {
-    if (filter === "active") return state.missions.filter((mission) => mission.status === "active" || mission.status === "paused");
-    return state.missions.filter((mission) => mission.status === "planned");
-  }, [filter, state.missions]);
+    if (filter === "active") return allMissions.filter((mission) => mission.status === "active" || mission.status === "paused");
+    return allMissions.filter((mission) => mission.status === "planned");
+  }, [allMissions, filter]);
   const archiveMonthKey = typeof archiveMonth === "string" && /^\d{4}-\d{2}$/.test(archiveMonth) ? archiveMonth : null;
   const archiveSubjectValue = typeof archiveSubject === "string" && archiveSubject.trim() ? archiveSubject.trim() : null;
-  const completionRecords = useMemo(() => getMissionCompletionRecords(state).filter((completion) => {
-    if (archiveMonthKey && !toLocalDate(completion.completedAt, state.profile.timezone).startsWith(archiveMonthKey)) return false;
+  const completionState = useMemo(() => ({ missionCompletions, missions: allMissions, progression, reflections }), [allMissions, missionCompletions, progression, reflections]);
+  const completionRecords = useMemo(() => getMissionCompletionRecords(completionState).filter((completion) => {
+    if (archiveMonthKey && !toLocalDate(completion.completedAt, timezone).startsWith(archiveMonthKey)) return false;
     if (archiveSubjectValue && completion.subject.trim().localeCompare(archiveSubjectValue, undefined, { sensitivity: "accent" }) !== 0) return false;
     return true;
-  }), [archiveMonthKey, archiveSubjectValue, state]);
+  }), [archiveMonthKey, archiveSubjectValue, completionState, timezone]);
   const archiveHistoryLabel = useMemo(() => {
     if (!archiveMonthKey && !archiveSubjectValue) return null;
     const month = archiveMonthKey ? new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${archiveMonthKey}-01T12:00:00Z`)) : null;
@@ -209,12 +220,12 @@ export default function MissionsScreen() {
             <View style={styles.bossSection}>
               <Text style={[styles.inputLabel, { color: colors.muted }]}>MISSION CAMPAIGN</Text>
               <Text style={[styles.bossSectionDetail, { color: colors.muted }]}>Link this task to an existing campaign, or create a boss here before you deploy the mission.</Text>
-              {state.bosses.filter((boss) => boss.status === "active").length ? (
+              {activeBosses.length ? (
                 <View style={styles.bossChoices}>
                   <Pressable onPress={() => setBossId(null)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: bossId === null ? `${colors.primary}18` : colors.background, borderColor: bossId === null ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                     <Text style={[styles.bossChoiceText, { color: bossId === null ? colors.primary : colors.muted }]}>No boss</Text>
                   </Pressable>
-                  {state.bosses.filter((boss) => boss.status === "active").map((boss) => (
+                  {activeBosses.map((boss) => (
                     <Pressable key={boss.id} onPress={() => setBossId(boss.id)} style={({ pressed }) => [styles.bossChoice, { backgroundColor: bossId === boss.id ? "#F4C95D1D" : colors.background, borderColor: bossId === boss.id ? "#F4C95D" : colors.border, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                       <Text numberOfLines={1} style={[styles.bossChoiceText, { color: bossId === boss.id ? "#F4C95D" : colors.muted }]}>{boss.title}</Text>
                     </Pressable>
@@ -320,7 +331,7 @@ const CompletionHistoryCard = memo(function CompletionHistoryCard({ completion }
   );
 });
 
-const MissionCard = memo(function MissionCard({ mission }: { mission: ReturnType<typeof useFocusCommand>["state"]["missions"][number] }) {
+const MissionCard = memo(function MissionCard({ mission }: { mission: Mission }) {
   const colors = useColors();
   const { startMission } = useFocusCommandActions();
   const startInFlight = useRef(false);

@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { ScrollView, View, Text, Pressable, FlatList } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { useFocusCommand, Equipment, UserEquipment, getEquipmentSlotForType } from "@/lib/focus-command";
+import { useFocusCommandActions, useFocusCommandSelector, shallowEqual, Equipment, UserEquipment, getEquipmentSlotForType } from "@/lib/focus-command";
 import { formatEquipmentModifierDelta } from "@/lib/equipment-modifiers";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -27,13 +27,17 @@ const EQUIPMENT_SLOTS = ["head", "body", "accessory"] as const;
 export default function EquipmentScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { state, equipItem, unequipItem, removeFromInventory, getEquippedItems } = useFocusCommand();
+  const { allEquipment, userEquipment } = useFocusCommandSelector(
+    (state) => ({ allEquipment: state.allEquipment, userEquipment: state.userEquipment }),
+    shallowEqual,
+  );
+  const { equipItem, unequipItem, removeFromInventory, getEquippedItems } = useFocusCommandActions();
   const [selectedItem, setSelectedItem] = useState<UserEquipment | null>(null);
 
   const equippedItems = getEquippedItems();
-  const inventoryItems = state.userEquipment;
+  const inventoryItems = userEquipment;
 
-  const equipmentById = useMemo(() => new Map(state.allEquipment.map((equipment) => [equipment.id, equipment])), [state.allEquipment]);
+  const equipmentById = useMemo(() => new Map(allEquipment.map((equipment) => [equipment.id, equipment])), [allEquipment]);
   const getEquipmentDetails = useCallback((equipmentId: string): Equipment | undefined => equipmentById.get(equipmentId), [equipmentById]);
 
   const handleEquip = (userEquipmentId: string, slot: "head" | "body" | "accessory") => {
@@ -83,7 +87,7 @@ export default function EquipmentScreen() {
                 return (
                   <Pressable
                     key={slot}
-                    onPress={() => equipment && setSelectedItem(state.userEquipment.find((ue) => ue.equipmentId === equipment.id && ue.isEquipped === slot) || null)}
+                    onPress={() => equipment && setSelectedItem(userEquipment.find((ue) => ue.equipmentId === equipment.id && ue.isEquipped === slot) || null)}
                     style={({ pressed }) => [
                       {
                         backgroundColor: colors.surface,

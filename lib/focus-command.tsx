@@ -1258,11 +1258,11 @@ export function getTotalXp(state: FocusState): number {
   return state.progression.reduce((total, event) => total + event.baseXp, 0);
 }
 
-export function getGoldBalance(state: FocusState): number {
+export function getGoldBalance(state: Pick<FocusState, "transactions">): number {
   return state.transactions.reduce((total, entry) => total + entry.goldDelta, 0);
 }
 
-export function getLifetimeGold(state: FocusState): number {
+export function getLifetimeGold(state: Pick<FocusState, "transactions">): number {
   return state.transactions.filter((entry) => entry.goldDelta > 0).reduce((total, entry) => total + entry.goldDelta, 0);
 }
 
@@ -1373,7 +1373,9 @@ export function beginMissionSession(mission: Mission, startedAt = Date.now()): M
   };
 }
 
-const missionCompletionRecordsCache = new WeakMap<FocusState, MissionCompletionRecord[]>();
+type MissionCompletionState = Pick<FocusState, "missionCompletions" | "missions" | "reflections" | "progression">;
+
+const missionCompletionRecordsCache = new WeakMap<MissionCompletionState, MissionCompletionRecord[]>();
 
 interface MissionCompletionSourceCacheEntry {
   records: MissionCompletionRecord[];
@@ -1384,7 +1386,7 @@ interface MissionCompletionSourceCacheEntry {
 
 const missionCompletionSourceCache = new WeakMap<FocusState["missionCompletions"], MissionCompletionSourceCacheEntry>();
 
-export function getMissionCompletionRecords(state: FocusState): MissionCompletionRecord[] {
+export function getMissionCompletionRecords(state: MissionCompletionState): MissionCompletionRecord[] {
   const cached = missionCompletionRecordsCache.get(state);
   if (cached) return cached;
   const sourceCached = missionCompletionSourceCache.get(state.missionCompletions);
@@ -1534,7 +1536,7 @@ function rebuildComboFromCompletions(state: FocusState): ComboState {
     missedDays: 0,
   };
   const activityDates = Array.from(new Set(
-    getMissionCompletionRecords({ ...state, combo }).map((completion) => toLocalDate(completion.completedAt, state.profile.timezone)),
+    getMissionCompletionRecords(state).map((completion) => toLocalDate(completion.completedAt, state.profile.timezone)),
   )).sort();
   for (const activityDate of activityDates) {
     combo = resolveCurrentComboAfterActivity({ ...state, combo }, activityDate);
@@ -3410,6 +3412,14 @@ export function useFocusCommand(): FocusCommandContextValue {
   const context = useContext(FocusCommandContext);
   if (!context) throw new Error("useFocusCommand must be used inside FocusCommandProvider");
   return context;
+}
+
+/** Compare flat selector records by their immutable field references. */
+export function shallowEqual<T extends Record<string, unknown>>(left: T, right: T): boolean {
+  if (Object.is(left, right)) return true;
+  const leftKeys = Object.keys(left);
+  if (leftKeys.length !== Object.keys(right).length) return false;
+  return leftKeys.every((key) => Object.is(left[key], right[key]));
 }
 
 /**

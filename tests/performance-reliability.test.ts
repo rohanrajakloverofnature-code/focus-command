@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { createInitialState, getDashboardStats, getMissionCompletionRecords } from "../lib/focus-command";
+import { createInitialState, getDashboardStats, getMissionCompletionRecords, shallowEqual } from "../lib/focus-command";
 import { getMonthlyCommandArchive } from "../lib/monthly-command-archive";
 
 const focusCommandSource = readFileSync(resolve(process.cwd(), "lib/focus-command.tsx"), "utf8");
@@ -23,6 +23,11 @@ const dashboardSource = readFileSync(resolve(process.cwd(), "app/(tabs)/dashboar
 const analyticsSource = readFileSync(resolve(process.cwd(), "app/analytics.tsx"), "utf8");
 const archiveSource = readFileSync(resolve(process.cwd(), "app/command-archive.tsx"), "utf8");
 const archiveHelperSource = readFileSync(resolve(process.cwd(), "lib/monthly-command-archive.ts"), "utf8");
+const rewardsSource = readFileSync(resolve(process.cwd(), "app/(tabs)/rewards.tsx"), "utf8");
+const equipmentSource = readFileSync(resolve(process.cwd(), "app/(tabs)/equipment.tsx"), "utf8");
+const journalSource = readFileSync(resolve(process.cwd(), "app/(tabs)/journal.tsx"), "utf8");
+const themeBridgeSource = readFileSync(resolve(process.cwd(), "components/focus-theme-bridge.tsx"), "utf8");
+const notificationAudioBridgeSource = readFileSync(resolve(process.cwd(), "components/focus-notification-audio-bridge.tsx"), "utf8");
 
 describe("Performance and reliability contracts", () => {
   it("reuses completion and dashboard derivations for one immutable state snapshot", () => {
@@ -53,6 +58,55 @@ describe("Performance and reliability contracts", () => {
     expect(focusCommandSource).toContain("flushPendingPersistence");
     expect(focusCommandSource).toContain("useFocusCommandSelector");
     expect(focusCommandSource).toContain("useFocusCommandActions");
+  });
+
+  it("keeps shallow selector records stable for unrelated state changes and replaces them only when a subscribed reference changes", () => {
+    const missions = [] as unknown[];
+    const transactions = [] as unknown[];
+    const profile = { name: "Commander" };
+    expect(shallowEqual({ missions, transactions, profile }, { missions, transactions, profile })).toBe(true);
+    expect(shallowEqual({ missions, transactions, profile }, { missions: [], transactions, profile })).toBe(false);
+    expect(focusCommandSource).toContain("if (selection.current && isEqual(selection.current.value, next)) return selection.current.value;");
+    expect(focusCommandSource).toContain("export function shallowEqual");
+  });
+
+  it("keeps the remaining mounted bridge and tab screens on exact selectors without changing wallet or completion calculations", () => {
+    for (const source of [rewardsSource, equipmentSource, journalSource, themeBridgeSource, notificationAudioBridgeSource]) {
+      expect(source).toContain("useFocusCommandSelector");
+      expect(source).not.toMatch(/useFocusCommand\(\)/);
+    }
+    expect(rewardsSource).toContain("getGoldBalance({ transactions })");
+    expect(rewardsSource).toContain("getLifetimeGold({ transactions })");
+    expect(rewardsSource).toContain("useFocusCommandActions");
+    expect(missionBoardSource).toContain("getMissionCompletionRecords(completionState)");
+    expect(missionBoardSource).toContain("missionCompletions: state.missionCompletions");
+    expect(missionBoardSource).toContain("useFocusCommandActions");
+  });
+
+  it("limits only idle custom-audio players, preserving an active cue and existing explicit release behavior", () => {
+    expect(focusAudioSource).toContain("const MAX_IDLE_CUSTOM_PLAYERS = 4;");
+    expect(focusAudioSource).toContain("return !entry.player.playing;");
+    expect(focusAudioSource).toContain("while (idleEntries().length > MAX_IDLE_CUSTOM_PLAYERS)");
+    expect(focusAudioSource).toContain("const oldest = idleEntries().find(([uri]) => uri !== protectedUri);");
+    expect(focusAudioSource).toContain("entry.player.release();");
+    expect(focusAudioSource).toContain("export function releaseFocusCustomSound(uri: string)");
+  });
+
+  it("keeps the compact Home portrait clean while retaining its aura, frame, image, and isolated non-compact growth layers", () => {
+    const compactVisual = cinematicSource.slice(
+      cinematicSource.indexOf("const characterVisual = ("),
+      cinematicSource.indexOf("return (", cinematicSource.indexOf("const characterVisual = (")),
+    );
+
+    expect(compactVisual).toContain("styles.aura");
+    expect(compactVisual).toContain("styles.portraitFrame");
+    expect(compactVisual).toContain("source={profile.portrait}");
+    expect(compactVisual).toContain("!compact ? <CharacterGrowthLayers");
+    for (const faceCoveringLayer of ["coreLight", "visor", "leftPauldron", "rightWeapon", "accessoryNode", "orbitLine", "sovereignCrown"]) {
+      expect(compactVisual).not.toContain(`styles.${faceCoveringLayer}`);
+    }
+    expect(cinematicSource).toContain("styles.cinematicPortrait");
+    expect(cinematicSource).toContain("styles.cinematicRibbon");
   });
 
   it("uses a virtualized Mission Board with stable item keys while retaining memoized existing cards", () => {

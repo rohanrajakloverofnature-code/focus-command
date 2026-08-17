@@ -6,7 +6,7 @@ import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScree
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, getGoldBalance, getLifetimeGold, RewardCategory, useFocusCommand } from "@/lib/focus-command";
+import { formatCompactNumber, getGoldBalance, getLifetimeGold, RewardCategory, shallowEqual, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { scheduleMultiplierReminder } from "@/lib/focus-reminders";
 import { playFocusRole } from "@/lib/focus-audio";
 
@@ -20,7 +20,27 @@ const categories: { value: RewardCategory | "all"; label: string; icon: "gift.fi
 
 export default function RewardsScreen() {
   const colors = useColors();
-  const { state, ready, createReward, updateReward, removeReward, purchaseReward } = useFocusCommand();
+  const ready = useFocusCommandReady();
+  const {
+    inventory: allInventory,
+    notificationsEnabled,
+    notificationRules,
+    rewardSoundRole,
+    rewards: allRewards,
+    soundEnabled,
+    transactions,
+    multiplierReminderSoundRole,
+  } = useFocusCommandSelector((state) => ({
+    inventory: state.inventory,
+    notificationsEnabled: state.profile.notificationsEnabled,
+    notificationRules: state.profile.notificationRules,
+    rewardSoundRole: state.profile.soundRoles.reward,
+    rewards: state.rewards,
+    soundEnabled: state.profile.soundEnabled,
+    transactions: state.transactions,
+    multiplierReminderSoundRole: state.profile.soundRoles.multiplierReminder,
+  }), shallowEqual);
+  const { createReward, updateReward, removeReward, purchaseReward } = useFocusCommandActions();
   const [category, setCategory] = useState<RewardCategory | "all">("all");
   const [showComposer, setShowComposer] = useState(false);
   const [editingRewardId, setEditingRewardId] = useState<string | null>(null);
@@ -34,9 +54,10 @@ export default function RewardsScreen() {
 
   if (!ready) return <LoadingScreen label="Opening reward vault…" />;
 
-  const balance = getGoldBalance(state);
-  const rewards = state.rewards.filter((reward) => reward.active && (category === "all" || reward.category === category));
-  const inventory = state.inventory.filter((item) => item.active && !item.consumedAt).map((item) => ({ item, reward: state.rewards.find((reward) => reward.id === item.rewardId) })).filter((row) => row.reward);
+  const balance = getGoldBalance({ transactions });
+  const lifetimeGold = getLifetimeGold({ transactions });
+  const rewards = allRewards.filter((reward) => reward.active && (category === "all" || reward.category === category));
+  const inventory = allInventory.filter((item) => item.active && !item.consumedAt).map((item) => ({ item, reward: allRewards.find((reward) => reward.id === item.rewardId) })).filter((row) => row.reward);
 
   const submit = () => {
     if (!title.trim()) {
@@ -65,7 +86,7 @@ export default function RewardsScreen() {
     setShowComposer(false);
   };
 
-  const openEditor = (reward: typeof state.rewards[number]) => {
+  const openEditor = (reward: typeof allRewards[number]) => {
     setEditingRewardId(reward.id);
     setTitle(reward.title);
     setDescription(reward.description);
@@ -90,11 +111,11 @@ export default function RewardsScreen() {
   };
 
   const buy = async (rewardId: string) => {
-    const reward = state.rewards.find((candidate) => candidate.id === rewardId);
+    const reward = allRewards.find((candidate) => candidate.id === rewardId);
     const result = purchaseReward(rewardId);
-    if (result.ok) await playFocusRole("reward", state.profile.soundEnabled, state.profile.soundRoles.reward);
-    if (result.ok && reward?.goldMultiplier && state.profile.notificationsEnabled) {
-      await scheduleMultiplierReminder(reward.title, state.profile.notificationRules, state.profile.soundRoles.multiplierReminder);
+    if (result.ok) await playFocusRole("reward", soundEnabled, rewardSoundRole);
+    if (result.ok && reward?.goldMultiplier && notificationsEnabled) {
+      await scheduleMultiplierReminder(reward.title, notificationRules, multiplierReminderSoundRole);
     }
     Alert.alert(result.ok ? "Reward secured" : "Not enough gold", result.message);
   };
@@ -112,7 +133,7 @@ export default function RewardsScreen() {
         <CommandCard accent="#F4C95D" style={styles.walletCard}>
           <View style={styles.walletTopline}>
             <StatusPill label="COMMAND WALLET" tone="gold" icon="star.fill" />
-            <Text style={[styles.walletLifetime, { color: colors.muted }]}>{formatCompactNumber(getLifetimeGold(state))} lifetime gold</Text>
+            <Text style={[styles.walletLifetime, { color: colors.muted }]}>{formatCompactNumber(lifetimeGold)} lifetime gold</Text>
           </View>
           <Text style={[styles.walletValue, { color: "#F4C95D" }]}>{formatCompactNumber(balance)}</Text>
           <Text style={[styles.walletDetail, { color: colors.muted }]}>Available gold. Purchases cannot exceed this balance.</Text>

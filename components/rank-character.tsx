@@ -16,7 +16,7 @@ import {
   CINEMATIC_VIDEO_SOUNDTRACK_VOLUME,
   usesCinematicVideoSoundtrack,
 } from "@/lib/cinematic-playback";
-import { getActiveCustomCharacterForm, type CustomCharacterForm, useFocusCommand } from "@/lib/focus-command";
+import { getActiveCustomCharacterForm, type CustomCharacterForm, useFocusCommand, useFocusCommandSelector } from "@/lib/focus-command";
 import { disposeAudioPlayer, disposeAudioPlayers, resetAudioPlayer } from "@/lib/media-lifecycle";
 import {
   CHARACTER_EVOLUTION_TIMELINE_MS,
@@ -130,8 +130,8 @@ function CharacterGrowthLayers({ stage, accent, secondaryAccent, equipment, comp
 
 export function RankCharacter({ title, level, reduceMotion, compact = false, compactAccentColor, compactSupportColor, onPress, equipment, acknowledgementNonce = 0 }: RankCharacterProps) {
   const colors = useColors();
-  const { state } = useFocusCommand();
-  const profile = getRankProfile(title, level, state.profile.customCharacterForms);
+  const customCharacterForms = useFocusCommandSelector((state) => state.profile.customCharacterForms);
+  const profile = getRankProfile(title, level, customCharacterForms);
   const accentColor = compact ? compactAccentColor ?? profile.accent : profile.accent;
   const supportColor = compact ? compactSupportColor ?? profile.secondaryAccent : profile.secondaryAccent;
   const float = useSharedValue(0);
@@ -171,7 +171,7 @@ export function RankCharacter({ title, level, reduceMotion, compact = false, com
       <Animated.View style={[styles.aura, { width: size + 18, height: size + 18, borderRadius: (size + 18) / 2, backgroundColor: `${accentColor}1C` }, auraStyle]} />
       <Animated.View style={[styles.portraitFrame, { width: size, height: size, borderRadius: size / 2, borderColor: accentColor }, motionStyle, portraitStyle]}>
         <Image key={`${profile.name}-${title}-${profile.stage}`} source={profile.portrait} resizeMode="cover" style={[styles.portrait, { transform: [{ scale: stageScale }] }]} />
-        <CharacterGrowthLayers stage={profile.stage} accent={accentColor} secondaryAccent={supportColor} equipment={equipment} compact={compact} />
+        {!compact ? <CharacterGrowthLayers stage={profile.stage} accent={accentColor} secondaryAccent={supportColor} equipment={equipment} /> : null}
       </Animated.View>
     </View>
   );

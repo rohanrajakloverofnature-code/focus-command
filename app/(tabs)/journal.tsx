@@ -8,22 +8,40 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { playFocusRole } from "@/lib/focus-audio";
-import { formatCompactNumber, toLocalDate, useFocusCommand } from "@/lib/focus-command";
+import {
+  formatCompactNumber,
+  shallowEqual,
+  toLocalDate,
+  useFocusCommandActions,
+  useFocusCommandReady,
+  useFocusCommandSelector,
+} from "@/lib/focus-command";
 
 export default function JournalScreen() {
   const colors = useColors();
   const { compose } = useLocalSearchParams<{ compose?: string }>();
-  const { state, ready, addJournal } = useFocusCommand();
-  const today = toLocalDate(new Date().toISOString(), state.profile.timezone);
-  const todayEntry = state.journals.find((entry) => entry.localDate === today);
+  const ready = useFocusCommandReady();
+  const { addJournal } = useFocusCommandActions();
+  const { journals, timezone, soundEnabled, achievementSoundRole, reduceMotion } = useFocusCommandSelector(
+    (state) => ({
+      journals: state.journals,
+      timezone: state.profile.timezone,
+      soundEnabled: state.profile.soundEnabled,
+      achievementSoundRole: state.profile.soundRoles.achievement,
+      reduceMotion: state.profile.reduceMotion,
+    }),
+    shallowEqual,
+  );
+  const today = toLocalDate(new Date().toISOString(), timezone);
+  const todayEntry = journals.find((entry) => entry.localDate === today);
   const [showComposer, setShowComposer] = useState(compose === "1" || !todayEntry);
   const [better, setBetter] = useState<boolean>(todayEntry?.betterThanYesterday ?? true);
   const [points, setPoints] = useState(String(todayEntry?.points ?? 6));
   const [note, setNote] = useState(todayEntry?.note ?? "");
   const [journalCelebration, setJournalCelebration] = useState(false);
 
-  const entries = useMemo(() => [...state.journals].sort((a, b) => b.localDate.localeCompare(a.localDate)), [state.journals]);
-  const totalPoints = state.journals.reduce((total, entry) => total + entry.points, 0);
+  const entries = useMemo(() => [...journals].sort((a, b) => b.localDate.localeCompare(a.localDate)), [journals]);
+  const totalPoints = journals.reduce((total, entry) => total + entry.points, 0);
   const lifelineContribution = totalPoints * 0.05;
 
   if (!ready) return <LoadingScreen label="Opening journal…" />;
@@ -35,7 +53,7 @@ export default function JournalScreen() {
       return;
     }
     addJournal({ betterThanYesterday: better, points: amount, note });
-    void playFocusRole("achievement", state.profile.soundEnabled, state.profile.soundRoles.achievement);
+    void playFocusRole("achievement", soundEnabled, achievementSoundRole);
     setShowComposer(false);
     setJournalCelebration(true);
   };
@@ -119,7 +137,7 @@ export default function JournalScreen() {
           <EmptyCommandState icon="book.closed.fill" title="Your journal is waiting" detail="A short daily signal makes the Lifeline graph more meaningful over time." action="Log today" onAction={() => setShowComposer(true)} />
         )}
       </ScrollView>
-      {journalCelebration ? <CelebrationOverlay kind="journal" reduceMotion={state.profile.reduceMotion} onDone={() => setJournalCelebration(false)} /> : null}
+      {journalCelebration ? <CelebrationOverlay kind="journal" reduceMotion={reduceMotion} onDone={() => setJournalCelebration(false)} /> : null}
     </ScreenContainer>
   );
 }

@@ -31,7 +31,10 @@ const cueByRoleAndStyle: Record<SoundRoleId, Record<SoundStyle, CueName>> = {
 
 const defaultRoleSettings: SoundRoleSettings = { enabled: true, style: "soft", customUri: null, customName: null };
 const bundledPlayers: Partial<Record<CueName, ReturnType<typeof createAudioPlayer>>> = {};
-const customPlayers: Record<string, ReturnType<typeof createAudioPlayer>> = {};
+const MAX_IDLE_CUSTOM_PLAYERS = 4;
+type CustomPlayerEntry = { player: ReturnType<typeof createAudioPlayer>; lastUsedOrder: number };
+const customPlayers: Record<string, CustomPlayerEntry> = {};
+let customPlayerUseOrder = 0;
 let audioModePrepared = false;
 
 function getBundledPlayer(name: CueName) {
@@ -39,9 +42,48 @@ function getBundledPlayer(name: CueName) {
   return bundledPlayers[name]!;
 }
 
+function isCustomPlayerIdle(entry: CustomPlayerEntry) {
+  try {
+    return !entry.player.playing;
+  } catch {
+    // If native status is unavailable, retain the player rather than risking an audible cue.
+    return false;
+  }
+}
+
+function releaseCustomPlayer(uri: string) {
+  const entry = customPlayers[uri];
+  if (!entry) return;
+  try {
+    entry.player.release();
+  } catch {
+    // Releasing an already-disposed player should never affect settings changes.
+  }
+  delete customPlayers[uri];
+}
+
+function trimIdleCustomPlayers(protectedUri?: string) {
+  const idleEntries = () => Object.entries(customPlayers)
+    .filter(([, entry]) => isCustomPlayerIdle(entry))
+    .sort(([, left], [, right]) => left.lastUsedOrder - right.lastUsedOrder);
+  while (idleEntries().length > MAX_IDLE_CUSTOM_PLAYERS) {
+    const oldest = idleEntries().find(([uri]) => uri !== protectedUri);
+    if (!oldest) return;
+    releaseCustomPlayer(oldest[0]);
+  }
+}
+
 function getCustomPlayer(uri: string) {
-  if (!customPlayers[uri]) customPlayers[uri] = createAudioPlayer(uri);
-  return customPlayers[uri];
+  const existing = customPlayers[uri];
+  if (existing) {
+    existing.lastUsedOrder = ++customPlayerUseOrder;
+    trimIdleCustomPlayers(uri);
+    return existing.player;
+  }
+  const player = createAudioPlayer(uri);
+  customPlayers[uri] = { player, lastUsedOrder: ++customPlayerUseOrder };
+  trimIdleCustomPlayers(uri);
+  return player;
 }
 
 async function prepareAudio() {
@@ -100,14 +142,7 @@ export async function playFocusRole(role: SoundRoleId, masterEnabled: boolean, s
 }
 
 export function releaseFocusCustomSound(uri: string) {
-  const player = customPlayers[uri];
-  if (!player) return;
-  try {
-    player.release();
-  } catch {
-    // Releasing an already-disposed player should never affect settings changes.
-  }
-  delete customPlayers[uri];
+  releaseCustomPlayer(uri);
 }
 
 export function playFocusTap(masterEnabled: boolean, settings?: SoundRoleSettings) {

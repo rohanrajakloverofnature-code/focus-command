@@ -1,5 +1,5 @@
 import { Colors, type ColorScheme, type ThemeColorPalette } from "@/constants/theme";
-import { useFocusCommand } from "@/lib/focus-command";
+import { shallowEqual, useFocusCommandSelector } from "@/lib/focus-command";
 import { useColorScheme } from "./use-color-scheme";
 
 function isHex(value: string | undefined): value is string {
@@ -28,15 +28,18 @@ function contrast(first: string, second: string) {
 export function useColors(colorSchemeOverride?: ColorScheme): ThemeColorPalette {
   const colorSchema = useColorScheme();
   const scheme = (colorSchemeOverride ?? colorSchema ?? "light") as ColorScheme;
-  const { state } = useFocusCommand();
+  const profileAppearance = useFocusCommandSelector(
+    (state) => ({ highContrast: state.profile.highContrast, palette: state.profile.palette }),
+    shallowEqual,
+  );
   const standard = Colors[scheme];
-  const contrastBase: ThemeColorPalette = state.profile.highContrast
+  const contrastBase: ThemeColorPalette = profileAppearance.highContrast
     ? scheme === "dark"
       ? { ...standard, background: "#000000", surface: "#111111", foreground: "#FFFFFF", muted: "#D8D8D8", border: "#F0F0F0", primary: "#63D8FF", success: "#70F5A7", warning: "#FFD166", error: "#FF8A8A" }
       : { ...standard, background: "#FFFFFF", surface: "#FFFFFF", foreground: "#000000", muted: "#2A2A2A", border: "#1B1B1B", primary: "#005CC8", success: "#006B35", warning: "#8A3D00", error: "#A80000" }
     : standard;
 
-  const requested = state.profile.palette;
+  const requested = profileAppearance.palette;
   const candidate = Object.entries(requested).reduce((palette, [token, value]) => {
     if (isHex(value)) (palette as Record<string, string>)[token] = value;
     return palette;
