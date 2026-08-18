@@ -5,7 +5,7 @@ import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, Vi
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { CustomQuestion, GraphSeries, RankTitle, useFocusCommand } from "@/lib/focus-command";
+import { CustomQuestion, GraphSeries, RankTitle, shallowEqual, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 
 const graphMetrics: { metric: GraphSeries["metric"]; label: string; color: string }[] = [
   { metric: "miniAchievementRating", label: "Mini achievement", color: "#F4C95D" },
@@ -28,8 +28,14 @@ function parseOptions(value: string) {
 
 export default function CustomizeScreen() {
   const colors = useColors();
-  const { state, ready, updateProfile, addCustomQuestion, updateCustomQuestion, removeCustomQuestion, updateCustomGraph } = useFocusCommand();
-  const [titleDrafts, setTitleDrafts] = useState<RankTitle[]>(state.profile.rankTitles);
+  const ready = useFocusCommandReady();
+  const { updateProfile, addCustomQuestion, updateCustomQuestion, removeCustomQuestion, updateCustomGraph } = useFocusCommandActions();
+  const { profile, customQuestions, customGraphs } = useFocusCommandSelector((state) => ({
+    profile: state.profile,
+    customQuestions: state.customQuestions,
+    customGraphs: state.customGraphs,
+  }), shallowEqual);
+  const [titleDrafts, setTitleDrafts] = useState<RankTitle[]>(profile.rankTitles);
   const [questionLabel, setQuestionLabel] = useState("");
   const [questionType, setQuestionType] = useState<CustomQuestion["type"]>("rating");
   const [questionOptions, setQuestionOptions] = useState("");
@@ -38,8 +44,8 @@ export default function CustomizeScreen() {
   const editableTitles = useMemo(() => showAllTitles ? titleDrafts : titleDrafts.slice(0, 12), [showAllTitles, titleDrafts]);
 
   useEffect(() => {
-    if (ready) setTitleDrafts(state.profile.rankTitles);
-  }, [ready, state.profile.rankTitles]);
+    if (ready) setTitleDrafts(profile.rankTitles);
+  }, [profile.rankTitles, ready]);
 
   if (!ready) return <LoadingScreen label="Opening RPG customization…" />;
 
@@ -49,8 +55,8 @@ export default function CustomizeScreen() {
 
   const saveTitles = () => {
     const cleaned = titleDrafts.map((title, index) => ({ ...title, name: title.name.trim() || `Title ${index + 1}`, startLevel: Math.floor(title.startLevel) }));
-    if (cleaned.some((title) => !Number.isInteger(title.startLevel) || title.startLevel < 1 || title.startLevel > state.profile.maxLevel)) {
-      Alert.alert("Invalid title level", `Every title must start at a whole-number level from 1 to ${state.profile.maxLevel}.`);
+    if (cleaned.some((title) => !Number.isInteger(title.startLevel) || title.startLevel < 1 || title.startLevel > profile.maxLevel)) {
+      Alert.alert("Invalid title level", `Every title must start at a whole-number level from 1 to ${profile.maxLevel}.`);
       return;
     }
     if (new Set(cleaned.map((title) => title.startLevel)).size !== cleaned.length) {
@@ -64,9 +70,9 @@ export default function CustomizeScreen() {
 
   const addTitle = () => {
     const highest = titleDrafts.reduce((level, title) => Math.max(level, title.startLevel), 0);
-    const startLevel = highest + Math.max(1, state.profile.titleChangeInterval);
-    if (startLevel > state.profile.maxLevel) {
-      Alert.alert("Increase Maximum level first", `The next title would begin at level ${startLevel}, beyond the current maximum level of ${state.profile.maxLevel}.`);
+    const startLevel = highest + Math.max(1, profile.titleChangeInterval);
+    if (startLevel > profile.maxLevel) {
+      Alert.alert("Increase Maximum level first", `The next title would begin at level ${startLevel}, beyond the current maximum level of ${profile.maxLevel}.`);
       return;
     }
     setTitleDrafts((current) => [...current, { id: `rank_title_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, name: `New rank title ${current.length + 1}`, startLevel, thresholdMode: "explicit" }]);
@@ -74,7 +80,7 @@ export default function CustomizeScreen() {
   };
 
   const changeMaximumLevel = (maxLevel: number) => {
-    const requiredLevel = Math.max(1, ...state.profile.rankTitles.map((title) => title.startLevel), ...state.profile.customCharacterForms.map((form) => form.activationLevel));
+    const requiredLevel = Math.max(1, ...profile.rankTitles.map((title) => title.startLevel), ...profile.customCharacterForms.map((form) => form.activationLevel));
     if (maxLevel < requiredLevel) {
       Alert.alert("Maximum level protected", `Level ${requiredLevel} is used by a configured title or character form. Increase or move that item before lowering Maximum level.`);
       return;
@@ -106,12 +112,12 @@ export default function CustomizeScreen() {
     ]);
   };
 
-  const updateEmotionalChart = (chartId: string, patch: Partial<typeof state.profile.emotionalCharts[number]>) => {
-    updateProfile({ emotionalCharts: state.profile.emotionalCharts.map((chart) => chart.id === chartId ? { ...chart, ...patch } : chart) });
+  const updateEmotionalChart = (chartId: string, patch: Partial<typeof profile.emotionalCharts[number]>) => {
+    updateProfile({ emotionalCharts: profile.emotionalCharts.map((chart) => chart.id === chartId ? { ...chart, ...patch } : chart) });
   };
 
   const toggleMetric = (graphId: string, metric: GraphSeries["metric"], label: string, color: string) => {
-    const graph = state.customGraphs.find((candidate) => candidate.id === graphId);
+    const graph = customGraphs.find((candidate) => candidate.id === graphId);
     if (!graph) return;
     const existing = graph.series.find((series) => series.metric === metric);
     if (existing) {
@@ -132,15 +138,15 @@ export default function CustomizeScreen() {
 
         <SectionHeader title="Level rules" />
         <CommandCard accent={colors.primary} style={styles.cardStack}>
-          <RuleStepper label="Maximum level" value={state.profile.maxLevel} minimum={10} step={10} onChange={changeMaximumLevel} />
+          <RuleStepper label="Maximum level" value={profile.maxLevel} minimum={10} step={10} onChange={changeMaximumLevel} />
           <Divider />
-          <RuleStepper label="Power per level" value={state.profile.powerPerLevel} minimum={10} step={10} onChange={(powerPerLevel) => updateProfile({ powerPerLevel })} />
+          <RuleStepper label="Power per level" value={profile.powerPerLevel} minimum={10} step={10} onChange={(powerPerLevel) => updateProfile({ powerPerLevel })} />
           <Divider />
-          <RuleStepper label="Title change interval" value={state.profile.titleChangeInterval} minimum={1} step={1} onChange={(titleChangeInterval) => updateProfile({ titleChangeInterval })} />
+          <RuleStepper label="Title change interval" value={profile.titleChangeInterval} minimum={1} step={1} onChange={(titleChangeInterval) => updateProfile({ titleChangeInterval })} />
           <Text style={[styles.helpText, { color: colors.muted }]}>The app always shows your current title and the distance to the next title. Defaults are configured for 500 levels and a title change every 10 levels.</Text>
         </CommandCard>
 
-        <SectionHeader title={`Rank titles · ${state.profile.rankTitles.length} available`} action={showAllTitles ? "Show less" : "Show all"} onAction={() => setShowAllTitles((value) => !value)} />
+        <SectionHeader title={`Rank titles · ${profile.rankTitles.length} available`} action={showAllTitles ? "Show less" : "Show all"} onAction={() => setShowAllTitles((value) => !value)} />
         <CommandCard accent={colors.primary} style={styles.titleCard}>
           <Text style={[styles.helpText, { color: colors.muted }]}>Titles remain ordered by their starting level. The interval still sets default spacing; a level you edit becomes an explicit threshold and is not moved by later interval changes.</Text>
           <FlatList
@@ -170,7 +176,7 @@ export default function CustomizeScreen() {
           </View>
           {questionType === "single_choice" || questionType === "multiple_choice" ? <TextInput value={questionOptions} onChangeText={setQuestionOptions} placeholder="Choices, separated by commas" placeholderTextColor={colors.muted} style={[styles.questionInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /> : null}
           <CommandButton label="Add question" icon="plus" onPress={addQuestion} />
-          {state.customQuestions.length ? state.customQuestions.map((question) => (
+          {customQuestions.length ? customQuestions.map((question) => (
             <QuestionEditor
               key={question.id}
               question={question}
@@ -183,7 +189,7 @@ export default function CustomizeScreen() {
         <SectionHeader title="Behavioral tendency lenses" />
         <CommandCard accent={colors.warning} style={styles.cardStack}>
           <Text style={[styles.helpText, { color: colors.muted }]}>Choose the name, visibility, and accent for the four emotional-pattern views. The values come only from your own long-mission debriefs.</Text>
-          {state.profile.emotionalCharts.map((chart) => (
+          {profile.emotionalCharts.map((chart) => (
             <View key={chart.id} style={[styles.emotionChartEditor, { borderColor: colors.border, backgroundColor: colors.background }]}>
               <View style={styles.questionHeader}>
                 <StatusPill label={chart.enabled ? "VISIBLE" : "HIDDEN"} tone={chart.enabled ? "success" : "neutral"} />
@@ -202,7 +208,7 @@ export default function CustomizeScreen() {
 
         <SectionHeader title="Three custom graph slots" />
         <View style={styles.graphStack}>
-          {state.customGraphs.map((graph, index) => (
+          {customGraphs.map((graph, index) => (
             <CommandCard key={graph.id} accent={index === 0 ? colors.primary : index === 1 ? colors.success : "#F4C95D"} style={styles.cardStack}>
               <View style={styles.graphHeader}>
                 <View style={styles.graphCopy}>

@@ -9,7 +9,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getTotalPower, getWellbeingInsight, toLocalDate, type FocusState, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { RECOGNITION_WINDOW_LAYOUT } from "@/lib/focus-layout";
-import { getFocusFrictionInsight } from "@/lib/distraction-log";
+import { getFocusFrictionInsight, getFocusFrictionRangePresentation, type FocusFrictionRange } from "@/lib/distraction-log";
 import { getWeeklyAfterActionReview } from "@/lib/weekly-after-action";
 
 function createDaySeries(days: number, profileTimezone: string) {
@@ -75,6 +75,11 @@ export default function DashboardScreen() {
   const [experience, setExperience] = useState("5");
   const [lifelineNote, setLifelineNote] = useState("");
   const [showLifelineDetails, setShowLifelineDetails] = useState(false);
+  const [focusFrictionRangeKind, setFocusFrictionRangeKind] = useState<FocusFrictionRange["kind"]>("last14Days");
+  const [customFrictionStart, setCustomFrictionStart] = useState("");
+  const [customFrictionEnd, setCustomFrictionEnd] = useState("");
+  const [appliedCustomFrictionRange, setAppliedCustomFrictionRange] = useState<Extract<FocusFrictionRange, { kind: "custom" }> | null>(null);
+  const [focusFrictionRangeError, setFocusFrictionRangeError] = useState("");
 
   const daySeries = useMemo(() => createDaySeries(14, state.profile.timezone), [state.profile.timezone]);
   /* eslint-disable react-hooks/exhaustive-deps -- These pure helpers require a FocusState shape, while each memo intentionally tracks only the source references it actually reads. Adding the full state would reinstate unrelated interaction-path work. */
@@ -82,11 +87,28 @@ export default function DashboardScreen() {
   const completionRecords = useMemo(() => getMissionCompletionRecords(state), [state.missionCompletions, state.missions, state.progression, state.reflections]);
   const forecast = useMemo(() => getEmotionalPatternForecast(state), [state.profile, state.reflections]);
   const wellbeing = useMemo(() => getWellbeingInsight(state), [state.profile, state.reflections]);
-  const focusFriction = useMemo(() => getFocusFrictionInsight(state), [state.distractionLogs, state.missions, state.profile]);
+  const focusFrictionRange = useMemo<FocusFrictionRange>(() => focusFrictionRangeKind === "custom" ? appliedCustomFrictionRange ?? { kind: "custom", startDate: "", endDate: "" } : { kind: focusFrictionRangeKind }, [appliedCustomFrictionRange, focusFrictionRangeKind]);
+  const focusFrictionRangePresentation = useMemo(() => getFocusFrictionRangePresentation(focusFrictionRange, state.profile.timezone), [focusFrictionRange, state.profile.timezone]);
+  const focusFriction = useMemo(() => getFocusFrictionInsight(state, new Date(), focusFrictionRange), [focusFrictionRange, state.distractionLogs, state.missions, state.profile]);
   const weeklyReview = useMemo(() => getWeeklyAfterActionReview(state), [state.distractionLogs, state.missionCompletions, state.missions, state.profile, state.progression, state.reflections]);
   /* eslint-enable react-hooks/exhaustive-deps */
 
   if (!ready) return <LoadingScreen label="Compiling command analytics…" />;
+
+  const selectFocusFrictionRange = (kind: FocusFrictionRange["kind"]) => {
+    setFocusFrictionRangeKind(kind);
+    setFocusFrictionRangeError("");
+  };
+  const applyCustomFocusFrictionRange = () => {
+    const nextRange: FocusFrictionRange = { kind: "custom", startDate: customFrictionStart.trim(), endDate: customFrictionEnd.trim() };
+    if (!getFocusFrictionRangePresentation(nextRange, state.profile.timezone).valid) {
+      setFocusFrictionRangeError("Enter valid dates in YYYY-MM-DD order.");
+      return;
+    }
+    setAppliedCustomFrictionRange(nextRange);
+    setFocusFrictionRangeKind("custom");
+    setFocusFrictionRangeError("");
+  };
 
   const progressionByDate = new Map<string, number>();
   state.progression.forEach((event) => {
@@ -308,17 +330,28 @@ export default function DashboardScreen() {
 
         <SectionHeader title="Focus friction" />
         <CommandCard accent={colors.warning} style={styles.frictionCard}>
-          {focusFriction.total ? <>
+          <View style={styles.frictionFilterRow}>
+            {(["week", "month", "last14Days", "custom"] as const).map((kind) => <TapFeedback key={kind} onPress={() => selectFocusFrictionRange(kind)} accessibilityLabel={`Show Focus Friction for ${kind === "last14Days" ? "the last 14 days" : kind}`} style={[styles.frictionFilter, { borderColor: focusFrictionRangeKind === kind ? `${colors.warning}99` : colors.border, backgroundColor: focusFrictionRangeKind === kind ? `${colors.warning}18` : colors.background }]}><Text style={[styles.frictionFilterLabel, { color: focusFrictionRangeKind === kind ? colors.warning : colors.muted }]}>{kind === "week" ? "WEEK" : kind === "month" ? "MONTH" : kind === "last14Days" ? "14 DAYS" : "CUSTOM"}</Text></TapFeedback>)}
+          </View>
+          {focusFrictionRangeKind === "custom" ? <View style={styles.frictionCustomRange}>
+            <View style={styles.frictionCustomInputs}>
+              <TextInput value={customFrictionStart} onChangeText={setCustomFrictionStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.frictionDateInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+              <TextInput value={customFrictionEnd} onChangeText={setCustomFrictionEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.frictionDateInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            </View>
+            <CommandButton label="Apply" variant="secondary" onPress={applyCustomFocusFrictionRange} />
+            {focusFrictionRangeError ? <Text style={[styles.frictionRangeError, { color: colors.error }]}>{focusFrictionRangeError}</Text> : null}
+          </View> : null}
+          {!focusFrictionRangePresentation.valid ? <View style={styles.frictionEmpty}><Text style={[styles.frictionTitle, { color: colors.foreground }]}>Choose a custom date range.</Text><Text style={[styles.frictionDetail, { color: colors.muted }]}>Enter an inclusive start and end date, then apply it to view your private distraction log.</Text></View> : focusFriction.total ? <>
             <View style={styles.frictionHeading}>
               <View style={styles.frictionCopy}>
-                <Text style={[styles.frictionEyebrow, { color: colors.warning }]}>PRIVATE · LAST 14 DAYS</Text>
+                <Text style={[styles.frictionEyebrow, { color: colors.warning }]}>PRIVATE · {focusFrictionRangePresentation.label}</Text>
                 <Text style={[styles.frictionTitle, { color: colors.foreground }]}>{focusFriction.total} disruption{focusFriction.total === 1 ? "" : "s"} logged</Text>
               </View>
               <StatusPill label={`TOP · ${focusFriction.topCategory?.label.toUpperCase()}`} tone="warning" />
             </View>
             <Text style={[styles.frictionDetail, { color: colors.muted }]}>Most interrupted window: {focusFriction.timeWindow}. {focusFriction.recentMission ? `${focusFriction.recentMission.title} recorded ${focusFriction.recentMission.count}.` : ""}</Text>
             <View style={styles.frictionBars}>{focusFriction.categoryCounts.map((entry) => <View key={entry.category} style={styles.frictionBarRow}><Text numberOfLines={1} style={[styles.frictionBarLabel, { color: colors.muted }]}>{entry.label}</Text><View style={[styles.frictionBarTrack, { backgroundColor: colors.background }]}><View style={[styles.frictionBarFill, { backgroundColor: colors.warning, width: `${Math.max(12, (entry.count / Math.max(focusFriction.topCategory?.count ?? 1, 1)) * 100)}%` }]} /></View><Text style={[styles.frictionBarValue, { color: colors.foreground }]}>{entry.count}</Text></View>)}</View>
-          </> : <View style={styles.frictionEmpty}><Text style={[styles.frictionTitle, { color: colors.foreground }]}>No distraction signals logged yet.</Text><Text style={[styles.frictionDetail, { color: colors.muted }]}>Your private focus log will appear here after you record a live-mission interruption.</Text></View>}
+          </> : <View style={styles.frictionEmpty}><Text style={[styles.frictionTitle, { color: colors.foreground }]}>No distraction signals logged in this range.</Text><Text style={[styles.frictionDetail, { color: colors.muted }]}>Your private focus log will appear here after you record a live-mission interruption.</Text></View>}
         </CommandCard>
 
         <SectionHeader title="Emotional intelligence" />
@@ -482,6 +515,13 @@ const styles = StyleSheet.create({
   wellbeingFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   wellbeingOpen: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.65 },
   frictionCard: { gap: 11 },
+  frictionFilterRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  frictionFilter: { minHeight: 30, justifyContent: "center", paddingHorizontal: 9, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
+  frictionFilterLabel: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.65 },
+  frictionCustomRange: { gap: 7 },
+  frictionCustomInputs: { flexDirection: "row", gap: 7 },
+  frictionDateInput: { flex: 1, minHeight: 38, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 9, fontSize: 10, lineHeight: 14, fontWeight: "700" },
+  frictionRangeError: { fontSize: 10, lineHeight: 14, fontWeight: "700" },
   frictionHeading: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
   frictionCopy: { flex: 1, gap: 3 },
   frictionEyebrow: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.85 },

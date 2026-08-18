@@ -16,7 +16,7 @@ import {
   CINEMATIC_VIDEO_SOUNDTRACK_VOLUME,
   usesCinematicVideoSoundtrack,
 } from "@/lib/cinematic-playback";
-import { getActiveCustomCharacterForm, type CustomCharacterForm, useFocusCommand, useFocusCommandSelector } from "@/lib/focus-command";
+import { getActiveCustomCharacterForm, type CustomCharacterForm, useFocusCommandSelector } from "@/lib/focus-command";
 import { disposeAudioPlayer, disposeAudioPlayers, resetAudioPlayer } from "@/lib/media-lifecycle";
 import {
   CHARACTER_EVOLUTION_TIMELINE_MS,
@@ -240,9 +240,9 @@ export function RankCharacterAchievement({
   historicFormName?: string;
 }) {
   const colors = useColors();
-  const { state } = useFocusCommand();
-  const activeCustomForm = getActiveCustomCharacterForm(state.profile, level);
-  const resolvedProfile = getRankProfile(title, level, state.profile.customCharacterForms);
+  const profileState = useFocusCommandSelector((state) => state.profile);
+  const activeCustomForm = getActiveCustomCharacterForm(profileState, level);
+  const resolvedProfile = getRankProfile(title, level, profileState.customCharacterForms);
   const profile = historicPortraitUri || historicFormName
     ? {
       ...resolvedProfile,
@@ -253,9 +253,9 @@ export function RankCharacterAchievement({
   const evolution = useMemo(() => getCharacterEvolutionProfile(title, level), [level, title]);
   const characterColorSource = activeCustomForm?.portrait?.uri
     ?? activeCustomForm?.video?.uri
-    ?? state.profile.localCinematicOverrides[evolution.cinematicVariant]?.uri
+    ?? profileState.localCinematicOverrides[evolution.cinematicVariant]?.uri
     ?? null;
-  const cachedCharacterColors = characterColorSource ? state.profile.characterCinematicColors[characterColorSource] : undefined;
+  const cachedCharacterColors = characterColorSource ? profileState.characterCinematicColors[characterColorSource] : undefined;
   const cinematicColors = cachedCharacterColors ?? {
     accent: evolution.accent,
     backdrop: "#020914EE",
@@ -269,10 +269,10 @@ export function RankCharacterAchievement({
   };
   const cinematicVideoDurationMs = getCharacterEvolutionVideoDurationMs(evolution.cinematicVariant);
   const cinematicVideoSource = activeCustomForm?.video?.uri
-    ?? state.profile.localCinematicOverrides[evolution.cinematicVariant]?.uri
+    ?? profileState.localCinematicOverrides[evolution.cinematicVariant]?.uri
     ?? CHARACTER_EVOLUTION_VIDEO_SOURCES[evolution.cinematicVariant];
   const selectedMusic = activeCustomForm?.music
-    ?? state.profile.localCinematicMusicOverrides[evolution.cinematicVariant]
+    ?? profileState.localCinematicMusicOverrides[evolution.cinematicVariant]
     ?? { duringVideo: null, postVideo: null };
   const duringVideoMusicSource = selectedMusic.duringVideo?.uri ?? CHARACTER_EVOLUTION_VIDEO_SOUNDTRACK_SOURCE;
   const postVideoMusicSource = selectedMusic.postVideo?.uri ?? CHARACTER_EVOLUTION_POST_VIDEO_REVEAL_SOURCE;

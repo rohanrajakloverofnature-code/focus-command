@@ -6,7 +6,7 @@ import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScree
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { Boss, formatTimeUntil, getBossProgress, useFocusCommand } from "@/lib/focus-command";
+import { Boss, formatTimeUntil, getBossProgress, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 
 const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T12:00:00`));
 
@@ -15,13 +15,16 @@ const blankForm = (): BossForm => ({ title: "", objective: "", deadline: "", rew
 
 export default function BossesScreen() {
   const colors = useColors();
-  const { state, ready, createBoss, updateBoss, removeBoss, updateMission } = useFocusCommand();
+  const bosses = useFocusCommandSelector((state) => state.bosses);
+  const missions = useFocusCommandSelector((state) => state.missions);
+  const ready = useFocusCommandReady();
+  const { createBoss, updateBoss, removeBoss, updateMission } = useFocusCommandActions();
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<BossForm>(blankForm());
   const [editingBossId, setEditingBossId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<BossForm>(blankForm());
 
-  const activeBosses = useMemo(() => state.bosses.filter((boss) => boss.status === "active"), [state.bosses]);
+  const activeBosses = useMemo(() => bosses.filter((boss) => boss.status === "active"), [bosses]);
   if (!ready) return <LoadingScreen label="Loading campaign board…" />;
 
   const updateDraft = (field: keyof BossForm, value: string) => setDraft((current) => ({ ...current, [field]: value }));
@@ -73,7 +76,7 @@ export default function BossesScreen() {
   };
 
   const confirmDeleteBoss = (boss: Boss) => {
-    const linkedCount = state.missions.filter((mission) => mission.bossId === boss.id).length;
+    const linkedCount = missions.filter((mission) => mission.bossId === boss.id).length;
     Alert.alert("Delete this boss?", linkedCount ? `${linkedCount} linked mission${linkedCount === 1 ? "" : "s"} will remain on the board but become unlinked. This cannot be undone.` : "This campaign will be removed. This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete boss", style: "destructive", onPress: () => removeBoss(boss.id) },
@@ -96,8 +99,8 @@ export default function BossesScreen() {
 
         {activeBosses.length ? <View style={styles.stack}>
           {activeBosses.map((boss) => {
-            const progress = getBossProgress(state, boss.id);
-            const linkedMissions = state.missions.filter((mission) => mission.bossId === boss.id);
+            const progress = getBossProgress({ missions }, boss.id);
+            const linkedMissions = missions.filter((mission) => mission.bossId === boss.id);
             const editing = editingBossId === boss.id;
             return <CommandCard key={boss.id} accent="#F4C95D" style={styles.bossCard}>
               <View style={styles.bossHeader}>

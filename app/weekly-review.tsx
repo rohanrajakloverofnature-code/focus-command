@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { CommandCard, IconAction, LoadingScreen, ScreenTitle, SectionHeader } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { useFocusCommand } from "@/lib/focus-command";
+import { shallowEqual, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { formatWeeklyRange, getWeeklyAfterActionReview } from "@/lib/weekly-after-action";
 import { filterMonthlyArchiveStudiedTopicsByProgress, MONTHLY_ARCHIVE_REVISION_PROGRESS_FILTERS, type MonthlyArchiveRevisionProgressFilter } from "@/lib/monthly-command-archive";
 
@@ -24,8 +24,19 @@ function Metric({ label, value }: { label: string; value: string }) {
 export default function WeeklyReviewScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { state, ready } = useFocusCommand();
-  const review = useMemo(() => getWeeklyAfterActionReview(state), [state]);
+  const ready = useFocusCommandReady();
+  const weeklyState = useFocusCommandSelector((state) => ({
+    profile: state.profile,
+    missions: state.missions,
+    missionCompletions: state.missionCompletions,
+    reflections: state.reflections,
+    progression: state.progression,
+    transactions: state.transactions,
+    distractionLogs: state.distractionLogs,
+    srsTopics: state.srsTopics,
+    srsActivityLog: state.srsActivityLog,
+  }), shallowEqual);
+  const review = useMemo(() => getWeeklyAfterActionReview(weeklyState), [weeklyState]);
   const [revisionFilter, setRevisionFilter] = useState<MonthlyArchiveRevisionProgressFilter>("all");
   const visibleRevisionActivities = useMemo(
     () => filterMonthlyArchiveStudiedTopicsByProgress(review.revision.activities, revisionFilter),

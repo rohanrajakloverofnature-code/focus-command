@@ -12,7 +12,11 @@ import {
   DashboardFeatureFilter,
   DashboardMetricId,
   DashboardWidgetConfig,
-  useFocusCommand,
+  type FocusState,
+  shallowEqual,
+  useFocusCommandActions,
+  useFocusCommandReady,
+  useFocusCommandSelector,
 } from "@/lib/focus-command";
 import {
   DASHBOARD_CHART_TYPES,
@@ -40,11 +44,22 @@ function normaliseWidget(widget: DashboardWidgetConfig): DashboardWidgetConfig {
 
 export default function CustomDashboardScreen() {
   const colors = useColors();
-  const { state, ready, updateProfile } = useFocusCommand();
+  const ready = useFocusCommandReady();
+  const { updateProfile } = useFocusCommandActions();
+  const workspaceState = useFocusCommandSelector((state) => ({
+    profile: state.profile,
+    missions: state.missions,
+    missionCompletions: state.missionCompletions,
+    progression: state.progression,
+    reflections: state.reflections,
+    journals: state.journals,
+    transactions: state.transactions,
+    srsTopics: state.srsTopics,
+  }), shallowEqual) as Pick<FocusState, "profile" | "missions" | "missionCompletions" | "progression" | "reflections" | "journals" | "transactions" | "srsTopics">;
   const [expandedWidgetId, setExpandedWidgetId] = useState<string | null>(null);
-  const widgets = useMemo(() => state.profile.dashboardWidgets.map(normaliseWidget), [state.profile.dashboardWidgets]);
-  const subjects = useMemo(() => workspaceSubjects(state), [state]);
-  const categories = useMemo(() => workspaceCategories(state), [state]);
+  const widgets = useMemo(() => workspaceState.profile.dashboardWidgets.map(normaliseWidget), [workspaceState.profile.dashboardWidgets]);
+  const subjects = useMemo(() => workspaceSubjects(workspaceState), [workspaceState]);
+  const categories = useMemo(() => workspaceCategories(workspaceState), [workspaceState]);
 
   if (!ready) return <LoadingScreen label="Opening custom analytics…" />;
 
@@ -116,6 +131,7 @@ export default function CustomDashboardScreen() {
               expanded={expandedWidgetId === widget.id}
               subjects={subjects}
               categories={categories}
+              workspaceState={workspaceState}
               onToggle={() => setExpandedWidgetId((current) => current === widget.id ? null : widget.id)}
               onUpdate={(patch) => updateWidget(widget.id, patch)}
               onRemove={() => removeWidget(widget.id)}
@@ -136,6 +152,7 @@ function DashboardWidgetCard({
   expanded,
   subjects,
   categories,
+  workspaceState,
   onToggle,
   onUpdate,
   onRemove,
@@ -145,13 +162,13 @@ function DashboardWidgetCard({
   expanded: boolean;
   subjects: string[];
   categories: string[];
+  workspaceState: Pick<FocusState, "profile" | "missions" | "missionCompletions" | "progression" | "reflections" | "journals" | "transactions" | "srsTopics">;
   onToggle: () => void;
   onUpdate: (patch: Partial<DashboardWidgetConfig>) => void;
   onRemove: () => void;
 }) {
   const colors = useColors();
-  const { state } = useFocusCommand();
-  const result = useMemo(() => getDashboardWorkspaceResult(state, widget), [state, widget]);
+  const result = useMemo(() => getDashboardWorkspaceResult(workspaceState, widget), [workspaceState, widget]);
   const chartLabel = DASHBOARD_CHART_TYPES.find((item) => item.id === widget.chartType)?.label ?? "Chart";
   const rangeLabel = DASHBOARD_DATE_RANGES.find((item) => item.id === widget.dateRange)?.label ?? "Period";
 

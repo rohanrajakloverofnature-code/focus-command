@@ -15,7 +15,7 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 
-import { getEmotionalPatternForecast, getWellbeingInsight, useFocusCommand } from "@/lib/focus-command";
+import { getEmotionalPatternForecast, getWellbeingInsight, shallowEqual, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { LAUNCH_QUOTE_HISTORY_KEY, nextLaunchQuoteHistory, parseLaunchQuoteHistory, selectLaunchQuote, type LaunchQuote } from "@/lib/launch-quotes";
 import { getLaunchFireSoundStopDelay, getLaunchFireStageHeight, getLaunchQuoteHoldDuration, getLaunchQuoteVisibleDelay, getLaunchSequenceDuration } from "@/lib/launch-sequence";
 import { claimLaunchSequence, setLaunchSequenceActive } from "@/lib/launch-session";
@@ -34,7 +34,13 @@ const NATIVE_FIRE_AUDIO_VISUAL_LEAD_MS = 96;
 type LaunchAudioPlayer = ReturnType<typeof createAudioPlayer>;
 
 export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
-  const { state, ready } = useFocusCommand();
+  const ready = useFocusCommandReady();
+  const launchState = useFocusCommandSelector((state) => ({
+    profile: state.profile,
+    missions: state.missions,
+    reflections: state.reflections,
+  }), shallowEqual);
+  const { profile } = launchState;
   const { width, height } = useWindowDimensions();
   const [quote, setQuote] = useState<LaunchQuote | null>(null);
   const [visible, setVisible] = useState(false);
@@ -53,13 +59,13 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   const quoteScale = useSharedValue(0.95);
   const glazeOpacity = useSharedValue(0);
   const glazeProgress = useSharedValue(-1);
-  const reduceMotion = state.profile.reduceMotion;
-  const highContrast = state.profile.highContrast;
-  const launchAnimation = state.profile.launchAnimation;
+  const reduceMotion = profile.reduceMotion;
+  const highContrast = profile.highContrast;
+  const launchAnimation = profile.launchAnimation;
   const hasCustomLaunchMedia = Boolean(launchAnimation.visual?.uri && launchAnimation.audio?.uri) && !reduceMotion;
   const customAudioDurationMs = Math.round(Math.max(5, Math.min(10, launchAnimation.audio?.durationSeconds ?? 10)) * 1_000);
-  const forecast = useMemo(() => getEmotionalPatternForecast(state), [state]);
-  const wellbeing = useMemo(() => getWellbeingInsight(state), [state]);
+  const forecast = useMemo(() => getEmotionalPatternForecast(launchState), [launchState]);
+  const wellbeing = useMemo(() => getWellbeingInsight(launchState), [launchState]);
   const stageHeight = getLaunchFireStageHeight(height);
   const launchDuration = getLaunchSequenceDuration(reduceMotion);
   const clearTimers = useCallback(() => {
@@ -82,7 +88,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
   useEffect(() => {
     // Audio players are intentionally created only after the visible launch stage begins.
     // This leaves initial Home hydration and first-frame interaction free of native-media work.
-    if (!ready || !visible || !state.profile.soundEnabled) return;
+    if (!ready || !visible || !profile.soundEnabled) return;
     try {
       // Preload before the first fire frame becomes visible so neither player creation nor
       // decoding can push audio behind its corresponding visual moment on Android.
@@ -108,10 +114,10 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
       stopPlayer(fireAudioPlayerRef);
       stopPlayer(quoteAudioPlayerRef);
     };
-  }, [hasCustomLaunchMedia, launchAnimation.audio?.uri, ready, state.profile.soundEnabled, stopPlayer, visible]);
+  }, [hasCustomLaunchMedia, launchAnimation.audio?.uri, profile.soundEnabled, ready, stopPlayer, visible]);
 
   const playAudioCue = useCallback(async (source: number, target: { current: LaunchAudioPlayer | null }, volume: number, loop = false) => {
-    if (!state.profile.soundEnabled) return;
+    if (!profile.soundEnabled) return;
     const audioRun = ++audioRunRef.current;
     try {
       // False intentionally respects the iOS silent switch; Android and web follow their system volume state.
@@ -129,7 +135,7 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     } catch {
       // Autoplay restrictions, mute settings, or a failed source safely fall back to a silent visual launch.
     }
-  }, [state.profile.soundEnabled]);
+  }, [profile.soundEnabled]);
 
   const playFireAudio = useCallback(() => {
     const player = fireAudioPlayerRef.current;
@@ -164,13 +170,13 @@ export function LaunchAnimation({ onFinished }: { onFinished?: () => void }) {
     try {
       customVisualRef.current?.startAnimating();
       const player = fireAudioPlayerRef.current;
-      if (!state.profile.soundEnabled || !player) return;
+      if (!profile.soundEnabled || !player) return;
       player.seekTo(0);
       player.play();
     } catch {
       // A failed custom pair falls back to the rest of the safe launch sequence.
     }
-  }, [hasCustomLaunchMedia, state.profile.soundEnabled]);
+  }, [hasCustomLaunchMedia, profile.soundEnabled]);
 
   const stopCustomLaunchMedia = useCallback(() => {
     try {

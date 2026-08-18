@@ -1,22 +1,31 @@
 import { router } from "expo-router";
+import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { useFocusCommand } from "@/lib/focus-command";
+import { shallowEqual, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 
 export default function InventoryScreen() {
   const colors = useColors();
-  const { state, ready } = useFocusCommand();
-  if (!ready) return <LoadingScreen label="Opening active inventory…" />;
+  const ready = useFocusCommandReady();
+  const { inventory: inventoryItems, rewards } = useFocusCommandSelector(
+    (state) => ({ inventory: state.inventory, rewards: state.rewards }),
+    shallowEqual,
+  );
+  const { active, history } = useMemo(() => {
+    const inventory = inventoryItems
+      .map((item) => ({ item, reward: rewards.find((reward) => reward.id === item.rewardId) }))
+      .filter((entry): entry is { item: typeof inventoryItems[number]; reward: typeof rewards[number] } => Boolean(entry.reward));
+    return {
+      active: inventory.filter(({ item }) => item.active && !item.consumedAt),
+      history: inventory.filter(({ item }) => !item.active || Boolean(item.consumedAt)),
+    };
+  }, [inventoryItems, rewards]);
 
-  const inventory = state.inventory
-    .map((item) => ({ item, reward: state.rewards.find((reward) => reward.id === item.rewardId) }))
-    .filter((entry): entry is { item: typeof state.inventory[number]; reward: typeof state.rewards[number] } => Boolean(entry.reward));
-  const active = inventory.filter(({ item }) => item.active && !item.consumedAt);
-  const history = inventory.filter(({ item }) => !item.active || Boolean(item.consumedAt));
+  if (!ready) return <LoadingScreen label="Opening active inventory…" />;
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background">

@@ -8,7 +8,7 @@ import { useColors } from "@/hooks/use-colors";
 import { deriveCharacterCinematicColors } from "@/lib/character-visual-colors";
 import { type CharacterCinematicVariant } from "@/lib/character-development";
 import { pickAndPersistCharacterMusic, pickAndPersistCharacterPortrait, pickAndPersistCharacterVideo, removePersistedCharacterMedia, type CharacterMusicSlot } from "@/lib/character-form-media";
-import { getResolvedRankTitles, type CharacterCinematicMusicPair, type CustomCharacterForm, useFocusCommand } from "@/lib/focus-command";
+import { getResolvedRankTitles, type CharacterCinematicMusicPair, type CustomCharacterForm, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { pickAndPersistCinematicVideo, removePersistedCinematicVideo } from "@/lib/focus-cinematic-library";
 
 type CinematicEntry = {
@@ -58,9 +58,11 @@ function MusicControl({ slot, current, isBusy, onChoose, onRemove, required = fa
 
 export default function CinematicLibraryScreen() {
   const colors = useColors();
-  const { state, ready, setCinematicOverride, removeCinematicOverride, updateProfile } = useFocusCommand();
+  const ready = useFocusCommandReady();
+  const { setCinematicOverride, removeCinematicOverride, updateProfile } = useFocusCommandActions();
+  const profile = useFocusCommandSelector((state) => state.profile);
   const [busyKey, setBusyKey] = useState<string | null>(null);
-  const savedColorUris = useRef(new Set(Object.keys(state.profile.characterCinematicColors)));
+  const savedColorUris = useRef(new Set(Object.keys(profile.characterCinematicColors)));
 
   if (!ready) return <LoadingScreen label="Opening cinematic library…" />;
 
@@ -77,7 +79,7 @@ export default function CinematicLibraryScreen() {
     try {
       const selected = await pickAndPersistCinematicVideo(entry.variant);
       if (!selected) return;
-      const previous = state.profile.localCinematicOverrides[entry.variant];
+      const previous = profile.localCinematicOverrides[entry.variant];
       setCinematicOverride(entry.variant, selected);
       void cacheSavedCharacterColors(selected.uri);
       if (previous?.uri && previous.uri !== selected.uri) await removePersistedCinematicVideo(previous.uri);
@@ -91,7 +93,7 @@ export default function CinematicLibraryScreen() {
   };
 
   const restoreDefault = (entry: CinematicEntry) => {
-    const current = state.profile.localCinematicOverrides[entry.variant];
+    const current = profile.localCinematicOverrides[entry.variant];
     if (!current) return;
     Alert.alert("Restore bundled cinematic?", `${entry.name} will use its original Focus Command video again.`, [
       { text: "Cancel", style: "cancel" },
@@ -112,9 +114,9 @@ export default function CinematicLibraryScreen() {
     try {
       const selected = await pickAndPersistCharacterMusic(entry.variant, slot);
       if (!selected) return;
-      const previousPair = state.profile.localCinematicMusicOverrides[entry.variant] ?? EMPTY_MUSIC;
+      const previousPair = profile.localCinematicMusicOverrides[entry.variant] ?? EMPTY_MUSIC;
       const previous = previousPair[slot];
-      updateProfile({ localCinematicMusicOverrides: { ...state.profile.localCinematicMusicOverrides, [entry.variant]: { ...previousPair, [slot]: selected } } });
+      updateProfile({ localCinematicMusicOverrides: { ...profile.localCinematicMusicOverrides, [entry.variant]: { ...previousPair, [slot]: selected } } });
       if (previous?.uri && previous.uri !== selected.uri) await removePersistedCharacterMedia(previous.uri);
       Alert.alert("Custom music saved", `${selected.name} will play for ${entry.name}.`);
     } catch (error) {
@@ -125,48 +127,48 @@ export default function CinematicLibraryScreen() {
   };
 
   const resetExistingMusic = (entry: CinematicEntry, slot: CharacterMusicSlot) => {
-    const pair = state.profile.localCinematicMusicOverrides[entry.variant] ?? EMPTY_MUSIC;
+    const pair = profile.localCinematicMusicOverrides[entry.variant] ?? EMPTY_MUSIC;
     const current = pair[slot];
     if (!current) return;
     Alert.alert("Restore bundled music?", `${entry.name} will use its existing Focus Command ${slot === "duringVideo" ? "during-video soundtrack" : "ending cue"} again.`, [
       { text: "Cancel", style: "cancel" },
       { text: "Restore default", style: "destructive", onPress: () => {
-        updateProfile({ localCinematicMusicOverrides: { ...state.profile.localCinematicMusicOverrides, [entry.variant]: { ...pair, [slot]: null } } });
+        updateProfile({ localCinematicMusicOverrides: { ...profile.localCinematicMusicOverrides, [entry.variant]: { ...pair, [slot]: null } } });
         void removePersistedCharacterMedia(current.uri);
       } },
     ]);
   };
 
   const updateCustomForm = (id: string, patch: Partial<CustomCharacterForm>) => {
-    updateProfile({ customCharacterForms: state.profile.customCharacterForms.map((form) => form.id === id ? { ...form, ...patch } : form) });
+    updateProfile({ customCharacterForms: profile.customCharacterForms.map((form) => form.id === id ? { ...form, ...patch } : form) });
   };
 
   const addCustomForm = () => {
-    const highest = state.profile.customCharacterForms.reduce((level, form) => Math.max(level, form.activationLevel), 0);
-    const activationLevel = Math.max(1, highest + Math.max(1, state.profile.titleChangeInterval));
-    if (activationLevel > state.profile.maxLevel) {
-      Alert.alert("Increase Maximum level first", `The next custom form would activate at level ${activationLevel}, beyond the current maximum level of ${state.profile.maxLevel}.`);
+    const highest = profile.customCharacterForms.reduce((level, form) => Math.max(level, form.activationLevel), 0);
+    const activationLevel = Math.max(1, highest + Math.max(1, profile.titleChangeInterval));
+    if (activationLevel > profile.maxLevel) {
+      Alert.alert("Increase Maximum level first", `The next custom form would activate at level ${activationLevel}, beyond the current maximum level of ${profile.maxLevel}.`);
       return;
     }
     const form: CustomCharacterForm = {
       id: `custom_form_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      name: `Custom form ${state.profile.customCharacterForms.length + 1}`,
+      name: `Custom form ${profile.customCharacterForms.length + 1}`,
       activationLevel,
       portrait: null,
       video: null,
       music: { duringVideo: null, postVideo: null },
       createdAt: new Date().toISOString(),
     };
-    updateProfile({ customCharacterForms: [...state.profile.customCharacterForms, form] });
+    updateProfile({ customCharacterForms: [...profile.customCharacterForms, form] });
   };
 
   const updateActivationLevel = (form: CustomCharacterForm, rawValue: string) => {
     const activationLevel = Math.floor(Number(rawValue));
-    if (!Number.isInteger(activationLevel) || activationLevel < 1 || activationLevel > state.profile.maxLevel) {
-      Alert.alert("Invalid activation level", `Use a whole-number level from 1 to ${state.profile.maxLevel}.`);
+    if (!Number.isInteger(activationLevel) || activationLevel < 1 || activationLevel > profile.maxLevel) {
+      Alert.alert("Invalid activation level", `Use a whole-number level from 1 to ${profile.maxLevel}.`);
       return;
     }
-    if (state.profile.customCharacterForms.some((candidate) => candidate.id !== form.id && candidate.activationLevel === activationLevel)) {
+    if (profile.customCharacterForms.some((candidate) => candidate.id !== form.id && candidate.activationLevel === activationLevel)) {
       Alert.alert("Activation level already used", "Each custom character form needs its own activation level.");
       return;
     }
@@ -214,7 +216,7 @@ export default function CinematicLibraryScreen() {
     Alert.alert("Remove custom character form?", `${form.name} and its local portrait, video, and music files will be removed. Focus Command will safely fall back to the next eligible form.`, [
       { text: "Cancel", style: "cancel" },
       { text: "Remove form", style: "destructive", onPress: () => {
-        updateProfile({ customCharacterForms: state.profile.customCharacterForms.filter((candidate) => candidate.id !== form.id) });
+        updateProfile({ customCharacterForms: profile.customCharacterForms.filter((candidate) => candidate.id !== form.id) });
         [form.portrait, form.video, form.music.duringVideo, form.music.postVideo].forEach((media) => { if (media?.uri) void removePersistedCharacterMedia(media.uri); });
       } },
     ]);
@@ -243,8 +245,8 @@ export default function CinematicLibraryScreen() {
           </>
         )}
         renderItem={({ item }) => {
-          const override = state.profile.localCinematicOverrides[item.variant];
-          const music = state.profile.localCinematicMusicOverrides[item.variant] ?? EMPTY_MUSIC;
+          const override = profile.localCinematicOverrides[item.variant];
+          const music = profile.localCinematicMusicOverrides[item.variant] ?? EMPTY_MUSIC;
           const isSaving = busyKey === `${item.variant}-video`;
           const isBusy = busyKey !== null;
           return (
@@ -280,10 +282,10 @@ export default function CinematicLibraryScreen() {
           <View style={styles.customSection}>
             <SectionHeader title="Custom character forms" action="Create form" onAction={addCustomForm} />
             <Text style={[styles.customIntro, { color: colors.muted }]}>A complete form takes over at its activation level. A draft stays hidden from the profile until its PNG, video, and both music tracks are present.</Text>
-            {state.profile.customCharacterForms.slice().sort((left, right) => left.activationLevel - right.activationLevel || left.createdAt.localeCompare(right.createdAt)).map((form) => {
+            {profile.customCharacterForms.slice().sort((left, right) => left.activationLevel - right.activationLevel || left.createdAt.localeCompare(right.createdAt)).map((form) => {
               const complete = Boolean(form.name.trim() && form.portrait && form.video && form.music.duringVideo && form.music.postVideo);
               const isBusy = busyKey !== null;
-              const activeRankTitle = getResolvedRankTitles(state.profile).filter((rank) => rank.startLevel <= form.activationLevel).at(-1)?.name ?? "No rank title";
+              const activeRankTitle = getResolvedRankTitles(profile).filter((rank) => rank.startLevel <= form.activationLevel).at(-1)?.name ?? "No rank title";
               return (
                 <CommandCard key={form.id} accent={complete ? colors.success : colors.warning} style={styles.card}>
                   <View style={styles.cardHeader}>

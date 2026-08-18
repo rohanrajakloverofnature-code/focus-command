@@ -11,6 +11,8 @@ import {
   toLocalDate,
 } from "./focus-command";
 
+type DashboardWorkspaceState = Pick<FocusState, "profile" | "missions" | "missionCompletions" | "progression" | "reflections" | "journals" | "transactions" | "srsTopics">;
+
 export interface DashboardWorkspacePoint {
   label: string;
   value: number;
@@ -105,7 +107,7 @@ function labelForDay(day: string, index: number, total: number) {
   return index === 0 || index === total - 1 || index === Math.floor(total / 2) ? day.slice(5) : "";
 }
 
-function allActivityDays(state: FocusState) {
+function allActivityDays(state: DashboardWorkspaceState) {
   const timezone = state.profile.timezone;
   return [
     ...state.progression.map((item) => toLocalDate(item.occurredAt, timezone)),
@@ -117,7 +119,7 @@ function allActivityDays(state: FocusState) {
   ].filter(Boolean).sort();
 }
 
-function buildBuckets(state: FocusState, widget: DashboardWidgetConfig) {
+function buildBuckets(state: DashboardWorkspaceState, widget: DashboardWidgetConfig) {
   const timezone = state.profile.timezone;
   const range = widget.dateRange;
   const start = dateRangeStart(widget, timezone);
@@ -237,11 +239,11 @@ export function createDashboardWorkspaceWidget(index: number): DashboardWidgetCo
   };
 }
 
-export function workspaceSubjects(state: FocusState) {
+export function workspaceSubjects(state: DashboardWorkspaceState) {
   return Array.from(new Set(state.missions.map((mission) => mission.subject.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 }
 
-export function workspaceCategories(state: FocusState) {
+export function workspaceCategories(state: DashboardWorkspaceState) {
   return Array.from(new Set(state.missions.map((mission) => mission.category.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 }
 
@@ -249,7 +251,7 @@ export function workspaceCategories(state: FocusState) {
  * Builds a chart-ready series from persisted activity only. The current widget controls all
  * dimensions: metric, date range, source feature, subject, category, and mission frequency.
  */
-export function getDashboardWorkspaceResult(state: FocusState, widget: DashboardWidgetConfig): DashboardWorkspaceResult {
+export function getDashboardWorkspaceResult(state: DashboardWorkspaceState, widget: DashboardWidgetConfig): DashboardWorkspaceResult {
   const definition = metricDefinition(widget.metric);
   const { buckets, start, granularity } = buildBuckets(state, widget);
   const valuesByBucket = new Map(buckets.map((bucket) => [bucket, 0]));

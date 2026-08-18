@@ -6,7 +6,7 @@ import { MultiLineTrendChart, type MultiLineSeries } from "@/components/focus-ch
 import { CommandCard, IconAction, LoadingScreen, ScreenTitle, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { getWellbeingInsight, useFocusCommand } from "@/lib/focus-command";
+import { getWellbeingInsight, shallowEqual, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 
 function mean(values: (number | null | undefined)[]) {
   const available = values.filter((value): value is number => typeof value === "number" && value > 0);
@@ -24,9 +24,14 @@ function rating(value: number | null) {
 
 export default function WellbeingInsightScreen() {
   const colors = useColors();
-  const { state, ready } = useFocusCommand();
+  const ready = useFocusCommandReady();
+  const wellbeingState = useFocusCommandSelector((state) => ({
+    profile: state.profile,
+    missions: state.missions,
+    reflections: state.reflections,
+  }), shallowEqual);
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
-  const insight = useMemo(() => getWellbeingInsight(state), [state]);
+  const insight = useMemo(() => getWellbeingInsight(wellbeingState), [wellbeingState]);
 
   const trendSeries = useMemo<MultiLineSeries[]>(() => {
     const chronological = [...insight.records].reverse();

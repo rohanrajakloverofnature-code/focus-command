@@ -5,26 +5,28 @@ import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScree
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { getPendingRevisions, SrsTopic, useFocusCommand } from "@/lib/focus-command";
+import { getPendingRevisions, SrsTopic, shallowEqual, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { scheduleRevisionReminder } from "@/lib/focus-reminders";
 
 export default function RevisionsScreen() {
   const colors = useColors();
-  const { state, ready, completeRevision } = useFocusCommand();
+  const ready = useFocusCommandReady();
+  const { completeRevision } = useFocusCommandActions();
+  const { profile, srsTopics } = useFocusCommandSelector((state) => ({ profile: state.profile, srsTopics: state.srsTopics }), shallowEqual);
   const { topic: topicId } = useLocalSearchParams<{ topic?: string }>();
 
   if (!ready) return <LoadingScreen label="Opening revision queue…" />;
 
-  const topics = getPendingRevisions(state);
+  const topics = getPendingRevisions({ profile, srsTopics });
   const selected = topicId ? topics.find((topic) => topic.id === topicId) : null;
 
   const finishRevision = async (topic: SrsTopic, returnToQueue = false) => {
     const nextDelayDays = topic.stage === 0 ? 7 : topic.stage === 1 ? 30 : null;
     completeRevision(topic.id);
-    if (state.profile.notificationsEnabled && nextDelayDays) {
+    if (profile.notificationsEnabled && nextDelayDays) {
       const nextDue = new Date();
       nextDue.setDate(nextDue.getDate() + nextDelayDays);
-      await scheduleRevisionReminder(topic.topic, nextDue.toISOString(), state.profile.notificationRules, state.profile.soundRoles.revisionReminder);
+      await scheduleRevisionReminder(topic.topic, nextDue.toISOString(), profile.notificationRules, profile.soundRoles.revisionReminder);
     }
     if (returnToQueue) router.replace("/revisions");
   };

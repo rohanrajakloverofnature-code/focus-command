@@ -28,6 +28,20 @@ const equipmentSource = readFileSync(resolve(process.cwd(), "app/(tabs)/equipmen
 const journalSource = readFileSync(resolve(process.cwd(), "app/(tabs)/journal.tsx"), "utf8");
 const themeBridgeSource = readFileSync(resolve(process.cwd(), "components/focus-theme-bridge.tsx"), "utf8");
 const notificationAudioBridgeSource = readFileSync(resolve(process.cwd(), "components/focus-notification-audio-bridge.tsx"), "utf8");
+const weeklyReviewSource = readFileSync(resolve(process.cwd(), "app/weekly-review.tsx"), "utf8");
+const finalSelectorIsolationSources = [
+  "app/bosses.tsx",
+  "app/cinematic-library.tsx",
+  "app/custom-dashboard.tsx",
+  "app/customize.tsx",
+  "app/equipment-creator.tsx",
+  "app/inventory.tsx",
+  "app/launch-animation.tsx",
+  "app/revisions.tsx",
+  "app/wellbeing-insight.tsx",
+  "components/launch-animation.tsx",
+  "components/rank-character.tsx",
+].map((path) => readFileSync(resolve(process.cwd(), path), "utf8"));
 
 describe("Performance and reliability contracts", () => {
   it("reuses completion and dashboard derivations for one immutable state snapshot", () => {
@@ -81,6 +95,25 @@ describe("Performance and reliability contracts", () => {
     expect(missionBoardSource).toContain("getMissionCompletionRecords(completionState)");
     expect(missionBoardSource).toContain("missionCompletions: state.missionCompletions");
     expect(missionBoardSource).toContain("useFocusCommandActions");
+  });
+
+  it("keeps every final long-session screen on a narrow state subscription and retains the full weekly data contract", () => {
+    for (const source of finalSelectorIsolationSources) {
+      expect(source).toContain("useFocusCommandSelector");
+      expect(source).not.toMatch(/useFocusCommand\(\)/);
+    }
+    expect(weeklyReviewSource).toContain("useFocusCommandSelector");
+    expect(weeklyReviewSource).toContain("missionCompletions: state.missionCompletions");
+    expect(weeklyReviewSource).toContain("distractionLogs: state.distractionLogs");
+    expect(weeklyReviewSource).toContain("srsActivityLog: state.srsActivityLog");
+    expect(weeklyReviewSource).not.toMatch(/useFocusCommand\(\)/);
+  });
+
+  it("keeps mission deletion’s linked Focus Friction cleanup inside the same immutable state transition", () => {
+    expect(focusCommandSource).toContain("export function removeMissionAndLinkedState");
+    expect(focusCommandSource).toContain("distractionLogs: state.distractionLogs.filter((entry) => entry.missionId !== missionId)");
+    expect(focusCommandSource).toContain("const next = removeMissionAndLinkedState(current, missionId);");
+    expect(focusCommandSource).toContain("return next === current ? current : withQueuedOperation(next);");
   });
 
   it("limits only idle custom-audio players, preserving an active cue and existing explicit release behavior", () => {
@@ -205,7 +238,8 @@ describe("Performance and reliability contracts", () => {
   });
 
   it("keeps the lifetime archive derived, virtualized, and scoped to its durable source records", () => {
-    expect(archiveHelperSource).toContain("const archiveCache = new WeakMap<FocusState, MonthlyCommandArchive>()");
+    expect(archiveHelperSource).toContain("export type MonthlyArchiveState = Pick<FocusState");
+    expect(archiveHelperSource).toContain("const archiveCache = new WeakMap<MonthlyArchiveState, MonthlyCommandArchive>()");
     expect(archiveHelperSource).toContain("no archive data, rollover marker, or placeholder is stored");
     expect(archiveSource).toContain("useFocusCommandSelector((state) => ({");
     expect(archiveSource).toContain("<FlatList");

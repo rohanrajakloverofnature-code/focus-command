@@ -1512,7 +1512,7 @@ export function getMissionCompletionRecords(state: MissionCompletionState): Miss
  * visible local-date interval so a current-week review does not scan every prior year.
  */
 export function getMissionCompletionRecordsInLocalDateRange(
-  state: FocusState,
+  state: MissionCompletionState & Pick<FocusState, "profile">,
   start: string,
   end: string,
   timezone = state.profile.timezone,
@@ -1663,6 +1663,23 @@ export function removeCompletedMissionRun(state: FocusState, completionId: strin
   return { ...nextState, combo: rebuildComboFromCompletions(nextState) };
 }
 
+/** Removes a mission and the durable records that cannot exist without it. */
+export function removeMissionAndLinkedState(state: FocusState, missionId: string): FocusState {
+  const mission = state.missions.find((candidate) => candidate.id === missionId);
+  if (!mission) return state;
+  const progressionIds = state.progression.filter((event) => event.missionId === missionId).map((event) => event.id);
+  return {
+    ...state,
+    missions: state.missions.filter((candidate) => candidate.id !== missionId),
+    missionCompletions: state.missionCompletions.filter((completion) => completion.missionId !== missionId),
+    reflections: state.reflections.filter((reflection) => reflection.missionId !== missionId),
+    distractionLogs: state.distractionLogs.filter((entry) => entry.missionId !== missionId),
+    srsTopics: state.srsTopics.filter((topic) => topic.missionId !== missionId),
+    progression: state.progression.filter((event) => event.missionId !== missionId),
+    transactions: state.transactions.filter((transaction) => !progressionIds.includes(transaction.sourceId ?? "")),
+  };
+}
+
 export function getTodayMissionCompletions(state: FocusState): MissionCompletionRecord[] {
   const today = toLocalDate(nowIso(), state.profile.timezone);
   return getMissionCompletionRecords(state).filter((completion) => toLocalDate(completion.completedAt, state.profile.timezone) === today);
@@ -1741,7 +1758,7 @@ export function getCalendarTimeAverages(state: FocusState, referenceIso = nowIso
   };
 }
 
-export function getPendingRevisions(state: FocusState): SrsTopic[] {
+export function getPendingRevisions(state: Pick<FocusState, "profile" | "srsTopics">): SrsTopic[] {
   const today = toLocalDate(nowIso(), state.profile.timezone);
   return state.srsTopics.filter((topic) => topic.status !== "completed" && topic.dueDate <= today).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 }
@@ -1752,7 +1769,7 @@ export function getDueMissionRevisions(topics: readonly SrsTopic[], missionId: s
   return topics.filter((topic) => topic.missionId === missionId && topic.status !== "completed" && topic.dueDate <= today).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 }
 
-export function getBossProgress(state: FocusState, bossId: string): number {
+export function getBossProgress(state: Pick<FocusState, "missions">, bossId: string): number {
   const linked = state.missions.filter((mission) => mission.bossId === bossId);
   if (!linked.length) return 0;
   return linked.filter((mission) => mission.status === "completed").length / linked.length;
@@ -1790,7 +1807,7 @@ export function getSubjectCapture(state: Pick<FocusState, "missions" | "srsTopic
   }).sort((left, right) => right.capture - left.capture || right.total - left.total);
 }
 
-export function getEmotionalPatternForecast(state: FocusState): EmotionalPatternForecast {
+export function getEmotionalPatternForecast(state: Pick<FocusState, "reflections">): EmotionalPatternForecast {
   const recent = state.reflections.slice(-14);
   if (!recent.length) {
     return {
@@ -1845,7 +1862,7 @@ export function getEmotionalPatternForecast(state: FocusState): EmotionalPattern
   };
 }
 
-export function getWellbeingInsight(state: FocusState): WellbeingInsight {
+export function getWellbeingInsight(state: Pick<FocusState, "profile" | "missions" | "reflections">): WellbeingInsight {
   const recent = state.reflections.slice(-12);
   const missionById = new Map(state.missions.map((mission) => [mission.id, mission]));
   const metricDefinitions: Array<{ id: string; label: string; role: WellbeingSignalRole; key: keyof Pick<Reflection, "energyAfter" | "focusQuality" | "stressLevel" | "clarityLevel" | "motivationLevel" | "distractionLevel" | "frictionRating">; detail: string }> = [
@@ -2486,18 +2503,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
 
   const removeMission = useCallback((missionId: string) => {
     commit((current) => {
-      const mission = current.missions.find((candidate) => candidate.id === missionId);
-      if (!mission) return current;
-      const progressionIds = current.progression.filter((event) => event.missionId === missionId).map((event) => event.id);
-      return withQueuedOperation({
-        ...current,
-        missions: current.missions.filter((candidate) => candidate.id !== missionId),
-        missionCompletions: current.missionCompletions.filter((completion) => completion.missionId !== missionId),
-        reflections: current.reflections.filter((reflection) => reflection.missionId !== missionId),
-        srsTopics: current.srsTopics.filter((topic) => topic.missionId !== missionId),
-        progression: current.progression.filter((event) => event.missionId !== missionId),
-        transactions: current.transactions.filter((transaction) => !progressionIds.includes(transaction.sourceId ?? "")),
-      });
+      const next = removeMissionAndLinkedState(current, missionId);
+      return next === current ? current : withQueuedOperation(next);
     });
   }, [commit]);
 

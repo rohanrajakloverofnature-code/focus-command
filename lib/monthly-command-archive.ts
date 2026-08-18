@@ -1,5 +1,6 @@
 import { getMissionCompletionRecords, toLocalDate, type FocusState, type Reflection } from "./focus-command";
 import { DISTRACTION_CATEGORY_LABELS } from "./distraction-log";
+export type MonthlyArchiveState = Pick<FocusState, "profile" | "missions" | "missionCompletions" | "reflections" | "progression" | "transactions" | "distractionLogs" | "srsTopics" | "srsActivityLog">;
 
 export const MONTHLY_ARCHIVE_METRICS = [
   "growth",
@@ -180,8 +181,8 @@ interface AggregateMonth extends AggregateDay {
   daily: Map<string, AggregateDay>;
 }
 
-const archiveCache = new WeakMap<FocusState, MonthlyCommandArchive>();
-const studiedTopicsCache = new WeakMap<FocusState, MonthlyArchiveStudiedTopic[]>();
+const archiveCache = new WeakMap<MonthlyArchiveState, MonthlyCommandArchive>();
+const studiedTopicsCache = new WeakMap<MonthlyArchiveState, MonthlyArchiveStudiedTopic[]>();
 
 interface ArchiveSourceCacheEntry {
   archive: MonthlyCommandArchive;
@@ -427,7 +428,7 @@ function createEmptyMonth(year: number, monthIndex: number): MonthlyCommandArchi
  * A new local month or year appears automatically when the first eligible durable record
  * is saved in that period; no archive data, rollover marker, or placeholder is stored.
  */
-export function getMonthlyCommandArchive(state: FocusState): MonthlyCommandArchive {
+export function getMonthlyCommandArchive(state: MonthlyArchiveState): MonthlyCommandArchive {
   const cached = archiveCache.get(state);
   if (cached) return cached;
 
@@ -738,7 +739,7 @@ export function getRevisionActivityLabel(phase: MonthlyArchiveStudiedTopic["revi
   return phase === "matured" ? "Matured" : phase === "developing" ? "Developing" : phase === "emerging" ? "Emerging" : "Seed Sown";
 }
 
-function getAllArchiveStudiedTopics(state: FocusState) {
+function getAllArchiveStudiedTopics(state: MonthlyArchiveState) {
   const cached = studiedTopicsCache.get(state);
   if (cached) return cached;
   const revisionsById = new Map((state.srsTopics ?? []).map((revision) => [revision.id, revision]));
@@ -775,7 +776,7 @@ function getAllArchiveStudiedTopics(state: FocusState) {
  * Lists immutable real revision actions. Period membership uses the exact saved local action
  * date, so Day 1, Day 7, and Day 30 work appear in the period when they were completed.
  */
-export function getMonthlyArchiveStudiedTopics(state: FocusState, period: ArchiveTopicPeriod = {}) {
+export function getMonthlyArchiveStudiedTopics(state: MonthlyArchiveState, period: ArchiveTopicPeriod = {}) {
   return getAllArchiveStudiedTopics(state).filter((topic) => {
     if (period.monthKey) return topic.firstMonthKey === period.monthKey;
     if (period.year) return Number(topic.firstMonthKey.slice(0, 4)) === period.year;

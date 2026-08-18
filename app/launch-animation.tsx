@@ -5,15 +5,16 @@ import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, Sec
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { pickAndPersistLaunchAnimationAudio, pickAndPersistLaunchAnimationVisual, removePersistedLaunchAnimationMedia } from "@/lib/launch-animation-media";
-import { useFocusCommand } from "@/lib/focus-command";
+import { useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { useRouter } from "expo-router";
 
 export default function LaunchAnimationScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { state, ready, updateProfile } = useFocusCommand();
+  const ready = useFocusCommandReady();
+  const { updateProfile } = useFocusCommandActions();
+  const config = useFocusCommandSelector((state) => state.profile.launchAnimation);
   const [busy, setBusy] = useState(false);
-  const config = state.profile.launchAnimation;
 
   if (!ready) return <LoadingScreen label="Opening launch animation…" />;
 

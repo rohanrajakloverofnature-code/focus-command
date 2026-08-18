@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ScrollView, View, Text, TextInput, Pressable, FlatList } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { useFocusCommand } from "@/lib/focus-command";
+import { useFocusCommandActions, useFocusCommandSelector } from "@/lib/focus-command";
 import { formatEquipmentModifierDelta } from "@/lib/equipment-modifiers";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -13,7 +13,8 @@ const types = ["FocusDevice", "EnergyPack", "AuraGenerator"] as const;
 export default function EquipmentCreatorScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { addEquipment, state } = useFocusCommand();
+  const { addEquipment } = useFocusCommandActions();
+  const allEquipment = useFocusCommandSelector((state) => state.allEquipment);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -234,13 +235,13 @@ export default function EquipmentCreatorScreen() {
 
           {/* All Equipment List */}
           <View className="gap-3 border-t border-border pt-6">
-            <Text className="text-lg font-semibold text-foreground">All Equipment ({state.allEquipment.length})</Text>
+            <Text className="text-lg font-semibold text-foreground">All Equipment ({allEquipment.length})</Text>
             <Text className="text-xs text-muted">Every item created here is already owned and ready to equip.</Text>
-            {state.allEquipment.length === 0 ? (
+            {allEquipment.length === 0 ? (
               <Text className="text-sm text-muted italic">No equipment created yet</Text>
             ) : (
               <FlatList
-                data={state.allEquipment}
+                data={allEquipment}
                 keyExtractor={(item) => item.id}
                 scrollEnabled={false}
                 renderItem={({ item }) => (

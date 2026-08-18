@@ -41,6 +41,8 @@ export interface WeeklyAfterActionReview {
   recommendation: string;
 }
 
+export type WeeklyAfterActionState = Pick<FocusState, "profile" | "missions" | "missionCompletions" | "reflections" | "progression" | "transactions" | "distractionLogs" | "srsTopics" | "srsActivityLog">;
+
 function addLocalDays(localDate: string, days: number) {
   const [year, month, day] = localDate.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
@@ -74,7 +76,7 @@ function average(values: Array<number | undefined | null>) {
   return present.length ? present.reduce((total, value) => total + value, 0) / present.length : null;
 }
 
-export function getWeeklyAfterActionReview(state: FocusState, now = new Date()): WeeklyAfterActionReview {
+export function getWeeklyAfterActionReview(state: WeeklyAfterActionState, now = new Date()): WeeklyAfterActionReview {
   const timezone = state.profile.timezone;
   const { localToday, weekStart, weekEnd } = getWeekRange(now, timezone);
   const completions = getMissionCompletionRecordsInLocalDateRange(state, weekStart, weekEnd, timezone);
