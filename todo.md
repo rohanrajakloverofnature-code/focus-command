@@ -641,3 +641,4 @@
 - [x] Convert the confirmed remaining broad state consumers and hidden derived analytics work to narrow, stable inputs without unmounting tabs or changing any user-facing screen behavior.
 - [x] Add approval-scope regressions for date filtering, deletion cleanup, selector isolation, hidden-work gating, long histories, persistence coalescing, media lifecycle, and one-tap safety; run the complete release validation without an APK build or workflow.
 - [x] Audit the legacy unlinked distraction-log format and present an approval-gated Focus Friction-only reset that preserves all current and future mission-linked records, performance safeguards, and unrelated offline data.
+- [x] Repair large offline-backup restoration on memory-constrained phones without changing backup contents, data safety, restore semantics, or unrelated app behavior.

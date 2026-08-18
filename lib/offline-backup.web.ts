@@ -1,12 +1,12 @@
 import type { FocusState } from "@/lib/focus-command";
-import { OfflineBackupValidationError, type ParsedOfflineBackup } from "@/lib/offline-backup-format";
+import { OfflineBackupValidationError, type ParsedOfflineBackupPreview } from "@/lib/offline-backup-format";
 
 const WEB_UNAVAILABLE_MESSAGE = "Offline backup files are available in the installed Focus Command app on Android or iOS.";
 
 export interface OfflineBackupPreview {
   archiveUri: string;
   fileName: string;
-  backup: ParsedOfflineBackup;
+  backup: ParsedOfflineBackupPreview;
 }
 
 export interface OfflineRestoreMaterialization {
@@ -22,7 +22,7 @@ export async function chooseAndValidateOfflineBackup(): Promise<OfflineBackupPre
   throw new OfflineBackupValidationError(WEB_UNAVAILABLE_MESSAGE);
 }
 
-export function materializeOfflineBackupMedia(_backup: ParsedOfflineBackup): OfflineRestoreMaterialization {
+export async function materializeOfflineBackupMedia(_backup: ParsedOfflineBackupPreview, _archiveUri: string): Promise<OfflineRestoreMaterialization> {
   throw new OfflineBackupValidationError(WEB_UNAVAILABLE_MESSAGE);
 }
 

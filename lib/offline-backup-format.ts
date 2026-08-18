@@ -1,6 +1,6 @@
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { sha256 } from "@noble/hashes/sha2.js";
-import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { strFromU8, strToU8, Unzip, UnzipInflate, UnzipPassThrough, unzipSync, zipSync } from "fflate";
 
 import type { FocusState } from "@/lib/focus-command";
 
@@ -51,6 +51,26 @@ export interface ParsedOfflineBackup {
   state: FocusState;
   media: OfflineBackupMediaFile[];
 }
+
+/**
+ * The small, durable portion of a validated archive needed for the existing
+ * preview and restore confirmation. Large media remains in the selected file
+ * until the user confirms the restore.
+ */
+export interface ParsedOfflineBackupPreview {
+  manifest: OfflineBackupManifest;
+  state: FocusState;
+}
+
+export type OfflineBackupChunkReader = (
+  onChunk: (chunk: Uint8Array, isFinal: boolean) => void,
+) => Promise<void>;
+
+export type OfflineBackupMediaChunkHandler = (
+  media: OfflineBackupMediaManifest,
+  chunk: Uint8Array,
+  isFinal: boolean,
+) => void;
 
 export class OfflineBackupValidationError extends Error {
   constructor(message: string) {
@@ -140,6 +160,190 @@ function parseManifest(bytes: Uint8Array): OfflineBackupManifest {
   } catch {
     throw new OfflineBackupValidationError("This file is not a compatible Focus Command backup.");
   }
+}
+
+function parseBackupState(bytes: Uint8Array): FocusState {
+  try {
+    const parsedState = JSON.parse(strFromU8(bytes)) as Partial<FocusState>;
+    // Revision activity history was introduced after the initial offline-backup format.
+    // Preserve all valid older backups by treating the missing append-only ledger as empty;
+    // no past activity is reconstructed or invented during restore.
+    if (!Array.isArray(parsedState.srsActivityLog)) parsedState.srsActivityLog = [];
+    // Character milestones were introduced after the initial offline-backup format.
+    // A missing collection is hydrated as empty and then safely reconstructed from
+    // immutable progression data by the central compatibility layer.
+    if (!Array.isArray(parsedState.characterMilestones)) parsedState.characterMilestones = [];
+    const state = parsedState as FocusState;
+    assertStateShape(state);
+    return state;
+  } catch (error) {
+    if (error instanceof OfflineBackupValidationError) throw error;
+    throw new OfflineBackupValidationError("The backup command data cannot be read.");
+  }
+}
+
+function validateManifestAgainstState(manifest: OfflineBackupManifest, state: FocusState, mediaFiles: number): void {
+  if (state.schemaVersion > manifest.appSchemaVersion) {
+    throw new OfflineBackupValidationError("This backup requires a newer version of Focus Command.");
+  }
+  if (manifest.media.length > MAX_BACKUP_MEDIA_FILES) {
+    throw new OfflineBackupValidationError("The backup contains too many media files.");
+  }
+  const expectedSummary = buildSummary(state, mediaFiles);
+  if (JSON.stringify(expectedSummary) !== JSON.stringify(manifest.summary)) {
+    throw new OfflineBackupValidationError("The backup record summary does not match its data.");
+  }
+}
+
+/**
+ * Validates an archive incrementally. The state and manifest remain small
+ * in-memory values; each media item is checksum-verified as it streams and
+ * can be materialized directly to device storage by the caller.
+ */
+export async function streamOfflineBackupArchive(
+  archiveBytes: number,
+  readChunks: OfflineBackupChunkReader,
+  onMediaChunk?: OfflineBackupMediaChunkHandler,
+): Promise<ParsedOfflineBackupPreview> {
+  if (!Number.isFinite(archiveBytes) || archiveBytes <= 0 || archiveBytes > MAX_BACKUP_BYTES) {
+    throw new OfflineBackupValidationError("The selected backup file is empty or exceeds the safe size limit.");
+  }
+
+  let manifest: OfflineBackupManifest | null = null;
+  let stateBytes: Uint8Array | null = null;
+  let failure: OfflineBackupValidationError | null = null;
+  const seenPaths = new Set<string>();
+  const completedMedia = new Set<string>();
+  const stateChunks: Uint8Array[] = [];
+  let stateLength = 0;
+  let expectedMediaByPath: Map<string, OfflineBackupMediaManifest> | null = null;
+
+  const reject = (message: string) => {
+    failure ??= new OfflineBackupValidationError(message);
+    return failure;
+  };
+  const appendStateChunk = (chunk: Uint8Array) => {
+    stateLength += chunk.length;
+    if (stateLength > MAX_BACKUP_BYTES) throw reject("The backup command data is too large to restore safely.");
+    stateChunks.push(chunk);
+  };
+  const combinedStateBytes = () => {
+    const bytes = new Uint8Array(stateLength);
+    let offset = 0;
+    for (const chunk of stateChunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return bytes;
+  };
+
+  const unzip = new Unzip((file) => {
+    if (failure) {
+      file.terminate();
+      return;
+    }
+    const path = file.name;
+    if (seenPaths.has(path)) {
+      reject("The backup contains duplicate files.");
+      file.terminate();
+      return;
+    }
+    seenPaths.add(path);
+    if (path !== MANIFEST_PATH && path !== STATE_PATH) {
+      try {
+        requireSafePath(path);
+      } catch (error) {
+        failure = error instanceof OfflineBackupValidationError ? error : reject("The backup contains an unsafe file path.");
+        file.terminate();
+        return;
+      }
+      if (!manifest || !expectedMediaByPath?.has(path)) {
+        reject("The backup contains unexpected files.");
+        file.terminate();
+        return;
+      }
+    }
+    if (path === MANIFEST_PATH || path === STATE_PATH) {
+      const chunks: Uint8Array[] = [];
+      let length = 0;
+      file.ondata = (error, chunk, final) => {
+        if (error) throw reject("The backup file is damaged or incomplete.");
+        if (chunk.length) {
+          length += chunk.length;
+          if (length > MAX_BACKUP_BYTES) throw reject("The backup metadata is too large to restore safely.");
+          chunks.push(chunk);
+        }
+        if (!final) return;
+        const bytes = new Uint8Array(length);
+        let offset = 0;
+        for (const part of chunks) {
+          bytes.set(part, offset);
+          offset += part.length;
+        }
+        if (path === MANIFEST_PATH) {
+          manifest = parseManifest(bytes);
+          expectedMediaByPath = new Map(manifest.media.map((item) => [item.path, item]));
+          if (expectedMediaByPath.size !== manifest.media.length) throw reject("The backup media list contains an invalid or duplicate file.");
+        } else {
+          appendStateChunk(bytes);
+          stateBytes = combinedStateBytes();
+        }
+      };
+      file.start();
+      return;
+    }
+    const media = expectedMediaByPath?.get(path);
+    if (!media) {
+      reject("The backup contains unexpected files.");
+      file.terminate();
+      return;
+    }
+    let bytesRead = 0;
+    const hasher = sha256.create();
+    file.ondata = (error, chunk, final) => {
+      if (error) throw reject("The backup file is damaged or incomplete.");
+      if (chunk.length) {
+        bytesRead += chunk.length;
+        if (bytesRead > media.bytes) throw reject(`The backup media file ${media.path} did not pass its integrity check.`);
+        hasher.update(chunk);
+        onMediaChunk?.(media, chunk, false);
+      }
+      if (!final) return;
+      if (bytesRead !== media.bytes || bytesToHex(hasher.digest()) !== media.sha256) {
+        throw reject(`The backup media file ${media.path} did not pass its integrity check.`);
+      }
+      completedMedia.add(media.path);
+      onMediaChunk?.(media, new Uint8Array(), true);
+    };
+    file.start();
+  });
+  unzip.register(UnzipPassThrough);
+  unzip.register(UnzipInflate);
+
+  try {
+    await readChunks((chunk, isFinal) => {
+      if (failure) throw failure;
+      unzip.push(chunk, isFinal);
+      if (failure) throw failure;
+    });
+  } catch (error) {
+    if (error instanceof OfflineBackupValidationError) throw error;
+    throw new OfflineBackupValidationError("The backup file is damaged or incomplete.");
+  }
+  if (failure) throw failure;
+  const parsedManifest = manifest as OfflineBackupManifest | null;
+  if (!parsedManifest || !stateBytes) {
+    throw new OfflineBackupValidationError("The backup is missing its manifest or command data.");
+  }
+  if (hashBackupBytes(stateBytes) !== parsedManifest.stateSha256) {
+    throw new OfflineBackupValidationError("The backup command data did not pass its integrity check.");
+  }
+  if (completedMedia.size !== parsedManifest.media.length || parsedManifest.media.some((file) => !completedMedia.has(file.path))) {
+    throw new OfflineBackupValidationError("The backup is missing one or more media files.");
+  }
+  const state = parseBackupState(stateBytes);
+  validateManifestAgainstState(parsedManifest, state, completedMedia.size);
+  return { manifest: parsedManifest, state };
 }
 
 export function createOfflineBackupArchive(

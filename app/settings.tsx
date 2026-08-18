@@ -254,9 +254,9 @@ export default function SettingsScreen() {
             style: "destructive",
             onPress: () => {
               void (async () => {
-                let materialized: ReturnType<typeof materializeOfflineBackupMedia> | null = null;
+                let materialized: Awaited<ReturnType<typeof materializeOfflineBackupMedia>> | null = null;
                 try {
-                  materialized = materializeOfflineBackupMedia(preview.backup);
+                  materialized = await materializeOfflineBackupMedia(preview.backup, preview.archiveUri);
                   await restoreOfflineBackup(materialized.state);
                   void playFocusRole("system", materialized.state.profile.soundEnabled, materialized.state.profile.soundRoles.system);
                   Alert.alert("Restore complete", "Focus Command replaced this device’s local data with the validated backup file.");

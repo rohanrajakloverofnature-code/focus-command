@@ -8,6 +8,7 @@ import {
   OfflineBackupValidationError,
   parseOfflineBackupArchive,
   remapHistoricMilestonePortraitUris,
+  streamOfflineBackupArchive,
 } from "../lib/offline-backup-format";
 
 function createPopulatedState(): FocusState {
@@ -64,6 +65,44 @@ describe("offline Focus Command backup format", () => {
     expect(parsed.state.profile.tickerColorPreferences).toEqual(state.profile.tickerColorPreferences);
     expect(parsed.state.profile.homeProfileCardColorPreference).toEqual(state.profile.homeProfileCardColorPreference);
     expect(parsed.state.characterMilestones).toEqual(state.characterMilestones);
+  });
+
+  it("validates a backup from fixed-size source chunks while streaming each media payload", async () => {
+    const state = createPopulatedState();
+    const cinematic = Uint8Array.from({ length: 180_000 }, (_, index) => (index * 31) % 251);
+    const sound = Uint8Array.from({ length: 90_000 }, (_, index) => (index * 17) % 251);
+    const { archive, manifest } = createOfflineBackupArchive(state, [
+      { path: "media/cinematics/recruit.mp4", bytes: cinematic },
+      { path: "media/sounds/missionWin.mp3", bytes: sound },
+    ]);
+    const streamedBytes = new Map<string, number>();
+    const completed = new Set<string>();
+    let largestSourceChunk = 0;
+
+    const parsed = await streamOfflineBackupArchive(
+      archive.length,
+      async (onChunk) => {
+        const chunkSize = 16 * 1024;
+        for (let offset = 0; offset < archive.length; offset += chunkSize) {
+          const chunk = archive.subarray(offset, Math.min(offset + chunkSize, archive.length));
+          largestSourceChunk = Math.max(largestSourceChunk, chunk.length);
+          onChunk(chunk, offset + chunk.length === archive.length);
+        }
+      },
+      (media, chunk, isFinal) => {
+        streamedBytes.set(media.path, (streamedBytes.get(media.path) ?? 0) + chunk.length);
+        if (isFinal) completed.add(media.path);
+      },
+    );
+
+    expect(largestSourceChunk).toBeLessThanOrEqual(16 * 1024);
+    expect(parsed.manifest).toEqual(manifest);
+    expect(parsed.state).toEqual({ ...state, hydrated: false });
+    expect(streamedBytes).toEqual(new Map([
+      ["media/cinematics/recruit.mp4", cinematic.length],
+      ["media/sounds/missionWin.mp3", sound.length],
+    ]));
+    expect(completed).toEqual(new Set(["media/cinematics/recruit.mp4", "media/sounds/missionWin.mp3"]));
   });
 
   it("remaps only restored custom-form portrait URIs inside historic milestone snapshots", () => {

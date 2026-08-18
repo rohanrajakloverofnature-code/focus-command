@@ -42,7 +42,7 @@ describe("Launch Animation customization", () => {
     expect(backup).toContain('const LAUNCH_PREFIX = "media/launch/"');
     expect(backup).toContain("state.profile.launchAnimation.visual?.uri");
     expect(backup).toContain("state.profile.launchAnimation.audio?.uri");
-    expect(backup).toContain("state.profile.launchAnimation.visual = restoreMediaOverride");
-    expect(backup).toContain("state.profile.launchAnimation.audio = restoreMediaOverride");
+    expect(backup).toContain("state.profile.launchAnimation.visual = { ...launchVisual, uri };");
+    expect(backup).toContain("state.profile.launchAnimation.audio = { ...launchAudio, uri };");
   });
 });
