@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createInitialState, removeMissionAndLinkedState, type FocusState } from "../lib/focus-command";
+import { createInitialState, normalizeHydratedState, removeMissionAndLinkedState, type FocusState } from "../lib/focus-command";
 import { getFocusFrictionInsight } from "../lib/distraction-log";
 import { makeFocusWorkbookValueRanges } from "../lib/google-sheets-payload";
 
@@ -67,6 +67,21 @@ describe("Distraction Log", () => {
     const afterAllDeletions = removeMissionAndLinkedState(afterFirstDeletion, "second");
     expect(afterAllDeletions.distractionLogs).toEqual([]);
     expect(getFocusFrictionInsight(afterAllDeletions, now)).toMatchObject({ total: 0, categoryCounts: [], topCategory: null, recentMission: null });
+  });
+
+  it("cleans up legacy distraction records for already deleted missions during hydration while preserving current mission records", () => {
+    const state = createInitialState();
+    state.profile.timezone = "Asia/Kolkata";
+    state.missions = [{ id: "current", title: "Current mission" } as FocusState["missions"][number]];
+    state.distractionLogs = [
+      { id: "current-log", missionId: "current", category: "phone", occurredAt: "2026-08-14T13:00:00.000Z" },
+      { id: "legacy-orphan", missionId: "removed-before-cleanup", category: "people", occurredAt: "2026-08-14T13:30:00.000Z" },
+    ];
+
+    const hydrated = normalizeHydratedState(state);
+
+    expect(hydrated.distractionLogs).toEqual([state.distractionLogs[0]]);
+    expect(getFocusFrictionInsight(hydrated, new Date("2026-08-14T18:00:00.000Z"))).toMatchObject({ total: 1, recentMission: { title: "Current mission", count: 1 } });
   });
 
   it("keeps distraction records out of the existing Google Sheets snapshot until synchronization is explicitly approved", () => {

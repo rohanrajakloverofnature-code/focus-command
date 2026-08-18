@@ -2194,6 +2194,32 @@ export function normalizeHydratedState(input: FocusState): FocusState {
   const characterMilestones = normalizedMilestones.length
     ? normalizedMilestones
     : rebuildCharacterMilestonesFromProgression(milestoneProfile, input.progression ?? []);
+  const missions = (input.missions ?? []).map((mission) => {
+    const startedAt = getFiniteTimestamp(mission.startedAt);
+    const pausedAt = getFiniteTimestamp(mission.pausedAt);
+    const endedAt = getFiniteTimestamp(mission.endedAt);
+    const completedAt = getFiniteTimestamp(mission.completedAt);
+    // Old release builds can contain an unreadable start field. There is no
+    // trustworthy elapsed duration to recover in that case, so a live mission
+    // must restart from this hydration instant rather than remain permanently
+    // stuck at 0.0 h or incorrectly count time since the mission was created.
+    const recoveredStartedAt = startedAt
+      ?? ((mission.status === "active" || mission.status === "paused") ? Date.now() : null);
+    return {
+      ...mission,
+      startedAt: recoveredStartedAt,
+      // Active sessions must keep advancing even when a legacy record carries
+      // a stale pause timestamp from an interrupted pause/resume transition.
+      pausedAt: mission.status === "paused" && pausedAt !== null ? new Date(pausedAt).toISOString() : null,
+      pausedMilliseconds: getMissionPausedMilliseconds(mission),
+      endedAt: toIsoTimestamp(endedAt),
+      completedAt: toIsoTimestamp(completedAt),
+      frequency: mission.frequency ?? "once",
+      allowMultipleDailyCompletions: mission.allowMultipleDailyCompletions ?? false,
+      completionHistory: mission.completionHistory ?? (mission.completedAt ? [mission.completedAt] : []),
+    };
+  });
+  const currentMissionIds = new Set(missions.map((mission) => mission.id));
   return {
     ...defaults,
     ...input,
@@ -2259,31 +2285,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       emotionalCharts: input.profile?.emotionalCharts?.length ? input.profile.emotionalCharts : defaults.profile.emotionalCharts,
     },
     combo: { ...defaults.combo, ...(input.combo ?? {}) },
-    missions: (input.missions ?? []).map((mission) => {
-      const startedAt = getFiniteTimestamp(mission.startedAt);
-      const pausedAt = getFiniteTimestamp(mission.pausedAt);
-      const endedAt = getFiniteTimestamp(mission.endedAt);
-      const completedAt = getFiniteTimestamp(mission.completedAt);
-      // Old release builds can contain an unreadable start field. There is no
-      // trustworthy elapsed duration to recover in that case, so a live mission
-      // must restart from this hydration instant rather than remain permanently
-      // stuck at 0.0 h or incorrectly count time since the mission was created.
-      const recoveredStartedAt = startedAt
-        ?? ((mission.status === "active" || mission.status === "paused") ? Date.now() : null);
-      return {
-        ...mission,
-        startedAt: recoveredStartedAt,
-        // Active sessions must keep advancing even when a legacy record carries
-        // a stale pause timestamp from an interrupted pause/resume transition.
-        pausedAt: mission.status === "paused" && pausedAt !== null ? new Date(pausedAt).toISOString() : null,
-        pausedMilliseconds: getMissionPausedMilliseconds(mission),
-        endedAt: toIsoTimestamp(endedAt),
-        completedAt: toIsoTimestamp(completedAt),
-        frequency: mission.frequency ?? "once",
-        allowMultipleDailyCompletions: mission.allowMultipleDailyCompletions ?? false,
-        completionHistory: mission.completionHistory ?? (mission.completedAt ? [mission.completedAt] : []),
-      };
-    }),
+    missions,
     missionCompletions: [...existingCompletions, ...migratedLegacyCompletions],
     characterMilestones,
     srsActivityLog: Array.isArray(input.srsActivityLog)
@@ -2302,7 +2304,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
         )
       : [],
     distractionLogs: (input.distractionLogs ?? []).filter((entry): entry is DistractionLogEntry =>
-      Boolean(entry && typeof entry.id === "string" && typeof entry.missionId === "string" && typeof entry.occurredAt === "string" && DISTRACTION_CATEGORIES.includes(entry.category)),
+      Boolean(entry && typeof entry.id === "string" && typeof entry.missionId === "string" && currentMissionIds.has(entry.missionId) && typeof entry.occurredAt === "string" && DISTRACTION_CATEGORIES.includes(entry.category)),
     ).map((entry) => ({ ...entry, note: typeof entry.note === "string" && entry.note.trim() ? entry.note.trim().slice(0, 140) : undefined })),
     googleSheet: { ...defaults.googleSheet, ...(input.googleSheet ?? {}) },
     rewards: input.rewards?.length ? input.rewards : defaults.rewards,
