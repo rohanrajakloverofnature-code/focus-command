@@ -19,6 +19,9 @@ const missionSource = readFileSync(resolve(process.cwd(), "app/mission/[id].tsx"
 const missionResultSource = readFileSync(resolve(process.cwd(), "app/mission-result/[id].tsx"), "utf8");
 const settingsSource = readFileSync(resolve(process.cwd(), "app/settings.tsx"), "utf8");
 const homeMotionSource = readFileSync(resolve(process.cwd(), "components/home-motion.tsx"), "utf8");
+const homeFireSource = readFileSync(resolve(process.cwd(), "components/home-fire.tsx"), "utf8");
+const emotionPredictionTickerSource = readFileSync(resolve(process.cwd(), "components/emotion-prediction-ticker.tsx"), "utf8");
+const miniAchievementTickerSource = readFileSync(resolve(process.cwd(), "components/mini-achievement-ticker.tsx"), "utf8");
 const dashboardSource = readFileSync(resolve(process.cwd(), "app/(tabs)/dashboard.tsx"), "utf8");
 const analyticsSource = readFileSync(resolve(process.cwd(), "app/analytics.tsx"), "utf8");
 const archiveSource = readFileSync(resolve(process.cwd(), "app/command-archive.tsx"), "utf8");
@@ -29,6 +32,10 @@ const journalSource = readFileSync(resolve(process.cwd(), "app/(tabs)/journal.ts
 const themeBridgeSource = readFileSync(resolve(process.cwd(), "components/focus-theme-bridge.tsx"), "utf8");
 const notificationAudioBridgeSource = readFileSync(resolve(process.cwd(), "components/focus-notification-audio-bridge.tsx"), "utf8");
 const weeklyReviewSource = readFileSync(resolve(process.cwd(), "app/weekly-review.tsx"), "utf8");
+const shadowGateSheetSource = readFileSync(resolve(process.cwd(), "components/shadow-gate-sheet.tsx"), "utf8");
+const crossedGatesSource = readFileSync(resolve(process.cwd(), "components/crossed-gates-card.tsx"), "utf8");
+const shadowGateLedgerSource = readFileSync(resolve(process.cwd(), "app/shadow-gate-ledger.tsx"), "utf8");
+const shadowGateSettingsSource = readFileSync(resolve(process.cwd(), "app/shadow-gate-settings.tsx"), "utf8");
 const finalSelectorIsolationSources = [
   "app/bosses.tsx",
   "app/cinematic-library.tsx",
@@ -70,6 +77,8 @@ describe("Performance and reliability contracts", () => {
     expect(focusCommandSource).toContain("PERSISTENCE_DEBOUNCE_MS = 250");
     expect(focusCommandSource).toContain("appState.addEventListener");
     expect(focusCommandSource).toContain("flushPendingPersistence");
+    expect(focusCommandSource).toContain("lastPersistedSerialized");
+    expect(focusCommandSource).toContain("if (serialized === lastPersistedSerialized.current) return persistenceQueue.current;");
     expect(focusCommandSource).toContain("useFocusCommandSelector");
     expect(focusCommandSource).toContain("useFocusCommandActions");
   });
@@ -197,6 +206,8 @@ describe("Performance and reliability contracts", () => {
     expect(homeSource).toContain("useFocusCommandSelector(selectEquippedCharacterGear");
     expect(homeSource).toContain("selectHomeDependencies");
     expect(homeSource).toContain("useFocusCommandSelector(selectHomeDependencies, hasSameHomeDependencies)");
+    expect(homeSource).toContain("useIsFocused");
+    expect(homeSource).toContain("if (!isFocused || motivationMessages.length < 2) return;");
     expect(homeSource).toContain("const bossProgressById = useMemo(");
     expect(missionSource).toContain("useFocusCommandSelector((state) => selectMissionDetailSnapshot(state, id)");
     expect(missionResultSource).toContain("useFocusCommandSelector((state) => selectMissionResultSnapshot(state, id, completionId), hasSameMissionResultSnapshot)");
@@ -222,7 +233,17 @@ describe("Performance and reliability contracts", () => {
   it("isolates the existing non-interactive Home ambient scene from unrelated parent renders without changing its animation contract", () => {
     expect(homeMotionSource).toContain("memo(function HomeAmbientScene");
     expect(homeMotionSource).toContain("withRepeat(withTiming(1, { duration: 4_800 })");
+    expect(homeMotionSource).toContain("useIsFocused");
+    expect(homeMotionSource).toContain("if (reduceMotion || !isFocused)");
     expect(homeMotionSource).toContain('pointerEvents="none"');
+    expect(homeFireSource).toContain("useIsFocused");
+    expect(homeFireSource).toContain("if (reduceMotion || !isFocused)");
+    expect(homeFireSource).toContain("return () => cancelAnimation(burst);");
+    expect(emotionPredictionTickerSource).toContain("useIsFocused");
+    expect(emotionPredictionTickerSource).toContain("if (reduceMotion || !isFocused || predictions.length < 2) return;");
+    expect(miniAchievementTickerSource).toContain("useIsFocused");
+    expect(miniAchievementTickerSource).toContain("if (!isFocused || achievements.length <= 1 || reduceMotion) return;");
+    expect(miniAchievementTickerSource).toContain("if (!isFocused) return undefined;");
   });
 
   it("keeps Dashboard and Analytics behind exact source-slice render boundaries while retaining existing derivations", () => {
@@ -254,5 +275,27 @@ describe("Performance and reliability contracts", () => {
     expect(archiveSource).toContain("ArchiveTopicListView");
     expect(missionBoardSource).toContain("archiveHistoryLabel");
     expect(missionBoardSource).toContain("archiveMonthKey");
+  });
+
+  it("keeps the optional Shadow Gate flow virtualized, scoped, and dormant while its sheet is closed", () => {
+    expect(shadowGateSheetSource).toContain("if (!visible) return;");
+    expect(shadowGateSheetSource).toContain("subscription.remove();");
+    expect(shadowGateSheetSource).toContain("const doorwayItems = useMemo(");
+    expect(shadowGateSheetSource).toContain("<FlatList");
+    expect(crossedGatesSource).toContain("showDashboardCard: state.profile.shadowGatePreferences.showDashboardCard");
+    expect(crossedGatesSource).toContain("timezone: state.profile.timezone");
+    expect(crossedGatesSource).not.toContain("profile: state.profile");
+  });
+
+  it("keeps the all-time Gate ledger and personal-doorway manager bounded during extended use", () => {
+    expect(shadowGateLedgerSource).toContain("const ledgerDateFormatters = new Map<string, Intl.DateTimeFormat>()");
+    expect(shadowGateLedgerSource).toContain("const timezone = useFocusCommandSelector((state) => state.profile.timezone)");
+    expect(shadowGateLedgerSource).toContain("initialNumToRender={12}");
+    expect(shadowGateLedgerSource).toContain("windowSize={7}");
+    expect(shadowGateLedgerSource).toContain("renderItem={renderEntry}");
+    expect(shadowGateSettingsSource).toContain("<FlatList");
+    expect(shadowGateSettingsSource).toContain("windowSize={7}");
+    expect(shadowGateSettingsSource).toContain("renderItem={renderDoorway}");
+    expect(shadowGateSettingsSource).toContain("const renderDoorway = useCallback(");
   });
 });

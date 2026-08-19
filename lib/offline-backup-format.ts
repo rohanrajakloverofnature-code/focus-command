@@ -173,6 +173,10 @@ function parseBackupState(bytes: Uint8Array): FocusState {
     // A missing collection is hydrated as empty and then safely reconstructed from
     // immutable progression data by the central compatibility layer.
     if (!Array.isArray(parsedState.characterMilestones)) parsedState.characterMilestones = [];
+    // Shadow Gate was introduced after the initial offline-backup format. Older
+    // valid files receive no invented Gate history or personal doorway text.
+    if (!Array.isArray(parsedState.shadowGateEntries)) parsedState.shadowGateEntries = [];
+    if (!Array.isArray(parsedState.shadowGatePersonalDoorways)) parsedState.shadowGatePersonalDoorways = [];
     const state = parsedState as FocusState;
     assertStateShape(state);
     return state;
@@ -417,6 +421,11 @@ export function parseOfflineBackupArchive(archive: Uint8Array): ParsedOfflineBac
     // A missing collection is hydrated as empty and then safely reconstructed from
     // immutable progression data by the central compatibility layer.
     if (!Array.isArray(parsedState.characterMilestones)) parsedState.characterMilestones = [];
+    // Shadow Gate records and locally-written doorways are optional in older
+    // backup files. Treat an absent collection as empty rather than rejecting
+    // a valid backup or creating any historical data.
+    if (!Array.isArray(parsedState.shadowGateEntries)) parsedState.shadowGateEntries = [];
+    if (!Array.isArray(parsedState.shadowGatePersonalDoorways)) parsedState.shadowGatePersonalDoorways = [];
     state = parsedState as FocusState;
   } catch {
     throw new OfflineBackupValidationError("The backup command data cannot be read.");

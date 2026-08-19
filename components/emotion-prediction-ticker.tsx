@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useState } from "react";
+import { useIsFocused } from "@react-navigation/native";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from "react-native-reanimated";
 
@@ -22,6 +23,7 @@ export const EmotionPredictionTicker = memo(function EmotionPredictionTicker({ p
   /** Render-only visual token. The prediction library and rotation remain unchanged. */
   accentColor?: string;
 }) {
+  const isFocused = useIsFocused();
   const colors = useColors();
   const [visible, setVisible] = useState(false);
   const [index, setIndex] = useState(0);
@@ -32,13 +34,13 @@ export const EmotionPredictionTicker = memo(function EmotionPredictionTicker({ p
 
   useEffect(() => { setIndex(0); }, [key]);
   useEffect(() => {
-    if (reduceMotion || predictions.length < 2) return;
+    if (reduceMotion || !isFocused || predictions.length < 2) return;
     const rotation = setInterval(() => {
       opacity.value = withSequence(withTiming(0, { duration: 130 }), withTiming(1, { duration: 210 }));
       setIndex((currentIndex) => (currentIndex + 1) % predictions.length);
     }, 3_000);
     return () => clearInterval(rotation);
-  }, [key, opacity, predictions.length, reduceMotion]);
+  }, [isFocused, key, opacity, predictions.length, reduceMotion]);
 
   if (!current) return null;
   const close = () => setVisible(false);

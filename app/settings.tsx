@@ -23,6 +23,7 @@ export default function SettingsScreen() {
   const ready = useFocusCommandReady();
   const {
     updateProfile,
+    updateShadowGatePreferences,
     updateComboTiers,
     setGoogleSheetConnection,
     importFromGoogleSheet,
@@ -542,6 +543,17 @@ export default function SettingsScreen() {
               })}
             </View>
           </View>
+        </CommandCard>
+
+        <SectionHeader title="Shadow Gate" />
+        <CommandCard accent="#8B5CF9" style={styles.cardStack}>
+          <View style={styles.settingCopy}>
+            <Text style={[styles.settingTitle, { color: colors.foreground }]}>Personal Doorways</Text>
+            <Text style={[styles.settingDetail, { color: colors.muted }]}>Save short private actions you can reuse from the optional Shadow Gate mission entry. They stay only on this device and in your backup.</Text>
+          </View>
+          <CommandButton label="Manage personal doorways" variant="secondary" onPress={() => router.push("/shadow-gate-settings" as never)} />
+          <Divider />
+          <SwitchRow label="Crossed Gates dashboard card" detail="Show your optional private Gate summary only after at least one real Gate-to-mission entry exists." value={state.profile.shadowGatePreferences.showDashboardCard} onValueChange={(showDashboardCard) => updateShadowGatePreferences({ showDashboardCard })} />
         </CommandCard>
 
         <SectionHeader title="Notification rules" />

@@ -6,9 +6,11 @@ import { CommandButton, CommandCard, IconAction, LoadingScreen, ProgressBar, Scr
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { DistractionLogger } from "@/components/distraction-logger";
+import { ShadowGateSheet } from "@/components/shadow-gate-sheet";
 import { useColors } from "@/hooks/use-colors";
-import { CustomQuestion, Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getDueMissionRevisions, getMissionInvestedMilliseconds, isLongMissionReflectionEligible, ReflectionDraft, type FocusState, type SrsTopic, useFocusCommandActions, useFocusCommandSelector } from "@/lib/focus-command";
+import { getActiveCustomCharacterForm, getCurrentTitle, getLevelInfo, CustomQuestion, Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getDueMissionRevisions, getMissionInvestedMilliseconds, isLongMissionReflectionEligible, ReflectionDraft, type FocusState, type SrsTopic, useFocusCommandActions, useFocusCommandSelector } from "@/lib/focus-command";
 import { scheduleAchievementRecap, scheduleRevisionReminder } from "@/lib/focus-reminders";
+import { getCharacterEvolutionProfile } from "@/lib/character-development";
 
 const feelings: { value: Feeling; label: string; color: string }[] = [
   { value: "charged", label: "Charged", color: "#49D17D" },
@@ -30,6 +32,8 @@ type MissionDetailSnapshot = {
   notificationsEnabled: boolean;
   notificationRules: FocusState["profile"]["notificationRules"];
   achievementRecapSound: FocusState["profile"]["soundRoles"]["achievementRecap"];
+  shadowGatePersonalDoorways: FocusState["shadowGatePersonalDoorways"];
+  shadowGateSealAccent: string;
 };
 
 function hasSameReferences<T>(left: readonly T[], right: readonly T[]) {
@@ -47,7 +51,22 @@ function hasSameMissionDetailSnapshot(left: MissionDetailSnapshot, right: Missio
     && left.timezone === right.timezone
     && left.notificationsEnabled === right.notificationsEnabled
     && left.notificationRules === right.notificationRules
-    && left.achievementRecapSound === right.achievementRecapSound;
+    && left.achievementRecapSound === right.achievementRecapSound
+    && left.shadowGatePersonalDoorways === right.shadowGatePersonalDoorways
+    && left.shadowGateSealAccent === right.shadowGateSealAccent;
+}
+
+function getShadowGateSealAccent(state: FocusState) {
+  const level = getLevelInfo(state).level;
+  const title = getCurrentTitle(state).title;
+  const customForm = getActiveCustomCharacterForm(state.profile, level);
+  const evolution = getCharacterEvolutionProfile(title, level);
+  const colorSource = customForm?.portrait?.uri
+    ?? customForm?.video?.uri
+    ?? state.profile.localCinematicOverrides[evolution.cinematicVariant]?.uri;
+  return colorSource
+    ? state.profile.characterCinematicColors[colorSource]?.accent ?? state.profile.palette.primary ?? "#A78BFA"
+    : state.profile.palette.primary ?? "#A78BFA";
 }
 
 function selectMissionDetailSnapshot(state: FocusState, missionId: string | undefined): MissionDetailSnapshot {
@@ -63,15 +82,17 @@ function selectMissionDetailSnapshot(state: FocusState, missionId: string | unde
     notificationsEnabled: state.profile.notificationsEnabled,
     notificationRules: state.profile.notificationRules,
     achievementRecapSound: state.profile.soundRoles.achievementRecap,
+    shadowGatePersonalDoorways: state.shadowGatePersonalDoorways,
+    shadowGateSealAccent: getShadowGateSealAccent(state),
   };
 }
 
 export default function MissionDetailScreen() {
   const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { startMission, toggleMissionPause, finishMission, logDistraction, logRevisionTopic, completeRevision, updateMission, removeMission } = useFocusCommandActions();
+  const { startMission, startMissionThroughShadowGate, toggleMissionPause, finishMission, logDistraction, logRevisionTopic, completeRevision, updateMission, removeMission } = useFocusCommandActions();
   const detail = useFocusCommandSelector((state) => selectMissionDetailSnapshot(state, id), hasSameMissionDetailSnapshot);
-  const { hydrated: ready, mission, missionDistractionCount, missionRevisionTopics, activeBosses, customQuestions, revisionReminderSound, timezone, notificationsEnabled, notificationRules, achievementRecapSound } = detail;
+  const { hydrated: ready, mission, missionDistractionCount, missionRevisionTopics, activeBosses, customQuestions, revisionReminderSound, timezone, notificationsEnabled, notificationRules, achievementRecapSound, shadowGatePersonalDoorways, shadowGateSealAccent } = detail;
   const [nowMs, setNowMs] = useState(Date.now());
   const [revisionTopic, setRevisionTopic] = useState("");
   const [showReflection, setShowReflection] = useState(false);
@@ -87,6 +108,7 @@ export default function MissionDetailScreen() {
   const [editAllowMultipleDailyCompletions, setEditAllowMultipleDailyCompletions] = useState(false);
   const [editBossId, setEditBossId] = useState<string | null>(null);
   const [isSubmittingResult, setIsSubmittingResult] = useState(false);
+  const [showShadowGate, setShowShadowGate] = useState(false);
   const submissionLock = useRef(false);
   const startLock = useRef(false);
   const deletionLock = useRef(false);
@@ -200,6 +222,10 @@ export default function MissionDetailScreen() {
     startMission(mission.id);
   };
 
+  const startThroughShadowGate = (selection: Parameters<typeof startMissionThroughShadowGate>[1]) => (
+    startMissionThroughShadowGate(mission.id, selection)
+  );
+
   const openEditor = () => {
     setEditTitle(mission.title);
     setEditSubject(mission.subject);
@@ -307,7 +333,10 @@ export default function MissionDetailScreen() {
             <ProgressBar value={Math.min(1, duration / (90 * 60_000))} color={getDifficultyColor(mission.difficulty)} height={9} />
           </View>
           {mission.status === "planned" ? (
-            <CommandButton label="Start mission" icon="play.fill" onPress={startOnce} />
+            <>
+              <CommandButton label="Start mission" icon="play.fill" onPress={startOnce} />
+              <CommandButton label="BREACH SHADOW GATE" variant="secondary" onPress={() => setShowShadowGate(true)} style={styles.shadowGateStart} />
+            </>
           ) : mission.status === "completed" ? (
             <CommandButton label="View results" icon="trophy.fill" onPress={() => router.replace({ pathname: "/mission-result/[id]" as never, params: { id: mission.id } })} />
           ) : (
@@ -399,6 +428,15 @@ export default function MissionDetailScreen() {
           </CommandCard>
         ) : null}
       </ScrollView>
+      <ShadowGateSheet
+        visible={showShadowGate && mission.status === "planned"}
+        missionTitle={mission.title}
+        missionSubject={mission.subject}
+        sealAccent={shadowGateSealAccent}
+        personalDoorways={shadowGatePersonalDoorways}
+        onClose={() => setShowShadowGate(false)}
+        onEnterMission={startThroughShadowGate}
+      />
     </ScreenContainer>
   );
 }
@@ -486,6 +524,7 @@ const styles = StyleSheet.create({
   timerValue: { fontSize: 43, lineHeight: 50, letterSpacing: -1.2, fontWeight: "900", fontVariant: ["tabular-nums"] },
   timerDetail: { fontSize: 13, lineHeight: 19, fontWeight: "500", marginTop: -8 },
   timerBarWrap: { marginTop: 3 },
+  shadowGateStart: { marginTop: -5 },
   liveActions: { flexDirection: "row", gap: 10 },
   liveAction: { flex: 1 },
   revisionCard: { gap: 12 },

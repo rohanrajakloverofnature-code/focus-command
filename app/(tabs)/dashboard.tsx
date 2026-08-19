@@ -4,6 +4,7 @@ import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-nati
 
 import { BarsChart, ChartPoint, DonutChart, LineTrendChart, MultiLineTrendChart, RadarChart } from "@/components/focus-charts";
 import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, StatusPill, TapFeedback } from "@/components/focus-ui";
+import { CrossedGatesCard } from "@/components/crossed-gates-card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -226,6 +227,8 @@ export default function DashboardScreen() {
             </View>
           </CommandCard>
         </TapFeedback>
+
+        <CrossedGatesCard />
 
         <TapFeedback onPress={() => router.push("/character-achievement-path" as never)} accessibilityLabel="Open character achievement path">
           <CommandCard accent="#F4C95D" style={styles.commandArchiveCard}>

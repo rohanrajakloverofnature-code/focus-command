@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -30,6 +31,7 @@ export const MiniAchievementTicker = memo(function MiniAchievementTicker({
   /** Render-only visual token. Does not affect ticker content, cadence, or interaction. */
   accentColor?: string;
 }) {
+  const isFocused = useIsFocused();
   const [activeIndex, setActiveIndex] = useState(0);
   const [typedTitle, setTypedTitle] = useState("");
   const changeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -39,14 +41,15 @@ export const MiniAchievementTicker = memo(function MiniAchievementTicker({
   const achievementSignature = useMemo(() => achievements.map((achievement) => `${achievement.id}:${achievement.occurredAt}`).join("|"), [achievements]);
 
   useEffect(() => {
-    if (changeTimerRef.current) clearTimeout(changeTimerRef.current);
+    setActiveIndex(0);
     cancelAnimation(opacity);
     cancelAnimation(offsetY);
-    setActiveIndex(0);
     opacity.value = 1;
     offsetY.value = 0;
+  }, [achievementSignature, offsetY, opacity, reduceMotion]);
 
-    if (achievements.length <= 1 || reduceMotion) return;
+  useEffect(() => {
+    if (!isFocused || achievements.length <= 1 || reduceMotion) return;
 
     const rotate = () => {
       opacity.value = withTiming(0, { duration: 160, easing: Easing.in(Easing.cubic) });
@@ -67,7 +70,7 @@ export const MiniAchievementTicker = memo(function MiniAchievementTicker({
       cancelAnimation(opacity);
       cancelAnimation(offsetY);
     };
-  }, [achievementSignature, achievements.length, offsetY, opacity, reduceMotion]);
+  }, [achievementSignature, achievements.length, isFocused, offsetY, opacity, reduceMotion]);
 
   const headlineStyle = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ translateY: offsetY.value }] }));
   const activeAchievement = achievements[activeIndex % Math.max(1, achievements.length)];
@@ -81,6 +84,7 @@ export const MiniAchievementTicker = memo(function MiniAchievementTicker({
       setTypedTitle(displayTitle);
       return undefined;
     }
+    if (!isFocused) return undefined;
 
     setTypedTitle("");
     let characterIndex = 0;
@@ -93,7 +97,7 @@ export const MiniAchievementTicker = memo(function MiniAchievementTicker({
     return () => {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     };
-  }, [activeAchievement?.id, displayTitle, reduceMotion]);
+  }, [activeAchievement?.id, displayTitle, isFocused, reduceMotion]);
 
   if (!activeAchievement) return null;
 

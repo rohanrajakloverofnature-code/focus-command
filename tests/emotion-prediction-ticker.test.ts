@@ -6,7 +6,7 @@ const source = readFileSync(resolve(process.cwd(), "components/emotion-predictio
 
 describe("EmotionPredictionTicker regression contract", () => {
   it("keeps the approved three-second, reduced-motion-safe rotation", () => {
-    expect(source).toContain("if (reduceMotion || predictions.length < 2) return;");
+    expect(source).toContain("if (reduceMotion || !isFocused || predictions.length < 2) return;");
     expect(source).toContain("}, 3_000);");
     expect(source).toContain("return () => clearInterval(rotation);");
   });
@@ -40,8 +40,9 @@ describe("EmotionPredictionTicker regression contract", () => {
 
   it("keeps a memoized ticker boundary and resets rotation only when the prediction identity set changes", () => {
     expect(source).toContain("export const EmotionPredictionTicker = memo(function EmotionPredictionTicker");
+    expect(source).toContain("const isFocused = useIsFocused();");
     expect(source).toContain("const key = useMemo(() => predictions.map((prediction) => prediction.id).join(\"|\"), [predictions]);");
     expect(source).toContain("useEffect(() => { setIndex(0); }, [key]);");
-    expect(source).toContain("}, [key, opacity, predictions.length, reduceMotion]);");
+    expect(source).toContain("}, [isFocused, key, opacity, predictions.length, reduceMotion]);");
   });
 });

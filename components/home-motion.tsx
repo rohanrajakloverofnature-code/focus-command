@@ -1,4 +1,5 @@
 import { memo, type ReactNode, useEffect } from "react";
+import { useIsFocused } from "@react-navigation/native";
 import { StyleProp, StyleSheet, ViewStyle } from "react-native";
 import Animated, { cancelAnimation, interpolate, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withTiming } from "react-native-reanimated";
 
@@ -19,17 +20,18 @@ export function HomeFloat({
   delay?: number;
   style?: StyleProp<ViewStyle>;
 }) {
+  const isFocused = useIsFocused();
   const phase = useSharedValue(0);
 
   useEffect(() => {
     cancelAnimation(phase);
-    if (reduceMotion) {
+    if (reduceMotion || !isFocused) {
       phase.value = 0;
       return;
     }
     phase.value = withDelay(delay, withRepeat(withTiming(1, { duration }), -1, true));
     return () => cancelAnimation(phase);
-  }, [delay, duration, phase, reduceMotion]);
+  }, [delay, duration, isFocused, phase, reduceMotion]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -52,17 +54,18 @@ export const HomeAmbientScene = memo(function HomeAmbientScene({
   supportColor?: string;
   signalColor?: string;
 }) {
+  const isFocused = useIsFocused();
   const phase = useSharedValue(0);
 
   useEffect(() => {
     cancelAnimation(phase);
-    if (reduceMotion) {
+    if (reduceMotion || !isFocused) {
       phase.value = 0.28;
       return;
     }
     phase.value = withRepeat(withTiming(1, { duration: 4_800 }), -1, true);
     return () => cancelAnimation(phase);
-  }, [phase, reduceMotion]);
+  }, [isFocused, phase, reduceMotion]);
 
   const firstOrb = useAnimatedStyle(() => ({
     opacity: interpolate(phase.value, [0, 1], [0.08, 0.27]),

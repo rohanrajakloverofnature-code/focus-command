@@ -1,15 +1,18 @@
 import { useEffect } from "react";
+import { useIsFocused } from "@react-navigation/native";
 import { StyleSheet, View } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from "react-native-reanimated";
+import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 
 export function HomeFire({ reduceMotion }: { reduceMotion: boolean }) {
+  const isFocused = useIsFocused();
   const burst = useSharedValue(0.25);
 
   useEffect(() => {
-    if (reduceMotion) {
-      burst.value = 0.35;
+    if (reduceMotion || !isFocused) {
+      cancelAnimation(burst);
+      burst.value = reduceMotion ? 0.35 : 0.25;
       return;
     }
     burst.value = withRepeat(
@@ -20,7 +23,8 @@ export function HomeFire({ reduceMotion }: { reduceMotion: boolean }) {
       -1,
       false,
     );
-  }, [burst, reduceMotion]);
+    return () => cancelAnimation(burst);
+  }, [burst, isFocused, reduceMotion]);
 
   const leftFlame = useAnimatedStyle(() => ({ opacity: burst.value, transform: [{ scale: 0.8 + burst.value * 0.35 }, { translateY: -burst.value * 4 }] }));
   const centerFlame = useAnimatedStyle(() => ({ opacity: 0.35 + burst.value * 0.65, transform: [{ scale: 0.92 + burst.value * 0.26 }, { translateY: -burst.value * 7 }] }));

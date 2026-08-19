@@ -29,6 +29,8 @@ function makeOversizedState(): FocusState {
       createdAt: "2026-08-14T00:00:00.000Z",
     }],
     distractionLogs: [],
+    shadowGateEntries: [],
+    shadowGatePersonalDoorways: [],
     rewards: [],
     transactions: [],
     inventory: [],

@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useIsFocused } from "@react-navigation/native";
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { CelebrationKind, CelebrationOverlay } from "@/components/celebration-overlay";
@@ -144,6 +145,7 @@ function hasSameEquippedCharacterGear(
 }
 
 export default function HomeScreen() {
+  const isFocused = useIsFocused();
   const colors = useColors();
   const { width } = useWindowDimensions();
   const state = useFocusCommandSelector(selectHomeDependencies, hasSameHomeDependencies) as FocusState;
@@ -237,12 +239,12 @@ export default function HomeScreen() {
   }, [forecast.available, forecast.outlook, forecast.sampleSize]);
 
   useEffect(() => {
-    if (motivationMessages.length < 2) return;
+    if (!isFocused || motivationMessages.length < 2) return;
     const rotation = setInterval(() => {
       setMotivationIndex((current) => (current + 1) % motivationMessages.length);
     }, 5_000);
     return () => clearInterval(rotation);
-  }, [forecast.available, forecast.outlook, forecast.sampleSize, motivationMessages.length]);
+  }, [forecast.available, forecast.outlook, forecast.sampleSize, isFocused, motivationMessages.length]);
 
   const currentCharacterMilestone = useMemo(
     () => createCharacterEvolutionMilestone(title.title, level.level, equippedCharacterGear),

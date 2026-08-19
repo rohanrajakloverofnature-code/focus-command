@@ -90,7 +90,9 @@ describe("Mini Achievements headline selection", () => {
     expect(tickerSource).toContain('style={[styles.ratingBadge, { borderColor: `${resolvedAccentColor}35`, backgroundColor: `${resolvedAccentColor}18` }]}');
     expect(tickerSource).toContain("activeAchievement.rating.toFixed(1)");
     expect(tickerSource).toContain("setInterval(rotate, MINI_ACHIEVEMENT_HEADLINE_INTERVAL_MS)");
-    expect(tickerSource).toContain("if (achievements.length <= 1 || reduceMotion) return;");
+    expect(tickerSource).toContain("const isFocused = useIsFocused();");
+    expect(tickerSource).toContain("if (!isFocused || achievements.length <= 1 || reduceMotion) return;");
+    expect(tickerSource).toContain("if (!isFocused) return undefined;");
     expect(MINI_ACHIEVEMENT_HEADLINE_INTERVAL_MS).toBe(4_600);
   });
 

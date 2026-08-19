@@ -264,6 +264,8 @@ export interface PlayerProfile {
     prediction: TickerColorPreference;
   };
   homeProfileCardColorPreference: TickerColorPreference;
+  /** Local-only display choice for the optional Crossed Gates dashboard summary. */
+  shadowGatePreferences: ShadowGatePreferences;
   notificationRules: NotificationRules;
   emotionalCharts: EmotionalChartConfig[];
   forecastEnabled: boolean;
@@ -571,6 +573,48 @@ export interface DistractionLogEntry {
   occurredAt: string;
 }
 
+/** The six neutral task-initiation states presented by the optional Shadow Gate. */
+export const SHADOW_GATE_RESISTANCE_STATES = [
+  "too_big",
+  "blank_mind",
+  "perfection_fog",
+  "drained",
+  "discomfort",
+  "tomorrow",
+] as const;
+export type ShadowGateResistanceState = (typeof SHADOW_GATE_RESISTANCE_STATES)[number];
+
+/** One honest record written only after the selected doorway successfully starts its linked mission. */
+export interface ShadowGateEntry {
+  id: string;
+  missionId: string;
+  resistanceState: ShadowGateResistanceState;
+  doorwayId: string;
+  doorwayLabel: string;
+  personalDoorwayId?: string;
+  occurredAt: string;
+}
+
+/** A local-only user-written doorway. Its text is intentionally limited to a short actionable prompt. */
+export interface ShadowGatePersonalDoorway {
+  id: string;
+  label: string;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShadowGatePreferences {
+  showDashboardCard: boolean;
+}
+
+export interface ShadowGateDoorwaySelection {
+  resistanceState: ShadowGateResistanceState;
+  doorwayId: string;
+  doorwayLabel: string;
+  personalDoorwayId?: string;
+}
+
 export const EQUIPMENT_SLOT_BY_TYPE = {
   FocusDevice: "head",
   EnergyPack: "body",
@@ -616,6 +660,8 @@ export interface FocusState {
   bosses: Boss[];
   journals: JournalEntry[];
   distractionLogs: DistractionLogEntry[];
+  shadowGateEntries: ShadowGateEntry[];
+  shadowGatePersonalDoorways: ShadowGatePersonalDoorway[];
   rewards: Reward[];
   transactions: Transaction[];
   inventory: InventoryItem[];
@@ -1091,6 +1137,7 @@ function defaultProfile(): PlayerProfile {
       prediction: { source: "global", surface: null, accent: null },
     },
     homeProfileCardColorPreference: { source: "global", surface: null, accent: null },
+    shadowGatePreferences: { showDashboardCard: true },
     notificationRules: {
       dailyMissionEnabled: false,
       dailyMissionTime: "09:00",
@@ -1131,6 +1178,8 @@ export function createInitialState(): FocusState {
     bosses: [],
     journals: [],
     distractionLogs: [],
+    shadowGateEntries: [],
+    shadowGatePersonalDoorways: [],
     rewards: [
       {
         id: "reward_focus_break",
@@ -1674,6 +1723,7 @@ export function removeMissionAndLinkedState(state: FocusState, missionId: string
     missionCompletions: state.missionCompletions.filter((completion) => completion.missionId !== missionId),
     reflections: state.reflections.filter((reflection) => reflection.missionId !== missionId),
     distractionLogs: state.distractionLogs.filter((entry) => entry.missionId !== missionId),
+    shadowGateEntries: state.shadowGateEntries.filter((entry) => entry.missionId !== missionId),
     srsTopics: state.srsTopics.filter((topic) => topic.missionId !== missionId),
     progression: state.progression.filter((event) => event.missionId !== missionId),
     transactions: state.transactions.filter((transaction) => !progressionIds.includes(transaction.sourceId ?? "")),
@@ -2094,6 +2144,8 @@ interface FocusCommandContextValue {
   removeMission: (missionId: string) => void;
   removeMissionCompletion: (completionId: string) => void;
   startMission: (missionId: string) => void;
+  /** Starts a planned eligible mission and records its Gate entry together as one local update. */
+  startMissionThroughShadowGate: (missionId: string, selection: ShadowGateDoorwaySelection) => boolean;
   toggleMissionPause: (missionId: string) => void;
   finishMission: (missionId: string, reflection: ReflectionDraft) => { completionId: string; durationMs: number; lootReward: Reward | null } | null;
   logDistraction: (missionId: string, category: DistractionCategory, note?: string) => void;
@@ -2109,6 +2161,10 @@ interface FocusCommandContextValue {
   updateReward: (rewardId: string, patch: Partial<Omit<Reward, "id" | "createdAt">>) => void;
   removeReward: (rewardId: string) => void;
   purchaseReward: (rewardId: string) => { ok: boolean; message: string };
+  addShadowGatePersonalDoorway: (label: string) => string | null;
+  updateShadowGatePersonalDoorway: (doorwayId: string, patch: Partial<Pick<ShadowGatePersonalDoorway, "label" | "pinned">>) => void;
+  removeShadowGatePersonalDoorway: (doorwayId: string) => void;
+  updateShadowGatePreferences: (patch: Partial<ShadowGatePreferences>) => void;
   updateProfile: (patch: Partial<PlayerProfile>) => void;
   setCinematicOverride: (variant: CharacterCinematicVariant, override: LocalCinematicOverride) => void;
   removeCinematicOverride: (variant: CharacterCinematicVariant) => void;
@@ -2244,6 +2300,10 @@ export function normalizeHydratedState(input: FocusState): FocusState {
         ...defaults.profile.homeProfileCardColorPreference,
         ...(input.profile?.homeProfileCardColorPreference ?? {}),
       },
+      shadowGatePreferences: {
+        ...defaults.profile.shadowGatePreferences,
+        ...(input.profile?.shadowGatePreferences ?? {}),
+      },
       notificationRules: { ...defaults.profile.notificationRules, ...(input.profile?.notificationRules ?? {}) },
       soundRoles: (() => {
         const persisted = input.profile?.soundRoles;
@@ -2306,6 +2366,33 @@ export function normalizeHydratedState(input: FocusState): FocusState {
     distractionLogs: (input.distractionLogs ?? []).filter((entry): entry is DistractionLogEntry =>
       Boolean(entry && typeof entry.id === "string" && typeof entry.missionId === "string" && currentMissionIds.has(entry.missionId) && typeof entry.occurredAt === "string" && DISTRACTION_CATEGORIES.includes(entry.category)),
     ).map((entry) => ({ ...entry, note: typeof entry.note === "string" && entry.note.trim() ? entry.note.trim().slice(0, 140) : undefined })),
+    shadowGateEntries: (input.shadowGateEntries ?? []).filter((entry): entry is ShadowGateEntry =>
+      Boolean(
+        entry
+        && typeof entry.id === "string"
+        && typeof entry.missionId === "string"
+        && currentMissionIds.has(entry.missionId)
+        && SHADOW_GATE_RESISTANCE_STATES.includes(entry.resistanceState)
+        && typeof entry.doorwayId === "string"
+        && typeof entry.doorwayLabel === "string"
+        && typeof entry.occurredAt === "string",
+      ),
+    ).map((entry) => ({
+      ...entry,
+      doorwayLabel: entry.doorwayLabel.trim().slice(0, 180),
+      personalDoorwayId: typeof entry.personalDoorwayId === "string" ? entry.personalDoorwayId : undefined,
+    })),
+    shadowGatePersonalDoorways: (input.shadowGatePersonalDoorways ?? []).filter((doorway): doorway is ShadowGatePersonalDoorway =>
+      Boolean(
+        doorway
+        && typeof doorway.id === "string"
+        && typeof doorway.label === "string"
+        && doorway.label.trim()
+        && typeof doorway.pinned === "boolean"
+        && typeof doorway.createdAt === "string"
+        && typeof doorway.updatedAt === "string",
+      ),
+    ).map((doorway) => ({ ...doorway, label: doorway.label.trim().slice(0, 90) })),
     googleSheet: { ...defaults.googleSheet, ...(input.googleSheet ?? {}) },
     rewards: input.rewards?.length ? input.rewards : defaults.rewards,
     customGraphs: input.customGraphs?.length ? input.customGraphs : defaults.customGraphs,
@@ -2325,15 +2412,20 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   const deferredNotificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persistenceQueue = useRef<Promise<void>>(Promise.resolve());
   const pendingPersistence = useRef<FocusState | null>(null);
+  const lastPersistedSerialized = useRef<string | null>(null);
   const persistenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const interactionPersistenceTask = useRef<InteractionTask | null>(null);
 
   const enqueuePersistence = useCallback((snapshot: FocusState) => {
     const { hydrated, ...persistable } = snapshot;
     const serialized = JSON.stringify(persistable);
+    if (serialized === lastPersistedSerialized.current) return persistenceQueue.current;
     persistenceQueue.current = persistenceQueue.current
       .catch(() => undefined)
-      .then(() => AsyncStorage.setItem(STORAGE_KEY, serialized))
+      .then(async () => {
+        await AsyncStorage.setItem(STORAGE_KEY, serialized);
+        lastPersistedSerialized.current = serialized;
+      })
       .catch(() => undefined);
     return persistenceQueue.current;
   }, []);
@@ -2528,6 +2620,46 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         }),
       });
     });
+  }, [commit]);
+
+  const startMissionThroughShadowGate = useCallback((missionId: string, selection: ShadowGateDoorwaySelection): boolean => {
+    const initialMission = stateRef.current.missions.find((mission) => mission.id === missionId);
+    const doorwayLabel = selection.doorwayLabel.trim().slice(0, 180);
+    if (
+      !initialMission
+      || initialMission.status !== "planned"
+      || !SHADOW_GATE_RESISTANCE_STATES.includes(selection.resistanceState)
+      || !selection.doorwayId.trim()
+      || !doorwayLabel
+      || !isMissionStartEligible(initialMission, toLocalDate(nowIso(), stateRef.current.profile.timezone), stateRef.current.profile.timezone)
+    ) return false;
+
+    const occurredAt = nowIso();
+    commit((current) => {
+      const today = toLocalDate(occurredAt, current.profile.timezone);
+      const mission = current.missions.find((candidate) => candidate.id === missionId);
+      if (!mission || mission.status !== "planned" || !isMissionStartEligible(mission, today, current.profile.timezone)) return current;
+      const personalDoorwayId = selection.personalDoorwayId && current.shadowGatePersonalDoorways.some((doorway) => doorway.id === selection.personalDoorwayId)
+        ? selection.personalDoorwayId
+        : undefined;
+      return withQueuedOperation({
+        ...current,
+        missions: current.missions.map((candidate) => candidate.id === missionId ? beginMissionSession(candidate) : candidate),
+        shadowGateEntries: [
+          ...current.shadowGateEntries,
+          {
+            id: createId("shadow_gate"),
+            missionId,
+            resistanceState: selection.resistanceState,
+            doorwayId: selection.doorwayId.trim().slice(0, 120),
+            doorwayLabel,
+            personalDoorwayId,
+            occurredAt,
+          },
+        ],
+      });
+    });
+    return true;
   }, [commit]);
 
   const toggleMissionPause = useCallback((missionId: string) => {
@@ -3056,6 +3188,59 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     return { ok: true, message: reward.goldMultiplier ? `Activated for ${addDays(toLocalDate(nowIso(), stateRef.current.profile.timezone), 1)}.` : `${reward.title} added to inventory.` };
   }, [commit]);
 
+  const addShadowGatePersonalDoorway = useCallback((label: string): string | null => {
+    const normalized = label.trim().slice(0, 90);
+    if (!normalized) return null;
+    const id = createId("shadow_doorway");
+    const createdAt = nowIso();
+    commit((current) => withQueuedOperation({
+      ...current,
+      shadowGatePersonalDoorways: [
+        ...current.shadowGatePersonalDoorways,
+        { id, label: normalized, pinned: false, createdAt, updatedAt: createdAt },
+      ],
+    }));
+    return id;
+  }, [commit]);
+
+  const updateShadowGatePersonalDoorway = useCallback((doorwayId: string, patch: Partial<Pick<ShadowGatePersonalDoorway, "label" | "pinned">>) => {
+    commit((current) => {
+      const target = current.shadowGatePersonalDoorways.find((doorway) => doorway.id === doorwayId);
+      if (!target) return current;
+      const label = patch.label === undefined ? target.label : patch.label.trim().slice(0, 90);
+      if (!label) return current;
+      return withQueuedOperation({
+        ...current,
+        shadowGatePersonalDoorways: current.shadowGatePersonalDoorways.map((doorway) => doorway.id === doorwayId ? {
+          ...doorway,
+          label,
+          pinned: patch.pinned === undefined ? doorway.pinned : patch.pinned,
+          updatedAt: nowIso(),
+        } : doorway),
+      });
+    });
+  }, [commit]);
+
+  const removeShadowGatePersonalDoorway = useCallback((doorwayId: string) => {
+    commit((current) => {
+      if (!current.shadowGatePersonalDoorways.some((doorway) => doorway.id === doorwayId)) return current;
+      return withQueuedOperation({
+        ...current,
+        shadowGatePersonalDoorways: current.shadowGatePersonalDoorways.filter((doorway) => doorway.id !== doorwayId),
+      });
+    });
+  }, [commit]);
+
+  const updateShadowGatePreferences = useCallback((patch: Partial<ShadowGatePreferences>) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      profile: {
+        ...current.profile,
+        shadowGatePreferences: { ...current.profile.shadowGatePreferences, ...patch },
+      },
+    }));
+  }, [commit]);
+
   const updateProfile = useCallback((patch: Partial<PlayerProfile>) => {
     commit((current) => {
       const candidate = {
@@ -3082,6 +3267,9 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         homeProfileCardColorPreference: patch.homeProfileCardColorPreference
           ? { ...current.profile.homeProfileCardColorPreference, ...patch.homeProfileCardColorPreference }
           : current.profile.homeProfileCardColorPreference,
+        shadowGatePreferences: patch.shadowGatePreferences
+          ? { ...current.profile.shadowGatePreferences, ...patch.shadowGatePreferences }
+          : current.profile.shadowGatePreferences,
         localCinematicMusicOverrides: patch.localCinematicMusicOverrides
           ? { ...current.profile.localCinematicMusicOverrides, ...patch.localCinematicMusicOverrides }
           : current.profile.localCinematicMusicOverrides,
@@ -3318,6 +3506,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     removeMission,
     removeMissionCompletion,
     startMission,
+    startMissionThroughShadowGate,
     toggleMissionPause,
     finishMission,
     logDistraction,
@@ -3333,6 +3522,10 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     updateReward,
     removeReward,
     purchaseReward,
+    addShadowGatePersonalDoorway,
+    updateShadowGatePersonalDoorway,
+    removeShadowGatePersonalDoorway,
+    updateShadowGatePreferences,
     updateProfile,
     setCinematicOverride,
     removeCinematicOverride,
@@ -3361,6 +3554,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     removeMission,
     removeMissionCompletion,
     startMission,
+    startMissionThroughShadowGate,
     toggleMissionPause,
     finishMission,
     logDistraction,
@@ -3376,6 +3570,10 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     updateReward,
     removeReward,
     purchaseReward,
+    addShadowGatePersonalDoorway,
+    updateShadowGatePersonalDoorway,
+    removeShadowGatePersonalDoorway,
+    updateShadowGatePreferences,
     updateProfile,
     setCinematicOverride,
     removeCinematicOverride,
