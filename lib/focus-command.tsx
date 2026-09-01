@@ -264,6 +264,8 @@ export interface PlayerProfile {
     prediction: TickerColorPreference;
   };
   homeProfileCardColorPreference: TickerColorPreference;
+  /** Percentage of Journal points contributed to each Lifeline line; editable only from Journal. */
+  journalLifelinePercentage: number;
   /** Local-only display choice for the optional Crossed Gates dashboard summary. */
   shadowGatePreferences: ShadowGatePreferences;
   notificationRules: NotificationRules;
@@ -1172,6 +1174,7 @@ function defaultProfile(): PlayerProfile {
       prediction: { source: "global", surface: null, accent: null },
     },
     homeProfileCardColorPreference: { source: "global", surface: null, accent: null },
+    journalLifelinePercentage: 5,
     shadowGatePreferences: { showDashboardCard: true },
     notificationRules: {
       dailyMissionEnabled: false,
@@ -1291,6 +1294,38 @@ export function createInitialState(): FocusState {
     allEquipment: [],
     userEquipment: [],
   };
+}
+
+export function normalizeJournalLifelinePercentage(value: unknown, fallback = 5): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? Math.min(100, Math.max(0, Math.round(parsed))) : fallback;
+}
+
+export function getJournalLifelineContribution(points: number, percentage: number): number {
+  return Math.max(0, Math.round(points)) * normalizeJournalLifelinePercentage(percentage) / 100;
+}
+
+/** Rebuilds derived Journal records only; user-authored manual Lifeline baselines remain unchanged. */
+export function rebuildJournalLifelineContributions(
+  lifeline: LifelinePoint[],
+  journals: JournalEntry[],
+  percentage: number,
+): LifelinePoint[] {
+  const safePercentage = normalizeJournalLifelinePercentage(percentage);
+  const manualPoints = lifeline.filter((point) => point.source !== "journal");
+  const journalPoints = journals.map((entry) => {
+    const contribution = getJournalLifelineContribution(entry.points, safePercentage);
+    return {
+      id: `journal_${entry.localDate}`,
+      localDate: entry.localDate,
+      year: Number(entry.localDate.slice(0, 4)) || new Date().getFullYear(),
+      lifePerformance: contribution,
+      experience: contribution,
+      source: "journal" as const,
+      note: `Journal contribution from ${entry.localDate}`,
+    };
+  });
+  return [...manualPoints, ...journalPoints];
 }
 
 export function getComboTiers(state: Pick<FocusState, "customQuestions">): ComboTier[] {
@@ -2197,6 +2232,7 @@ interface FocusCommandContextValue {
   updateBoss: (bossId: string, patch: Partial<Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold" | "status">>) => void;
   removeBoss: (bossId: string) => void;
   addJournal: (draft: JournalDraft) => void;
+  setJournalLifelinePercentage: (percentage: number) => void;
   addLifelinePoint: (draft: { year: number; lifePerformance: number; experience: number; note: string }) => void;
   removeLifelinePoint: (pointId: string) => void;
   createReward: (draft: RewardDraft) => void;
@@ -2262,6 +2298,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
     ...defaults.profile,
     ...(input.profile ?? {}),
   };
+  const journalLifelinePercentage = normalizeJournalLifelinePercentage(input.profile?.journalLifelinePercentage, defaults.profile.journalLifelinePercentage);
   const rankTitles = getResolvedRankTitles(rawProfile);
   const customCharacterForms = (rawProfile.customCharacterForms ?? []).map((form, index) => ({
     id: typeof form.id === "string" && form.id ? form.id : `custom_form_${index + 1}`,
@@ -2325,6 +2362,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
     profile: {
       ...defaults.profile,
       ...(input.profile ?? {}),
+      journalLifelinePercentage,
       titles: rankTitles.map((entry) => entry.name),
       rankTitles,
       customCharacterForms,
@@ -2387,6 +2425,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       emotionalCharts: input.profile?.emotionalCharts?.length ? input.profile.emotionalCharts : defaults.profile.emotionalCharts,
     },
     combo: { ...defaults.combo, ...(input.combo ?? {}) },
+    lifeline: rebuildJournalLifelineContributions(input.lifeline ?? [], input.journals ?? [], journalLifelinePercentage),
     missions,
     missionCompletions: [...existingCompletions, ...migratedLegacyCompletions],
     characterMilestones,
@@ -3179,14 +3218,14 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         note: draft.note.trim(),
         createdAt: existing?.createdAt ?? nowIso(),
       };
-      const contribution = entry.points * 0.05;
+      const contribution = getJournalLifelineContribution(entry.points, current.profile.journalLifelinePercentage);
       const currentYear = new Date().getFullYear();
       const lifelinePoint: LifelinePoint = {
         id: `journal_${localDate}`,
         localDate,
         year: currentYear,
         lifePerformance: contribution,
-        experience: 0,
+        experience: contribution,
         source: "journal",
         note: `Journal contribution from ${localDate}`,
       };
@@ -3195,6 +3234,18 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         journals: existing ? current.journals.map((candidate) => candidate.id === existing.id ? entry : candidate) : [entry, ...current.journals],
         lifeline: [...current.lifeline.filter((point) => point.id !== lifelinePoint.id), lifelinePoint],
       }, 2);
+    });
+  }, [commit]);
+
+  const setJournalLifelinePercentage = useCallback((percentage: number) => {
+    commit((current) => {
+      const journalLifelinePercentage = normalizeJournalLifelinePercentage(percentage, current.profile.journalLifelinePercentage);
+      if (journalLifelinePercentage === current.profile.journalLifelinePercentage) return current;
+      return withQueuedOperation({
+        ...current,
+        profile: { ...current.profile, journalLifelinePercentage },
+        lifeline: rebuildJournalLifelineContributions(current.lifeline, current.journals, journalLifelinePercentage),
+      });
     });
   }, [commit]);
 
@@ -3629,6 +3680,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     updateMistakeLedgerEntry,
     setMistakeLedgerStatus,
     removeMistakeLedgerEntry,
+    setJournalLifelinePercentage,
     getCurrentState,
     createMission,
     updateMission,
@@ -3728,6 +3780,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     updateMistakeLedgerEntry,
     setMistakeLedgerStatus,
     removeMistakeLedgerEntry,
+    setJournalLifelinePercentage,
   ]);
 
   const value = useMemo<FocusCommandContextValue>(() => ({
