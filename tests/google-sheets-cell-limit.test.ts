@@ -19,6 +19,8 @@ function makeOversizedState(): FocusState {
     reflections: [],
     srsTopics: [],
     srsActivityLog: [],
+    mistakeLedgerEntries: [],
+    mistakeLedgerActivityLog: [],
     bosses: [],
     journals: [{
       id: "oversized-journal",

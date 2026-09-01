@@ -426,6 +426,10 @@ export function parseOfflineBackupArchive(archive: Uint8Array): ParsedOfflineBac
     // a valid backup or creating any historical data.
     if (!Array.isArray(parsedState.shadowGateEntries)) parsedState.shadowGateEntries = [];
     if (!Array.isArray(parsedState.shadowGatePersonalDoorways)) parsedState.shadowGatePersonalDoorways = [];
+    // Mistake Ledger records are optional in older valid backups. Missing
+    // collections begin empty; historic mistakes and status events are never inferred.
+    if (!Array.isArray(parsedState.mistakeLedgerEntries)) parsedState.mistakeLedgerEntries = [];
+    if (!Array.isArray(parsedState.mistakeLedgerActivityLog)) parsedState.mistakeLedgerActivityLog = [];
     state = parsedState as FocusState;
   } catch {
     throw new OfflineBackupValidationError("The backup command data cannot be read.");

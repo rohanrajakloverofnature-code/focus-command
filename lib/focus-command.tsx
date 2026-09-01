@@ -615,6 +615,39 @@ export interface ShadowGateDoorwaySelection {
   personalDoorwayId?: string;
 }
 
+export const MISTAKE_LEDGER_STATUSES = ["noted", "working_on", "improving", "improved", "needs_review"] as const;
+export type MistakeLedgerStatus = (typeof MISTAKE_LEDGER_STATUSES)[number];
+
+/** A private correction record; it is independent from progression, rewards, and revision data. */
+export interface MistakeLedgerEntry {
+  id: string;
+  mistake: string;
+  subject: string;
+  correction: string;
+  status: MistakeLedgerStatus;
+  missionId: string | null;
+  missionTitle: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** An append-only record of a genuine ledger creation or manual status choice. */
+export interface MistakeLedgerActivity {
+  id: string;
+  entryId: string;
+  kind: "created" | "status";
+  status: MistakeLedgerStatus;
+  actionDate: string;
+  occurredAt: string;
+}
+
+export interface MistakeLedgerDraft {
+  mistake: string;
+  subject: string;
+  correction?: string;
+  missionId?: string | null;
+}
+
 export const EQUIPMENT_SLOT_BY_TYPE = {
   FocusDevice: "head",
   EnergyPack: "body",
@@ -657,6 +690,8 @@ export interface FocusState {
   reflections: Reflection[];
   srsTopics: SrsTopic[];
   srsActivityLog: SrsActivityEntry[];
+  mistakeLedgerEntries: MistakeLedgerEntry[];
+  mistakeLedgerActivityLog: MistakeLedgerActivity[];
   bosses: Boss[];
   journals: JournalEntry[];
   distractionLogs: DistractionLogEntry[];
@@ -1175,6 +1210,8 @@ export function createInitialState(): FocusState {
     reflections: [],
     srsTopics: [],
     srsActivityLog: [],
+    mistakeLedgerEntries: [],
+    mistakeLedgerActivityLog: [],
     bosses: [],
     journals: [],
     distractionLogs: [],
@@ -1724,6 +1761,7 @@ export function removeMissionAndLinkedState(state: FocusState, missionId: string
     reflections: state.reflections.filter((reflection) => reflection.missionId !== missionId),
     distractionLogs: state.distractionLogs.filter((entry) => entry.missionId !== missionId),
     shadowGateEntries: state.shadowGateEntries.filter((entry) => entry.missionId !== missionId),
+    mistakeLedgerEntries: state.mistakeLedgerEntries.map((entry) => entry.missionId === missionId ? { ...entry, missionId: null } : entry),
     srsTopics: state.srsTopics.filter((topic) => topic.missionId !== missionId),
     progression: state.progression.filter((event) => event.missionId !== missionId),
     transactions: state.transactions.filter((transaction) => !progressionIds.includes(transaction.sourceId ?? "")),
@@ -2151,6 +2189,10 @@ interface FocusCommandContextValue {
   logDistraction: (missionId: string, category: DistractionCategory, note?: string) => void;
   logRevisionTopic: (missionId: string, topic: string, subject?: string) => void;
   completeRevision: (topicId: string) => void;
+  addMistakeLedgerEntry: (draft: MistakeLedgerDraft) => string | null;
+  updateMistakeLedgerEntry: (entryId: string, patch: Partial<Pick<MistakeLedgerEntry, "mistake" | "subject" | "correction" | "missionId">>) => void;
+  setMistakeLedgerStatus: (entryId: string, status: MistakeLedgerStatus) => void;
+  removeMistakeLedgerEntry: (entryId: string) => void;
   createBoss: (input: Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold">) => string;
   updateBoss: (bossId: string, patch: Partial<Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold" | "status">>) => void;
   removeBoss: (bossId: string) => void;
@@ -2363,6 +2405,31 @@ export function normalizeHydratedState(input: FocusState): FocusState {
           ),
         )
       : [],
+    mistakeLedgerEntries: Array.isArray(input.mistakeLedgerEntries)
+      ? input.mistakeLedgerEntries.filter((entry): entry is MistakeLedgerEntry => Boolean(
+          entry
+          && typeof entry.id === "string"
+          && typeof entry.mistake === "string" && entry.mistake.trim()
+          && typeof entry.subject === "string" && entry.subject.trim()
+          && typeof entry.correction === "string"
+          && MISTAKE_LEDGER_STATUSES.includes(entry.status as MistakeLedgerStatus)
+          && (typeof entry.missionId === "string" || entry.missionId === null)
+          && (typeof entry.missionTitle === "string" || entry.missionTitle === null)
+          && typeof entry.createdAt === "string" && Number.isFinite(Date.parse(entry.createdAt))
+          && typeof entry.updatedAt === "string" && Number.isFinite(Date.parse(entry.updatedAt)),
+        )).map((entry) => ({ ...entry, mistake: entry.mistake.trim().slice(0, 240), subject: entry.subject.trim().slice(0, 80), correction: entry.correction.trim().slice(0, 240) }))
+      : [],
+    mistakeLedgerActivityLog: (() => {
+      const knownEntryIds = new Set((input.mistakeLedgerEntries ?? []).map((entry) => entry?.id));
+      return Array.isArray(input.mistakeLedgerActivityLog)
+        ? input.mistakeLedgerActivityLog.filter((record): record is MistakeLedgerActivity => Boolean(
+            record && typeof record.id === "string" && typeof record.entryId === "string" && knownEntryIds.has(record.entryId)
+            && (record.kind === "created" || record.kind === "status")
+            && MISTAKE_LEDGER_STATUSES.includes(record.status as MistakeLedgerStatus)
+            && typeof record.actionDate === "string" && typeof record.occurredAt === "string" && Number.isFinite(Date.parse(record.occurredAt)),
+          ))
+        : [];
+    })(),
     distractionLogs: (input.distractionLogs ?? []).filter((entry): entry is DistractionLogEntry =>
       Boolean(entry && typeof entry.id === "string" && typeof entry.missionId === "string" && currentMissionIds.has(entry.missionId) && typeof entry.occurredAt === "string" && DISTRACTION_CATEGORIES.includes(entry.category)),
     ).map((entry) => ({ ...entry, note: typeof entry.note === "string" && entry.note.trim() ? entry.note.trim().slice(0, 140) : undefined })),
@@ -3018,6 +3085,64 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     });
   }, [commit]);
 
+  const addMistakeLedgerEntry = useCallback((draft: MistakeLedgerDraft): string | null => {
+    const mistake = draft.mistake.trim().slice(0, 240);
+    const subject = draft.subject.trim().slice(0, 80);
+    if (!mistake || !subject) return null;
+    const id = createId("mistake_ledger");
+    const occurredAt = nowIso();
+    commit((current) => {
+      const linkedMission = draft.missionId ? current.missions.find((mission) => mission.id === draft.missionId) : null;
+      return withQueuedOperation({
+        ...current,
+        mistakeLedgerEntries: [{ id, mistake, subject, correction: draft.correction?.trim().slice(0, 240) ?? "", status: "noted", missionId: linkedMission?.id ?? null, missionTitle: linkedMission?.title ?? null, createdAt: occurredAt, updatedAt: occurredAt }, ...current.mistakeLedgerEntries],
+        mistakeLedgerActivityLog: [...current.mistakeLedgerActivityLog, { id: createId("mistake_activity"), entryId: id, kind: "created", status: "noted", actionDate: toLocalDate(occurredAt, current.profile.timezone), occurredAt }],
+      });
+    });
+    return id;
+  }, [commit]);
+
+  const updateMistakeLedgerEntry = useCallback((entryId: string, patch: Partial<Pick<MistakeLedgerEntry, "mistake" | "subject" | "correction" | "missionId">>) => {
+    commit((current) => {
+      const target = current.mistakeLedgerEntries.find((entry) => entry.id === entryId);
+      if (!target) return current;
+      const linkedMission = patch.missionId === undefined ? undefined : patch.missionId ? current.missions.find((mission) => mission.id === patch.missionId) : null;
+      const mistake = patch.mistake === undefined ? target.mistake : patch.mistake.trim().slice(0, 240);
+      const subject = patch.subject === undefined ? target.subject : patch.subject.trim().slice(0, 80);
+      if (!mistake || !subject) return current;
+      return withQueuedOperation({
+        ...current,
+        mistakeLedgerEntries: current.mistakeLedgerEntries.map((entry) => entry.id === entryId ? {
+          ...entry, mistake, subject, correction: patch.correction === undefined ? entry.correction : patch.correction.trim().slice(0, 240),
+          missionId: linkedMission === undefined ? entry.missionId : linkedMission?.id ?? null,
+          missionTitle: linkedMission === undefined ? entry.missionTitle : linkedMission?.title ?? entry.missionTitle,
+          updatedAt: nowIso(),
+        } : entry),
+      });
+    });
+  }, [commit]);
+
+  const setMistakeLedgerStatus = useCallback((entryId: string, status: MistakeLedgerStatus) => {
+    if (!MISTAKE_LEDGER_STATUSES.includes(status)) return;
+    commit((current) => {
+      const target = current.mistakeLedgerEntries.find((entry) => entry.id === entryId);
+      if (!target || target.status === status) return current;
+      const occurredAt = nowIso();
+      return withQueuedOperation({
+        ...current,
+        mistakeLedgerEntries: current.mistakeLedgerEntries.map((entry) => entry.id === entryId ? { ...entry, status, updatedAt: occurredAt } : entry),
+        mistakeLedgerActivityLog: [...current.mistakeLedgerActivityLog, { id: createId("mistake_activity"), entryId, kind: "status", status, actionDate: toLocalDate(occurredAt, current.profile.timezone), occurredAt }],
+      });
+    });
+  }, [commit]);
+
+  const removeMistakeLedgerEntry = useCallback((entryId: string) => {
+    commit((current) => {
+      if (!current.mistakeLedgerEntries.some((entry) => entry.id === entryId)) return current;
+      return withQueuedOperation({ ...current, mistakeLedgerEntries: current.mistakeLedgerEntries.filter((entry) => entry.id !== entryId), mistakeLedgerActivityLog: current.mistakeLedgerActivityLog.filter((record) => record.entryId !== entryId) });
+    });
+  }, [commit]);
+
   const createBoss = useCallback((input: Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold">) => {
     const id = createId("boss");
     commit((current) => withQueuedOperation({
@@ -3500,6 +3625,10 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const actions = useMemo<FocusCommandActions>(() => ({
+    addMistakeLedgerEntry,
+    updateMistakeLedgerEntry,
+    setMistakeLedgerStatus,
+    removeMistakeLedgerEntry,
     getCurrentState,
     createMission,
     updateMission,
@@ -3595,6 +3724,10 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     unequipItem,
     getEquippedItems,
     restoreOfflineBackup,
+    addMistakeLedgerEntry,
+    updateMistakeLedgerEntry,
+    setMistakeLedgerStatus,
+    removeMistakeLedgerEntry,
   ]);
 
   const value = useMemo<FocusCommandContextValue>(() => ({

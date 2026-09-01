@@ -23,6 +23,8 @@ function createPopulatedState(): FocusState {
   state.srsActivityLog = [{ id: "revision_activity_backup", topicId: "revision_backup", missionId: "mission_backup", subject: "Math", topic: "Vectors", phase: "emerging", actionDate: "2026-08-14", occurredAt: "2026-08-14T08:00:00.000Z" }];
   state.shadowGateEntries = [{ id: "gate_backup", missionId: "mission_backup", resistanceState: "too_big", doorwayId: "too_big_01", doorwayLabel: "Open the mission materials and leave them visible.", occurredAt: "2026-08-14T07:55:00.000Z" }];
   state.shadowGatePersonalDoorways = [{ id: "doorway_backup", label: "Open the marked Chemistry page", pinned: true, createdAt: "2026-08-14T07:50:00.000Z", updatedAt: "2026-08-14T07:50:00.000Z" }];
+  state.mistakeLedgerEntries = [{ id: "mistake_backup", mistake: "Sign error", subject: "Maths", correction: "Check signs", status: "improving", missionId: "mission_backup", missionTitle: "Archive mission", createdAt: "2026-08-14T07:45:00.000Z", updatedAt: "2026-08-14T08:00:00.000Z" }];
+  state.mistakeLedgerActivityLog = [{ id: "mistake_activity_backup", entryId: "mistake_backup", kind: "status", status: "improving", actionDate: "2026-08-14", occurredAt: "2026-08-14T08:00:00.000Z" }];
   state.profile.shadowGatePreferences = { showDashboardCard: false };
   state.profile.characterCinematicColors = { tactical: { accent: "#16C7E8", backdrop: "#061423", rod: "#F0C75E", aura: "#16C7E833", support: "#6E5AE6", energy: "#68E2FF", metallic: "#F0C75E", atmosphere: "#071B2D", frame: "#020914" } };
   state.profile.tickerColorPreferences = { miniAchievement: { source: "character", surface: null, accent: null }, prediction: { source: "custom", surface: "#17102B", accent: "#16C7E8" } };
@@ -70,6 +72,8 @@ describe("offline Focus Command backup format", () => {
     expect(parsed.state.profile.shadowGatePreferences).toEqual(state.profile.shadowGatePreferences);
     expect(parsed.state.shadowGateEntries).toEqual(state.shadowGateEntries);
     expect(parsed.state.shadowGatePersonalDoorways).toEqual(state.shadowGatePersonalDoorways);
+    expect(parsed.state.mistakeLedgerEntries).toEqual(state.mistakeLedgerEntries);
+    expect(parsed.state.mistakeLedgerActivityLog).toEqual(state.mistakeLedgerActivityLog);
     expect(parsed.state.characterMilestones).toEqual(state.characterMilestones);
   });
 
@@ -131,6 +135,8 @@ describe("offline Focus Command backup format", () => {
       delete state.srsActivityLog;
       delete state.shadowGateEntries;
       delete state.shadowGatePersonalDoorways;
+      delete state.mistakeLedgerEntries;
+      delete state.mistakeLedgerActivityLog;
       const stateBytes = strToU8(JSON.stringify(state));
       entries["state.json"] = stateBytes;
       const manifest = readManifest(entries);
@@ -141,6 +147,8 @@ describe("offline Focus Command backup format", () => {
     expect(parseOfflineBackupArchive(legacy).state.srsActivityLog).toEqual([]);
     expect(parseOfflineBackupArchive(legacy).state.shadowGateEntries).toEqual([]);
     expect(parseOfflineBackupArchive(legacy).state.shadowGatePersonalDoorways).toEqual([]);
+    expect(parseOfflineBackupArchive(legacy).state.mistakeLedgerEntries).toEqual([]);
+    expect(parseOfflineBackupArchive(legacy).state.mistakeLedgerActivityLog).toEqual([]);
   });
 
   it("round-trips built-in form music plus a complete custom form media set", () => {
