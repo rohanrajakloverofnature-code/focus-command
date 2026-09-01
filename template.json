@@ -1,7 +1,7 @@
 {
   "id": "app",
   "name": "Focus Command Offline Expo App",
-  "description": "Offline-first Expo Router mobile application with local AsyncStorage gameplay and optional direct Google Sheets synchronization.",
+  "description": "Offline-first Expo Router mobile application with local AsyncStorage gameplay and portable offline backup.",
   "capabilities": [
     "mobile",
     "app"

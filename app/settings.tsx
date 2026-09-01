@@ -1,15 +1,13 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Appearance, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { useGoogleSheetsAuth } from "@/hooks/use-google-sheets-auth";
 import { ComboTier, getComboTiers, PaletteToken, SoundRoleId, SoundStyle, type TickerColorPreference, type TickerColorSource, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
-import { clearSelectedFocusWorkbook, createFocusWorkbook, getFocusWorkbookMetadata, getGoogleAccessToken, getSelectedFocusWorkbook, getSpreadsheet, readFocusWorkbook, saveSelectedFocusWorkbook, writeFocusWorkbook } from "@/lib/google-sheets";
 import { configureDailyMissionReminder, enableFocusReminders, refreshScheduledReminderSounds } from "@/lib/focus-reminders";
 import { chooseAndValidateOfflineBackup, createAndShareOfflineBackup, discardMaterializedOfflineBackup, materializeOfflineBackupMedia } from "@/lib/offline-backup";
 import { useThemeContext } from "@/lib/theme-provider";
@@ -19,53 +17,23 @@ import { pickAndPersistFocusSound, removePersistedFocusSound } from "@/lib/focus
 export default function SettingsScreen() {
   const colors = useColors();
   const { setColorScheme } = useThemeContext();
-  const { section } = useLocalSearchParams<{ section?: string }>();
   const ready = useFocusCommandReady();
   const {
     updateProfile,
     updateShadowGatePreferences,
     updateComboTiers,
-    setGoogleSheetConnection,
-    importFromGoogleSheet,
-    markSynced,
     restoreOfflineBackup,
     resetLocalData,
     getCurrentState,
   } = useFocusCommandActions();
   const profile = useFocusCommandSelector((snapshot) => snapshot.profile);
-  const googleSheet = useFocusCommandSelector((snapshot) => snapshot.googleSheet);
   const customQuestions = useFocusCommandSelector((snapshot) => snapshot.customQuestions);
-  const state = useMemo(() => ({ profile, googleSheet, customQuestions }), [customQuestions, googleSheet, profile]);
+  const state = useMemo(() => ({ profile, customQuestions }), [customQuestions, profile]);
   const [firstName, setFirstName] = useState(state.profile.firstName);
   const [newTierDays, setNewTierDays] = useState("");
   const [newTierMultiplier, setNewTierMultiplier] = useState("");
-  const [sheetId, setSheetId] = useState(state.googleSheet.spreadsheetId ?? "");
-  const [sheetName, setSheetName] = useState(state.googleSheet.spreadsheetName || "Focus Command Data");
   const [savingSoundRole, setSavingSoundRole] = useState<SoundRoleId | null>(null);
   const [backupBusy, setBackupBusy] = useState<"export" | "restore" | null>(null);
-  const onGoogleAuthorized = useCallback((_token: string, email: string | null) => {
-    setGoogleSheetConnection({ phase: "authorized", connectedEmail: email ?? "", errorMessage: null });
-  }, [setGoogleSheetConnection]);
-  const googleAuth = useGoogleSheetsAuth(onGoogleAuthorized);
-
-  useEffect(() => {
-    if (!ready) return;
-    let active = true;
-    void (async () => {
-      const saved = await getSelectedFocusWorkbook();
-      if (!active) return;
-      if (saved) {
-        setSheetId(saved.spreadsheetId);
-        setSheetName(saved.spreadsheetName);
-        if (state.googleSheet.spreadsheetId !== saved.spreadsheetId || state.googleSheet.spreadsheetName !== saved.spreadsheetName) {
-          setGoogleSheetConnection({ ...saved, phase: state.googleSheet.connectedEmail ? "authorized" : state.googleSheet.phase, errorMessage: null });
-        }
-      } else if (state.googleSheet.spreadsheetId && state.googleSheet.spreadsheetName) {
-        await saveSelectedFocusWorkbook({ spreadsheetId: state.googleSheet.spreadsheetId, spreadsheetName: state.googleSheet.spreadsheetName });
-      }
-    })();
-    return () => { active = false; };
-  }, [ready, setGoogleSheetConnection, state.googleSheet.connectedEmail, state.googleSheet.phase, state.googleSheet.spreadsheetId, state.googleSheet.spreadsheetName]);
 
   if (!ready) return <LoadingScreen label="Opening command settings…" />;
 
@@ -214,7 +182,7 @@ export default function SettingsScreen() {
   };
 
   const reset = () => {
-    Alert.alert("Reset local command data?", "This clears local missions, history, and settings from this device. Your connected Google Sheet will not be deleted.", [
+    Alert.alert("Reset local command data?", "This clears local missions, history, and settings from this device.", [
       { text: "Cancel", style: "cancel" },
       { text: "Reset", style: "destructive", onPress: () => resetLocalData() },
     ]);
@@ -247,7 +215,7 @@ export default function SettingsScreen() {
       const { summary } = manifest;
       Alert.alert(
         "Restore all Focus Command data?",
-        `${preview.fileName}\nCreated ${new Date(manifest.createdAt).toLocaleString()}\n\n${summary.missions} missions · ${summary.completions} completed runs · ${summary.reflections} reflections · ${summary.journals} journals · ${summary.mediaFiles} media files\n\nThis validated backup will replace the current local command log on this device. Google Sheets credentials are not included and may need authorization again. This cannot be undone.`,
+        `${preview.fileName}\nCreated ${new Date(manifest.createdAt).toLocaleString()}\n\n${summary.missions} missions · ${summary.completions} completed runs · ${summary.reflections} reflections · ${summary.journals} journals · ${summary.mediaFiles} media files\n\nThis validated backup will replace the current local command log on this device. This cannot be undone.`,
         [
           { text: "Cancel", style: "cancel", onPress: () => setBackupBusy(null) },
           {
@@ -280,136 +248,13 @@ export default function SettingsScreen() {
     }
   };
 
-  const requireGoogleToken = async () => {
-    const token = googleAuth.accessToken ?? await getGoogleAccessToken();
-    if (!token) {
-      Alert.alert("Authorize Google first", "Connect Google in a development build before creating, importing, or syncing a spreadsheet.");
-      return null;
-    }
-    return token;
-  };
-
-  const createSpreadsheet = async () => {
-    const token = await requireGoogleToken();
-    if (!token) return;
-    try {
-      setGoogleSheetConnection({ phase: "syncing", errorMessage: null });
-      const workbook = await createFocusWorkbook(token, sheetName.trim() || "Focus Command Data");
-      const currentState = getCurrentState();
-      await writeFocusWorkbook(token, workbook, currentState);
-      setSheetId(workbook.spreadsheetId);
-      setSheetName(workbook.spreadsheetName);
-      await saveSelectedFocusWorkbook(workbook);
-      setGoogleSheetConnection({ ...workbook, phase: "synced", pendingOperations: 0, lastSyncedAt: new Date().toISOString(), errorMessage: null });
-      markSynced();
-      void playFocusRole("system", currentState.profile.soundEnabled, currentState.profile.soundRoles.system);
-      Alert.alert("Spreadsheet ready", "Focus Command created its data tabs and exported the current command log.");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Google Sheets could not create the spreadsheet.";
-      setGoogleSheetConnection({ phase: "error", errorMessage: message });
-      Alert.alert("Could not create spreadsheet", message);
-    }
-  };
-
-  const syncSpreadsheet = async (forceLocal = false) => {
-    const token = await requireGoogleToken();
-    const cleanId = sheetId.trim() || state.googleSheet.spreadsheetId;
-    if (!token || !cleanId) {
-      Alert.alert("Select a spreadsheet", "Paste a spreadsheet ID or create a new Focus Command spreadsheet first.");
-      return;
-    }
-    try {
-      setGoogleSheetConnection({ phase: "syncing", errorMessage: null });
-      const workbook = await getSpreadsheet(token, cleanId);
-      const remoteMetadata = await getFocusWorkbookMetadata(token, cleanId);
-      const remoteChangedAfterLastSync = Boolean(
-        remoteMetadata.payload && (
-          !state.googleSheet.lastSyncedAt ||
-          (remoteMetadata.updatedAt && Date.parse(remoteMetadata.updatedAt) > Date.parse(state.googleSheet.lastSyncedAt))
-        ),
-      );
-      if (!forceLocal && state.googleSheet.pendingOperations > 0 && remoteChangedAfterLastSync) {
-        const message = "This sheet has a newer Focus Command snapshot while this device has unsynced local changes. Choose which copy should win before continuing.";
-        setGoogleSheetConnection({ phase: "error", errorMessage: message });
-        Alert.alert("Sheet conflict detected", message, [
-          { text: "Cancel", style: "cancel" },
-          { text: "Use sheet copy", style: "destructive", onPress: () => { void importSpreadsheet(); } },
-          { text: "Keep local copy", onPress: () => { void syncSpreadsheet(true); } },
-        ]);
-        return;
-      }
-      const currentState = getCurrentState();
-      await writeFocusWorkbook(token, workbook, currentState);
-      setSheetId(workbook.spreadsheetId);
-      setSheetName(workbook.spreadsheetName);
-      await saveSelectedFocusWorkbook(workbook);
-      setGoogleSheetConnection({ ...workbook, phase: "synced", pendingOperations: 0, lastSyncedAt: new Date().toISOString(), errorMessage: null });
-      markSynced();
-      void playFocusRole("system", currentState.profile.soundEnabled, currentState.profile.soundRoles.system);
-      Alert.alert("Sync complete", "The selected Google Sheet now contains the latest Focus Command snapshot and data tabs.");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Google Sheets could not sync the selected spreadsheet.";
-      setGoogleSheetConnection({ phase: "error", errorMessage: message });
-      Alert.alert("Sync failed", message);
-    }
-  };
-
-  const removeSavedSpreadsheet = () => {
-    Alert.alert("Remove saved spreadsheet?", "This only disconnects the remembered workbook from this device. It does not delete the Google Sheet, Google account, or unrelated Focus Command data.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: () => {
-          void (async () => {
-            await clearSelectedFocusWorkbook();
-            setSheetId("");
-            setSheetName("Focus Command Data");
-            setGoogleSheetConnection({
-              spreadsheetId: "",
-              spreadsheetName: "",
-              phase: googleAuth.status === "authorized" ? "authorized" : "needs_setup",
-              pendingOperations: 0,
-              lastSyncedAt: null,
-              errorMessage: null,
-            });
-          })();
-        },
-      },
-    ]);
-  };
-
-  const importSpreadsheet = async () => {
-    const token = await requireGoogleToken();
-    const cleanId = sheetId.trim() || state.googleSheet.spreadsheetId;
-    if (!token || !cleanId) {
-      Alert.alert("Select a spreadsheet", "Paste a spreadsheet ID before importing Focus Command data.");
-      return;
-    }
-    try {
-      setGoogleSheetConnection({ phase: "syncing", errorMessage: null });
-      const workbook = await getSpreadsheet(token, cleanId);
-      const remote = await readFocusWorkbook(token, cleanId);
-      importFromGoogleSheet(remote, { ...workbook });
-      setSheetId(workbook.spreadsheetId);
-      setSheetName(workbook.spreadsheetName);
-      await saveSelectedFocusWorkbook(workbook);
-      void playFocusRole("system", state.profile.soundEnabled, state.profile.soundRoles.system);
-      Alert.alert("Import complete", "The local command system has been refreshed from the selected Google Sheet snapshot.");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Google Sheets could not import this spreadsheet.";
-      setGoogleSheetConnection({ phase: "error", errorMessage: message });
-      Alert.alert("Import failed", message);
-    }
-  };
-
   return (
     <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle
           eyebrow="Hamburger menu"
           title="Command settings"
-          detail={section === "sheet" ? "Sheet connection & synchronization" : "Tune your command system without leaving the mission."}
+          detail="Tune your command system without leaving the mission."
           right={<IconAction icon="xmark" label="Close settings" onPress={() => router.back()} />}
         />
 
@@ -693,39 +538,11 @@ export default function SettingsScreen() {
           <CommandButton label="Customize RPG system" icon="gearshape.fill" variant="secondary" onPress={() => router.push("/customize")} />
         </CommandCard>
 
-        <SectionHeader title="Google Sheet & Sync" />
-        <CommandCard accent={state.googleSheet.phase === "synced" ? colors.success : colors.primary} style={styles.cardStack}>
-          <View style={styles.sheetTopline}>
-            <View style={[styles.sheetIcon, { backgroundColor: `${colors.primary}1A` }]}>
-              <IconSymbol name="cloud.fill" size={22} color={colors.primary} />
-            </View>
-            <View style={styles.sheetCopy}>
-              <Text style={[styles.settingTitle, { color: colors.foreground }]}>{state.googleSheet.spreadsheetName || "No spreadsheet selected"}</Text>
-              <Text style={[styles.settingDetail, { color: colors.muted }]}>{googleAuth.status === "unsupported_in_expo_go" ? "OAuth is prepared, but Expo Go cannot safely complete the native Google redirect." : state.googleSheet.phase === "needs_setup" ? "The local command log is ready for secure Google authorization." : state.googleSheet.connectedEmail || "Connection requires attention"}</Text>
-            </View>
-          </View>
-          <View style={styles.statusRow}>
-            <StatusPill label={state.googleSheet.phase === "synced" ? "Synced" : `${state.googleSheet.pendingOperations} queued`} tone={state.googleSheet.phase === "synced" ? "success" : "primary"} icon="cloud.fill" />
-            <StatusPill label={googleAuth.status.replaceAll("_", " ").toUpperCase()} tone={googleAuth.status === "authorized" ? "success" : googleAuth.status === "error" ? "danger" : "neutral"} />
-            {state.googleSheet.lastSyncedAt ? <Text style={[styles.lastSync, { color: colors.muted }]}>Last sync {new Date(state.googleSheet.lastSyncedAt).toLocaleString()}</Text> : null}
-          </View>
-          <Text style={[styles.sheetExplainer, { color: colors.muted }]}>{googleAuth.message || "Focus Command creates its data tabs only inside one selected Google Spreadsheet. On a native build, a Google OAuth token is encrypted on-device and used only for this sheet connection."}</Text>
-          <CommandButton label={googleAuth.status === "authorized" ? "Google authorized" : "Authorize Google"} icon="cloud.fill" variant={googleAuth.status === "authorized" ? "secondary" : "primary"} disabled={googleAuth.status === "authorized" || !googleAuth.canAuthorize} onPress={googleAuth.beginAuthorization} />
-          <TextInput value={sheetName} onChangeText={setSheetName} placeholder="New spreadsheet title" placeholderTextColor={colors.muted} style={[styles.textInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-          <CommandButton label="Create Focus Command sheet" icon="plus" variant="secondary" onPress={createSpreadsheet} />
-          <TextInput value={sheetId} onChangeText={setSheetId} placeholder="Existing spreadsheet ID" placeholderTextColor={colors.muted} autoCapitalize="none" style={[styles.textInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-          <View style={styles.sheetActionRow}>
-            <CommandButton label="Import" icon="arrow.clockwise" variant="secondary" onPress={importSpreadsheet} style={styles.sheetActionButton} />
-            <CommandButton label="Sync now" icon="cloud.fill" onPress={syncSpreadsheet} style={styles.sheetActionButton} />
-          </View>
-          {state.googleSheet.spreadsheetId ? <CommandButton label="Remove saved spreadsheet" icon="xmark" variant="danger" onPress={removeSavedSpreadsheet} /> : null}
-        </CommandCard>
-
         <SectionHeader title="Data controls" />
         <CommandCard style={styles.cardStack}>
           <View style={styles.settingCopy}>
             <Text style={[styles.settingTitle, { color: colors.foreground }]}>Offline Backup File</Text>
-            <Text style={[styles.settingDetail, { color: colors.muted }]}>Create one portable copy of your complete local command log and app-private custom media. It is separate from Google Sheets and should be saved privately.</Text>
+            <Text style={[styles.settingDetail, { color: colors.muted }]}>Create one portable copy of your complete local command log and app-private custom media. Save it privately so it is available when you change phones or reinstall Focus Command.</Text>
           </View>
           <View style={styles.sheetActionRow}>
             <CommandButton label={backupBusy === "export" ? "Preparing…" : "Create backup"} variant="secondary" disabled={backupBusy !== null} onPress={() => { void createOfflineBackup(); }} style={styles.sheetActionButton} />
@@ -733,7 +550,7 @@ export default function SettingsScreen() {
           </View>
           <Text style={[styles.settingDetail, { color: colors.muted }]}>Restore validates the entire file before asking for final confirmation. Cancelling, choosing an invalid file, or a failed check leaves current data unchanged.</Text>
           <Divider />
-          <Text style={[styles.settingDetail, { color: colors.muted }]}>The selected Google Sheet is never deleted from this screen. Reset only clears the local cache and queued changes on this device.</Text>
+          <Text style={[styles.settingDetail, { color: colors.muted }]}>Reset clears only this device’s local command data. It does not affect a backup file you saved elsewhere.</Text>
           <CommandButton label="Reset local data" icon="arrow.clockwise" variant="danger" onPress={reset} />
         </CommandCard>
       </ScrollView>

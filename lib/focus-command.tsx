@@ -13,6 +13,17 @@ import React, {
 import { calculateEquippedXpModifier, calculateEquippedEnergyModifier } from "./equipment-modifiers";
 import { getCharacterEvolutionProfile, type CharacterCinematicVariant } from "./character-development";
 import { deriveCinematicTokensFromPalette } from "./character-cinematic-tokens";
+import {
+  createDefaultPersonalGraphs,
+  normalizePersonalGraphs,
+  parsePersonalGraphDate,
+  PERSONAL_GRAPH_COLORS,
+  PERSONAL_GRAPH_MAX_LINES,
+  PERSONAL_GRAPH_MAX_POINTS_PER_LINE,
+  type PersonalGraph,
+  type PersonalGraphLine,
+  type PersonalGraphPointDraft,
+} from "./personal-graphs";
 
 type AppStateSubscription = { remove: () => void };
 type AppStateModule = { addEventListener: (event: "change", listener: (nextState: string) => void) => AppStateSubscription };
@@ -44,7 +55,6 @@ export type MissionFrequency = "once" | "daily";
 export type MissionTimestamp = string | number;
 export type Feeling = "charged" | "steady" | "restless" | "drained" | "great";
 export type RewardCategory = "life" | "gear" | "power" | "multiplier";
-export type SyncPhase = "local" | "ready" | "authorized" | "syncing" | "synced" | "needs_setup" | "error";
 export type PaletteToken = "primary" | "background" | "surface" | "foreground" | "muted" | "border" | "success" | "warning" | "error";
 export type EmotionalChartId = "energy_shift" | "focus_friction" | "stress_clarity" | "motivation_distraction";
 export const SOUND_ROLE_IDS = [
@@ -241,7 +251,7 @@ export interface PlayerProfile {
   maxLevel: number;
   powerPerLevel: number;
   titleChangeInterval: number;
-  /** Legacy display list retained for older state, Google-sheet, and UI consumers. */
+  /** Legacy display list retained for older state and UI consumers. */
   titles: string[];
   /** Explicit title thresholds that allow ranks to continue beyond the original fifty. */
   rankTitles: RankTitle[];
@@ -535,16 +545,6 @@ export interface WallOfFameEntry {
   occurredAt: string;
 }
 
-export interface GoogleSheetConnection {
-  spreadsheetId: string;
-  spreadsheetName: string;
-  connectedEmail: string;
-  lastSyncedAt: string | null;
-  phase: SyncPhase;
-  errorMessage: string | null;
-  pendingOperations: number;
-}
-
 export interface Equipment {
   id: string; // Unique identifier
   name: string;
@@ -707,8 +707,8 @@ export interface FocusState {
   lifeline: LifelinePoint[];
   customQuestions: CustomQuestion[];
   customGraphs: CustomGraph[];
+  personalGraphs: PersonalGraph[];
   goldPowerCarry: number;
-  googleSheet: GoogleSheetConnection;
   allEquipment: Equipment[]; // All available equipment in the game
   userEquipment: UserEquipment[]; // Equipment owned by the user
 }
@@ -1281,16 +1281,8 @@ export function createInitialState(): FocusState {
       { id: "graph_focus", title: "Focus Signals", enabled: true, series: [] },
       { id: "graph_custom", title: "Custom Signals", enabled: true, series: [] },
     ],
+    personalGraphs: createDefaultPersonalGraphs(nowIso()),
     goldPowerCarry: 0,
-    googleSheet: {
-      spreadsheetId: "",
-      spreadsheetName: "",
-      connectedEmail: "",
-      lastSyncedAt: null,
-      phase: "needs_setup",
-      errorMessage: null,
-      pendingOperations: 0,
-    },
     allEquipment: [],
     userEquipment: [],
   };
@@ -2184,15 +2176,8 @@ function resolveCurrentComboAfterActivity(state: FocusState, activityDate: strin
 }
 
 function withQueuedOperation(state: FocusState, operationCount = 1): FocusState {
-  const connected = Boolean(state.googleSheet.spreadsheetId);
-  return {
-    ...state,
-    googleSheet: {
-      ...state.googleSheet,
-      pendingOperations: state.googleSheet.pendingOperations + operationCount,
-      phase: connected ? "ready" : "needs_setup",
-    },
-  };
+  void operationCount;
+  return state;
 }
 
 type Action =
@@ -2247,13 +2232,17 @@ interface FocusCommandContextValue {
   setCinematicOverride: (variant: CharacterCinematicVariant, override: LocalCinematicOverride) => void;
   removeCinematicOverride: (variant: CharacterCinematicVariant) => void;
   updateComboTiers: (tiers: ComboTier[]) => void;
-  setGoogleSheetConnection: (patch: Partial<GoogleSheetConnection>) => void;
-  importFromGoogleSheet: (remote: FocusState, connection: Partial<GoogleSheetConnection>) => void;
-  markSynced: () => void;
   addCustomQuestion: (question: Omit<CustomQuestion, "id">) => void;
   updateCustomQuestion: (questionId: string, patch: Partial<Omit<CustomQuestion, "id">>) => void;
   removeCustomQuestion: (questionId: string) => void;
   updateCustomGraph: (graphId: string, patch: Partial<CustomGraph>) => void;
+  updatePersonalGraph: (graphId: string, patch: Partial<Pick<PersonalGraph, "title" | "xAxisLabel" | "yAxisLabel" | "datePrecision" | "enabled">>) => void;
+  addPersonalGraphLine: (graphId: string, name: string, color?: PersonalGraphLine["color"]) => string | null;
+  updatePersonalGraphLine: (graphId: string, lineId: string, patch: Partial<Pick<PersonalGraphLine, "name" | "color">>) => void;
+  removePersonalGraphLine: (graphId: string, lineId: string) => void;
+  addPersonalGraphPoint: (graphId: string, draft: PersonalGraphPointDraft) => string | null;
+  updatePersonalGraphPoint: (graphId: string, pointId: string, draft: PersonalGraphPointDraft) => void;
+  removePersonalGraphPoint: (graphId: string, pointId: string) => void;
   restoreOfflineBackup: (backup: FocusState) => Promise<void>;
   resetLocalData: () => Promise<void>;
   addEquipment: (equipment: Omit<Equipment, "id">) => string;
@@ -2278,6 +2267,7 @@ const FocusCommandReadyContext = createContext(false);
 const PERSISTENCE_DEBOUNCE_MS = 250;
 
 export function normalizeHydratedState(input: FocusState): FocusState {
+  const { googleSheet: _legacyGoogleSheet, ...inputWithoutLegacyGoogleSheet } = input as FocusState & { googleSheet?: unknown };
   const defaults = createInitialState();
   const allEquipment = input.allEquipment ?? defaults.allEquipment;
   const userEquipment = reconcileEquipmentInventory(allEquipment, input.userEquipment ?? defaults.userEquipment, nowIso());
@@ -2357,7 +2347,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
   const currentMissionIds = new Set(missions.map((mission) => mission.id));
   return {
     ...defaults,
-    ...input,
+    ...inputWithoutLegacyGoogleSheet,
     hydrated: true,
     profile: {
       ...defaults.profile,
@@ -2499,9 +2489,9 @@ export function normalizeHydratedState(input: FocusState): FocusState {
         && typeof doorway.updatedAt === "string",
       ),
     ).map((doorway) => ({ ...doorway, label: doorway.label.trim().slice(0, 90) })),
-    googleSheet: { ...defaults.googleSheet, ...(input.googleSheet ?? {}) },
     rewards: input.rewards?.length ? input.rewards : defaults.rewards,
     customGraphs: input.customGraphs?.length ? input.customGraphs : defaults.customGraphs,
+    personalGraphs: normalizePersonalGraphs(input.personalGraphs, defaults.personalGraphs),
     allEquipment,
     userEquipment,
   };
@@ -3505,43 +3495,6 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     });
   }, [commit]);
 
-  const setGoogleSheetConnection = useCallback((patch: Partial<GoogleSheetConnection>) => {
-    commit((current) => ({
-      ...current,
-      googleSheet: { ...current.googleSheet, ...patch },
-    }));
-  }, [commit]);
-
-  const importFromGoogleSheet = useCallback((remote: FocusState, connection: Partial<GoogleSheetConnection>) => {
-    commit((current) => normalizeHydratedState({
-      ...remote,
-      // Deliberately device-local until a separate synchronization scope is approved.
-      distractionLogs: current.distractionLogs,
-      googleSheet: {
-        ...remote.googleSheet,
-        ...current.googleSheet,
-        ...connection,
-        phase: "synced",
-        pendingOperations: 0,
-        lastSyncedAt: nowIso(),
-        errorMessage: null,
-      },
-    }));
-  }, [commit]);
-
-  const markSynced = useCallback(() => {
-    commit((current) => ({
-      ...current,
-      googleSheet: {
-        ...current.googleSheet,
-        phase: current.googleSheet.spreadsheetId ? "synced" : "needs_setup",
-        lastSyncedAt: current.googleSheet.spreadsheetId ? nowIso() : current.googleSheet.lastSyncedAt,
-        pendingOperations: 0,
-        errorMessage: null,
-      },
-    }));
-  }, [commit]);
-
   const addCustomQuestion = useCallback((question: Omit<CustomQuestion, "id">) => {
     commit((current) => withQueuedOperation({ ...current, customQuestions: [...current.customQuestions, { ...question, id: createId("question") }] }));
   }, [commit]);
@@ -3567,17 +3520,118 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     }));
   }, [commit]);
 
+  const updatePersonalGraph = useCallback((graphId: string, patch: Partial<Pick<PersonalGraph, "title" | "xAxisLabel" | "yAxisLabel" | "datePrecision" | "enabled">>) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      personalGraphs: current.personalGraphs.map((graph) => {
+        if (graph.id !== graphId) return graph;
+        const nextPrecision = patch.datePrecision && graph.points.length === 0 ? patch.datePrecision : graph.datePrecision;
+        return {
+          ...graph,
+          ...patch,
+          title: typeof patch.title === "string" ? patch.title.slice(0, 64) : graph.title,
+          xAxisLabel: typeof patch.xAxisLabel === "string" ? patch.xAxisLabel.slice(0, 40) : graph.xAxisLabel,
+          yAxisLabel: typeof patch.yAxisLabel === "string" ? patch.yAxisLabel.slice(0, 40) : graph.yAxisLabel,
+          datePrecision: nextPrecision,
+          updatedAt: nowIso(),
+        };
+      }),
+    }));
+  }, [commit]);
+
+  const addPersonalGraphLine = useCallback((graphId: string, name: string, color?: PersonalGraphLine["color"]) => {
+    const cleanName = name.trim().slice(0, 56);
+    if (!cleanName) return null;
+    const lineId = createId("personal_graph_line");
+    let created = false;
+    commit((current) => withQueuedOperation({
+      ...current,
+      personalGraphs: current.personalGraphs.map((graph) => {
+        if (graph.id !== graphId || graph.lines.length >= PERSONAL_GRAPH_MAX_LINES) return graph;
+        created = true;
+        const nextColor = PERSONAL_GRAPH_COLORS[graph.lines.length % PERSONAL_GRAPH_COLORS.length];
+        return { ...graph, lines: [...graph.lines, { id: lineId, name: cleanName, color: color && PERSONAL_GRAPH_COLORS.includes(color) ? color : nextColor }], updatedAt: nowIso() };
+      }),
+    }));
+    return created ? lineId : null;
+  }, [commit]);
+
+  const updatePersonalGraphLine = useCallback((graphId: string, lineId: string, patch: Partial<Pick<PersonalGraphLine, "name" | "color">>) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      personalGraphs: current.personalGraphs.map((graph) => graph.id !== graphId ? graph : {
+        ...graph,
+        lines: graph.lines.map((line) => line.id !== lineId ? line : {
+          ...line,
+          name: typeof patch.name === "string" ? patch.name.trim().slice(0, 56) || line.name : line.name,
+          color: patch.color && PERSONAL_GRAPH_COLORS.includes(patch.color) ? patch.color : line.color,
+        }),
+        updatedAt: nowIso(),
+      }),
+    }));
+  }, [commit]);
+
+  const removePersonalGraphLine = useCallback((graphId: string, lineId: string) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      personalGraphs: current.personalGraphs.map((graph) => graph.id !== graphId ? graph : {
+        ...graph,
+        lines: graph.lines.filter((line) => line.id !== lineId),
+        points: graph.points.filter((point) => point.lineId !== lineId),
+        updatedAt: nowIso(),
+      }),
+    }));
+  }, [commit]);
+
+  const addPersonalGraphPoint = useCallback((graphId: string, draft: PersonalGraphPointDraft) => {
+    const pointId = createId("personal_graph_point");
+    let created = false;
+    commit((current) => withQueuedOperation({
+      ...current,
+      personalGraphs: current.personalGraphs.map((graph) => {
+        if (graph.id !== graphId || !graph.lines.some((line) => line.id === draft.lineId)) return graph;
+        const parsed = parsePersonalGraphDate(draft.xValue, graph.datePrecision);
+        const yValue = Number(draft.yValue);
+        const matchingLinePointCount = graph.points.filter((point) => point.lineId === draft.lineId).length;
+        if (!parsed || !Number.isFinite(yValue) || matchingLinePointCount >= PERSONAL_GRAPH_MAX_POINTS_PER_LINE || graph.points.some((point) => point.lineId === draft.lineId && point.xValue === parsed.xValue)) return graph;
+        created = true;
+        const timestamp = nowIso();
+        return {
+          ...graph,
+          points: [...graph.points, { id: pointId, lineId: draft.lineId, xValue: parsed.xValue, xLabel: parsed.xLabel, yValue, createdAt: timestamp, updatedAt: timestamp }],
+          updatedAt: timestamp,
+        };
+      }),
+    }));
+    return created ? pointId : null;
+  }, [commit]);
+
+  const updatePersonalGraphPoint = useCallback((graphId: string, pointId: string, draft: PersonalGraphPointDraft) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      personalGraphs: current.personalGraphs.map((graph) => {
+        if (graph.id !== graphId || !graph.lines.some((line) => line.id === draft.lineId)) return graph;
+        const parsed = parsePersonalGraphDate(draft.xValue, graph.datePrecision);
+        const yValue = Number(draft.yValue);
+        if (!parsed || !Number.isFinite(yValue) || graph.points.some((point) => point.id !== pointId && point.lineId === draft.lineId && point.xValue === parsed.xValue)) return graph;
+        return {
+          ...graph,
+          points: graph.points.map((point) => point.id !== pointId ? point : { ...point, lineId: draft.lineId, xValue: parsed.xValue, xLabel: parsed.xLabel, yValue, updatedAt: nowIso() }),
+          updatedAt: nowIso(),
+        };
+      }),
+    }));
+  }, [commit]);
+
+  const removePersonalGraphPoint = useCallback((graphId: string, pointId: string) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      personalGraphs: current.personalGraphs.map((graph) => graph.id !== graphId ? graph : { ...graph, points: graph.points.filter((point) => point.id !== pointId), updatedAt: nowIso() }),
+    }));
+  }, [commit]);
+
   const restoreOfflineBackup = useCallback(async (backup: FocusState) => {
-    const restored = normalizeHydratedState({
-      ...backup,
-      googleSheet: {
-        ...backup.googleSheet,
-        phase: "needs_setup",
-        pendingOperations: 0,
-        lastSyncedAt: null,
-        errorMessage: null,
-      },
-    });
+    const restored = normalizeHydratedState(backup);
     const { hydrated, ...persistable } = restored;
     discardPendingPersistence();
     await persistenceQueue.current.catch(() => undefined);
@@ -3676,6 +3730,13 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const actions = useMemo<FocusCommandActions>(() => ({
+    updatePersonalGraph,
+    addPersonalGraphLine,
+    updatePersonalGraphLine,
+    removePersonalGraphLine,
+    addPersonalGraphPoint,
+    updatePersonalGraphPoint,
+    removePersonalGraphPoint,
     addMistakeLedgerEntry,
     updateMistakeLedgerEntry,
     setMistakeLedgerStatus,
@@ -3711,9 +3772,6 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     setCinematicOverride,
     removeCinematicOverride,
     updateComboTiers,
-    setGoogleSheetConnection,
-    importFromGoogleSheet,
-    markSynced,
     addCustomQuestion,
     updateCustomQuestion,
     removeCustomQuestion,
@@ -3759,9 +3817,6 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     setCinematicOverride,
     removeCinematicOverride,
     updateComboTiers,
-    setGoogleSheetConnection,
-    importFromGoogleSheet,
-    markSynced,
     addCustomQuestion,
     updateCustomQuestion,
     removeCustomQuestion,
@@ -3781,6 +3836,13 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     setMistakeLedgerStatus,
     removeMistakeLedgerEntry,
     setJournalLifelinePercentage,
+    updatePersonalGraph,
+    addPersonalGraphLine,
+    updatePersonalGraphLine,
+    removePersonalGraphLine,
+    addPersonalGraphPoint,
+    updatePersonalGraphPoint,
+    removePersonalGraphPoint,
   ]);
 
   const value = useMemo<FocusCommandContextValue>(() => ({

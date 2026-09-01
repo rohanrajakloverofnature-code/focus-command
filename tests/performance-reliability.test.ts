@@ -222,9 +222,8 @@ describe("Performance and reliability contracts", () => {
     expect(homeSource).toContain("    state.customQuestions,");
   });
 
-  it("keeps dense Settings rendering on exact state slices while explicit backup and sync work reads the current snapshot only on demand", () => {
+  it("keeps dense Settings rendering on exact state slices while explicit offline backup reads the current snapshot only on demand", () => {
     expect(settingsSource).toContain("const profile = useFocusCommandSelector((snapshot) => snapshot.profile)");
-    expect(settingsSource).toContain("const googleSheet = useFocusCommandSelector((snapshot) => snapshot.googleSheet)");
     expect(settingsSource).toContain("const customQuestions = useFocusCommandSelector((snapshot) => snapshot.customQuestions)");
     expect(settingsSource).toContain("getCurrentState");
     expect(settingsSource).not.toContain("useFocusCommand()" );

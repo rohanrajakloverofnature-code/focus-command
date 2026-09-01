@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-na
 import Svg, { Circle, Line, Path, Polygon, Rect } from "react-native-svg";
 
 import { useColors } from "@/hooks/use-colors";
+import { downsamplePersonalGraphPoints, getPersonalGraphPointsForRange, type PersonalGraph, type PersonalGraphRange } from "@/lib/personal-graphs";
 
 export interface ChartPoint {
   label: string;
@@ -89,6 +90,53 @@ export function MultiLineTrendChart({ series, height = 144, accessibilityLabel }
     <View style={styles.multiLegend}>{series.map((item, index) => <Pressable key={item.id} accessibilityRole="button" onPress={() => setSelectedSeries(index)} style={({ pressed }) => [styles.multiLegendItem, { opacity: pressed ? 0.65 : index === selectedSeries ? 1 : 0.58 }]}><View style={[styles.legendDot, { backgroundColor: item.color }]} /><Text style={[styles.axisLabel, { color: colors.muted }]}>{item.label}</Text></Pressable>)}</View>
     <ChartFocus label={`${selected?.label ?? "Series"} · ${latest.label}`} value={latest.value} color={selected?.color ?? colors.primary} />
     <View style={styles.lineLabels}>{(referencePoints.length <= 4 ? referencePoints.map((_, index) => index) : [0, Math.floor((referencePoints.length - 1) / 2), referencePoints.length - 1]).map((index) => <Text key={`${referencePoints[index].label}-${index}`} style={[styles.axisLabel, { color: colors.muted }]}>{referencePoints[index].label}</Text>)}</View>
+  </View>;
+}
+
+function personalGraphTimestamp(xValue: string, precision: PersonalGraph["datePrecision"]) {
+  const comparable = precision === "date" ? `${xValue}T00:00:00Z` : precision === "month" ? `${xValue}-01T00:00:00Z` : `${xValue}-01-01T00:00:00Z`;
+  return Date.parse(comparable);
+}
+
+/** A bounded manual-data view. It never changes or drops the graph's saved points. */
+export function PersonalGraphTrendChart({ graph, range, height = 174, accessibilityLabel }: { graph: PersonalGraph; range: PersonalGraphRange; height?: number; accessibilityLabel: string }) {
+  const colors = useColors();
+  const { width: windowWidth } = useWindowDimensions();
+  const width = Math.max(240, windowWidth - 66);
+  const padding = { top: 15, right: 10, bottom: 22, left: 8 };
+  const chartHeight = height - padding.top - padding.bottom;
+  const chartWidth = width - padding.left - padding.right;
+  const [selectedLineIndex, setSelectedLineIndex] = useState(0);
+  const rangePoints = getPersonalGraphPointsForRange(graph, range);
+  const series = graph.lines.map((line) => ({
+    ...line,
+    points: downsamplePersonalGraphPoints(rangePoints.filter((point) => point.lineId === line.id)),
+  }));
+  const values = series.flatMap((line) => line.points.map((point) => point.yValue));
+  const minimum = values.length ? Math.min(...values) : 0;
+  const maximum = values.length ? Math.max(...values) : 1;
+  const rangeY = Math.max(1, maximum - minimum);
+  const xValues = Array.from(new Set(series.flatMap((line) => line.points.map((point) => point.xValue)))).sort();
+  const xTimestamps = xValues.map((value) => personalGraphTimestamp(value, graph.datePrecision)).filter(Number.isFinite);
+  const minimumX = xTimestamps.length ? Math.min(...xTimestamps) : 0;
+  const maximumX = xTimestamps.length ? Math.max(...xTimestamps) : 1;
+  const rangeX = Math.max(1, maximumX - minimumX);
+  const selected = series[Math.min(selectedLineIndex, Math.max(0, series.length - 1))];
+  const latest = selected?.points.at(-1);
+  const pointX = (xValue: string) => padding.left + ((personalGraphTimestamp(xValue, graph.datePrecision) - minimumX) / rangeX) * chartWidth;
+  const pointY = (value: number) => padding.top + chartHeight - ((value - minimum) / rangeY) * chartHeight;
+  const makePath = (points: typeof rangePoints) => points.map((point, index) => `${index === 0 ? "M" : "L"}${pointX(point.xValue).toFixed(2)} ${pointY(point.yValue).toFixed(2)}`).join(" ");
+  const labelIndexes = xValues.length <= 4 ? xValues.map((_, index) => index) : [0, Math.floor((xValues.length - 1) / 2), xValues.length - 1];
+
+  return <View accessibilityRole="image" accessibilityLabel={accessibilityLabel}>
+    <Svg width={width} height={height}>
+      {[0, 0.5, 1].map((fraction) => { const y = padding.top + chartHeight * fraction; return <Line key={fraction} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={colors.border} strokeWidth={1} opacity={0.65} />; })}
+      {series.map((line, index) => line.points.length > 1 ? <Path key={line.id} onPress={() => setSelectedLineIndex(index)} d={makePath(line.points)} fill="none" stroke={line.color} strokeWidth={index === selectedLineIndex ? 3.5 : 2.2} strokeLinecap="round" strokeLinejoin="round" opacity={index === selectedLineIndex ? 1 : 0.55} /> : null)}
+      {selected?.points.map((point) => <Circle key={point.id} onPress={() => setSelectedLineIndex(selectedLineIndex)} cx={pointX(point.xValue)} cy={pointY(point.yValue)} r={3.8} fill={selected.color} stroke={colors.surface} strokeWidth={2} />)}
+    </Svg>
+    <View style={styles.multiLegend}>{series.map((line, index) => <Pressable key={line.id} accessibilityRole="button" onPress={() => setSelectedLineIndex(index)} style={({ pressed }) => [styles.multiLegendItem, { opacity: pressed ? 0.65 : index === selectedLineIndex ? 1 : 0.58 }]}><View style={[styles.legendDot, { backgroundColor: line.color }]} /><Text style={[styles.axisLabel, { color: colors.muted }]}>{line.name}</Text></Pressable>)}</View>
+    <ChartFocus label={`${selected?.name ?? graph.yAxisLabel} · ${latest?.xLabel ?? "No data"}`} value={latest?.yValue ?? 0} color={selected?.color ?? colors.primary} />
+    <View style={styles.lineLabels}>{labelIndexes.map((index) => <Text key={`${xValues[index]}-${index}`} style={[styles.axisLabel, { color: colors.muted }]}>{xValues[index]}</Text>)}</View>
   </View>;
 }
 

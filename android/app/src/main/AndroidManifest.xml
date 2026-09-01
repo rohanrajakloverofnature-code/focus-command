@@ -35,12 +35,10 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="manusrpgfocuscommand"/>
-        <data android:scheme="com.app.rpgfocuscommand"/>
       </intent-filter>
       <intent-filter android:autoVerify="true" data-generated="true">
         <action android:name="android.intent.action.VIEW"/>
         <data android:scheme="manusrpgfocuscommand" android:host="*"/>
-        <data android:scheme="com.app.rpgfocuscommand" android:pathPrefix="/oauthredirect"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>

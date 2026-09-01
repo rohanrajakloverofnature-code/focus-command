@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { createInitialState, normalizeHydratedState, removeMissionAndLinkedState, type FocusState } from "../lib/focus-command";
 import { getFocusFrictionInsight } from "../lib/distraction-log";
-import { makeFocusWorkbookValueRanges } from "../lib/google-sheets-payload";
 
 describe("Distraction Log", () => {
   it("derives an offline Focus Friction pattern from only the last fourteen days without mutating mission data", () => {
@@ -84,14 +83,4 @@ describe("Distraction Log", () => {
     expect(getFocusFrictionInsight(hydrated, new Date("2026-08-14T18:00:00.000Z"))).toMatchObject({ total: 1, recentMission: { title: "Current mission", count: 1 } });
   });
 
-  it("keeps distraction records out of the existing Google Sheets snapshot until synchronization is explicitly approved", () => {
-    const state = createInitialState();
-    state.distractionLogs = [{ id: "private", missionId: "m-1", category: "thoughts", occurredAt: "2026-08-14T08:00:00.000Z" }];
-
-    const appState = makeFocusWorkbookValueRanges(state).find((range) => range.range === "App_State!A1");
-    const payload = appState?.values.find(([key]) => key === "payload")?.[1] ?? "";
-
-    expect(payload).not.toContain("distractionLogs");
-    expect(payload).not.toContain("private");
-  });
 });

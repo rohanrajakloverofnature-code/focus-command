@@ -177,6 +177,12 @@ function parseBackupState(bytes: Uint8Array): FocusState {
     // valid files receive no invented Gate history or personal doorway text.
     if (!Array.isArray(parsedState.shadowGateEntries)) parsedState.shadowGateEntries = [];
     if (!Array.isArray(parsedState.shadowGatePersonalDoorways)) parsedState.shadowGatePersonalDoorways = [];
+    // Mistake Ledger and Personal Graphs are independent optional local records.
+    // Older valid archives receive empty collections; no personal history or
+    // graph point is inferred during restore.
+    if (!Array.isArray(parsedState.mistakeLedgerEntries)) parsedState.mistakeLedgerEntries = [];
+    if (!Array.isArray(parsedState.mistakeLedgerActivityLog)) parsedState.mistakeLedgerActivityLog = [];
+    if (!Array.isArray(parsedState.personalGraphs)) parsedState.personalGraphs = [];
     const state = parsedState as FocusState;
     assertStateShape(state);
     return state;
@@ -430,6 +436,7 @@ export function parseOfflineBackupArchive(archive: Uint8Array): ParsedOfflineBac
     // collections begin empty; historic mistakes and status events are never inferred.
     if (!Array.isArray(parsedState.mistakeLedgerEntries)) parsedState.mistakeLedgerEntries = [];
     if (!Array.isArray(parsedState.mistakeLedgerActivityLog)) parsedState.mistakeLedgerActivityLog = [];
+    if (!Array.isArray(parsedState.personalGraphs)) parsedState.personalGraphs = [];
     state = parsedState as FocusState;
   } catch {
     throw new OfflineBackupValidationError("The backup command data cannot be read.");

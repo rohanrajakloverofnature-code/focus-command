@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { BarsChart, ChartPoint, DonutChart, LineTrendChart, MultiLineTrendChart, RadarChart } from "@/components/focus-charts";
+import { BarsChart, ChartPoint, DonutChart, LineTrendChart, MultiLineTrendChart, PersonalGraphTrendChart, RadarChart } from "@/components/focus-charts";
 import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, StatusPill, TapFeedback } from "@/components/focus-ui";
 import { CrossedGatesCard } from "@/components/crossed-gates-card";
 import { MistakeLedgerCard } from "@/components/mistake-ledger-card";
@@ -35,6 +35,7 @@ type DashboardDependencies = Pick<FocusState,
   | "distractionLogs"
   | "srsTopics"
   | "customGraphs"
+  | "personalGraphs"
   | "lifeline"
 >;
 
@@ -49,6 +50,7 @@ function selectDashboardDependencies(state: FocusState): DashboardDependencies {
     distractionLogs: state.distractionLogs,
     srsTopics: state.srsTopics,
     customGraphs: state.customGraphs,
+    personalGraphs: state.personalGraphs,
     lifeline: state.lifeline,
   };
 }
@@ -63,6 +65,7 @@ function hasSameDashboardDependencies(left: DashboardDependencies, right: Dashbo
     && left.distractionLogs === right.distractionLogs
     && left.srsTopics === right.srsTopics
     && left.customGraphs === right.customGraphs
+    && left.personalGraphs === right.personalGraphs
     && left.lifeline === right.lifeline;
 }
 
@@ -418,21 +421,24 @@ export default function DashboardScreen() {
           <CommandButton label="Open Custom Analytics" icon="chart.xyaxis.line" onPress={() => router.push("/custom-dashboard" as never)} />
         </CommandCard>
 
-        <SectionHeader title="Custom graph slots" action="Configure" onAction={() => router.push("/customize")} />
+        <SectionHeader title="Personal graph slots" action="Open Graph Studio" onAction={() => router.push("/personal-graphs" as never)} />
         <View style={styles.customGraphStack}>
-          {customGraphData.map(({ graph, series }, index) => (
-            <CommandCard key={graph.id} accent={index === 0 ? colors.primary : index === 1 ? colors.success : "#F4C95D"} style={styles.customGraphCard}>
+          {state.personalGraphs.map((personalGraph, index) => {
+            const reflectionGraph = customGraphData[index]?.graph;
+            const reflectionSeries = customGraphData[index]?.series ?? [];
+            const hasPersonalData = personalGraph.lines.length > 0 && personalGraph.points.length > 0;
+            return <CommandCard key={personalGraph.id} accent={index === 0 ? colors.primary : index === 1 ? colors.success : "#F4C95D"} style={styles.customGraphCard}>
               <View style={styles.customGraphHeading}>
                 <View>
-                  <Text style={[styles.customGraphTitle, { color: colors.foreground }]}>{graph.title || `Custom graph ${index + 1}`}</Text>
-                  <Text style={[styles.customGraphDetail, { color: colors.muted }]}>{series.length ? `${series.length}/5 post-mission metrics shown` : "Choose up to five reflection metrics in customization."}</Text>
+                  <Text style={[styles.customGraphTitle, { color: colors.foreground }]}>{personalGraph.title || `Personal graph ${index + 1}`}</Text>
+                  <Text style={[styles.customGraphDetail, { color: colors.muted }]}>{hasPersonalData ? `${personalGraph.xAxisLabel} × ${personalGraph.yAxisLabel} · ${personalGraph.lines.length}/4 lines` : reflectionSeries.length ? "Reflection View is ready; add personal data to make this graph independent." : "Add your own lines, dates, and values in Graph Studio."}</Text>
                 </View>
-                <StatusPill label={graph.enabled ? "READY" : "OFF"} tone={graph.enabled ? "primary" : "neutral"} />
+                <StatusPill label={personalGraph.enabled ? "READY" : "OFF"} tone={personalGraph.enabled ? "primary" : "neutral"} />
               </View>
-              {graph.enabled && series.length && state.reflections.length ? <MultiLineTrendChart series={series} accessibilityLabel={`${graph.title || `Custom graph ${index + 1}`} with ${series.map((item) => item.label).join(", ")}`} /> : <NoData label={graph.enabled ? "Configure a metric and complete a mission debrief to reveal this graph." : "Enable this graph in customization when you are ready to use it."} icon="chart.xyaxis.line" />}
-              <CommandButton label="Customize" icon="gearshape.fill" variant="secondary" onPress={() => router.push("/customize")} />
-            </CommandCard>
-          ))}
+              {personalGraph.enabled && hasPersonalData ? <PersonalGraphTrendChart graph={personalGraph} range="5y" accessibilityLabel={`${personalGraph.title} independent graph`} /> : reflectionGraph?.enabled && reflectionSeries.length && state.reflections.length ? <MultiLineTrendChart series={reflectionSeries} accessibilityLabel={`${reflectionGraph.title || `Custom graph ${index + 1}`} reflection view with ${reflectionSeries.map((item) => item.label).join(", ")}`} /> : <NoData label={personalGraph.enabled ? "Open Graph Studio to add your own lines, dates, and values." : "Enable this Personal Graph in Graph Studio when you are ready."} icon="chart.xyaxis.line" />}
+              <CommandButton label="Open Graph Studio" icon="gearshape.fill" variant="secondary" onPress={() => router.push(`/personal-graphs?graphId=${personalGraph.id}` as never)} />
+            </CommandCard>;
+          })}
         </View>
       </ScrollView>
     </ScreenContainer>

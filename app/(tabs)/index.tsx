@@ -63,14 +63,6 @@ import { canStartPowerUp, getCharacterTapPresentation } from "@/lib/power-up-pro
 import { resolveHomeProfileCardVisualColors } from "@/lib/home-profile-card-visual-colors";
 import { resolveTickerVisualColors } from "@/lib/ticker-visual-colors";
 
-function syncLabel(phase: string, pending: number): string {
-  if (phase === "needs_setup") return "Connect your sheet";
-  if (phase === "synced") return "Sheet synced";
-  if (pending > 0) return `${pending} local update${pending === 1 ? "" : "s"}`;
-  if (phase === "error") return "Sync needs attention";
-  return "Saved on this device";
-}
-
 type HomeDependencies = Pick<FocusState,
   "profile"
   | "missions"
@@ -84,7 +76,6 @@ type HomeDependencies = Pick<FocusState,
   | "transactions"
   | "rewards"
   | "inventory"
-  | "googleSheet"
   | "customQuestions"
   | "hydrated"
 >;
@@ -103,7 +94,6 @@ function selectHomeDependencies(state: FocusState): HomeDependencies {
     transactions: state.transactions,
     rewards: state.rewards,
     inventory: state.inventory,
-    googleSheet: state.googleSheet,
     customQuestions: state.customQuestions,
     hydrated: state.hydrated,
   };
@@ -122,7 +112,6 @@ function hasSameHomeDependencies(left: HomeDependencies, right: HomeDependencies
     && left.transactions === right.transactions
     && left.rewards === right.rewards
     && left.inventory === right.inventory
-    && left.googleSheet === right.googleSheet
     && left.customQuestions === right.customQuestions
     && left.hydrated === right.hydrated;
 }
@@ -537,20 +526,6 @@ export default function HomeScreen() {
           </HomeFloat>
         )}
 
-        <HomeFloat reduceMotion={state.profile.reduceMotion} distance={3} sway={1} duration={2_600} delay={340} style={styles.fullWidth}>
-          <CommandCard accent={state.googleSheet.phase === "synced" ? colors.success : colors.primary} style={styles.syncCard}>
-          <View style={styles.listLeading}>
-            <View style={[styles.listIcon, { backgroundColor: `${colors.primary}19` }]}>
-              <IconSymbol name="cloud.fill" size={18} color={colors.primary} />
-            </View>
-            <View style={styles.listCopy}>
-              <Text style={[styles.listTitle, { color: colors.foreground }]}>Google Sheet command log</Text>
-              <Text style={[styles.listDetail, { color: colors.muted }]}>{syncLabel(state.googleSheet.phase, state.googleSheet.pendingOperations)}</Text>
-            </View>
-          </View>
-          <CommandButton label={state.googleSheet.spreadsheetId ? "Status" : "Connect"} variant="ghost" onPress={() => router.push("/settings?section=sheet")} />
-          </CommandCard>
-        </HomeFloat>
       </ScrollView>
       {homeCelebration ? <CelebrationOverlay kind={homeCelebration} reduceMotion={state.profile.reduceMotion} onDone={() => setHomeCelebration(null)} /> : null}
       <RankCharacterAchievement title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} soundEnabled={state.profile.soundEnabled && state.profile.soundRoles.achievement.enabled} equipment={equippedCharacterGear} mode={characterPresentationMode} totalXp={totalXp} totalPower={totalPower} goldBalance={goldBalance} visible={showRankAchievement} onDismiss={() => setShowRankAchievement(false)} />
