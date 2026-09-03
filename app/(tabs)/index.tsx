@@ -428,7 +428,7 @@ export default function HomeScreen() {
         <HomeFloat reduceMotion={state.profile.reduceMotion} distance={4} sway={-1} duration={2_900} delay={410} style={styles.fullWidth}>
           <CommandCard style={styles.progressCard} accent={colors.success}>
           <View style={styles.progressTopline}>
-            <View>
+            <View style={styles.progressCopy}>
               <Text style={[styles.progressTitle, { color: colors.foreground }]}>Daily mission progress</Text>
               <Text style={[styles.progressDetail, { color: colors.muted }]}>Total Power earned today toward your command target.</Text>
             </View>
@@ -576,10 +576,11 @@ const styles = StyleSheet.create({
   lootTitle: { fontSize: 14, lineHeight: 19, fontWeight: "900" },
   lootDetail: { fontSize: 11, lineHeight: 16, fontWeight: "500", marginTop: 1 },
   progressCard: { gap: 14 },
-  progressTopline: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
+  progressTopline: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
+  progressCopy: { flex: 1, minWidth: 0 },
   progressTitle: { fontSize: 15, lineHeight: 20, fontWeight: "800" },
   progressDetail: { fontSize: 12, lineHeight: 16, marginTop: 2, fontWeight: "500" },
-  progressPercent: { fontSize: 22, lineHeight: 27, fontWeight: "900" },
+  progressPercent: { flexShrink: 0, fontSize: 22, lineHeight: 27, fontWeight: "900" },
   mapCard: { gap: 12, overflow: "hidden" },
   mapTopline: { flexDirection: "row", justifyContent: "space-between", gap: 10, alignItems: "flex-start" },
   mapTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },

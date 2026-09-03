@@ -27,6 +27,8 @@ function createPopulatedState(): FocusState {
   state.mistakeLedgerActivityLog = [{ id: "mistake_activity_backup", entryId: "mistake_backup", kind: "status", status: "improving", actionDate: "2026-08-14", occurredAt: "2026-08-14T08:00:00.000Z" }];
   state.personalGraphs[0] = { ...state.personalGraphs[0], title: "Exam preparation", xAxisLabel: "Practice month", yAxisLabel: "Score", datePrecision: "month", lines: [{ id: "score", name: "Mock score", color: "#A78BFA" }], points: [{ id: "score_sep", lineId: "score", xValue: "2026-09", xLabel: "2026-09", yValue: 82, createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-01T08:00:00.000Z" }] };
   state.profile.shadowGatePreferences = { showDashboardCard: false };
+  state.profile.behavioralReflectionWindow = "custom";
+  state.profile.behavioralReflectionCustomCount = 500;
   state.profile.characterCinematicColors = { tactical: { accent: "#16C7E8", backdrop: "#061423", rod: "#F0C75E", aura: "#16C7E833", support: "#6E5AE6", energy: "#68E2FF", metallic: "#F0C75E", atmosphere: "#071B2D", frame: "#020914" } };
   state.profile.tickerColorPreferences = { miniAchievement: { source: "character", surface: null, accent: null }, prediction: { source: "custom", surface: "#17102B", accent: "#16C7E8" } };
   state.profile.homeProfileCardColorPreference = { source: "custom", surface: "#101820", accent: "#F0C75E" };
@@ -71,6 +73,8 @@ describe("offline Focus Command backup format", () => {
     expect(parsed.state.profile.tickerColorPreferences).toEqual(state.profile.tickerColorPreferences);
     expect(parsed.state.profile.homeProfileCardColorPreference).toEqual(state.profile.homeProfileCardColorPreference);
     expect(parsed.state.profile.shadowGatePreferences).toEqual(state.profile.shadowGatePreferences);
+    expect(parsed.state.profile.behavioralReflectionWindow).toBe("custom");
+    expect(parsed.state.profile.behavioralReflectionCustomCount).toBe(500);
     expect(parsed.state.shadowGateEntries).toEqual(state.shadowGateEntries);
     expect(parsed.state.shadowGatePersonalDoorways).toEqual(state.shadowGatePersonalDoorways);
     expect(parsed.state.mistakeLedgerEntries).toEqual(state.mistakeLedgerEntries);

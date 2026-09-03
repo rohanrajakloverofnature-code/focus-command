@@ -24,6 +24,13 @@ import {
   type PersonalGraphLine,
   type PersonalGraphPointDraft,
 } from "./personal-graphs";
+import {
+  DEFAULT_BEHAVIORAL_REFLECTION_CUSTOM_COUNT,
+  DEFAULT_BEHAVIORAL_REFLECTION_WINDOW,
+  normalizeBehavioralReflectionCustomCount,
+  normalizeBehavioralReflectionWindow,
+  type BehavioralReflectionWindow,
+} from "./behavioral-reflection-window";
 
 type AppStateSubscription = { remove: () => void };
 type AppStateModule = { addEventListener: (event: "change", listener: (nextState: string) => void) => AppStateSubscription };
@@ -276,6 +283,10 @@ export interface PlayerProfile {
   homeProfileCardColorPreference: TickerColorPreference;
   /** Percentage of Journal points contributed to each Lifeline line; editable only from Journal. */
   journalLifelinePercentage: number;
+  /** Local display choice for the existing Behavioural Tendency reflection window. */
+  behavioralReflectionWindow: BehavioralReflectionWindow;
+  /** Used only when behavioralReflectionWindow is custom; it never changes stored reflections. */
+  behavioralReflectionCustomCount: number;
   /** Local-only display choice for the optional Crossed Gates dashboard summary. */
   shadowGatePreferences: ShadowGatePreferences;
   notificationRules: NotificationRules;
@@ -1178,6 +1189,8 @@ function defaultProfile(): PlayerProfile {
     },
     homeProfileCardColorPreference: { source: "global", surface: null, accent: null },
     journalLifelinePercentage: 5,
+    behavioralReflectionWindow: DEFAULT_BEHAVIORAL_REFLECTION_WINDOW,
+    behavioralReflectionCustomCount: DEFAULT_BEHAVIORAL_REFLECTION_CUSTOM_COUNT,
     shadowGatePreferences: { showDashboardCard: true },
     notificationRules: {
       dailyMissionEnabled: false,
@@ -2296,6 +2309,8 @@ export function normalizeHydratedState(input: FocusState): FocusState {
     ...(input.profile ?? {}),
   };
   const journalLifelinePercentage = normalizeJournalLifelinePercentage(input.profile?.journalLifelinePercentage, defaults.profile.journalLifelinePercentage);
+  const behavioralReflectionWindow = normalizeBehavioralReflectionWindow(input.profile?.behavioralReflectionWindow);
+  const behavioralReflectionCustomCount = normalizeBehavioralReflectionCustomCount(input.profile?.behavioralReflectionCustomCount);
   const rankTitles = getResolvedRankTitles(rawProfile);
   const customCharacterForms = (rawProfile.customCharacterForms ?? []).map((form, index) => ({
     id: typeof form.id === "string" && form.id ? form.id : `custom_form_${index + 1}`,
@@ -2361,6 +2376,8 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       ...defaults.profile,
       ...(input.profile ?? {}),
       journalLifelinePercentage,
+      behavioralReflectionWindow,
+      behavioralReflectionCustomCount,
       titles: rankTitles.map((entry) => entry.name),
       rankTitles,
       customCharacterForms,

@@ -13,6 +13,12 @@ import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmo
 import { RECOGNITION_WINDOW_LAYOUT } from "@/lib/focus-layout";
 import { getFocusFrictionInsight, getFocusFrictionRangePresentation, type FocusFrictionRange } from "@/lib/distraction-log";
 import { getWeeklyAfterActionReview } from "@/lib/weekly-after-action";
+import {
+  getBehavioralReflectionWindowLabel,
+  normalizeBehavioralReflectionCustomCount,
+  selectBehavioralReflectionWindow,
+  type BehavioralReflectionWindow,
+} from "@/lib/behavioral-reflection-window";
 
 function createDaySeries(days: number, profileTimezone: string) {
   return Array.from({ length: days }, (_, index) => {
@@ -72,7 +78,7 @@ function hasSameDashboardDependencies(left: DashboardDependencies, right: Dashbo
 export default function DashboardScreen() {
   const colors = useColors();
   const ready = useFocusCommandReady();
-  const { addLifelinePoint, removeLifelinePoint } = useFocusCommandActions();
+  const { addLifelinePoint, removeLifelinePoint, updateProfile } = useFocusCommandActions();
   const state = useFocusCommandSelector(selectDashboardDependencies, hasSameDashboardDependencies) as FocusState;
   const [showLifelineEditor, setShowLifelineEditor] = useState(false);
   const [birthYear, setBirthYear] = useState(String(new Date().getFullYear() - 20));
@@ -85,6 +91,7 @@ export default function DashboardScreen() {
   const [customFrictionEnd, setCustomFrictionEnd] = useState("");
   const [appliedCustomFrictionRange, setAppliedCustomFrictionRange] = useState<Extract<FocusFrictionRange, { kind: "custom" }> | null>(null);
   const [focusFrictionRangeError, setFocusFrictionRangeError] = useState("");
+  const [customBehavioralReflectionCount, setCustomBehavioralReflectionCount] = useState(String(state.profile.behavioralReflectionCustomCount));
 
   const daySeries = useMemo(() => createDaySeries(14, state.profile.timezone), [state.profile.timezone]);
   /* eslint-disable react-hooks/exhaustive-deps -- These pure helpers require a FocusState shape, while each memo intentionally tracks only the source references it actually reads. Adding the full state would reinstate unrelated interaction-path work. */
@@ -96,6 +103,15 @@ export default function DashboardScreen() {
   const focusFrictionRangePresentation = useMemo(() => getFocusFrictionRangePresentation(focusFrictionRange, state.profile.timezone), [focusFrictionRange, state.profile.timezone]);
   const focusFriction = useMemo(() => getFocusFrictionInsight(state, new Date(), focusFrictionRange), [focusFrictionRange, state.distractionLogs, state.missions, state.profile]);
   const weeklyReview = useMemo(() => getWeeklyAfterActionReview(state), [state.distractionLogs, state.missionCompletions, state.missions, state.profile, state.progression, state.reflections]);
+  const recentEmotionReflections = useMemo(
+    () => selectBehavioralReflectionWindow(
+      state.reflections,
+      state.profile.behavioralReflectionWindow,
+      state.profile.behavioralReflectionCustomCount,
+    ),
+    [state.profile.behavioralReflectionCustomCount, state.profile.behavioralReflectionWindow, state.reflections],
+  );
+  const behavioralWindowLabel = getBehavioralReflectionWindowLabel(state.profile.behavioralReflectionWindow, state.profile.behavioralReflectionCustomCount);
   /* eslint-enable react-hooks/exhaustive-deps */
 
   if (!ready) return <LoadingScreen label="Compiling command analytics…" />;
@@ -113,6 +129,21 @@ export default function DashboardScreen() {
     setAppliedCustomFrictionRange(nextRange);
     setFocusFrictionRangeKind("custom");
     setFocusFrictionRangeError("");
+  };
+  const chooseBehavioralReflectionWindow = (window: BehavioralReflectionWindow) => {
+    if (window === "custom") setCustomBehavioralReflectionCount(String(state.profile.behavioralReflectionCustomCount));
+    updateProfile({ behavioralReflectionWindow: window });
+  };
+  const applyCustomBehavioralReflectionWindow = () => {
+    const requestedCount = Number(customBehavioralReflectionCount.trim());
+    if (!Number.isInteger(requestedCount) || requestedCount < 1) {
+      Alert.alert("Choose a reflection count", "Enter a whole number of at least 1.");
+      return;
+    }
+    updateProfile({
+      behavioralReflectionWindow: "custom",
+      behavioralReflectionCustomCount: normalizeBehavioralReflectionCustomCount(requestedCount),
+    });
   };
 
   const progressionByDate = new Map<string, number>();
@@ -157,7 +188,6 @@ export default function DashboardScreen() {
     })),
   }));
 
-  const recentEmotionReflections = state.reflections.slice(-12);
   const emotionLabels = (index: number, reflection: typeof recentEmotionReflections[number]) => {
     const source = reflection.createdAt ? toLocalDate(reflection.createdAt, state.profile.timezone).slice(5) : String(index + 1);
     return index === 0 || index === recentEmotionReflections.length - 1 || index === Math.floor(recentEmotionReflections.length / 2) ? source : "";
@@ -373,10 +403,15 @@ export default function DashboardScreen() {
 
         <SectionHeader title="Behavioral tendency lenses" action="Customize" onAction={() => router.push("/customize" as never)} />
         <Text style={[styles.behavioralIntro, { color: colors.muted }]}>These visualizations reveal patterns in your own reported context. They are reflective trend tools, not clinical predictions.</Text>
+        <View style={styles.behavioralWindowRow}>
+          {(["last12", "last100", "last500", "lifetime", "custom"] as const).map((window) => <TapFeedback key={window} onPress={() => chooseBehavioralReflectionWindow(window)} accessibilityLabel={`Show ${window === "lifetime" ? "lifetime" : window === "custom" ? "a custom number of" : window.replace("last", "last ")} reflections`} style={[styles.behavioralWindowOption, { borderColor: state.profile.behavioralReflectionWindow === window ? `${colors.primary}99` : colors.border, backgroundColor: state.profile.behavioralReflectionWindow === window ? `${colors.primary}18` : colors.background }]}><Text style={[styles.behavioralWindowOptionLabel, { color: state.profile.behavioralReflectionWindow === window ? colors.primary : colors.muted }]}>{window === "last12" ? "12" : window === "last100" ? "100" : window === "last500" ? "500" : window === "lifetime" ? "LIFE" : "CUSTOM"}</Text></TapFeedback>)}
+        </View>
+        {state.profile.behavioralReflectionWindow === "custom" ? <View style={styles.behavioralCustomWindow}><TextInput value={customBehavioralReflectionCount} onChangeText={setCustomBehavioralReflectionCount} keyboardType="number-pad" placeholder="Number of reflections" placeholderTextColor={colors.muted} style={[styles.behavioralCustomInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /><CommandButton label="Apply" variant="secondary" onPress={applyCustomBehavioralReflectionWindow} /></View> : null}
+        <Text style={[styles.behavioralWindowDetail, { color: colors.muted }]}>Showing {recentEmotionReflections.length} of {state.reflections.length} completed-mission debrief{state.reflections.length === 1 ? "" : "s"} · {behavioralWindowLabel}</Text>
         <View style={styles.behavioralStack}>
           {behavioralCharts.filter(({ chart }) => chart.enabled).map(({ chart, detail, series }) => (
             <InteractiveChartCard key={chart.id} title={chart.title} detail={detail} tag="PATTERN" onPress={() => router.push("/analytics?metric=emotion" as never)}>
-              {recentEmotionReflections.length ? <MultiLineTrendChart series={series} accessibilityLabel={`${chart.title} behavioral trend chart`} /> : <NoData label="Complete a long-mission debrief to reveal this perspective." icon="chart.xyaxis.line" />}
+              {recentEmotionReflections.length ? <MultiLineTrendChart series={series} maxRenderPoints={180} accessibilityLabel={`${chart.title} behavioral trend chart for ${behavioralWindowLabel.toLowerCase()}`} /> : <NoData label="Complete a long-mission debrief to reveal this perspective." icon="chart.xyaxis.line" />}
             </InteractiveChartCard>
           ))}
         </View>
@@ -515,6 +550,12 @@ const styles = StyleSheet.create({
   weeklyReviewTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },
   weeklyReviewDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600" },
   behavioralIntro: { fontSize: 12, lineHeight: 17, fontWeight: "600", marginTop: -7 },
+  behavioralWindowRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  behavioralWindowOption: { minHeight: 30, justifyContent: "center", paddingHorizontal: 9, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
+  behavioralWindowOptionLabel: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.65 },
+  behavioralCustomWindow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  behavioralCustomInput: { flex: 1, minHeight: 38, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 9, fontSize: 10, lineHeight: 14, fontWeight: "700" },
+  behavioralWindowDetail: { fontSize: 10, lineHeight: 14, fontWeight: "700", marginTop: -2 },
   wellbeingCard: { gap: 10 },
   wellbeingHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   wellbeingCopy: { flex: 1, gap: 3 },

@@ -61,20 +61,32 @@ export function LineTrendChart({ points, color, secondaryPoints, secondaryColor,
 
 export interface MultiLineSeries { id: string; label: string; color: string; points: ChartPoint[]; }
 
-export function MultiLineTrendChart({ series, height = 144, accessibilityLabel }: { series: MultiLineSeries[]; height?: number; accessibilityLabel: string }) {
+/**
+ * Samples matching positions from every series only for SVG drawing. The original
+ * points stay intact in state and the newest point is always retained.
+ */
+export function downsampleMultiLineSeries(series: MultiLineSeries[], maxPoints: number): MultiLineSeries[] {
+  const longest = Math.max(0, ...series.map((item) => item.points.length));
+  if (longest <= maxPoints || maxPoints < 2) return series;
+  const indexes = Array.from({ length: maxPoints }, (_, index) => Math.round((index / (maxPoints - 1)) * (longest - 1)));
+  return series.map((item) => ({ ...item, points: indexes.flatMap((index) => item.points[index] ? [item.points[index]] : []) }));
+}
+
+export function MultiLineTrendChart({ series, height = 144, accessibilityLabel, maxRenderPoints }: { series: MultiLineSeries[]; height?: number; accessibilityLabel: string; maxRenderPoints?: number }) {
   const colors = useColors();
   const { width: windowWidth } = useWindowDimensions();
+  const displaySeries = maxRenderPoints ? downsampleMultiLineSeries(series, maxRenderPoints) : series;
   const width = Math.max(240, windowWidth - 66);
   const padding = { top: 12, right: 10, bottom: 18, left: 6 };
   const chartHeight = height - padding.top - padding.bottom;
   const chartWidth = width - padding.left - padding.right;
-  const allValues = series.flatMap((item) => item.points.map((point) => point.value));
+  const allValues = displaySeries.flatMap((item) => item.points.map((point) => point.value));
   const maximum = Math.max(1, ...allValues);
   const minimum = Math.min(0, ...allValues);
   const range = Math.max(1, maximum - minimum);
   const [selectedSeries, setSelectedSeries] = useState(0);
-  const selected = series[Math.min(selectedSeries, Math.max(0, series.length - 1))];
-  const referencePoints = series[0]?.points ?? [];
+  const selected = displaySeries[Math.min(selectedSeries, Math.max(0, displaySeries.length - 1))];
+  const referencePoints = displaySeries[0]?.points ?? [];
   const makePath = (points: ChartPoint[]) => points.map((point, index) => {
     const x = padding.left + (points.length <= 1 ? chartWidth / 2 : (index / (points.length - 1)) * chartWidth);
     const y = padding.top + chartHeight - ((point.value - minimum) / range) * chartHeight;
@@ -85,9 +97,9 @@ export function MultiLineTrendChart({ series, height = 144, accessibilityLabel }
   return <View accessibilityRole="image" accessibilityLabel={accessibilityLabel}>
     <Svg width={width} height={height}>
       {[0, 0.5, 1].map((fraction) => { const y = padding.top + chartHeight * fraction; return <Line key={fraction} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={colors.border} strokeWidth={1} opacity={0.65} />; })}
-      {series.map((item, index) => item.points.length > 1 ? <Path key={item.id} onPress={() => setSelectedSeries(index)} d={makePath(item.points)} fill="none" stroke={item.color} strokeWidth={index === selectedSeries ? 3.6 : 2.25} strokeLinecap="round" strokeLinejoin="round" opacity={index === selectedSeries ? 1 : 0.52} /> : null)}
+      {displaySeries.map((item, index) => item.points.length > 1 ? <Path key={item.id} onPress={() => setSelectedSeries(index)} d={makePath(item.points)} fill="none" stroke={item.color} strokeWidth={index === selectedSeries ? 3.6 : 2.25} strokeLinecap="round" strokeLinejoin="round" opacity={index === selectedSeries ? 1 : 0.52} /> : null)}
     </Svg>
-    <View style={styles.multiLegend}>{series.map((item, index) => <Pressable key={item.id} accessibilityRole="button" onPress={() => setSelectedSeries(index)} style={({ pressed }) => [styles.multiLegendItem, { opacity: pressed ? 0.65 : index === selectedSeries ? 1 : 0.58 }]}><View style={[styles.legendDot, { backgroundColor: item.color }]} /><Text style={[styles.axisLabel, { color: colors.muted }]}>{item.label}</Text></Pressable>)}</View>
+    <View style={styles.multiLegend}>{displaySeries.map((item, index) => <Pressable key={item.id} accessibilityRole="button" onPress={() => setSelectedSeries(index)} style={({ pressed }) => [styles.multiLegendItem, { opacity: pressed ? 0.65 : index === selectedSeries ? 1 : 0.58 }]}><View style={[styles.legendDot, { backgroundColor: item.color }]} /><Text style={[styles.axisLabel, { color: colors.muted }]}>{item.label}</Text></Pressable>)}</View>
     <ChartFocus label={`${selected?.label ?? "Series"} · ${latest.label}`} value={latest.value} color={selected?.color ?? colors.primary} />
     <View style={styles.lineLabels}>{(referencePoints.length <= 4 ? referencePoints.map((_, index) => index) : [0, Math.floor((referencePoints.length - 1) / 2), referencePoints.length - 1]).map((index) => <Text key={`${referencePoints[index].label}-${index}`} style={[styles.axisLabel, { color: colors.muted }]}>{referencePoints[index].label}</Text>)}</View>
   </View>;
