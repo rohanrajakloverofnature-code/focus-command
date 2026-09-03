@@ -296,6 +296,8 @@ export interface Mission {
   id: string;
   title: string;
   subject: string;
+  /** Whether this mission and its linked revisions contribute to the Home India subject map. Missing legacy values behave as enabled. */
+  includeInSubjectMap?: boolean;
   category: string;
   difficulty: Difficulty;
   baseXp: number;
@@ -716,6 +718,7 @@ export interface FocusState {
 export interface MissionDraft {
   title: string;
   subject: string;
+  includeInSubjectMap?: boolean;
   category: string;
   difficulty: Difficulty;
   baseXp: number;
@@ -1815,7 +1818,7 @@ export function getEnergy(state: FocusState): { remaining: number; used: number;
 }
 
 export function getDailyProgress(state: FocusState): { earned: number; target: number; progress: number } {
-  const earned = getTodayMissionCompletions(state).reduce((total, completion) => total + (completion.progression?.baseXp ?? completion.baseXp), 0);
+  const earned = getTodayMissionCompletions(state).reduce((total, completion) => total + Math.max(0, completion.progression?.powerAwarded ?? completion.baseXp), 0);
   const target = Math.max(1, state.profile.dailyTargetXp);
   return { earned, target, progress: Math.min(1, earned / target) };
 }
@@ -1899,13 +1902,17 @@ export function getActiveGoldMultiplier(state: FocusState, localDate = toLocalDa
 
 export function getSubjectCapture(state: Pick<FocusState, "missions" | "srsTopics">): Array<{ subject: string; capture: number; completed: number; total: number; active: number; planned: number }> {
   const bySubject = new Map<string, { missions: Mission[]; reviews: SrsTopic[] }>();
+  const missionsById = new Map(state.missions.map((mission) => [mission.id, mission]));
   state.missions.forEach((mission) => {
+    if (mission.includeInSubjectMap === false) return;
     const subject = mission.subject.trim() || "General";
     const current = bySubject.get(subject) ?? { missions: [], reviews: [] };
     current.missions.push(mission);
     bySubject.set(subject, current);
   });
   state.srsTopics.forEach((topic) => {
+    const linkedMission = topic.missionId ? missionsById.get(topic.missionId) : undefined;
+    if (linkedMission?.includeInSubjectMap === false) return;
     const subject = topic.subject.trim() || "General";
     const current = bySubject.get(subject) ?? { missions: [], reviews: [] };
     current.reviews.push(topic);
@@ -2340,6 +2347,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       endedAt: toIsoTimestamp(endedAt),
       completedAt: toIsoTimestamp(completedAt),
       frequency: mission.frequency ?? "once",
+      includeInSubjectMap: mission.includeInSubjectMap ?? true,
       allowMultipleDailyCompletions: mission.allowMultipleDailyCompletions ?? false,
       completionHistory: mission.completionHistory ?? (mission.completedAt ? [mission.completedAt] : []),
     };
@@ -2658,6 +2666,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
           id,
           title: draft.title.trim(),
           subject: draft.subject.trim() || "General",
+          includeInSubjectMap: draft.includeInSubjectMap ?? true,
           category: draft.category.trim() || "Focus",
           difficulty: draft.difficulty,
           baseXp: Math.max(1, Math.round(draft.baseXp)),

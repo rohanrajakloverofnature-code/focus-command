@@ -101,6 +101,7 @@ export default function MissionDetailScreen() {
   const [showEditor, setShowEditor] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editSubject, setEditSubject] = useState("");
+  const [editIncludeInSubjectMap, setEditIncludeInSubjectMap] = useState(true);
   const [editCategory, setEditCategory] = useState("");
   const [editTopic, setEditTopic] = useState("");
   const [editXp, setEditXp] = useState("");
@@ -229,6 +230,7 @@ export default function MissionDetailScreen() {
   const openEditor = () => {
     setEditTitle(mission.title);
     setEditSubject(mission.subject);
+    setEditIncludeInSubjectMap(mission.includeInSubjectMap ?? true);
     setEditCategory(mission.category);
     setEditTopic(mission.specificTopic);
     setEditXp(String(mission.baseXp));
@@ -252,6 +254,7 @@ export default function MissionDetailScreen() {
     updateMission(mission.id, {
       title,
       subject: editSubject.trim() || "General",
+      includeInSubjectMap: editIncludeInSubjectMap,
       category: editCategory.trim() || "Focus",
       specificTopic: editTopic.trim(),
       baseXp: Math.max(1, Math.round(Number(editXp) || mission.baseXp)),
@@ -302,6 +305,13 @@ export default function MissionDetailScreen() {
             <TextInput value={editSubject} onChangeText={setEditSubject} placeholder="Subject" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
             <TextInput value={editCategory} onChangeText={setEditCategory} placeholder="Category" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
           </View>
+          <Pressable onPress={() => setEditIncludeInSubjectMap((value) => !value)} style={({ pressed }) => [styles.repeatabilityToggle, { borderColor: editIncludeInSubjectMap ? colors.primary : colors.border, backgroundColor: editIncludeInSubjectMap ? `${colors.primary}16` : colors.background, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+            <IconSymbol name={editIncludeInSubjectMap ? "checklist" : "xmark"} size={17} color={editIncludeInSubjectMap ? colors.primary : colors.muted} />
+            <View style={styles.repeatabilityCopy}>
+              <Text style={[styles.repeatabilityTitle, { color: colors.foreground }]}>{editIncludeInSubjectMap ? "Show subject on India map" : "Keep subject off India map"}</Text>
+              <Text style={[styles.repeatabilityDetail, { color: colors.muted }]}>{editIncludeInSubjectMap ? "This mission and its linked reviews contribute to this subject territory." : "This mission keeps all normal rewards and reviews without changing the India map."}</Text>
+            </View>
+          </Pressable>
           <TextInput value={editTopic} onChangeText={setEditTopic} placeholder="Specific topic" placeholderTextColor={colors.muted} style={[styles.editorInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
           <View style={styles.editorRow}>
             <TextInput value={editXp} onChangeText={setEditXp} keyboardType="number-pad" placeholder="Base XP" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />

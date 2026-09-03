@@ -305,8 +305,8 @@ export default function SettingsScreen() {
           </View>
           <View style={styles.settingRow}>
             <View style={styles.settingCopy}>
-              <Text style={[styles.settingTitle, { color: colors.foreground }]}>Daily target</Text>
-              <Text style={[styles.settingDetail, { color: colors.muted }]}>{state.profile.dailyTargetXp} base XP per day</Text>
+              <Text style={[styles.settingTitle, { color: colors.foreground }]}>Daily Power target</Text>
+              <Text style={[styles.settingDetail, { color: colors.muted }]}>{state.profile.dailyTargetXp} Total Power per day</Text>
             </View>
             <View style={styles.stepperRow}>
               <CommandButton label="−" variant="secondary" onPress={() => updateProfile({ dailyTargetXp: Math.max(10, state.profile.dailyTargetXp - 10) })} style={styles.stepperButton} />

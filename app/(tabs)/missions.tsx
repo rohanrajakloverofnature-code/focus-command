@@ -32,6 +32,7 @@ export default function MissionsScreen() {
   const [filter, setFilter] = useState<MissionFilter>(requestedFilter === "active" || requestedFilter === "completed" ? requestedFilter : "open");
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
+  const [includeInSubjectMap, setIncludeInSubjectMap] = useState(true);
   const [category, setCategory] = useState("");
   const [topic, setTopic] = useState("");
   const [xp, setXp] = useState("25");
@@ -112,6 +113,7 @@ export default function MissionsScreen() {
     createMission({
       title,
       subject,
+      includeInSubjectMap,
       category,
       difficulty,
       baseXp: Math.max(1, Math.round(Number(xp) || 25)),
@@ -124,6 +126,7 @@ export default function MissionsScreen() {
     });
     setTitle("");
     setSubject("");
+    setIncludeInSubjectMap(true);
     setCategory("");
     setTopic("");
     setXp("25");
@@ -167,6 +170,13 @@ export default function MissionsScreen() {
               <TextInput value={subject} onChangeText={setSubject} placeholder="Subject" placeholderTextColor={colors.muted} style={[styles.input, styles.half, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
               <TextInput value={category} onChangeText={setCategory} placeholder="Category" placeholderTextColor={colors.muted} style={[styles.input, styles.half, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
             </View>
+            <Pressable onPress={() => setIncludeInSubjectMap((value) => !value)} style={({ pressed }) => [styles.revisionToggle, { borderColor: includeInSubjectMap ? colors.primary : colors.border, backgroundColor: includeInSubjectMap ? `${colors.primary}16` : colors.background, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+              <IconSymbol name={includeInSubjectMap ? "checklist" : "xmark"} size={17} color={includeInSubjectMap ? colors.primary : colors.muted} />
+              <View style={styles.revisionCopy}>
+                <Text style={[styles.revisionTitle, { color: colors.foreground }]}>{includeInSubjectMap ? "Show subject on India map" : "Keep subject off India map"}</Text>
+                <Text style={[styles.revisionDetail, { color: colors.muted }]}>{includeInSubjectMap ? "This mission and its linked reviews can capture this subject territory." : "This mission remains fully functional without changing any India-map territory."}</Text>
+              </View>
+            </Pressable>
             <TextInput value={topic} onChangeText={setTopic} placeholder="Specific topic (for revision)" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
             <View>
               <Text style={[styles.inputLabel, { color: colors.muted }]}>DIFFICULTY</Text>

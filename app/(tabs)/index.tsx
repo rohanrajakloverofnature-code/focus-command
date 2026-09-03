@@ -310,7 +310,7 @@ export default function HomeScreen() {
   const metrics = [
     { id: "xp", label: "Total XP", value: formatCompactNumber(totalXp), detail: combo.multiplier > 1 ? "Combo amplified" : "Base experience", icon: "bolt.fill" as const, accent: colors.primary },
     { id: "gold", label: "Gold Balance", value: formatCompactNumber(goldBalance), detail: `${formatCompactNumber(lifetimeGold)} earned`, icon: "star.fill" as const, accent: "#F4C95D", onPress: () => router.push("/rewards" as never) },
-    { id: "target", label: "Mission Target", value: `${daily.earned}/${daily.target}`, detail: `${Math.round(daily.progress * 100)}% deployed`, icon: "target" as const, accent: colors.success, onPress: () => router.push("/missions" as never) },
+    { id: "target", label: "Daily Power Target", value: `${daily.earned}/${daily.target}`, detail: `${Math.round(daily.progress * 100)}% earned`, icon: "target" as const, accent: colors.success, onPress: () => router.push("/missions" as never) },
     { id: "time", label: "Invested Today", value: formatHours(todayInvestedMilliseconds), detail: goldMultiplier > 1 ? `${goldMultiplier}× gold cache active` : "Exact active time", icon: "timer" as const, accent: colors.warning },
     { id: "combo", label: "Next combo tier", value: combo.daysToNext ? `${combo.daysToNext}d` : "MAX", detail: `${combo.multiplier.toFixed(2)}× is live`, icon: "flame.fill" as const, accent: "#F4C95D" },
     { id: "level", label: "XP to level", value: formatCompactNumber(level.powerForNextLevel), detail: `${formatCompactNumber(level.currentLevelPower)} at current level`, icon: "shield.fill" as const, accent: colors.primary },
@@ -430,7 +430,7 @@ export default function HomeScreen() {
           <View style={styles.progressTopline}>
             <View>
               <Text style={[styles.progressTitle, { color: colors.foreground }]}>Daily mission progress</Text>
-              <Text style={[styles.progressDetail, { color: colors.muted }]}>Base XP toward your command target.</Text>
+              <Text style={[styles.progressDetail, { color: colors.muted }]}>Total Power earned today toward your command target.</Text>
             </View>
             <Text style={[styles.progressPercent, { color: colors.success }]}>{Math.round(daily.progress * 100)}%</Text>
           </View>
@@ -444,7 +444,7 @@ export default function HomeScreen() {
           <View style={styles.mapTopline}>
             <View>
               <Text style={[styles.mapTitle, { color: colors.foreground }]}>Subject map</Text>
-              <Text style={[styles.mapDetail, { color: colors.muted }]}>Every completed mission and review captures a subject zone. Tap a zone to open its planned work.</Text>
+              <Text style={[styles.mapDetail, { color: colors.muted }]}>Map-enabled missions and their reviews capture a subject zone. Tap a zone to open its planned work.</Text>
             </View>
             <StatusPill label={`${subjectCapture.length} SUBJECT${subjectCapture.length === 1 ? "" : "S"}`} tone="primary" icon="circle.grid.cross.fill" />
           </View>
