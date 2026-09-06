@@ -9,6 +9,7 @@ import { DistractionLogger } from "@/components/distraction-logger";
 import { ShadowGateSheet } from "@/components/shadow-gate-sheet";
 import { useColors } from "@/hooks/use-colors";
 import { getActiveCustomCharacterForm, getCurrentTitle, getLevelInfo, CustomQuestion, Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getDueMissionRevisions, getMissionInvestedMilliseconds, isLongMissionReflectionEligible, ReflectionDraft, type FocusState, type SrsTopic, useFocusCommandActions, useFocusCommandSelector } from "@/lib/focus-command";
+import { getSavedSkillSuggestions, normalizeSavedSkill } from "@/lib/invested-time-filters";
 import { scheduleAchievementRecap, scheduleRevisionReminder } from "@/lib/focus-reminders";
 import { getCharacterEvolutionProfile } from "@/lib/character-development";
 
@@ -27,6 +28,7 @@ type MissionDetailSnapshot = {
   missionRevisionTopics: FocusState["srsTopics"];
   activeBosses: FocusState["bosses"];
   customQuestions: FocusState["customQuestions"];
+  reflections: FocusState["reflections"];
   revisionReminderSound: FocusState["profile"]["soundRoles"]["revisionReminder"];
   timezone: FocusState["profile"]["timezone"];
   notificationsEnabled: boolean;
@@ -47,6 +49,7 @@ function hasSameMissionDetailSnapshot(left: MissionDetailSnapshot, right: Missio
     && hasSameReferences(left.missionRevisionTopics, right.missionRevisionTopics)
     && hasSameReferences(left.activeBosses, right.activeBosses)
     && left.customQuestions === right.customQuestions
+    && left.reflections === right.reflections
     && left.revisionReminderSound === right.revisionReminderSound
     && left.timezone === right.timezone
     && left.notificationsEnabled === right.notificationsEnabled
@@ -77,6 +80,7 @@ function selectMissionDetailSnapshot(state: FocusState, missionId: string | unde
     missionRevisionTopics: state.srsTopics.filter((topic) => topic.missionId === missionId),
     activeBosses: state.bosses.filter((boss) => boss.status === "active"),
     customQuestions: state.customQuestions,
+    reflections: state.reflections,
     revisionReminderSound: state.profile.soundRoles.revisionReminder,
     timezone: state.profile.timezone,
     notificationsEnabled: state.profile.notificationsEnabled,
@@ -92,7 +96,7 @@ export default function MissionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { startMission, startMissionThroughShadowGate, toggleMissionPause, finishMission, logDistraction, logRevisionTopic, completeRevision, updateMission, removeMission } = useFocusCommandActions();
   const detail = useFocusCommandSelector((state) => selectMissionDetailSnapshot(state, id), hasSameMissionDetailSnapshot);
-  const { hydrated: ready, mission, missionDistractionCount, missionRevisionTopics, activeBosses, customQuestions, revisionReminderSound, timezone, notificationsEnabled, notificationRules, achievementRecapSound, shadowGatePersonalDoorways, shadowGateSealAccent } = detail;
+  const { hydrated: ready, mission, missionDistractionCount, missionRevisionTopics, activeBosses, customQuestions, reflections, revisionReminderSound, timezone, notificationsEnabled, notificationRules, achievementRecapSound, shadowGatePersonalDoorways, shadowGateSealAccent } = detail;
   const [nowMs, setNowMs] = useState(Date.now());
   const [revisionTopic, setRevisionTopic] = useState("");
   const [showReflection, setShowReflection] = useState(false);
@@ -128,6 +132,7 @@ export default function MissionDetailScreen() {
   const isLongMission = mission ? isLongMissionReflectionEligible(mission, nowMs) : false;
   const dueMissionRevisions = useMemo(() => mission ? getDueMissionRevisions(missionRevisionTopics, mission.id, timezone, new Date(nowMs).toISOString()) : [], [mission, missionRevisionTopics, nowMs, timezone]);
   const dueMissionRevisionKey = dueMissionRevisions.map((topic) => topic.id).join("|");
+  const savedSkillSuggestions = useMemo(() => getSavedSkillSuggestions(reflections).slice(0, 24), [reflections]);
 
   useEffect(() => {
     const dueTopicIds = new Set(dueMissionRevisionKey ? dueMissionRevisionKey.split("|") : []);
@@ -226,6 +231,12 @@ export default function MissionDetailScreen() {
   const startThroughShadowGate = (selection: Parameters<typeof startMissionThroughShadowGate>[1]) => (
     startMissionThroughShadowGate(mission.id, selection)
   );
+
+  const addSavedSkill = (skill: string) => {
+    const currentSkills = skillsText.split(",").map((value) => value.trim()).filter(Boolean);
+    if (currentSkills.some((value) => normalizeSavedSkill(value) === normalizeSavedSkill(skill))) return;
+    setSkillsText([...currentSkills, skill].join(", "));
+  };
 
   const openEditor = () => {
     setEditTitle(mission.title);
@@ -421,6 +432,12 @@ export default function MissionDetailScreen() {
                 <TextInput value={reflection.provokingThought ?? ""} onChangeText={(provokingThought) => setReflection((current) => ({ ...current, provokingThought }))} placeholder="What thought got you moving?" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
                 <RatingSelector label="How powerful was that thought?" value={reflection.provokingThoughtRating ?? 0} onChange={(provokingThoughtRating) => setReflection((current) => ({ ...current, provokingThoughtRating }))} />
                 <TextInput value={skillsText} onChangeText={setSkillsText} placeholder="Skills gained, separated by commas" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+                {savedSkillSuggestions.length ? <View style={styles.skillSuggestionSection}>
+                  <Text style={[styles.skillSuggestionLabel, { color: colors.muted }]}>REUSE A SAVED SKILL</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.skillSuggestionRow} keyboardShouldPersistTaps="handled">
+                    {savedSkillSuggestions.map((skill) => <Pressable key={normalizeSavedSkill(skill)} onPress={() => addSavedSkill(skill)} style={({ pressed }) => [styles.skillSuggestion, { borderColor: `${colors.primary}88`, backgroundColor: `${colors.primary}12`, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.skillSuggestionText, { color: colors.primary }]}>{skill}</Text></Pressable>)}
+                  </ScrollView>
+                </View> : null}
                 {customQuestions.filter((question) => question.enabled).map((question) => (
                   <CustomQuestionInput
                     key={question.id}
@@ -560,6 +577,11 @@ const styles = StyleSheet.create({
   telemetryTitle: { fontSize: 10, lineHeight: 13, fontWeight: "900", letterSpacing: 0.9 },
   telemetryDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600", marginTop: -5 },
   reflectionInput: { minHeight: 47, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 12, fontSize: 13, lineHeight: 18, fontWeight: "600" },
+  skillSuggestionSection: { gap: 6, marginTop: -5 },
+  skillSuggestionLabel: { fontSize: 10, lineHeight: 14, fontWeight: "900", letterSpacing: 0.75 },
+  skillSuggestionRow: { gap: 7, paddingRight: 8 },
+  skillSuggestion: { minHeight: 32, justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, paddingHorizontal: 10 },
+  skillSuggestionText: { fontSize: 11, lineHeight: 14, fontWeight: "800" },
   selectorBlock: { gap: 7 },
   selectorLabel: { fontSize: 10, lineHeight: 13, letterSpacing: 0.8, fontWeight: "800" },
   feelingGrid: { flexDirection: "row", flexWrap: "wrap", gap: 7 },

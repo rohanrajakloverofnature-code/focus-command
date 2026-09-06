@@ -26,6 +26,8 @@ function createPopulatedState(): FocusState {
   state.mistakeLedgerEntries = [{ id: "mistake_backup", mistake: "Sign error", subject: "Maths", correction: "Check signs", status: "improving", missionId: "mission_backup", missionTitle: "Archive mission", createdAt: "2026-08-14T07:45:00.000Z", updatedAt: "2026-08-14T08:00:00.000Z" }];
   state.mistakeLedgerActivityLog = [{ id: "mistake_activity_backup", entryId: "mistake_backup", kind: "status", status: "improving", actionDate: "2026-08-14", occurredAt: "2026-08-14T08:00:00.000Z" }];
   state.personalGraphs[0] = { ...state.personalGraphs[0], title: "Exam preparation", xAxisLabel: "Practice month", yAxisLabel: "Score", datePrecision: "month", lines: [{ id: "score", name: "Mock score", color: "#A78BFA" }], points: [{ id: "score_sep", lineId: "score", xValue: "2026-09", xLabel: "2026-09", yValue: 82, createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-01T08:00:00.000Z" }] };
+  state.personalGraphs[3] = { ...state.personalGraphs[3], title: "New private graph" };
+  state.customQuestions = [{ id: "confidence", label: "How confident did you feel?", type: "rating", options: [], enabled: true, personalSignal: { enabled: true, role: "supportive", includeInProjection: true } }];
   state.profile.shadowGatePreferences = { showDashboardCard: false };
   state.profile.behavioralReflectionWindow = "custom";
   state.profile.behavioralReflectionCustomCount = 500;
@@ -80,6 +82,8 @@ describe("offline Focus Command backup format", () => {
     expect(parsed.state.mistakeLedgerEntries).toEqual(state.mistakeLedgerEntries);
     expect(parsed.state.mistakeLedgerActivityLog).toEqual(state.mistakeLedgerActivityLog);
     expect(parsed.state.personalGraphs).toEqual(state.personalGraphs);
+    expect(parsed.state.personalGraphs).toHaveLength(5);
+    expect(parsed.state.customQuestions[0].personalSignal).toEqual({ enabled: true, role: "supportive", includeInProjection: true });
     expect(parsed.state.characterMilestones).toEqual(state.characterMilestones);
   });
 

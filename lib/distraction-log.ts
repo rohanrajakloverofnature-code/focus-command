@@ -37,11 +37,15 @@ function getLocalHour(iso: string, timezone: string) {
   return Number(hour ?? 0);
 }
 
-function getTimeWindow(hour: number) {
-  if (hour >= 5 && hour < 12) return "Morning";
-  if (hour >= 12 && hour < 17) return "Afternoon";
-  if (hour >= 17 && hour < 22) return "Evening";
-  return "Night";
+function formatHour(hour: number) {
+  const normalizedHour = ((hour % 24) + 24) % 24;
+  const suffix = normalizedHour >= 12 ? "PM" : "AM";
+  const hourOnClock = normalizedHour % 12 || 12;
+  return `${hourOnClock} ${suffix}`;
+}
+
+export function getHourlyTimeWindow(hour: number) {
+  return `${formatHour(hour)} – ${formatHour(hour + 1)}`;
 }
 
 function toLocalDate(iso: string, timezone: string) {
@@ -97,22 +101,22 @@ export function getFocusFrictionInsight(state: FocusState, now = new Date(), ran
     label: DISTRACTION_CATEGORY_LABELS[category],
     count: entries.filter((entry) => entry.category === category).length,
   })).filter((entry) => entry.count > 0).sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
-  const windowCounts = new Map<string, number>();
+  const windowCounts = new Map<number, number>();
   const missionCounts = new Map<string, number>();
   entries.forEach((entry) => {
-    const window = getTimeWindow(getLocalHour(entry.occurredAt, state.profile.timezone));
-    windowCounts.set(window, (windowCounts.get(window) ?? 0) + 1);
+    const hour = getLocalHour(entry.occurredAt, state.profile.timezone);
+    windowCounts.set(hour, (windowCounts.get(hour) ?? 0) + 1);
     const title = state.missions.find((mission) => mission.id === entry.missionId)?.title ?? "Archived mission";
     missionCounts.set(title, (missionCounts.get(title) ?? 0) + 1);
   });
   const byCount = (left: [string, number], right: [string, number]) => right[1] - left[1] || left[0].localeCompare(right[0]);
-  const mostInterruptedWindow = Array.from(windowCounts.entries()).sort(byCount)[0];
+  const mostInterruptedWindow = Array.from(windowCounts.entries()).sort((left, right) => right[1] - left[1] || left[0] - right[0])[0];
   const recentMission = Array.from(missionCounts.entries()).sort(byCount)[0];
   return {
     total: entries.length,
     categoryCounts,
     topCategory: categoryCounts[0] ?? null,
-    timeWindow: mostInterruptedWindow?.[0] ?? null,
+    timeWindow: mostInterruptedWindow ? getHourlyTimeWindow(mostInterruptedWindow[0]) : null,
     recentMission: recentMission ? { title: recentMission[0], count: recentMission[1] } : null,
   };
 }

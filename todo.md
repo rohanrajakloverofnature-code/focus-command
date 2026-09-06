@@ -618,6 +618,7 @@
 - [x] Audit offline backup creation and restoration for all currently persisted character-path data, with backward-compatible round-trip coverage.
 - [x] Profile current interaction, scrolling, rendering, and persistence hot paths; propose only protected internal performance recovery changes for long-term smoothness.
 - [x] Implement the approved sequential glowing path draw with user-controlled follow cancellation and Reduced Motion completion.
+- [x] Publish the approved Mistake Ledger with Subject and period filters to GitHub main through a temporary deploy key, verify commit 800e38b, and remove the local temporary key without starting an APK or GitHub Actions workflow.
 - [x] Preserve historic milestone portraits through offline backup restore, with compatibility coverage for path data and older archives.
 - [x] Apply only measured internal responsiveness improvements and validate long-history interaction, scrolling, persistence, and single-fire tap behavior.
 - [x] Run the full release validation suite and publish the approved update to GitHub without starting an APK build.
@@ -642,6 +643,18 @@
 - [x] Add approval-scope regressions for date filtering, deletion cleanup, selector isolation, hidden-work gating, long histories, persistence coalescing, media lifecycle, and one-tap safety; run the complete release validation without an APK build or workflow.
 - [x] Audit the legacy unlinked distraction-log format and present an approval-gated Focus Friction-only reset that preserves all current and future mission-linked records, performance safeguards, and unrelated offline data.
 - [x] Repair large offline-backup restoration on memory-constrained phones without changing backup contents, data safety, restore semantics, or unrelated app behavior.
+- [x] Inspect and propose a protected GitHub-main Journal enhancement: apply the configurable Journal Lifeline percentage to Experience as well as Life Performance, and open a full entry view from each Journal timeline card; do not modify the app before approval.
+- [x] Implement the approved Journal-only configurable Lifeline percentage, safely repair all existing Journal-derived Life Performance and Experience contributions, and add full timeline-entry detail viewing without changing manual baselines or unrelated features.
+- [x] Add Journal enhancement regression coverage and run complete validation without publishing or starting an APK workflow.
+- [x] Inspect and propose three fully independent long-term custom graphs with user-defined titles, X/Y axes, exact dated points, and up to four intersecting lines; do not modify the app before approval.
+- [x] Inspect and propose safe removal of the optional Google Sheets feature while preserving offline backup, existing local data, and all unrelated features; do not modify the app before approval.
+- [x] Inspect and propose a safe GitHub secret audit and public-repository conversion sequence; do not expose the repository or alter credentials before explicit approval.
+- [x] Implement three isolated independent Personal Graphs with editable titles and X/Y labels, manual exact-dated points, and up to four user-defined lines while preserving existing reflection graphs and all other features.
+- [x] Remove only the Google Sheets sync/OAuth feature and obsolete Google workflow secret references, retaining all offline data, safe backup/restore, and compatibility with old backups.
+- [x] Add complete regression coverage and validate the Personal Graph and Google removal update; keep GitHub public conversion blocked pending a separate confirmation.
+- [x] Push the validated Personal Graph and Google Sheets removal update to private GitHub main at a1f4297 using a temporary deploy key, then remove that local key without starting an APK or GitHub Actions workflow.
+- [ ] Convert GitHub repository visibility to public only after immediate explicit confirmation and manual removal of obsolete Google OAuth secrets and old repository deploy keys.
+- [x] Commit and push only the validated Journal Lifeline & Detail update using a new temporary deploy key; do not trigger any APK or GitHub Actions workflow.
 - [x] Conduct deep leading-university and peer-reviewed research on attention, habits, motivation, learning, and self-understanding; then propose one extraordinary privacy-preserving data-driven Focus Command feature without changing the app until explicit approval.
 - [ ] Conduct deeper research on task aversion, avoidance, initiation, and action under low motivation; then propose behaviour-data-driven start-support concepts without changing the app until explicit approval.
 - [ ] Develop a more exciting, original, psychologically grounded start-support concept that moves beyond generic timers, first-step rituals, dashboards, or personal-experiment framing; present it for explicit approval only.
@@ -652,4 +665,36 @@
 - [x] Implement the approved Option 1 Shadow Gate feature: 126 offline doorway actions across six resistance states, personal doorways, safe mission hand-off, Crossed Gates dashboard/ledger filters, controls, deletion, and backward-compatible backup support without altering existing mechanisms.
 - [x] Apply the approved screenshot-matched fresh-install baseline for Command Accent #8B5CF9, Screen Background #0B1220, and Card Surface #0A0A0A, while preserving all existing users’ palettes and full Colour System customisation.
 - [x] Conduct repeated whole-app performance audits and apply only verified internal performance repairs that preserve every existing user-facing feature, cinematic mechanism, offline record, and control.
+- [x] Inspect and propose an optional per-mission India-map participation control in mission creation and editing, while preserving existing territory behavior for opted-in missions and all historic mission data until explicit approval.
+- [x] Inspect and propose a Daily Mission Progress calculation based on Total Power earned today, while preserving XP, Total Power, gold, combo, mission rewards, and historical records until explicit approval.
+- [x] Implement the approved per-mission India-map participation control and Daily Mission Progress formula based on Total Power awarded today; validate safely before any GitHub publication.
+- [x] Publish only the validated Map Participation and Daily Power Progress update to public GitHub main using a fresh temporary deploy key; do not start an APK or GitHub Actions workflow.
 - [x] Run full regression, long-session, backup, type, lint, web-export, and Android JavaScript export validation; checkpoint and push the approved changes to GitHub without triggering an APK build.
+- [x] Inspect and propose a narrowly scoped repair for the missing Home Daily Mission Progress percentage after the Daily Power update, without changing its formula, target, layout, or unrelated feature behavior.
+- [x] Repair only the Daily Mission Progress text/percentage row so the percentage stays visible without changing card dimensions, progress bar, calculation, or surrounding Home layout.
+- [x] Add focused visibility coverage and complete validation for the isolated Daily Mission Progress repair without publishing or starting an APK workflow.
+- [x] Inspect and propose skill-category filters for daily, weekly, and monthly invested-time averages; do not modify the app before approval.
+- [x] Inspect and propose existing-skill suggestions when entering gained skills in a reflection; do not modify the app before approval.
+- [x] Inspect and propose two additional Personal Graph Studio slots without changing current graph data; do not modify the app before approval.
+- [x] Inspect and propose search for planned and history missions; do not modify the app before approval.
+- [x] Inspect and propose hourly Focus Friction interruption windows; do not modify the app before approval.
+- [x] Inspect and propose a transparent, non-clinical 90-day, 180-day, and one-year emotional-data projection graph; do not modify the app before approval.
+- [x] Inspect and explain whether user-created reflection questions feed existing behavioural graphs or other emotional-data insights; do not modify the app before approval.
+- [x] Inspect and propose further long-session performance safeguards without altering working user-facing behavior; do not modify the app before approval.
+- [x] Inspect and explain the data source and time range of current Behavioural Tendency graphs without changing any app feature or record.
+- [x] Inspect and propose user-selectable Behavioural Tendency reflection windows—Lifetime, last 500, 100, 12, or custom count—while protecting long-term performance and all existing graph behavior until explicit approval.
+- [x] Prepare the already validated Daily Mission Progress percentage visibility repair for a later combined GitHub push only after the reflection-window implementation is approved and validated.
+- [x] Implement the approved persistent Reflection Window control—Lifetime, 500, 100, 12, and custom count—for Behavioural Tendency graph display without changing any saved reflection or graph meaning.
+- [x] Add backward-compatible backup/restore migration and regression coverage for Reflection Window preferences, including old archives and large reflection history.
+- [x] Complete combined validation of the Reflection Window update and Daily Mission Progress percentage repair before the requested single GitHub push.
+- [x] Commit and push the combined validated Reflection Window and Daily Mission Progress percentage repair update to public GitHub main using a new temporary deploy key; do not start an APK or GitHub Actions workflow.
+
+- [x] Revise the approval-only average-filter proposal so each selected category and skill changes the displayed Daily, Weekly, or Monthly invested-time calculation itself and shows only the matching source history; do not modify the app before approval.
+- [x] Revise the approval-only custom-reflection proposal so user-created 1–5 rating questions can be explicitly included as separately labelled personal emotional signals, while text and choice answers remain non-numeric private notes; do not modify the app before approval.
+
+- [x] Verify correction workspace parity with current public GitHub main and implement the approved recalculated time-average filters, local skill suggestions, five-slot Personal Graph Studio, Planned/History search, and hourly Focus Friction labels without changing protected mechanisms.
+- [x] Implement approved custom reflection signal configuration and the clearly conditional, non-clinical 90-day, 180-day, and one-year on-device consistency scenario without altering existing four emotional lenses or the Home prediction ticker.
+- [x] Apply only evidence-backed long-session render, chart, timer/media, and persistence safeguards while retaining all saved data, interactions, calculations, and visual behaviour.
+- [x] Validate exact filter math, reflection signal types, legacy Personal Graph data, search, time-window boundaries, projections, backup round trips, large histories, and five-minute stress behavior; run release checks without an APK build or workflow.
+
+- [ ] Commit and push only the validated approved time filters, reusable skills, custom reflection signals, five Personal Graph slots, mission search, hourly Focus Friction, conditional scenario, and performance update to public GitHub main using a fresh temporary deploy key; remove the local key after remote verification and do not run APK or workflow builds.

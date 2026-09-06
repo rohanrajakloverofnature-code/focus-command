@@ -12,6 +12,7 @@ import { useColors } from "@/hooks/use-colors";
 import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getTotalPower, getWellbeingInsight, toLocalDate, type FocusState, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { RECOGNITION_WINDOW_LAYOUT } from "@/lib/focus-layout";
 import { getFocusFrictionInsight, getFocusFrictionRangePresentation, type FocusFrictionRange } from "@/lib/distraction-log";
+import { getConsistencyScenario, type ConsistencyProjectionHorizon } from "@/lib/personal-reflection-signals";
 import { getWeeklyAfterActionReview } from "@/lib/weekly-after-action";
 import {
   getBehavioralReflectionWindowLabel,
@@ -41,6 +42,7 @@ type DashboardDependencies = Pick<FocusState,
   | "distractionLogs"
   | "srsTopics"
   | "customGraphs"
+  | "customQuestions"
   | "personalGraphs"
   | "lifeline"
 >;
@@ -56,6 +58,7 @@ function selectDashboardDependencies(state: FocusState): DashboardDependencies {
     distractionLogs: state.distractionLogs,
     srsTopics: state.srsTopics,
     customGraphs: state.customGraphs,
+    customQuestions: state.customQuestions,
     personalGraphs: state.personalGraphs,
     lifeline: state.lifeline,
   };
@@ -71,6 +74,7 @@ function hasSameDashboardDependencies(left: DashboardDependencies, right: Dashbo
     && left.distractionLogs === right.distractionLogs
     && left.srsTopics === right.srsTopics
     && left.customGraphs === right.customGraphs
+    && left.customQuestions === right.customQuestions
     && left.personalGraphs === right.personalGraphs
     && left.lifeline === right.lifeline;
 }
@@ -92,6 +96,7 @@ export default function DashboardScreen() {
   const [appliedCustomFrictionRange, setAppliedCustomFrictionRange] = useState<Extract<FocusFrictionRange, { kind: "custom" }> | null>(null);
   const [focusFrictionRangeError, setFocusFrictionRangeError] = useState("");
   const [customBehavioralReflectionCount, setCustomBehavioralReflectionCount] = useState(String(state.profile.behavioralReflectionCustomCount));
+  const [consistencyHorizon, setConsistencyHorizon] = useState<ConsistencyProjectionHorizon>(90);
 
   const daySeries = useMemo(() => createDaySeries(14, state.profile.timezone), [state.profile.timezone]);
   /* eslint-disable react-hooks/exhaustive-deps -- These pure helpers require a FocusState shape, while each memo intentionally tracks only the source references it actually reads. Adding the full state would reinstate unrelated interaction-path work. */
@@ -99,6 +104,7 @@ export default function DashboardScreen() {
   const completionRecords = useMemo(() => getMissionCompletionRecords(state), [state.missionCompletions, state.missions, state.progression, state.reflections]);
   const forecast = useMemo(() => getEmotionalPatternForecast(state), [state.profile, state.reflections]);
   const wellbeing = useMemo(() => getWellbeingInsight(state), [state.profile, state.reflections]);
+  const consistencyScenario = useMemo(() => getConsistencyScenario(state, consistencyHorizon), [consistencyHorizon, state.customQuestions, state.profile, state.reflections]);
   const focusFrictionRange = useMemo<FocusFrictionRange>(() => focusFrictionRangeKind === "custom" ? appliedCustomFrictionRange ?? { kind: "custom", startDate: "", endDate: "" } : { kind: focusFrictionRangeKind }, [appliedCustomFrictionRange, focusFrictionRangeKind]);
   const focusFrictionRangePresentation = useMemo(() => getFocusFrictionRangePresentation(focusFrictionRange, state.profile.timezone), [focusFrictionRange, state.profile.timezone]);
   const focusFriction = useMemo(() => getFocusFrictionInsight(state, new Date(), focusFrictionRange), [focusFrictionRange, state.distractionLogs, state.missions, state.profile]);
@@ -112,10 +118,6 @@ export default function DashboardScreen() {
     [state.profile.behavioralReflectionCustomCount, state.profile.behavioralReflectionWindow, state.reflections],
   );
   const behavioralWindowLabel = getBehavioralReflectionWindowLabel(state.profile.behavioralReflectionWindow, state.profile.behavioralReflectionCustomCount);
-  /* eslint-enable react-hooks/exhaustive-deps */
-
-  if (!ready) return <LoadingScreen label="Compiling command analytics…" />;
-
   const selectFocusFrictionRange = (kind: FocusFrictionRange["kind"]) => {
     setFocusFrictionRangeKind(kind);
     setFocusFrictionRangeError("");
@@ -146,54 +148,64 @@ export default function DashboardScreen() {
     });
   };
 
-  const progressionByDate = new Map<string, number>();
-  state.progression.forEach((event) => {
-    const date = toLocalDate(event.occurredAt, state.profile.timezone);
-    progressionByDate.set(date, (progressionByDate.get(date) ?? 0) + event.powerAwarded);
-  });
-  const powerSeries: ChartPoint[] = daySeries.map((day) => ({ label: day.label, value: progressionByDate.get(day.localDate) ?? 0 }));
+  const { powerSeries, timeSeries } = useMemo(() => {
+    const progressionByDate = new Map<string, number>();
+    state.progression.forEach((event) => {
+      const date = toLocalDate(event.occurredAt, state.profile.timezone);
+      progressionByDate.set(date, (progressionByDate.get(date) ?? 0) + event.powerAwarded);
+    });
+    const timeByDate = new Map<string, number>();
+    completionRecords.forEach((completion) => {
+      const date = toLocalDate(completion.completedAt, state.profile.timezone);
+      timeByDate.set(date, (timeByDate.get(date) ?? 0) + completion.durationMs / 3_600_000);
+    });
+    return {
+      powerSeries: daySeries.map((day) => ({ label: day.label, value: progressionByDate.get(day.localDate) ?? 0 })),
+      timeSeries: daySeries.map((day) => ({ label: day.label, value: timeByDate.get(day.localDate) ?? 0 })),
+    };
+  }, [completionRecords, daySeries, state.profile.timezone, state.progression]);
 
-  const timeByDate = new Map<string, number>();
-  completionRecords.forEach((completion) => {
-    const date = toLocalDate(completion.completedAt, state.profile.timezone);
-    timeByDate.set(date, (timeByDate.get(date) ?? 0) + completion.durationMs / 3_600_000);
-  });
-  const timeSeries: ChartPoint[] = daySeries.map((day) => ({ label: day.label, value: timeByDate.get(day.localDate) ?? 0 }));
+  const skillPoints = useMemo(() => {
+    const skillCounts = new Map<string, number>();
+    state.reflections.forEach((reflection) => reflection.skills.forEach((skill) => skillCounts.set(skill, (skillCounts.get(skill) ?? 0) + 1)));
+    return Array.from(skillCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([label, value]) => ({ label, value }));
+  }, [state.reflections]);
 
-  const skillCounts = new Map<string, number>();
-  state.reflections.forEach((reflection) => reflection.skills.forEach((skill) => skillCounts.set(skill, (skillCounts.get(skill) ?? 0) + 1)));
-  const skillPoints = Array.from(skillCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([label, value]) => ({ label, value }));
+  const emotionalPoints = useMemo(() => {
+    const emotionCounts = new Map<string, number>();
+    state.reflections.forEach((reflection) => {
+      if (reflection.feelingAfter) emotionCounts.set(reflection.feelingAfter, (emotionCounts.get(reflection.feelingAfter) ?? 0) + 1);
+    });
+    return ["charged", "steady", "restless", "drained", "great"].map((label) => ({ label, value: emotionCounts.get(label) ?? 0 }));
+  }, [state.reflections]);
 
-  const emotionCounts = new Map<string, number>();
-  state.reflections.forEach((reflection) => {
-    if (reflection.feelingAfter) emotionCounts.set(reflection.feelingAfter, (emotionCounts.get(reflection.feelingAfter) ?? 0) + 1);
-  });
-  const emotionalPoints = ["charged", "steady", "restless", "drained", "great"].map((label) => ({ label, value: emotionCounts.get(label) ?? 0 }));
+  const customGraphData = useMemo(() => {
+    const lastTwelveReflections = state.reflections.slice(-12);
+    const completionByReflectionId = new Map(completionRecords.filter((completion) => completion.reflectionId).map((completion) => [completion.reflectionId, completion]));
+    return state.customGraphs.map((graph) => ({
+      graph,
+      series: graph.series.map((series) => ({
+        ...series,
+        points: lastTwelveReflections.map((reflection, index) => {
+          const completion = completionByReflectionId.get(reflection.id);
+          const value = series.metric === "miniAchievementRating" ? reflection.miniAchievementRating ?? 0
+            : series.metric === "frictionRating" ? reflection.frictionRating ?? 0
+            : series.metric === "provokingThoughtRating" ? reflection.provokingThoughtRating ?? 0
+            : series.metric === "feelingAfter" ? reflection.feelingAfter ? feelingScore[reflection.feelingAfter] : 0
+            : completion ? completion.durationMs / 3_600_000 : 0;
+          const source = reflection.createdAt ? toLocalDate(reflection.createdAt, state.profile.timezone).slice(5) : String(index + 1);
+          return { label: index === 0 || index === lastTwelveReflections.length - 1 || index === Math.floor(lastTwelveReflections.length / 2) ? source : "", value };
+        }),
+      })),
+    }));
+  }, [completionRecords, state.customGraphs, state.profile.timezone, state.reflections]);
 
-  const completionByReflectionId = new Map(completionRecords.filter((completion) => completion.reflectionId).map((completion) => [completion.reflectionId, completion]));
-  const customGraphData = state.customGraphs.map((graph) => ({
-    graph,
-    series: graph.series.map((series) => ({
-      ...series,
-      points: state.reflections.slice(-12).map((reflection, index) => {
-        const completion = completionByReflectionId.get(reflection.id);
-        const value = series.metric === "miniAchievementRating" ? reflection.miniAchievementRating ?? 0
-          : series.metric === "frictionRating" ? reflection.frictionRating ?? 0
-          : series.metric === "provokingThoughtRating" ? reflection.provokingThoughtRating ?? 0
-          : series.metric === "feelingAfter" ? reflection.feelingAfter ? feelingScore[reflection.feelingAfter] : 0
-          : completion ? completion.durationMs / 3_600_000 : 0;
-        const source = reflection.createdAt ? toLocalDate(reflection.createdAt, state.profile.timezone).slice(5) : String(index + 1);
-        return { label: index === 0 || index === state.reflections.slice(-12).length - 1 || index === Math.floor(state.reflections.slice(-12).length / 2) ? source : "", value };
-      }),
-    })),
-  }));
-
-  const emotionLabels = (index: number, reflection: typeof recentEmotionReflections[number]) => {
-    const source = reflection.createdAt ? toLocalDate(reflection.createdAt, state.profile.timezone).slice(5) : String(index + 1);
-    return index === 0 || index === recentEmotionReflections.length - 1 || index === Math.floor(recentEmotionReflections.length / 2) ? source : "";
-  };
-  const behavioralCharts = state.profile.emotionalCharts.map((chart) => {
-    const pointsFor = (key: "energyBefore" | "energyAfter" | "focusQuality" | "frictionRating" | "stressLevel" | "clarityLevel" | "motivationLevel" | "distractionLevel") => recentEmotionReflections.map((reflection, index) => ({ label: emotionLabels(index, reflection), value: reflection[key] ?? 0 }));
+  const behavioralCharts = useMemo(() => state.profile.emotionalCharts.map((chart) => {
+    const emotionLabel = (index: number, reflection: typeof recentEmotionReflections[number]) => {
+      const source = reflection.createdAt ? toLocalDate(reflection.createdAt, state.profile.timezone).slice(5) : String(index + 1);
+      return index === 0 || index === recentEmotionReflections.length - 1 || index === Math.floor(recentEmotionReflections.length / 2) ? source : "";
+    };
+    const pointsFor = (key: "energyBefore" | "energyAfter" | "focusQuality" | "frictionRating" | "stressLevel" | "clarityLevel" | "motivationLevel" | "distractionLevel") => recentEmotionReflections.map((reflection, index) => ({ label: emotionLabel(index, reflection), value: reflection[key] ?? 0 }));
     const definition = chart.id === "energy_shift"
       ? { detail: "Energy before and after your focused sessions", series: [{ id: "before", label: "Before", color: chart.color, points: pointsFor("energyBefore") }, { id: "after", label: "After", color: "#49D17D", points: pointsFor("energyAfter") }] }
       : chart.id === "focus_friction"
@@ -202,20 +214,24 @@ export default function DashboardScreen() {
           ? { detail: "Stress load compared with mental clarity", series: [{ id: "stress", label: "Stress", color: chart.color, points: pointsFor("stressLevel") }, { id: "clarity", label: "Clarity", color: "#A78BFA", points: pointsFor("clarityLevel") }] }
           : { detail: "Motivation compared with environmental distraction", series: [{ id: "motivation", label: "Motivation", color: chart.color, points: pointsFor("motivationLevel") }, { id: "distraction", label: "Distraction", color: "#FF6B6B", points: pointsFor("distractionLevel") }] };
     return { chart, ...definition };
-  });
+  }), [recentEmotionReflections, state.profile.emotionalCharts, state.profile.timezone]);
 
-  const sortedLifeline = [...state.lifeline].sort((a, b) => a.localDate.localeCompare(b.localDate));
-  const manualLifeline = sortedLifeline.filter((point) => point.source === "manual");
-  let runningLife = 0;
-  let runningExperience = 0;
-  const lifelinePower: ChartPoint[] = sortedLifeline.map((point) => {
-    runningLife += point.lifePerformance;
-    return { label: point.source === "manual" ? String(point.year) : point.localDate.slice(5), value: runningLife };
-  });
-  const lifelineExperience: ChartPoint[] = sortedLifeline.map((point) => {
-    runningExperience += point.experience;
-    return { label: point.source === "manual" ? String(point.year) : point.localDate.slice(5), value: runningExperience };
-  });
+  const { manualLifeline, lifelinePower, lifelineExperience } = useMemo(() => {
+    const sorted = [...state.lifeline].sort((a, b) => a.localDate.localeCompare(b.localDate));
+    let runningLife = 0;
+    let runningExperience = 0;
+    return {
+      manualLifeline: sorted.filter((point) => point.source === "manual"),
+      lifelinePower: sorted.map((point) => {
+        runningLife += point.lifePerformance;
+        return { label: point.source === "manual" ? String(point.year) : point.localDate.slice(5), value: runningLife };
+      }),
+      lifelineExperience: sorted.map((point) => {
+        runningExperience += point.experience;
+        return { label: point.source === "manual" ? String(point.year) : point.localDate.slice(5), value: runningExperience };
+      }),
+    };
+  }, [state.lifeline]);
 
   const submitLifelinePoint = () => {
     const year = Math.max(1900, Math.round(Number(birthYear)));
@@ -230,7 +246,11 @@ export default function DashboardScreen() {
     setLifelineNote("");
   };
 
-  const timeAverages = getCalendarTimeAverages(state);
+  const timeAverages = useMemo(() => getCalendarTimeAverages(state, undefined, completionRecords), [completionRecords, state.profile.timezone]);
+  const totalPower = useMemo(() => getTotalPower(state), [state.progression]);
+  /* eslint-enable react-hooks/exhaustive-deps */
+
+  if (!ready) return <LoadingScreen label="Compiling command analytics…" />;
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background">
@@ -243,7 +263,7 @@ export default function DashboardScreen() {
         />
 
         <View style={styles.metrics}>
-          <MetricTile label="Total power" value={formatCompactNumber(getTotalPower(state))} detail="Tap for power ledger" icon="shield.fill" accent="#F4C95D" onPress={() => router.push("/analytics?metric=power" as never)} />
+          <MetricTile label="Total power" value={formatCompactNumber(totalPower)} detail="Tap for power ledger" icon="shield.fill" accent="#F4C95D" onPress={() => router.push("/analytics?metric=power" as never)} />
           <MetricTile label="Daily average" value={`${dashboard.averageDailyHours.toFixed(1)} h`} detail="Tap for daily detail" icon="timer" accent={colors.primary} onPress={() => router.push("/analytics?metric=daily" as never)} />
           <MetricTile label="Weekly average" value={`${timeAverages.weekDailyAverageHours.toFixed(1)} h`} detail="Tap for week detail" icon="chart.xyaxis.line" accent={colors.success} onPress={() => router.push("/analytics?metric=weekly" as never)} />
           <MetricTile label="Monthly average" value={`${timeAverages.monthDailyAverageHours.toFixed(1)} h`} detail="Tap for month detail" icon="target" accent={colors.warning} onPress={() => router.push("/analytics?metric=monthly" as never)} />
@@ -346,6 +366,27 @@ export default function DashboardScreen() {
         </CommandCard>
         </> : null}
 
+        <SectionHeader title="Consistency scenario" />
+        <CommandCard accent={colors.primary} style={styles.consistencyCard}>
+          <View style={styles.consistencyHeading}>
+            <View style={styles.consistencyCopy}>
+              <Text style={[styles.consistencyEyebrow, { color: colors.primary }]}>IF YOUR RECENT SELF-REPORTED PATTERN STAYED SIMILAR</Text>
+              <Text style={[styles.consistencyTitle, { color: colors.foreground }]}>Conditional consistency scenario</Text>
+            </View>
+            <StatusPill label={consistencyScenario.available ? `${consistencyScenario.baseline}/100` : "AWAITING DATA"} tone={consistencyScenario.available ? "primary" : "neutral"} />
+          </View>
+          <View style={styles.consistencyOptions}>{([90, 180, 365] as const).map((horizon) => <TapFeedback key={horizon} onPress={() => setConsistencyHorizon(horizon)} accessibilityLabel={`Show ${horizon === 365 ? "one year" : `${horizon} day`} consistency scenario`} style={[styles.consistencyOption, { borderColor: consistencyHorizon === horizon ? colors.primary : colors.border, backgroundColor: consistencyHorizon === horizon ? `${colors.primary}1A` : colors.background }]}><Text style={[styles.consistencyOptionText, { color: consistencyHorizon === horizon ? colors.primary : colors.muted }]}>{horizon === 365 ? "1 YEAR" : `${horizon} DAYS`}</Text></TapFeedback>)}</View>
+          <Text style={[styles.consistencyDetail, { color: colors.muted }]}>{consistencyScenario.detail}</Text>
+          {consistencyScenario.available ? <>
+            <MultiLineTrendChart series={[
+              { id: "expected", label: "Conditional pattern", color: colors.primary, points: consistencyScenario.points.map((point) => ({ label: point.label, value: point.expected })) },
+              { id: "lower", label: "Wider uncertainty", color: colors.warning, points: consistencyScenario.points.map((point) => ({ label: point.label, value: point.lower })) },
+              { id: "upper", label: "Wider uncertainty", color: colors.success, points: consistencyScenario.points.map((point) => ({ label: point.label, value: point.upper })) },
+            ]} accessibilityLabel={`Conditional ${consistencyHorizon} day consistency scenario`} />
+            <Text style={[styles.consistencyFootnote, { color: colors.muted }]}>This is reflective local feedback, not a promise or a medical prediction. Actual mission completion can differ.</Text>
+          </> : null}
+        </CommandCard>
+
         <SectionHeader title="Wellbeing insight" />
         <TapFeedback onPress={() => router.push("/wellbeing-insight" as never)} accessibilityLabel="Open non-clinical wellbeing insight">
           <CommandCard accent={wellbeing.available ? wellbeing.balanceScore >= 68 ? colors.success : wellbeing.balanceScore >= 45 ? colors.warning : colors.error : colors.primary} style={styles.wellbeingCard}>
@@ -400,6 +441,14 @@ export default function DashboardScreen() {
         <InteractiveChartCard title="Skill radar" detail="Skills you logged during post-mission reflection" tag="GROWTH" onPress={() => router.push("/analytics?metric=skills" as never)}>
           {skillPoints.length ? <RadarChart points={skillPoints} color={colors.primary} accessibilityLabel="Skill radar based on learned skills" /> : <NoData label="Add skills to a long-mission debrief to map your growth." icon="target" />}
         </InteractiveChartCard>
+
+        <SectionHeader title="Personal reflection signals" />
+        <TapFeedback onPress={() => router.push("/reflection-signals" as never)} accessibilityLabel="Open Personal Reflection Signals">
+          <CommandCard accent={colors.primary} style={styles.personalSignalsCard}>
+            <View style={styles.personalSignalsCopy}><Text style={[styles.personalSignalsEyebrow, { color: colors.primary }]}>CUSTOM QUESTION DATA</Text><Text style={[styles.personalSignalsTitle, { color: colors.foreground }]}>Your added reflection signals</Text><Text style={[styles.personalSignalsDetail, { color: colors.muted }]}>Review your private Rating trends, choice distributions, and written-answer history. Only Ratings you explicitly enable can join the optional scenario above.</Text></View>
+            <IconSymbol name="chevron.right" size={22} color={colors.primary} />
+          </CommandCard>
+        </TapFeedback>
 
         <SectionHeader title="Behavioral tendency lenses" action="Customize" onAction={() => router.push("/customize" as never)} />
         <Text style={[styles.behavioralIntro, { color: colors.muted }]}>These visualizations reveal patterns in your own reported context. They are reflective trend tools, not clinical predictions.</Text>
@@ -589,6 +638,16 @@ const styles = StyleSheet.create({
   frictionEmpty: { minHeight: 78, justifyContent: "center", gap: 4 },
   behavioralStack: { gap: 12 },
   forecastCard: { gap: 12 },
+  consistencyCard: { gap: 10 },
+  consistencyHeading: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
+  consistencyCopy: { flex: 1 },
+  consistencyEyebrow: { fontSize: 9, lineHeight: 13, fontWeight: "900", letterSpacing: 0.7 },
+  consistencyTitle: { fontSize: 16, lineHeight: 21, fontWeight: "900", marginTop: 2 },
+  consistencyOptions: { flexDirection: "row", gap: 7 },
+  consistencyOption: { flex: 1, minHeight: 34, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, justifyContent: "center", alignItems: "center" },
+  consistencyOptionText: { fontSize: 10, lineHeight: 13, fontWeight: "900" },
+  consistencyDetail: { fontSize: 12, lineHeight: 18, fontWeight: "600" },
+  consistencyFootnote: { fontSize: 10, lineHeight: 15, fontWeight: "600" },
   forecastHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   forecastCopy: { flex: 1, gap: 3 },
   forecastEyebrow: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.9 },
@@ -639,6 +698,11 @@ const styles = StyleSheet.create({
   customAnalyticsCopy: { gap: 4 },
   customAnalyticsTitle: { fontSize: 16, lineHeight: 21, fontWeight: "900" },
   customAnalyticsDetail: { fontSize: 12, lineHeight: 18, fontWeight: "600" },
+  personalSignalsCard: { flexDirection: "row", alignItems: "center", gap: 12 },
+  personalSignalsCopy: { flex: 1 },
+  personalSignalsEyebrow: { fontSize: 9, lineHeight: 13, fontWeight: "900", letterSpacing: 0.7 },
+  personalSignalsTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900", marginTop: 1 },
+  personalSignalsDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600", marginTop: 2 },
   customGraphCard: { gap: 11 },
   customGraphHeading: { flexDirection: "row", justifyContent: "space-between", gap: 10, alignItems: "flex-start" },
   customGraphTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },

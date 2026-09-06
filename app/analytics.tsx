@@ -1,12 +1,13 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { memo, useMemo } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { memo, useMemo, useState } from "react";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, StatusPill } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { formatCompactNumber, formatHours, getCalendarTimeAverages, getDashboardStats, getMissionCompletionRecords, getTotalPower, toLocalDate, useFocusCommandReady, useFocusCommandSelector, type FocusState } from "@/lib/focus-command";
+import { filterInvestedTimeCompletions, getCompletedMissionCategories, getSavedSkillSuggestions, normalizeSavedSkill } from "@/lib/invested-time-filters";
 
 type MetricKey = "power" | "daily" | "weekly" | "monthly" | "time" | "fame" | "radar" | "emotion" | "skills" | "lifeline";
 
@@ -64,10 +65,10 @@ function formatCalendarDate(localDate: string) {
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(new Date(Date.UTC(year, month - 1, day, 12)));
 }
 
-function hoursByDate(state: FocusState) {
+function hoursByDate(completions: ReturnType<typeof getMissionCompletionRecords>, timezone: string) {
   const values = new Map<string, { hours: number; missionCount: number }>();
-  getMissionCompletionRecords(state).forEach((completion) => {
-    const localDate = toLocalDate(completion.completedAt, state.profile.timezone);
+  completions.forEach((completion) => {
+    const localDate = toLocalDate(completion.completedAt, timezone);
     const prior = values.get(localDate) ?? { hours: 0, missionCount: 0 };
     values.set(localDate, { hours: prior.hours + completion.durationMs / 3_600_000, missionCount: prior.missionCount + 1 });
   });
@@ -115,19 +116,34 @@ export default function AnalyticsDetailScreen() {
   const metric: MetricKey = isMetricKey(params.metric) ? params.metric : "power";
   const state = useFocusCommandSelector(selectAnalyticsDependencies, hasSameAnalyticsDependencies) as FocusState;
   const ready = useFocusCommandReady();
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
 
   const meta = META[metric];
+  const showTimeAverageFilters = metric === "daily" || metric === "weekly" || metric === "monthly";
   /* eslint-disable react-hooks/exhaustive-deps -- Analytics accepts the narrowed FocusState-compatible snapshot, and these dependency lists intentionally follow only the sources each existing derivation reads. */
   const dashboard = useMemo(
     () => getDashboardStats(state as FocusState),
     [state.missionCompletions, state.missions, state.profile, state.progression, state.reflections],
   );
+  const completionRecords = useMemo(
+    () => getMissionCompletionRecords(state),
+    [state.missionCompletions, state.missions, state.progression, state.reflections],
+  );
+  const categories = useMemo(() => getCompletedMissionCategories(completionRecords), [completionRecords]);
+  const skills = useMemo(() => getSavedSkillSuggestions(state.reflections), [state.reflections]);
+  const filteredTimeCompletions = useMemo(
+    () => filterInvestedTimeCompletions(completionRecords, { category: selectedCategory, skill: selectedSkill }),
+    [completionRecords, selectedCategory, selectedSkill],
+  );
   const { calculation, entries } = useMemo(() => {
-    const timeAverages = getCalendarTimeAverages(state);
-    const timeByDate = hoursByDate(state);
-    const completedMissions = getMissionCompletionRecords(state);
+    const completedMissions = showTimeAverageFilters ? filteredTimeCompletions : completionRecords;
+    const timeAverages = getCalendarTimeAverages(state, undefined, completedMissions);
+    const timeByDate = hoursByDate(completedMissions, state.profile.timezone);
     const totalHours = completedMissions.reduce((sum, completion) => sum + completion.durationMs, 0) / 3_600_000;
     const activeDayCount = timeByDate.size;
+    const hasTimeFilter = Boolean(selectedCategory || selectedSkill);
+    const sourceName = hasTimeFilter ? "matching" : "completed";
     const power = getTotalPower(state);
     const periodDates = metric === "weekly"
       ? calendarDates(timeAverages.weekStart, timeAverages.today)
@@ -171,16 +187,21 @@ export default function AnalyticsDetailScreen() {
     const metricCalculation = metric === "power"
     ? { value: formatCompactNumber(power), label: "CURRENT TOTAL", formula: "Sum of immutable awarded power events", detail: `${state.progression.length} progression event${state.progression.length === 1 ? "" : "s"} are included.` }
     : metric === "daily"
-      ? { value: `${dashboard.averageDailyHours.toFixed(1)} h`, label: "LIFETIME DAILY AVERAGE", formula: `${totalHours.toFixed(1)} total hours ÷ ${activeDayCount} active completion day${activeDayCount === 1 ? "" : "s"}`, detail: activeDayCount ? "Only calendar days with a completed mission are included in this lifetime active-day average." : "No completed missions are available yet." }
+      ? { value: `${(activeDayCount ? totalHours / activeDayCount : 0).toFixed(1)} h`, label: hasTimeFilter ? "FILTERED DAILY AVERAGE" : "LIFETIME DAILY AVERAGE", formula: `${totalHours.toFixed(1)} ${sourceName} hours ÷ ${activeDayCount} ${sourceName} active completion day${activeDayCount === 1 ? "" : "s"}`, detail: activeDayCount ? `Only calendar days with a ${sourceName} completed mission are included in this lifetime active-day average.` : `No ${sourceName} completed missions are available for this selection.` }
       : metric === "weekly"
-        ? { value: `${timeAverages.weekDailyAverageHours.toFixed(1)} h`, label: "WEEK-TO-DATE DAILY AVERAGE", formula: `${timeAverages.weekTotalHours.toFixed(1)} total hours ÷ ${timeAverages.weekElapsedDays} elapsed calendar day${timeAverages.weekElapsedDays === 1 ? "" : "s"}`, detail: `${formatCalendarDate(timeAverages.weekStart)} through ${formatCalendarDate(timeAverages.today)}. Zero-work days remain in the denominator.` }
+        ? { value: `${timeAverages.weekDailyAverageHours.toFixed(1)} h`, label: hasTimeFilter ? "FILTERED WEEK-TO-DATE AVERAGE" : "WEEK-TO-DATE DAILY AVERAGE", formula: `${timeAverages.weekTotalHours.toFixed(1)} ${sourceName} hours ÷ ${timeAverages.weekElapsedDays} elapsed calendar day${timeAverages.weekElapsedDays === 1 ? "" : "s"}`, detail: `${formatCalendarDate(timeAverages.weekStart)} through ${formatCalendarDate(timeAverages.today)}. Zero-work and no-match days remain in the denominator.` }
         : metric === "monthly"
-          ? { value: `${timeAverages.monthDailyAverageHours.toFixed(1)} h`, label: "MONTH-TO-DATE DAILY AVERAGE", formula: `${timeAverages.monthTotalHours.toFixed(1)} total hours ÷ ${timeAverages.monthElapsedDays} elapsed calendar day${timeAverages.monthElapsedDays === 1 ? "" : "s"}`, detail: `${formatCalendarDate(timeAverages.monthStart)} through ${formatCalendarDate(timeAverages.today)}. Zero-work days remain in the denominator.` }
+          ? { value: `${timeAverages.monthDailyAverageHours.toFixed(1)} h`, label: hasTimeFilter ? "FILTERED MONTH-TO-DATE AVERAGE" : "MONTH-TO-DATE DAILY AVERAGE", formula: `${timeAverages.monthTotalHours.toFixed(1)} ${sourceName} hours ÷ ${timeAverages.monthElapsedDays} elapsed calendar day${timeAverages.monthElapsedDays === 1 ? "" : "s"}`, detail: `${formatCalendarDate(timeAverages.monthStart)} through ${formatCalendarDate(timeAverages.today)}. Zero-work and no-match days remain in the denominator.` }
           : { value: "SOURCE", label: "TRACEABLE ANALYTICS", formula: "Records displayed below drive this analytic view", detail: "Each Dashboard number can be inspected rather than treated as a black box." };
     return { calculation: metricCalculation, entries: metricEntries.slice().sort((left, right) => right.date.localeCompare(left.date)) };
   }, [
+    completionRecords,
     dashboard,
+    filteredTimeCompletions,
     metric,
+    selectedCategory,
+    selectedSkill,
+    showTimeAverageFilters,
     state.lifeline,
     state.missionCompletions,
     state.missions,
@@ -219,6 +240,20 @@ export default function AnalyticsDetailScreen() {
               <Text style={[styles.formula, { color: colors.foreground }]}>{calculation.formula}</Text>
               <Text style={[styles.calculationDetail, { color: colors.muted }]}>{calculation.detail}</Text>
             </CommandCard>
+            {showTimeAverageFilters ? <CommandCard accent={colors.primary} style={styles.filterCard}>
+              <Text style={[styles.filterTitle, { color: colors.foreground }]}>Filter this invested-time calculation</Text>
+              <Text style={[styles.filterDetail, { color: colors.muted }]}>Choose a Mission Category, a saved Gained Skill, or both. The average, matching hours, formula, and source rows update together.</Text>
+              <Text style={[styles.filterLabel, { color: colors.primary }]}>MISSION CATEGORY</Text>
+              <View style={styles.filterChipRow}>
+                <Pressable onPress={() => setSelectedCategory(null)} style={({ pressed }) => [styles.filterChip, { borderColor: !selectedCategory ? colors.primary : colors.border, backgroundColor: !selectedCategory ? `${colors.primary}1A` : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.filterChipText, { color: !selectedCategory ? colors.primary : colors.muted }]}>ALL CATEGORIES</Text></Pressable>
+                {categories.map((category) => <Pressable key={category} onPress={() => setSelectedCategory(category)} style={({ pressed }) => [styles.filterChip, { borderColor: selectedCategory === category ? colors.primary : colors.border, backgroundColor: selectedCategory === category ? `${colors.primary}1A` : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.filterChipText, { color: selectedCategory === category ? colors.primary : colors.muted }]}>{category}</Text></Pressable>)}
+              </View>
+              <Text style={[styles.filterLabel, { color: colors.success }]}>GAINED SKILL</Text>
+              <View style={styles.filterChipRow}>
+                <Pressable onPress={() => setSelectedSkill(null)} style={({ pressed }) => [styles.filterChip, { borderColor: !selectedSkill ? colors.success : colors.border, backgroundColor: !selectedSkill ? `${colors.success}1A` : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.filterChipText, { color: !selectedSkill ? colors.success : colors.muted }]}>ALL SKILLS</Text></Pressable>
+                {skills.map((skill) => <Pressable key={normalizeSavedSkill(skill)} onPress={() => setSelectedSkill(skill)} style={({ pressed }) => [styles.filterChip, { borderColor: selectedSkill === skill ? colors.success : colors.border, backgroundColor: selectedSkill === skill ? `${colors.success}1A` : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.filterChipText, { color: selectedSkill === skill ? colors.success : colors.muted }]}>{skill}</Text></Pressable>)}
+              </View>
+            </CommandCard> : null}
             <CommandCard accent={colors.primary} style={styles.explainer}>
               <IconSymbol name="chart.xyaxis.line" size={25} color={colors.primary} />
               <View style={styles.explainerCopy}>
@@ -256,6 +291,13 @@ const styles = StyleSheet.create({
   formulaLabel: { fontSize: 10, lineHeight: 14, letterSpacing: 0.85, fontWeight: "900", marginTop: 2 },
   formula: { fontSize: 14, lineHeight: 20, fontWeight: "800" },
   calculationDetail: { fontSize: 12, lineHeight: 18, fontWeight: "500" },
+  filterCard: { gap: 8 },
+  filterTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },
+  filterDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600" },
+  filterLabel: { fontSize: 9, lineHeight: 13, fontWeight: "900", letterSpacing: 0.75, marginTop: 2 },
+  filterChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  filterChip: { minHeight: 32, justifyContent: "center", borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 10 },
+  filterChipText: { fontSize: 10, lineHeight: 13, fontWeight: "900" },
   explainer: { flexDirection: "row", gap: 11, alignItems: "flex-start" },
   explainerCopy: { flex: 1 },
   explainerTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },

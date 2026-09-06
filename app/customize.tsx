@@ -255,10 +255,22 @@ function QuestionEditor({ question, onUpdate, onRemove }: { question: CustomQues
       <View style={styles.typeChoices}>
         {questionTypes.map((choice) => {
           const active = question.type === choice.type;
-          return <Pressable key={choice.type} onPress={() => onUpdate({ type: choice.type, options: choice.type === "single_choice" || choice.type === "multiple_choice" ? question.options : [] })} style={({ pressed }) => [styles.typeChoice, { backgroundColor: active ? `${colors.success}1D` : colors.surface, borderColor: active ? colors.success : colors.border, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.typeChoiceText, { color: active ? colors.success : colors.muted }]}>{choice.label}</Text></Pressable>;
+          return <Pressable key={choice.type} onPress={() => onUpdate({ type: choice.type, options: choice.type === "single_choice" || choice.type === "multiple_choice" ? question.options : [], personalSignal: choice.type === "rating" ? question.personalSignal ?? { enabled: false, role: "supportive", includeInProjection: false } : undefined })} style={({ pressed }) => [styles.typeChoice, { backgroundColor: active ? `${colors.success}1D` : colors.surface, borderColor: active ? colors.success : colors.border, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.typeChoiceText, { color: active ? colors.success : colors.muted }]}>{choice.label}</Text></Pressable>;
         })}
       </View>
       {isChoice ? <TextInput value={question.options.join(", ")} onChangeText={(value) => onUpdate({ options: parseOptions(value) })} placeholder="Choices, separated by commas" placeholderTextColor={colors.muted} style={[styles.questionInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} /> : null}
+      {question.type === "rating" ? <View style={[styles.personalSignalEditor, { borderColor: `${colors.primary}66`, backgroundColor: `${colors.primary}0D` }]}>
+        <View style={styles.questionHeader}>
+          <View style={styles.personalSignalCopy}><Text style={[styles.personalSignalTitle, { color: colors.foreground }]}>Personal reflection signal</Text><Text style={[styles.personalSignalDetail, { color: colors.muted }]}>Use this 1–5 rating in its own private trend. Its meaning is chosen by you.</Text></View>
+          <Pressable onPress={() => onUpdate({ personalSignal: { enabled: !question.personalSignal?.enabled, role: question.personalSignal?.role === "load" ? "load" : "supportive", includeInProjection: question.personalSignal?.includeInProjection === true } })} style={({ pressed }) => [styles.signalToggle, { borderColor: question.personalSignal?.enabled ? colors.primary : colors.border, backgroundColor: question.personalSignal?.enabled ? `${colors.primary}20` : colors.surface, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.signalToggleText, { color: question.personalSignal?.enabled ? colors.primary : colors.muted }]}>{question.personalSignal?.enabled ? "ON" : "OFF"}</Text></Pressable>
+        </View>
+        {question.personalSignal?.enabled ? <>
+          <View style={styles.signalChoiceRow}>
+            {(["supportive", "load"] as const).map((role) => <Pressable key={role} onPress={() => onUpdate({ personalSignal: { enabled: true, role, includeInProjection: question.personalSignal?.includeInProjection === true } })} style={({ pressed }) => [styles.signalChoice, { borderColor: question.personalSignal?.role === role ? colors.primary : colors.border, backgroundColor: question.personalSignal?.role === role ? `${colors.primary}1A` : colors.surface, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.signalChoiceText, { color: question.personalSignal?.role === role ? colors.primary : colors.muted }]}>{role === "supportive" ? "HIGHER HELPS" : "HIGHER LOAD"}</Text></Pressable>)}
+          </View>
+          <Pressable onPress={() => onUpdate({ personalSignal: { enabled: true, role: question.personalSignal?.role === "load" ? "load" : "supportive", includeInProjection: !question.personalSignal?.includeInProjection } })} style={({ pressed }) => [styles.projectionToggle, { borderColor: question.personalSignal?.includeInProjection ? colors.success : colors.border, backgroundColor: question.personalSignal?.includeInProjection ? `${colors.success}18` : colors.surface, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.projectionToggleText, { color: question.personalSignal?.includeInProjection ? colors.success : colors.muted }]}>{question.personalSignal?.includeInProjection ? "INCLUDED IN CONSISTENCY SCENARIO" : "EXCLUDED FROM CONSISTENCY SCENARIO"}</Text></Pressable>
+        </> : null}
+      </View> : null}
     </View>
   );
 }
@@ -306,6 +318,17 @@ const styles = StyleSheet.create({
   typeChoice: { minHeight: 32, paddingHorizontal: 9, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, justifyContent: "center" },
   typeChoiceText: { fontSize: 10, lineHeight: 13, fontWeight: "900" },
   questionEditor: { gap: 9, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 10 },
+  personalSignalEditor: { gap: 8, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, padding: 9 },
+  personalSignalCopy: { flex: 1, gap: 1 },
+  personalSignalTitle: { fontSize: 12, lineHeight: 16, fontWeight: "900" },
+  personalSignalDetail: { fontSize: 10, lineHeight: 14, fontWeight: "600" },
+  signalToggle: { minWidth: 44, minHeight: 28, borderRadius: 9, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center" },
+  signalToggleText: { fontSize: 10, lineHeight: 13, fontWeight: "900" },
+  signalChoiceRow: { flexDirection: "row", gap: 7 },
+  signalChoice: { flex: 1, minHeight: 32, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, justifyContent: "center", alignItems: "center", paddingHorizontal: 7 },
+  signalChoiceText: { fontSize: 9, lineHeight: 12, fontWeight: "900", textAlign: "center" },
+  projectionToggle: { minHeight: 32, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, justifyContent: "center", alignItems: "center", paddingHorizontal: 8 },
+  projectionToggleText: { fontSize: 9, lineHeight: 12, fontWeight: "900", textAlign: "center" },
   emotionChartEditor: { gap: 9, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 10 },
   colorChoice: { minHeight: 32, paddingHorizontal: 8, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", gap: 5 },
   questionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },

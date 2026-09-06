@@ -45,7 +45,7 @@ export interface PersonalGraphPointDraft {
 }
 
 export function createDefaultPersonalGraphs(createdAt: string): PersonalGraph[] {
-  return ["Growth Signals", "Focus Signals", "Custom Signals"].map((title, index) => ({
+  return ["Growth Signals", "Focus Signals", "Custom Signals", "New Graph 4", "New Graph 5"].map((title, index) => ({
     id: `personal_graph_${index + 1}`,
     title,
     xAxisLabel: "Date",
@@ -82,7 +82,7 @@ export function parsePersonalGraphDate(value: string, precision: PersonalGraphDa
 
 export function normalizePersonalGraphs(input: unknown, defaults: PersonalGraph[]): PersonalGraph[] {
   if (!Array.isArray(input)) return defaults;
-  const normalized = input.slice(0, 3).flatMap((value, index) => {
+  const normalized = input.slice(0, 5).flatMap((value, index) => {
     if (!value || typeof value !== "object") return [];
     const graph = value as Partial<PersonalGraph>;
     if (typeof graph.id !== "string" || !graph.id) return [];

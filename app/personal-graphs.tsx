@@ -117,7 +117,7 @@ export default function PersonalGraphsScreen() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={<>
-        <ScreenTitle eyebrow="Independent data" title="Personal Graph Studio" detail="Create three private graphs from numbers you enter yourself. Lines cross only when your own values cross." right={<IconAction icon="xmark" label="Close Personal Graph Studio" onPress={() => router.back()} />} />
+        <ScreenTitle eyebrow="Independent data" title="Personal Graph Studio" detail="Create five private graphs from numbers you enter yourself. Lines cross only when your own values cross." right={<IconAction icon="xmark" label="Close Personal Graph Studio" onPress={() => router.back()} />} />
         <View style={styles.slotRow}>{graphs.map((slot, index) => <Pressable key={slot.id} onPress={() => setSelectedGraphId(slot.id)} style={({ pressed }) => [styles.slotButton, { borderColor: slot.id === graph.id ? colors.primary : colors.border, backgroundColor: slot.id === graph.id ? `${colors.primary}18` : colors.surface, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.slotEyebrow, { color: slot.id === graph.id ? colors.primary : colors.muted }]}>GRAPH {index + 1}</Text><Text numberOfLines={1} style={[styles.slotText, { color: colors.foreground }]}>{slot.title}</Text></Pressable>)}</View>
 
         <SectionHeader title="Graph identity" />

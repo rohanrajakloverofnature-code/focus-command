@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createInitialState, normalizeHydratedState, removeMissionAndLinkedState, type FocusState } from "../lib/focus-command";
-import { getFocusFrictionInsight } from "../lib/distraction-log";
+import { getFocusFrictionInsight, getHourlyTimeWindow } from "../lib/distraction-log";
 
 describe("Distraction Log", () => {
   it("derives an offline Focus Friction pattern from only the last fourteen days without mutating mission data", () => {
@@ -20,9 +20,15 @@ describe("Distraction Log", () => {
 
     expect(insight.total).toBe(3);
     expect(insight.topCategory).toEqual({ category: "phone", label: "Phone", count: 2 });
-    expect(insight.timeWindow).toBe("Evening");
+    expect(insight.timeWindow).toBe("6 PM – 7 PM");
     expect(insight.recentMission).toEqual({ title: "Chemistry Revision", count: 3 });
     expect(JSON.stringify(state.missions)).toBe(originalMissions);
+  });
+
+  it("formats every local hour as a precise chronological window, including midnight", () => {
+    expect(getHourlyTimeWindow(11)).toBe("11 AM – 12 PM");
+    expect(getHourlyTimeWindow(23)).toBe("11 PM – 12 AM");
+    expect(getHourlyTimeWindow(0)).toBe("12 AM – 1 AM");
   });
 
   it("uses inclusive local-week, local-month, and custom-date boundaries without including future entries", () => {

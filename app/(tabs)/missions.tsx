@@ -15,6 +15,15 @@ type MissionBoardListItem =
 
 const difficultyOptions: Difficulty[] = ["easy", "medium", "hard"];
 
+function normalizedSearch(value: string) {
+  return value.trim().toLocaleLowerCase();
+}
+
+function missionMatchesSearch(mission: Pick<Mission, "title" | "subject" | "category" | "specificTopic">, query: string) {
+  if (!query) return true;
+  return [mission.title, mission.subject, mission.category, mission.specificTopic].some((value) => value.toLocaleLowerCase().includes(query));
+}
+
 export default function MissionsScreen() {
   const colors = useColors();
   const { compose, filter: requestedFilter, bossId: requestedBossId, archiveMonth, archiveSubject } = useLocalSearchParams<{ compose?: string; filter?: MissionFilter; bossId?: string; archiveMonth?: string; archiveSubject?: string }>();
@@ -45,6 +54,8 @@ export default function MissionsScreen() {
   const [bossTitle, setBossTitle] = useState("");
   const [bossObjective, setBossObjective] = useState("");
   const [bossDeadline, setBossDeadline] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (requestedBossId && bosses.some((boss) => boss.id === requestedBossId && boss.status === "active")) {
@@ -71,10 +82,20 @@ export default function MissionsScreen() {
     const month = archiveMonthKey ? new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${archiveMonthKey}-01T12:00:00Z`)) : null;
     return [month, archiveSubjectValue].filter(Boolean).join(" · ");
   }, [archiveMonthKey, archiveSubjectValue]);
+  const searchTerm = normalizedSearch(searchQuery);
+  const missionTopicById = useMemo(() => new Map(allMissions.map((mission) => [mission.id, mission.specificTopic])), [allMissions]);
+  const searchedMissions = useMemo(
+    () => filter === "active" ? missions : missions.filter((mission) => missionMatchesSearch(mission, searchTerm)),
+    [filter, missions, searchTerm],
+  );
+  const searchedCompletionRecords = useMemo(
+    () => completionRecords.filter((completion) => missionMatchesSearch({ title: completion.title, subject: completion.subject, category: completion.category, specificTopic: missionTopicById.get(completion.missionId) ?? "" }, searchTerm)),
+    [completionRecords, missionTopicById, searchTerm],
+  );
   const boardItems = useMemo<MissionBoardListItem[]>(() => {
-    if (filter === "completed") return completionRecords.map((completion) => ({ key: `completion:${completion.id}`, kind: "completion", completion }));
-    return missions.map((mission) => ({ key: `mission:${mission.id}`, kind: "mission", mission }));
-  }, [completionRecords, filter, missions]);
+    if (filter === "completed") return searchedCompletionRecords.map((completion) => ({ key: `completion:${completion.id}`, kind: "completion", completion }));
+    return searchedMissions.map((mission) => ({ key: `mission:${mission.id}`, kind: "mission", mission }));
+  }, [filter, searchedCompletionRecords, searchedMissions]);
   const renderBoardItem = useCallback(({ item }: { item: MissionBoardListItem }) => (
     item.kind === "completion" ? <CompletionHistoryCard completion={item.completion} /> : <MissionCard mission={item.mission} />
   ), []);
@@ -267,14 +288,21 @@ export default function MissionsScreen() {
           ))}
         </View>
 
+        {filter !== "active" ? <View style={styles.searchArea}>
+          <Pressable onPress={() => setShowSearch((value) => !value)} style={({ pressed }) => [styles.searchToggle, { borderColor: showSearch ? colors.primary : colors.border, backgroundColor: showSearch ? `${colors.primary}18` : colors.surface, opacity: pressed ? 0.72 : 1 }]}>
+            <Text style={[styles.searchToggleText, { color: showSearch ? colors.primary : colors.muted }]}>{showSearch ? "CLOSE SEARCH" : filter === "completed" ? "SEARCH HISTORY" : "SEARCH PLANNED"}</Text>
+          </Pressable>
+          {showSearch ? <TextInput value={searchQuery} onChangeText={setSearchQuery} placeholder={filter === "completed" ? "Search title, subject, category, or topic" : "Search title, subject, category, or topic"} placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.searchInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /> : null}
+        </View> : null}
+
         <SectionHeader title={filter === "open" ? "Planned missions" : filter === "active" ? "Live missions" : archiveHistoryLabel ? `History · ${archiveHistoryLabel}` : "Completed history"} action={filter === "open" ? "New mission" : undefined} onAction={filter === "open" ? () => setShowComposer(true) : undefined} />
         {filter === "completed" && archiveHistoryLabel ? <Text style={[styles.archiveHistoryHint, { color: colors.muted }]}>Archive context only — showing the related saved completed runs. Normal History is unchanged when opened from the Mission Board.</Text> : null}
         </View>}
         ListEmptyComponent={(
           <EmptyCommandState
             icon={filter === "completed" ? "trophy.fill" : filter === "active" ? "timer" : "target"}
-            title={filter === "completed" ? "No completed missions yet" : filter === "active" ? "No mission is running" : "Your board is open"}
-            detail={filter === "completed" ? "Your completed missions and reflections will be preserved here." : filter === "active" ? "Start any planned mission when you are ready to focus." : "Build a small, clear mission. You can refine it after it starts."}
+            title={filter !== "active" && searchTerm ? filter === "completed" ? "No matching completed missions" : "No matching planned missions" : filter === "completed" ? "No completed missions yet" : filter === "active" ? "No mission is running" : "Your board is open"}
+            detail={filter !== "active" && searchTerm ? "Try a different title, subject, category, or topic." : filter === "completed" ? "Your completed missions and reflections will be preserved here." : filter === "active" ? "Start any planned mission when you are ready to focus." : "Build a small, clear mission. You can refine it after it starts."}
             action={filter === "open" ? "Create mission" : undefined}
             onAction={filter === "open" ? () => setShowComposer(true) : undefined}
           />
@@ -381,6 +409,10 @@ const styles = StyleSheet.create({
   content: { paddingTop: 12, paddingBottom: 28 },
   listHeader: { gap: 16, paddingBottom: 16 },
   listSeparator: { height: 10 },
+  searchArea: { gap: 8 },
+  searchToggle: { alignSelf: "flex-start", minHeight: 33, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, justifyContent: "center", paddingHorizontal: 11 },
+  searchToggleText: { fontSize: 10, lineHeight: 13, fontWeight: "900", letterSpacing: 0.65 },
+  searchInput: { minHeight: 43, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 11, fontSize: 12, lineHeight: 17, fontWeight: "600" },
   composer: { gap: 12 },
   composerTitleRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
   composerTitle: { fontSize: 18, lineHeight: 23, fontWeight: "900" },

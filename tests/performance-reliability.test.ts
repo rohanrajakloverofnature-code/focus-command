@@ -24,6 +24,8 @@ const emotionPredictionTickerSource = readFileSync(resolve(process.cwd(), "compo
 const miniAchievementTickerSource = readFileSync(resolve(process.cwd(), "components/mini-achievement-ticker.tsx"), "utf8");
 const dashboardSource = readFileSync(resolve(process.cwd(), "app/(tabs)/dashboard.tsx"), "utf8");
 const analyticsSource = readFileSync(resolve(process.cwd(), "app/analytics.tsx"), "utf8");
+const personalReflectionSignalsSource = readFileSync(resolve(process.cwd(), "app/reflection-signals.tsx"), "utf8");
+const personalReflectionSignalHelperSource = readFileSync(resolve(process.cwd(), "lib/personal-reflection-signals.ts"), "utf8");
 const archiveSource = readFileSync(resolve(process.cwd(), "app/command-archive.tsx"), "utf8");
 const archiveHelperSource = readFileSync(resolve(process.cwd(), "lib/monthly-command-archive.ts"), "utf8");
 const rewardsSource = readFileSync(resolve(process.cwd(), "app/(tabs)/rewards.tsx"), "utf8");
@@ -255,6 +257,16 @@ describe("Performance and reliability contracts", () => {
     expect(analyticsSource).toContain("type AnalyticsDependencies = Pick<FocusState");
     expect(analyticsSource).toContain("useFocusCommandSelector(selectAnalyticsDependencies, hasSameAnalyticsDependencies)");
     expect(analyticsSource).toContain("return {\n    profile: state.profile,");
+  });
+
+  it("keeps the new reflection-signal detail virtualized and bounds the scenario’s source window without changing stored history", () => {
+    expect(personalReflectionSignalsSource).toContain("<FlatList");
+    expect(personalReflectionSignalsSource).toContain("initialNumToRender={4}");
+    expect(personalReflectionSignalsSource).toContain("windowSize={5}");
+    expect(personalReflectionSignalHelperSource).toContain("const MAX_PROJECTION_SOURCE_REFLECTIONS = 500;");
+    expect(personalReflectionSignalHelperSource).toContain(").slice(-MAX_PROJECTION_SOURCE_REFLECTIONS);");
+    expect(dashboardSource).toContain("const customGraphData = useMemo(");
+    expect(dashboardSource).toContain("const behavioralCharts = useMemo(");
   });
 
   it("keeps the lifetime archive derived, virtualized, and scoped to its durable source records", () => {

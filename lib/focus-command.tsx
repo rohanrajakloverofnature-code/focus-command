@@ -532,6 +532,12 @@ export interface CustomQuestion {
   type: "text" | "rating" | "single_choice" | "multiple_choice";
   options: string[];
   enabled: boolean;
+  /** Optional user-controlled meaning for a custom 1–5 rating; never inferred from free text or choices. */
+  personalSignal?: {
+    enabled: boolean;
+    role: WellbeingSignalRole;
+    includeInProjection: boolean;
+  };
 }
 
 export interface GraphSeries {
@@ -1857,7 +1863,11 @@ export interface CalendarTimeAverages {
  * include the current local calendar day, even when no mission has been completed
  * today, so a zero-work day naturally affects the displayed average.
  */
-export function getCalendarTimeAverages(state: FocusState, referenceIso = nowIso()): CalendarTimeAverages {
+export function getCalendarTimeAverages(
+  state: FocusState,
+  referenceIso = nowIso(),
+  completionRecords: readonly MissionCompletionRecord[] = getMissionCompletionRecords(state),
+): CalendarTimeAverages {
   const today = toLocalDate(referenceIso, state.profile.timezone);
   const [year, month, day] = today.split("-").map(Number);
   const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
@@ -1869,7 +1879,7 @@ export function getCalendarTimeAverages(state: FocusState, referenceIso = nowIso
   let weekTotalHours = 0;
   let monthTotalHours = 0;
 
-  getMissionCompletionRecords(state).forEach((completion) => {
+  completionRecords.forEach((completion) => {
     const completedDate = toLocalDate(completion.completedAt, state.profile.timezone);
     const hours = completion.durationMs / 3_600_000;
     if (completedDate >= weekStart && completedDate <= today) weekTotalHours += hours;
@@ -2515,6 +2525,20 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       ),
     ).map((doorway) => ({ ...doorway, label: doorway.label.trim().slice(0, 90) })),
     rewards: input.rewards?.length ? input.rewards : defaults.rewards,
+    customQuestions: (input.customQuestions ?? defaults.customQuestions).map((question) => {
+      const isRating = question.type === "rating";
+      const storedSignal = question.personalSignal;
+      return {
+        ...question,
+        personalSignal: isRating
+          ? {
+              enabled: storedSignal?.enabled === true,
+              role: storedSignal?.role === "load" ? "load" : "supportive",
+              includeInProjection: storedSignal?.includeInProjection === true,
+            }
+          : undefined,
+      };
+    }),
     customGraphs: input.customGraphs?.length ? input.customGraphs : defaults.customGraphs,
     personalGraphs: normalizePersonalGraphs(input.personalGraphs, defaults.personalGraphs),
     allEquipment,
