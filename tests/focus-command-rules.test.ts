@@ -149,7 +149,7 @@ describe("Focus Command deterministic gameplay rules", () => {
     expect(wednesdayAverage.monthDailyAverageHours).toBeCloseTo(5 / 8, 8);
   });
 
-  it("returns only due revision topics and measures subject capture from completed reviews", () => {
+  it("returns only due revision topics and measures subject capture from four-stage revision progress", () => {
     const state = stateWithToday();
     const today = toLocalDate(new Date().toISOString(), state.profile.timezone);
     state.srsTopics.push(
@@ -159,7 +159,7 @@ describe("Focus Command deterministic gameplay rules", () => {
     );
 
     expect(getPendingRevisions(state).map((topic) => topic.id)).toEqual(["due"]);
-    expect(getSubjectCapture(state)).toEqual([{ subject: "Physics", completed: 1, total: 3, capture: 1 / 3, active: 0, planned: 0 }]);
+    expect(getSubjectCapture(state)).toEqual([{ subject: "Physics", completed: 1, total: 3, capture: 4 / 9, active: 0, planned: 0, seedSown: 1, emerging: 1, developing: 0, matured: 1 }]);
   });
 
   it("starts with four configurable behavioral lenses and independent reminder categories", () => {

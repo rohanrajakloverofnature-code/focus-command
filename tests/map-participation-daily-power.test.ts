@@ -45,7 +45,7 @@ function stateWithToday(): FocusState {
 }
 
 describe("Mission map participation and Daily Power Progress", () => {
-  it("keeps legacy missions map-enabled, but excludes an opted-out mission and its linked reviews", () => {
+  it("keeps legacy missions map-enabled, excludes opted-out linked reviews, and derives capture only from four-stage revision progress", () => {
     const state = stateWithToday();
     const legacyMission = mission({ id: "legacy_map_enabled", subject: "Physics", includeInSubjectMap: undefined });
     const optedOutMission = mission({ id: "map_disabled", subject: "Reading", includeInSubjectMap: false });
@@ -57,10 +57,33 @@ describe("Mission map participation and Daily Power Progress", () => {
     ];
 
     expect(getSubjectCapture(state).map((entry) => entry.subject)).toEqual(["Physics", "Legacy"]);
-    expect(getSubjectCapture(state).find((entry) => entry.subject === "Physics")).toMatchObject({ completed: 2, total: 2, capture: 1 });
+    expect(getSubjectCapture(state).find((entry) => entry.subject === "Physics")).toMatchObject({ completed: 1, total: 1, capture: 1, seedSown: 0, emerging: 0, developing: 0, matured: 1 });
+    expect(getSubjectCapture(state).find((entry) => entry.subject === "Legacy")).toMatchObject({ completed: 0, total: 1, capture: 0, seedSown: 1, emerging: 0, developing: 0, matured: 0 });
 
     const legacyHydrated = normalizeHydratedState({ ...state, missions: [legacyMission] });
     expect(legacyHydrated.missions[0]?.includeInSubjectMap).toBe(true);
+  });
+
+  it("averages Seed Sown, Emerging, Developing, and Matured revision progress without allowing mission completion to affect capture", () => {
+    const state = stateWithToday();
+    state.missions = [mission({ id: "completed_parent", subject: "Hindi", status: "completed" })];
+    state.srsTopics = [
+      { id: "seed", missionId: "completed_parent", subject: "Hindi", topic: "Swar", stage: 0, dueDate: "2026-09-01", completedAt: null, createdAt: "2026-08-01", status: "scheduled" },
+      { id: "emerging", missionId: "completed_parent", subject: "Hindi", topic: "Vyanjan", stage: 1, dueDate: "2026-09-01", completedAt: null, createdAt: "2026-08-01", status: "scheduled" },
+      { id: "developing", missionId: "completed_parent", subject: "Hindi", topic: "Pad Parichay", stage: 2, dueDate: "2026-09-01", completedAt: null, createdAt: "2026-08-01", status: "scheduled" },
+      { id: "matured", missionId: "completed_parent", subject: "Hindi", topic: "Vakya", stage: 3, dueDate: "2026-09-01", completedAt: "2026-09-01", createdAt: "2026-08-01", status: "completed" },
+    ];
+
+    expect(getSubjectCapture(state)).toEqual([expect.objectContaining({
+      subject: "Hindi",
+      total: 4,
+      completed: 1,
+      seedSown: 1,
+      emerging: 1,
+      developing: 1,
+      matured: 1,
+      capture: 0.5,
+    })]);
   });
 
   it("measures Daily Mission Progress from stored Total Power awards, not Base XP", () => {

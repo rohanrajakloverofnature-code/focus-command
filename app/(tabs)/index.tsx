@@ -444,7 +444,7 @@ export default function HomeScreen() {
           <View style={styles.mapTopline}>
             <View>
               <Text style={[styles.mapTitle, { color: colors.foreground }]}>Subject map</Text>
-              <Text style={[styles.mapDetail, { color: colors.muted }]}>Map-enabled missions and their reviews capture a subject zone. Tap a zone to open its planned work.</Text>
+              <Text style={[styles.mapDetail, { color: colors.muted }]}>Map-enabled revision stages capture a subject zone. Tap a zone to open its planned work.</Text>
             </View>
             <StatusPill label={`${subjectCapture.length} SUBJECT${subjectCapture.length === 1 ? "" : "S"}`} tone="primary" icon="circle.grid.cross.fill" />
           </View>

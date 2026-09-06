@@ -12,6 +12,10 @@ export interface SubjectTerritory {
   total: number;
   active: number;
   planned: number;
+  seedSown: number;
+  emerging: number;
+  developing: number;
+  matured: number;
 }
 
 interface IndiaSubjectMapProps {
@@ -137,7 +141,7 @@ export const IndiaSubjectMap = memo(function IndiaSubjectMap({ subjects, accent,
 
   return <View style={styles.wrap}>
     <View style={[styles.canvas, { borderColor: border, backgroundColor: surface }]}>
-      <Svg viewBox={INDIA_BOUNDARY_VIEWBOX} width="100%" height={348} accessibilityLabel="Dynamic geographic India subject territory map with completion-weighted capture percentages">
+      <Svg viewBox={INDIA_BOUNDARY_VIEWBOX} width="100%" height={348} accessibilityLabel="Dynamic geographic India subject territory map with revision-progress capture percentages">
         <Defs>
           <ClipPath id="india-geographic-boundary"><Path d={INDIA_BOUNDARY_PATH} /></ClipPath>
           <LinearGradient id="india-terrain" x1="0" y1="0" x2="1" y2="1">
@@ -166,13 +170,13 @@ export const IndiaSubjectMap = memo(function IndiaSubjectMap({ subjects, accent,
       </Animated.View> : null}
       <View style={styles.mapKey}>
         <View style={[styles.mapKeyDot, { backgroundColor: accent }]} />
-        <Text style={[styles.mapKeyText, { color: muted }]}>Geographic India boundary · every visible subject territory is dynamically reflowed from your current mission and revision progress</Text>
+        <Text style={[styles.mapKeyText, { color: muted }]}>Geographic India boundary · every visible subject territory is dynamically reflowed from your current revision progress</Text>
       </View>
     </View>
     {selectedTerritory ? <Pressable onPress={() => onOpenSubject(selectedTerritory.subject)} style={({ pressed }) => [styles.detailCard, { borderColor: `${accent}66`, backgroundColor: `${accent}10`, opacity: pressed ? 0.76 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
       <View style={styles.detailCopy}>
         <Text style={[styles.detailTitle, { color: foreground }]}>{selectedTerritory.subject}</Text>
-        <Text style={[styles.detailText, { color: muted }]}>{selectedSubject?.completed ?? 0}/{selectedSubject?.total ?? 0} captured · {selectedSubject?.active ?? 0} live · {selectedSubject?.planned ?? 0} planned</Text>
+        <Text style={[styles.detailText, { color: muted }]}>{selectedSubject?.total ?? 0} revision topic{(selectedSubject?.total ?? 0) === 1 ? "" : "s"} · {selectedSubject?.matured ?? 0} matured · {selectedSubject?.developing ?? 0} developing · {selectedSubject?.emerging ?? 0} emerging · {selectedSubject?.seedSown ?? 0} seed</Text>
       </View>
       <Text style={[styles.detailPercent, { color: accent }]}>{Math.round(selectedTerritory.capture * 100)}%</Text>
     </Pressable> : null}

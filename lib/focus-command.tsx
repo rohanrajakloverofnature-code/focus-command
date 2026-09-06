@@ -1923,7 +1923,7 @@ export function getActiveGoldMultiplier(state: FocusState, localDate = toLocalDa
     .reduce((maximum, multiplier) => Math.max(maximum, multiplier), 1);
 }
 
-export function getSubjectCapture(state: Pick<FocusState, "missions" | "srsTopics">): Array<{ subject: string; capture: number; completed: number; total: number; active: number; planned: number }> {
+export function getSubjectCapture(state: Pick<FocusState, "missions" | "srsTopics">): Array<{ subject: string; capture: number; completed: number; total: number; active: number; planned: number; seedSown: number; emerging: number; developing: number; matured: number }> {
   const bySubject = new Map<string, { missions: Mission[]; reviews: SrsTopic[] }>();
   const missionsById = new Map(state.missions.map((mission) => [mission.id, mission]));
   state.missions.forEach((mission) => {
@@ -1942,13 +1942,15 @@ export function getSubjectCapture(state: Pick<FocusState, "missions" | "srsTopic
     bySubject.set(subject, current);
   });
   return Array.from(bySubject.entries()).map(([subject, data]) => {
-    const completedMissions = data.missions.filter((mission) => mission.status === "completed").length;
-    const completedReviews = data.reviews.filter((topic) => topic.status === "completed").length;
-    const total = data.missions.length + data.reviews.length;
-    const completed = completedMissions + completedReviews;
+    const seedSown = data.reviews.filter((topic) => Math.max(0, Math.min(3, Math.round(topic.stage))) === 0).length;
+    const emerging = data.reviews.filter((topic) => Math.max(0, Math.min(3, Math.round(topic.stage))) === 1).length;
+    const developing = data.reviews.filter((topic) => Math.max(0, Math.min(3, Math.round(topic.stage))) === 2).length;
+    const matured = data.reviews.filter((topic) => Math.max(0, Math.min(3, Math.round(topic.stage))) === 3).length;
+    const total = data.reviews.length;
+    const revisionProgress = emerging / 3 + (developing * 2) / 3 + matured;
     const active = data.missions.filter((mission) => mission.status === "active" || mission.status === "paused").length;
     const planned = data.missions.filter((mission) => mission.status === "planned").length;
-    return { subject, completed, total, active, planned, capture: total ? completed / total : 0 };
+    return { subject, completed: matured, total, active, planned, seedSown, emerging, developing, matured, capture: total ? revisionProgress / total : 0 };
   }).sort((left, right) => right.capture - left.capture || right.total - left.total);
 }
 

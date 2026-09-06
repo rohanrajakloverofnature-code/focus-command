@@ -697,4 +697,10 @@
 - [x] Apply only evidence-backed long-session render, chart, timer/media, and persistence safeguards while retaining all saved data, interactions, calculations, and visual behaviour.
 - [x] Validate exact filter math, reflection signal types, legacy Personal Graph data, search, time-window boundaries, projections, backup round trips, large histories, and five-minute stress behavior; run release checks without an APK build or workflow.
 
-- [ ] Commit and push only the validated approved time filters, reusable skills, custom reflection signals, five Personal Graph slots, mission search, hourly Focus Friction, conditional scenario, and performance update to public GitHub main using a fresh temporary deploy key; remove the local key after remote verification and do not run APK or workflow builds.
+- [x] Commit and push only the validated approved time filters, reusable skills, custom reflection signals, five Personal Graph slots, mission search, hourly Focus Friction, conditional scenario, and performance update to public GitHub main using a fresh temporary deploy key; remove the local key after remote verification and do not run APK or workflow builds.
+
+- [x] Inspect and explain the current India-map subject-percentage calculation and per-mission map-participation rule without modifying code or saved data.
+
+- [x] Inspect the four-stage revision system and propose a revision-based India-map subject-capture formula, preservation rules, validation plan, and scoped GitHub publication path; do not modify or push before explicit approval.
+- [x] Implement only the approved India-map revision capture formula: Seed Sown 0%, Emerging 33%, Developing 67%, and Matured 100%; preserve map participation and unrelated mechanisms.
+- [x] Validate revision-stage averaging, opt-out and legacy handling, map presentation, and all protected behavior; then publish the scoped verified update to public GitHub main using a fresh temporary deploy key without APK or workflow builds.
