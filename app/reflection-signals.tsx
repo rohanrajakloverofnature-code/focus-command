@@ -1,15 +1,24 @@
 import { router } from "expo-router";
-import { useMemo } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { BarsChart, MultiLineTrendChart, type ChartPoint } from "@/components/focus-charts";
 import { CommandCard, IconAction, LoadingScreen, ScreenTitle, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { shallowEqual, type FocusState, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
+import { getBehavioralReflectionWindowLabel, type BehavioralReflectionWindow } from "@/lib/behavioral-reflection-window";
 import { getPersonalReflectionSignals, type PersonalReflectionSignal } from "@/lib/personal-reflection-signals";
 
 type SignalSnapshot = Pick<FocusState, "customQuestions" | "reflections">;
+
+const SIGNAL_WINDOWS: Array<{ value: BehavioralReflectionWindow; label: string }> = [
+  { value: "lifetime", label: "Lifetime" },
+  { value: "last12", label: "Latest 12" },
+  { value: "last100", label: "Latest 100" },
+  { value: "last500", label: "Latest 500" },
+  { value: "custom", label: "Custom" },
+];
 
 function selectSignalSnapshot(state: FocusState): SignalSnapshot {
   return { customQuestions: state.customQuestions, reflections: state.reflections };
@@ -23,7 +32,7 @@ function compactDate(value: string) {
 function SignalCard({ signal }: { signal: PersonalReflectionSignal }) {
   const colors = useColors();
   if (signal.kind === "rating") {
-    const points = signal.observations.slice(-500).map((observation, index, all) => ({
+    const points = signal.observations.map((observation, index, all) => ({
       label: index === 0 || index === all.length - 1 || index === Math.floor(all.length / 2) ? compactDate(observation.createdAt) : "",
       value: observation.value,
     }));
@@ -53,7 +62,13 @@ export default function ReflectionSignalsScreen() {
   const colors = useColors();
   const ready = useFocusCommandReady();
   const state = useFocusCommandSelector(selectSignalSnapshot, shallowEqual);
-  const signals = useMemo(() => getPersonalReflectionSignals({ customQuestions: state.customQuestions, reflections: state.reflections }), [state.customQuestions, state.reflections]);
+  const [window, setWindow] = useState<BehavioralReflectionWindow>("lifetime");
+  const [customCountText, setCustomCountText] = useState("12");
+  const customCount = Math.max(1, Math.min(10000, Math.floor(Number(customCountText)) || 12));
+  const signals = useMemo(
+    () => getPersonalReflectionSignals({ customQuestions: state.customQuestions, reflections: state.reflections }, window, customCount),
+    [state.customQuestions, state.reflections, window, customCount],
+  );
 
   if (!ready) return <LoadingScreen label="Opening reflection signals…" />;
   return <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
@@ -68,7 +83,7 @@ export default function ReflectionSignalsScreen() {
       windowSize={5}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.content}
-      ListHeaderComponent={<View style={styles.header}><ScreenTitle eyebrow="Your added questions" title="Personal Reflection Signals" detail="Rating, choice, and written answers stay private. Only a Rating you explicitly enable can join the optional consistency scenario." right={<IconAction icon="xmark" label="Close Personal Reflection Signals" onPress={() => router.back()} />} /><CommandCard accent={colors.primary} style={styles.explainer}><Text style={[styles.explainerTitle, { color: colors.foreground }]}>Each answer type stays truthful</Text><Text style={[styles.explainerText, { color: colors.muted }]}>Ratings show a 1–5 trend. Choices show counts. Written answers remain written notes. None change the four built-in emotional lenses.</Text></CommandCard></View>}
+      ListHeaderComponent={<View style={styles.header}><ScreenTitle eyebrow="Your added questions" title="Personal Reflection Signals" detail="Rating, choice, and written answers stay private. Only a Rating you explicitly enable can join the optional consistency scenario." right={<IconAction icon="xmark" label="Close Personal Reflection Signals" onPress={() => router.back()} />} /><CommandCard accent={colors.primary} style={styles.explainer}><Text style={[styles.explainerTitle, { color: colors.foreground }]}>Each answer type stays truthful</Text><Text style={[styles.explainerText, { color: colors.muted }]}>Ratings show a 1–5 trend. Choices show counts. Written answers remain written notes. None change the four built-in emotional lenses.</Text></CommandCard><CommandCard accent={colors.primary} style={styles.filterCard}><Text style={[styles.filterTitle, { color: colors.foreground }]}>REFLECTION WINDOW</Text><View style={styles.filterRow}>{SIGNAL_WINDOWS.map((option) => <Pressable key={option.value} onPress={() => setWindow(option.value)} style={[styles.filterChip, { borderColor: window === option.value ? colors.primary : colors.border, backgroundColor: window === option.value ? `${colors.primary}22` : colors.background }]}><Text style={[styles.filterChipText, { color: window === option.value ? colors.primary : colors.muted }]}>{option.label}</Text></Pressable>)}</View>{window === "custom" ? <TextInput value={customCountText} onChangeText={setCustomCountText} keyboardType="number-pad" inputMode="numeric" placeholder="Number of latest reflections" placeholderTextColor={colors.muted} style={[styles.customInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /> : null}<Text style={[styles.filterDetail, { color: colors.muted }]}>{getBehavioralReflectionWindowLabel(window, customCount)} · Lifetime uses every stored reflection; chart drawing remains downsampled only for display.</Text></CommandCard></View>}
       ListHeaderComponentStyle={styles.headerSpacing}
       ListEmptyComponent={<CommandCard accent={colors.border} style={styles.emptyCard}><Text style={[styles.title, { color: colors.foreground }]}>No custom questions yet</Text><Text style={[styles.detail, { color: colors.muted }]}>Create a custom reflection question in Customize, then answer it after a future long mission.</Text></CommandCard>}
     />
@@ -80,6 +95,13 @@ const styles = StyleSheet.create({
   header: { gap: 16 },
   headerSpacing: { marginBottom: 14 },
   explainer: { gap: 5 },
+  filterCard: { gap: 9 },
+  filterTitle: { fontSize: 11, lineHeight: 15, fontWeight: "900", letterSpacing: 0.8 },
+  filterRow: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  filterChip: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },
+  filterChipText: { fontSize: 11, lineHeight: 15, fontWeight: "900" },
+  customInput: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, minHeight: 40, paddingHorizontal: 11, fontSize: 13, fontWeight: "700" },
+  filterDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600" },
   explainerTitle: { fontSize: 14, lineHeight: 19, fontWeight: "900" },
   explainerText: { fontSize: 12, lineHeight: 18, fontWeight: "600" },
   separator: { height: 11 },

@@ -1,5 +1,5 @@
 import type { CustomQuestion, FocusState, Reflection, WellbeingSignalRole } from "./focus-command";
-import { selectBehavioralReflectionWindow } from "./behavioral-reflection-window";
+import { selectBehavioralReflectionWindow, type BehavioralReflectionWindow } from "./behavioral-reflection-window";
 
 export const MINIMUM_CONSISTENCY_PROJECTION_REFLECTIONS = 8;
 const MAX_PROJECTION_SOURCE_REFLECTIONS = 500;
@@ -47,12 +47,17 @@ function normalizedTextAnswer(answer: unknown): string | null {
   return typeof answer === "string" && answer.trim() ? answer.trim() : null;
 }
 
-export function getPersonalReflectionSignals(state: Pick<FocusState, "customQuestions" | "reflections">): PersonalReflectionSignal[] {
+export function getPersonalReflectionSignals(
+  state: Pick<FocusState, "customQuestions" | "reflections">,
+  window: BehavioralReflectionWindow = "lifetime",
+  customCount = 12,
+): PersonalReflectionSignal[] {
+  const reflections = selectBehavioralReflectionWindow(state.reflections, window, customCount);
   return state.customQuestions
     .filter((question) => !question.id.startsWith("__"))
     .map((question) => {
       if (question.type === "rating") {
-        const observations = state.reflections.flatMap((reflection) => {
+        const observations = reflections.flatMap((reflection) => {
           const value = numericRating(reflection.customAnswers?.[question.id]);
           return value === null ? [] : [{ reflectionId: reflection.id, createdAt: reflection.createdAt, value }];
         });
@@ -62,7 +67,7 @@ export function getPersonalReflectionSignals(state: Pick<FocusState, "customQues
       if (question.type === "single_choice" || question.type === "multiple_choice") {
         const responseCounts = new Map<string, number>();
         let answerCount = 0;
-        state.reflections.forEach((reflection) => {
+        reflections.forEach((reflection) => {
           const answer = reflection.customAnswers?.[question.id];
           const choices = Array.isArray(answer) ? answer : typeof answer === "string" && answer.trim() ? [answer] : [];
           if (choices.length) answerCount += 1;
@@ -79,7 +84,7 @@ export function getPersonalReflectionSignals(state: Pick<FocusState, "customQues
         };
       }
 
-      const answers = state.reflections.flatMap((reflection) => {
+      const answers = reflections.flatMap((reflection) => {
         const answer = normalizedTextAnswer(reflection.customAnswers?.[question.id]);
         return answer ? [{ reflectionId: reflection.id, createdAt: reflection.createdAt, answer }] : [];
       });

@@ -707,3 +707,6 @@
 
 - [x] Add the existing organised revision search and four-stage phase filter controls to the basic monthly revision detail view, preserving all revision records, monthly range logic, and other views.
 - [x] Validate the monthly revision detail update and push only its scoped source, regression tests, and checklist files to public GitHub main with a fresh temporary deploy key; do not start an APK or workflow.
+
+- [x] Add Lifetime, Latest 12, Latest 100, Latest 500, and Custom reflection-window filters to Personal Reflection Signals; Lifetime must use the full stored history while visible chart rendering remains safely downsampled.
+- [x] Validate the signal filters and protected behavior, then publish only the isolated source, tests, and checklist update to public GitHub main with a temporary deploy key; do not start an APK or workflow.

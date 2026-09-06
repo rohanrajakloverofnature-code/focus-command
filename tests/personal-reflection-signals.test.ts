@@ -48,6 +48,20 @@ describe("Personal Reflection Signals", () => {
     expect(signals[2]).toMatchObject({ kind: "text", answerCount: 8, recentAnswers: { length: 8 } });
   });
 
+  it("supports lifetime, recent, and custom reflection windows without mutating stored history", () => {
+    const state = signalState(8);
+    const lifetime = getPersonalReflectionSignals(state, "lifetime", 2);
+    const latest12 = getPersonalReflectionSignals(state, "last12", 2);
+    const latest100 = getPersonalReflectionSignals(state, "last100", 2);
+    const custom = getPersonalReflectionSignals(state, "custom", 3);
+
+    expect(lifetime[0]).toMatchObject({ kind: "rating", observations: { length: 8 } });
+    expect(latest12[0]).toMatchObject({ kind: "rating", observations: { length: 8 } });
+    expect(latest100[0]).toMatchObject({ kind: "rating", observations: { length: 8 } });
+    expect(custom[0]).toMatchObject({ kind: "rating", observations: { length: 3 } });
+    expect(state.reflections).toHaveLength(8);
+  });
+
   it("requires complete built-in debrief data and a minimum sample before showing a conditional scenario", () => {
     const scenario = getConsistencyScenario(signalState(), 90);
     expect(scenario).toMatchObject({ available: true, sampleSize: 8, horizon: 90, customSignalCount: 1 });
