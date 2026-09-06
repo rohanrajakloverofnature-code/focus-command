@@ -19,6 +19,8 @@ it("keeps truthful revision-topic rows connected only to the established Revisio
   expect(archiveSource).toContain("MONTHLY_ARCHIVE_REVISION_PROGRESS_FILTERS");
   expect(archiveSource).toContain("Lifetime revision overview");
   expect(archiveSource).toContain("SEARCH LIFETIME");
+  expect(archiveSource).toContain("SEARCH THIS MONTH");
+  expect(archiveSource).toContain('const searchable = true;');
 });
 
 it("keeps the approved mobile archive spacing and readable two-column metric grid", () => {

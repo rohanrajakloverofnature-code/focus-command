@@ -704,3 +704,6 @@
 - [x] Inspect the four-stage revision system and propose a revision-based India-map subject-capture formula, preservation rules, validation plan, and scoped GitHub publication path; do not modify or push before explicit approval.
 - [x] Implement only the approved India-map revision capture formula: Seed Sown 0%, Emerging 33%, Developing 67%, and Matured 100%; preserve map participation and unrelated mechanisms.
 - [x] Validate revision-stage averaging, opt-out and legacy handling, map presentation, and all protected behavior; then publish the scoped verified update to public GitHub main using a fresh temporary deploy key without APK or workflow builds.
+
+- [x] Add the existing organised revision search and four-stage phase filter controls to the basic monthly revision detail view, preserving all revision records, monthly range logic, and other views.
+- [x] Validate the monthly revision detail update and push only its scoped source, regression tests, and checklist files to public GitHub main with a fresh temporary deploy key; do not start an APK or workflow.
