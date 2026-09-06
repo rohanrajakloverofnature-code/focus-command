@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { FocusState } from "../lib/focus-command";
-import { formatWeeklyRange, getWeeklyAfterActionReview } from "../lib/weekly-after-action";
+import { filterWeeklyRevisionActivities, formatWeeklyRange, getWeeklyAfterActionReview } from "../lib/weekly-after-action";
 
 function makeState(): FocusState {
   return {
@@ -49,6 +49,15 @@ describe("getWeeklyAfterActionReview", () => {
     ]);
     expect(review.recommendation).toContain("Chemistry Notes");
     expect(state.distractionLogs).toHaveLength(1);
+  });
+
+  it("filters weekly revision activity by topic or subject without changing the review", () => {
+    const review = getWeeklyAfterActionReview(makeState(), new Date("2026-08-14T12:00:00.000Z"));
+    expect(filterWeeklyRevisionActivities(review.revision.activities, "vectors")).toHaveLength(2);
+    expect(filterWeeklyRevisionActivities(review.revision.activities, "physics")).toHaveLength(2);
+    expect(filterWeeklyRevisionActivities(review.revision.activities, "biology")).toHaveLength(0);
+    expect(filterWeeklyRevisionActivities(review.revision.activities, "")).toHaveLength(2);
+    expect(review.completedMissions).toBe(1);
   });
 
   it("uses neutral empty states and a transparent fallback recommendation when no weekly data exists", () => {

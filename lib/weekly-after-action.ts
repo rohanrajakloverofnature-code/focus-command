@@ -157,6 +157,12 @@ export function getWeeklyAfterActionReview(state: WeeklyAfterActionState, now = 
   };
 }
 
+export function filterWeeklyRevisionActivities(activities: MonthlyArchiveStudiedTopic[], query: string) {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return activities;
+  return activities.filter((activity) => activity.topic.toLocaleLowerCase().includes(normalizedQuery) || activity.subject.toLocaleLowerCase().includes(normalizedQuery));
+}
+
 export function formatWeeklyRange(weekStart: string, weekEnd: string) {
   const formatDate = (localDate: string) => new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${localDate}T12:00:00Z`));
   return `${formatDate(weekStart)} – ${formatDate(weekEnd)}`;

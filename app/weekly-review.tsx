@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 
 import { CommandCard, IconAction, LoadingScreen, ScreenTitle, SectionHeader } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { shallowEqual, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
-import { formatWeeklyRange, getWeeklyAfterActionReview } from "@/lib/weekly-after-action";
+import { filterWeeklyRevisionActivities, formatWeeklyRange, getWeeklyAfterActionReview } from "@/lib/weekly-after-action";
 import { filterMonthlyArchiveStudiedTopicsByProgress, MONTHLY_ARCHIVE_REVISION_PROGRESS_FILTERS, type MonthlyArchiveRevisionProgressFilter } from "@/lib/monthly-command-archive";
 
 function formatHours(milliseconds: number) {
@@ -38,9 +38,10 @@ export default function WeeklyReviewScreen() {
   }), shallowEqual);
   const review = useMemo(() => getWeeklyAfterActionReview(weeklyState), [weeklyState]);
   const [revisionFilter, setRevisionFilter] = useState<MonthlyArchiveRevisionProgressFilter>("all");
+  const [revisionSearchQuery, setRevisionSearchQuery] = useState("");
   const visibleRevisionActivities = useMemo(
-    () => filterMonthlyArchiveStudiedTopicsByProgress(review.revision.activities, revisionFilter),
-    [review.revision.activities, revisionFilter],
+    () => filterMonthlyArchiveStudiedTopicsByProgress(filterWeeklyRevisionActivities(review.revision.activities, revisionSearchQuery), revisionFilter),
+    [review.revision.activities, revisionFilter, revisionSearchQuery],
   );
 
   if (!ready) return <LoadingScreen label="Preparing weekly command record…" />;
@@ -109,6 +110,7 @@ export default function WeeklyReviewScreen() {
           </View>
           <Text style={[styles.revisionRange, { color: "#A78BFA" }]}>{formatWeeklyRange(review.weekStart, review.weekEnd)}</Text>
         </View>
+        <View style={[styles.revisionSearch, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.eyebrow, { color: "#55B7FF" }]}>SEARCH WEEKLY</Text><TextInput value={revisionSearchQuery} onChangeText={setRevisionSearchQuery} placeholder="Topic or subject" placeholderTextColor={colors.muted} returnKeyType="done" accessibilityLabel="Search weekly revision topics by topic or subject" style={[styles.revisionSearchInput, { color: colors.foreground }]} /></View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.revisionFilters}>
           {MONTHLY_ARCHIVE_REVISION_PROGRESS_FILTERS.map((filter) => {
             const active = filter.id === revisionFilter;
@@ -120,7 +122,7 @@ export default function WeeklyReviewScreen() {
             <View style={styles.revisionRowCopy}><Text style={[styles.revisionSubject, { color: "#55B7FF" }]}>{activity.subject.toUpperCase()}</Text><Text style={[styles.revisionTopic, { color: colors.foreground }]} numberOfLines={1}>{activity.topic}</Text><Text style={[styles.detail, { color: colors.muted }]}>{activity.actionLabel} · {activity.actionDate}</Text></View>
             <Text style={[styles.revisionPercent, { color: "#5DD6C0" }]}>{activity.revisionCompletionPercent}%</Text>
           </Pressable>)}
-        </View> : <Text style={[styles.detail, { color: colors.muted }]}>{revisionFilter === "all" ? "No revision activity this week" : "No revision activity matches this phase filter."}</Text>}
+        </View> : <Text style={[styles.detail, { color: colors.muted }]}>{revisionSearchQuery.trim() || revisionFilter !== "all" ? "No revision activity matches this search or phase filter." : "No revision activity this week"}</Text>}
       </CommandCard>
 
       <SectionHeader title="Next week’s command" />
@@ -138,6 +140,8 @@ const styles = StyleSheet.create({
   outcomeCard: { gap: 10 },
   card: { gap: 8 },
   revisionCard: { gap: 10 },
+  revisionSearch: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 15, paddingHorizontal: 12, paddingVertical: 10, gap: 4 },
+  revisionSearchInput: { minHeight: 34, fontSize: 14, lineHeight: 18, fontWeight: "700", paddingVertical: 4 },
   recommendationCard: { gap: 9 },
   eyebrow: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.9 },
   cardTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },

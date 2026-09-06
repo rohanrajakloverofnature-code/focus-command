@@ -710,3 +710,6 @@
 
 - [x] Add Lifetime, Latest 12, Latest 100, Latest 500, and Custom reflection-window filters to Personal Reflection Signals; Lifetime must use the full stored history while visible chart rendering remains safely downsampled.
 - [x] Validate the signal filters and protected behavior, then publish only the isolated source, tests, and checklist update to public GitHub main with a temporary deploy key; do not start an APK or workflow.
+
+- [x] Add only a local search button and query to Weekly Revision Review, preserving all weekly calculations, stage filters, rows, and other screens.
+- [x] Validate and publish only the isolated Weekly Revision Review search update to public GitHub main with a temporary deploy key; do not start an APK or workflow.
