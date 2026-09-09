@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { BarsChart, ChartPoint, DonutChart, LineTrendChart, MultiLineTrendChart, PersonalGraphTrendChart, RadarChart } from "@/components/focus-charts";
 import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, StatusPill, TapFeedback } from "@/components/focus-ui";
@@ -9,7 +9,7 @@ import { MistakeLedgerCard } from "@/components/mistake-ledger-card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, getCalendarTimeAverages, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getTotalPower, getWellbeingInsight, toLocalDate, type FocusState, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
+import { formatCompactNumber, getCalendarTimeAverages, getDashboardDistributionStats, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getTotalPower, getWellbeingInsight, toLocalDate, type DashboardDistributionRange, type FocusState, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { RECOGNITION_WINDOW_LAYOUT } from "@/lib/focus-layout";
 import { getFocusFrictionInsight, getFocusFrictionRangePresentation, type FocusFrictionRange } from "@/lib/distraction-log";
 import { getConsistencyScenario, type ConsistencyProjectionHorizon } from "@/lib/personal-reflection-signals";
@@ -97,10 +97,20 @@ export default function DashboardScreen() {
   const [focusFrictionRangeError, setFocusFrictionRangeError] = useState("");
   const [customBehavioralReflectionCount, setCustomBehavioralReflectionCount] = useState(String(state.profile.behavioralReflectionCustomCount));
   const [consistencyHorizon, setConsistencyHorizon] = useState<ConsistencyProjectionHorizon>(90);
+  const [distributionRangeKind, setDistributionRangeKind] = useState<"lifetime" | "month" | "custom">("month");
+  const [distributionCustomStart, setDistributionCustomStart] = useState("");
+  const [distributionCustomEnd, setDistributionCustomEnd] = useState("");
 
   const daySeries = useMemo(() => createDaySeries(14, state.profile.timezone), [state.profile.timezone]);
   /* eslint-disable react-hooks/exhaustive-deps -- These pure helpers require a FocusState shape, while each memo intentionally tracks only the source references it actually reads. Adding the full state would reinstate unrelated interaction-path work. */
   const dashboard = useMemo(() => getDashboardStats(state), [state.missionCompletions, state.missions, state.profile, state.progression, state.reflections]);
+  const distributionRange = useMemo<DashboardDistributionRange | null>(() => {
+    const today = toLocalDate(new Date().toISOString(), state.profile.timezone);
+    if (distributionRangeKind === "lifetime") return null;
+    if (distributionRangeKind === "month") return { startDate: `${today.slice(0, 8)}01`, endDate: today };
+    return { startDate: distributionCustomStart.trim(), endDate: distributionCustomEnd.trim() };
+  }, [distributionCustomEnd, distributionCustomStart, distributionRangeKind, state.profile.timezone]);
+  const distribution = useMemo(() => getDashboardDistributionStats(state, distributionRange), [distributionRange, state.missionCompletions, state.missions, state.profile, state.progression, state.reflections]);
   const completionRecords = useMemo(() => getMissionCompletionRecords(state), [state.missionCompletions, state.missions, state.progression, state.reflections]);
   const forecast = useMemo(() => getEmotionalPatternForecast(state), [state.profile, state.reflections]);
   const wellbeing = useMemo(() => getWellbeingInsight(state), [state.profile, state.reflections]);
@@ -327,20 +337,31 @@ export default function DashboardScreen() {
         </InteractiveChartCard>
 
         <SectionHeader title="Skill tree & distribution" />
+        <CommandCard accent={colors.primary} style={styles.distributionRangeCard}>
+          <Text style={[styles.distributionRangeLabel, { color: colors.primary }]}>VIEW DISTRIBUTION RANGE</Text>
+          <View style={styles.distributionRangeChips}>
+            {(["month", "lifetime", "custom"] as const).map((kind) => {
+              const active = distributionRangeKind === kind;
+              const label = kind === "month" ? "One month" : kind === "lifetime" ? "Lifetime" : "Custom";
+              return <Pressable key={kind} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`View distribution for ${label}`} onPress={() => setDistributionRangeKind(kind)} style={({ pressed }) => [styles.distributionRangeChip, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? `${colors.primary}18` : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.distributionRangeChipText, { color: active ? colors.primary : colors.foreground }]}>{label}</Text></Pressable>;
+            })}
+          </View>
+          {distributionRangeKind === "custom" ? <View style={styles.distributionCustomInputs}><TextInput value={distributionCustomStart} onChangeText={setDistributionCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /><TextInput value={distributionCustomEnd} onChangeText={setDistributionCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
+        </CommandCard>
         <View style={styles.distributionGrid}>
           <CommandCard accent={colors.primary} style={styles.distributionCard}>
             <Text style={[styles.chartTitle, { color: colors.foreground }]}>Time distribution</Text>
             <View style={styles.centerChart}>
-              <DonutChart points={dashboard.subjectDistribution.map((point) => ({ label: point.label, value: point.duration / 3_600_000 }))} centerValue={`${dashboard.subjectDistribution.length}`} centerLabel="SUBJECTS" accessibilityLabel="Time distribution by subject" />
+              <DonutChart points={distribution.subjectDistribution.map((point) => ({ label: point.label, value: point.duration / 3_600_000 }))} centerValue={`${distribution.subjectDistribution.length}`} centerLabel="SUBJECTS" accessibilityLabel="Time distribution by subject" />
             </View>
-            <Legend points={dashboard.subjectDistribution.map((point) => ({ label: point.label, value: point.percentage * 100 }))} formatter={(value) => `${Math.round(value)}%`} />
+            <Legend points={distribution.subjectDistribution.map((point) => ({ label: point.label, value: point.percentage * 100 }))} formatter={(value) => `${Math.round(value)}%`} />
           </CommandCard>
           <CommandCard accent={colors.success} style={styles.distributionCard}>
             <Text style={[styles.chartTitle, { color: colors.foreground }]}>Category skill tree</Text>
             <View style={styles.centerChart}>
-              <DonutChart points={dashboard.categoryDistribution.map((point) => ({ label: point.label, value: point.duration / 3_600_000 }))} centerValue={`${dashboard.categoryDistribution.length}`} centerLabel="BRANCHES" accessibilityLabel="Category distribution by invested time" />
+              <DonutChart points={distribution.categoryDistribution.map((point) => ({ label: point.label, value: point.duration / 3_600_000 }))} centerValue={`${distribution.categoryDistribution.length}`} centerLabel="BRANCHES" accessibilityLabel="Category distribution by invested time" />
             </View>
-            <Legend points={dashboard.categoryDistribution.map((point) => ({ label: point.label, value: point.percentage * 100 }))} formatter={(value) => `${Math.round(value)}%`} />
+            <Legend points={distribution.categoryDistribution.map((point) => ({ label: point.label, value: point.percentage * 100 }))} formatter={(value) => `${Math.round(value)}%`} />
           </CommandCard>
         </View>
 
@@ -681,6 +702,13 @@ const styles = StyleSheet.create({
   chartTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },
   chartDetail: { fontSize: 11, lineHeight: 16, marginTop: 2, fontWeight: "500" },
   distributionGrid: { gap: 11 },
+  distributionRangeCard: { gap: 9 },
+  distributionRangeLabel: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.8 },
+  distributionRangeChips: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  distributionRangeChip: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 8 },
+  distributionRangeChipText: { fontSize: 11, lineHeight: 15, fontWeight: "800" },
+  distributionCustomInputs: { flexDirection: "row", gap: 8 },
+  distributionDateInput: { flex: 1, minHeight: 40, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 10, fontSize: 11, fontWeight: "700" },
   distributionCard: { alignItems: "center", gap: 8 },
   centerChart: { alignItems: "center", justifyContent: "center" },
   legend: { alignSelf: "stretch", gap: 3 },

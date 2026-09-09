@@ -713,3 +713,8 @@
 
 - [x] Add only a local search button and query to Weekly Revision Review, preserving all weekly calculations, stage filters, rows, and other screens.
 - [x] Validate and publish only the isolated Weekly Revision Review search update to public GitHub main with a temporary deploy key; do not start an APK or workflow.
+
+- [x] Inspect and explain the Dashboard Time distribution and Category skill tree percentage mismatch without changing app source or saved data.
+
+- [x] Add Dashboard Time distribution and Category skill tree range options for Lifetime, One month, and Custom dates, using one shared selected range for donut and description percentages.
+- [x] Validate the isolated distribution-range correction and publish only its source, tests, and checklist update to public GitHub main with a temporary deploy key; do not start an APK or workflow.

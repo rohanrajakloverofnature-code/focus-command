@@ -2190,6 +2190,34 @@ export function getDashboardStats(state: FocusState) {
   return result;
 }
 
+export interface DashboardDistributionRange {
+  startDate: string;
+  endDate: string;
+}
+
+export function getDashboardDistributionStats(state: FocusState, range: DashboardDistributionRange | null) {
+  const completed = getMissionCompletionRecords(state).filter((completion) => {
+    if (!range) return true;
+    const localDate = toLocalDate(completion.completedAt, state.profile.timezone);
+    return localDate >= range.startDate && localDate <= range.endDate;
+  });
+  const bySubject = new Map<string, number>();
+  const byCategory = new Map<string, number>();
+  completed.forEach((completion) => {
+    const subject = completion.subject || "Unassigned";
+    const category = completion.category || "Unassigned";
+    bySubject.set(subject, (bySubject.get(subject) ?? 0) + completion.durationMs);
+    byCategory.set(category, (byCategory.get(category) ?? 0) + completion.durationMs);
+  });
+  const totalDurationMs = completed.reduce((total, completion) => total + completion.durationMs, 0);
+  const toDistribution = (entries: Map<string, number>) => Array.from(entries, ([label, duration]) => ({
+    label,
+    duration,
+    percentage: totalDurationMs ? duration / totalDurationMs : 0,
+  }));
+  return { subjectDistribution: toDistribution(bySubject), categoryDistribution: toDistribution(byCategory) };
+}
+
 function resolveCurrentComboAfterActivity(state: FocusState, activityDate: string): ComboState {
   const tiers = getComboTiers(state);
   const prior = getCurrentCombo(state, activityDate);
