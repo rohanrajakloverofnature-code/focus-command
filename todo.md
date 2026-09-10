@@ -718,3 +718,11 @@
 
 - [x] Add Dashboard Time distribution and Category skill tree range options for Lifetime, One month, and Custom dates, using one shared selected range for donut and description percentages.
 - [x] Validate the isolated distribution-range correction and publish only its source, tests, and checklist update to public GitHub main with a temporary deploy key; do not start an APK or workflow.
+
+- [x] Inspect and explain how many days or reflection records feed the Dashboard Emotional Radar and Skill Radar without changing app source or saved data.
+
+- [x] Inspect and explain how many days of data feed the Dashboard Total Power by day and Time invested by day graphs without changing app source or saved data.
+
+- [x] Add local One week, One month, Lifetime, and Custom filters to Emotional Radar and Skill Radar, filtering reflection records without changing stored data or existing radar meanings.
+- [x] Add local One week, One month, Lifetime, and Custom date filters shared by Total Power by day and Time invested by day, preserving the existing 14-day default behavior for current users.
+- [x] Validate the four visual filters and protected Dashboard behavior, then publish only the isolated source, tests, and checklist update to public GitHub main with a temporary deploy key; do not start an APK or workflow.

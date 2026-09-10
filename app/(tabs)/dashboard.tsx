@@ -21,6 +21,9 @@ import {
   type BehavioralReflectionWindow,
 } from "@/lib/behavioral-reflection-window";
 
+type DashboardVisualRangeKind = "last14Days" | "week" | "month" | "lifetime" | "custom";
+type DashboardVisualDateRange = { startDate: string; endDate: string };
+
 function createDaySeries(days: number, profileTimezone: string) {
   return Array.from({ length: days }, (_, index) => {
     const date = new Date();
@@ -30,7 +33,57 @@ function createDaySeries(days: number, profileTimezone: string) {
   });
 }
 
+function createDateSeries(range: DashboardVisualDateRange) {
+  const start = Date.parse(`${range.startDate}T12:00:00Z`);
+  const end = Date.parse(`${range.endDate}T12:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return [];
+  const days = Math.floor((end - start) / 86_400_000) + 1;
+  return Array.from({ length: days }, (_, index) => {
+    const date = new Date(start + index * 86_400_000).toISOString().slice(0, 10);
+    return { localDate: date, label: index === 0 || index === days - 1 || index === Math.floor(days / 2) ? date.slice(5) : "" };
+  });
+}
+
+function downsampleDashboardPoints(points: ChartPoint[], maxPoints = 240) {
+  if (points.length <= maxPoints) return points;
+  const indexes = Array.from({ length: maxPoints }, (_, index) => Math.round((index / (maxPoints - 1)) * (points.length - 1)));
+  return indexes.map((index) => points[index]);
+}
+
+function getTodayLocalDate(profileTimezone: string) {
+  return toLocalDate(new Date().toISOString(), profileTimezone);
+}
+
+function getDashboardVisualRange(
+  kind: DashboardVisualRangeKind,
+  today: string,
+  customStart: string,
+  customEnd: string,
+  earliestDate?: string,
+): DashboardVisualDateRange | null {
+  if (kind === "lifetime") return earliestDate ? { startDate: earliestDate, endDate: today } : null;
+  if (kind === "week") {
+    const end = Date.parse(`${today}T12:00:00Z`);
+    return { startDate: new Date(end - 6 * 86_400_000).toISOString().slice(0, 10), endDate: today };
+  }
+  if (kind === "month") return { startDate: `${today.slice(0, 8)}01`, endDate: today };
+  if (kind === "custom") return { startDate: customStart.trim(), endDate: customEnd.trim() };
+  const end = Date.parse(`${today}T12:00:00Z`);
+  return { startDate: new Date(end - 13 * 86_400_000).toISOString().slice(0, 10), endDate: today };
+}
+
+function isReflectionInRange(createdAt: string, range: DashboardVisualDateRange | null, profileTimezone: string) {
+  if (!range) return true;
+  const localDate = toLocalDate(createdAt, profileTimezone);
+  return Boolean(range.startDate && range.endDate && localDate >= range.startDate && localDate <= range.endDate);
+}
+
 const feelingScore = { drained: 1, restless: 2, steady: 3, charged: 4, great: 5 } as const;
+const DASHBOARD_RANGE_OPTIONS: DashboardVisualRangeKind[] = ["last14Days", "week", "month", "lifetime", "custom"];
+
+function dashboardRangeLabel(kind: DashboardVisualRangeKind) {
+  return kind === "last14Days" ? "14 days" : kind === "week" ? "1 week" : kind === "month" ? "1 month" : kind === "lifetime" ? "Lifetime" : "Custom";
+}
 
 type DashboardDependencies = Pick<FocusState,
   "profile"
@@ -100,8 +153,13 @@ export default function DashboardScreen() {
   const [distributionRangeKind, setDistributionRangeKind] = useState<"lifetime" | "month" | "custom">("month");
   const [distributionCustomStart, setDistributionCustomStart] = useState("");
   const [distributionCustomEnd, setDistributionCustomEnd] = useState("");
+  const [historyRangeKind, setHistoryRangeKind] = useState<DashboardVisualRangeKind>("last14Days");
+  const [historyCustomStart, setHistoryCustomStart] = useState("");
+  const [historyCustomEnd, setHistoryCustomEnd] = useState("");
+  const [radarRangeKind, setRadarRangeKind] = useState<DashboardVisualRangeKind>("lifetime");
+  const [radarCustomStart, setRadarCustomStart] = useState("");
+  const [radarCustomEnd, setRadarCustomEnd] = useState("");
 
-  const daySeries = useMemo(() => createDaySeries(14, state.profile.timezone), [state.profile.timezone]);
   /* eslint-disable react-hooks/exhaustive-deps -- These pure helpers require a FocusState shape, while each memo intentionally tracks only the source references it actually reads. Adding the full state would reinstate unrelated interaction-path work. */
   const dashboard = useMemo(() => getDashboardStats(state), [state.missionCompletions, state.missions, state.profile, state.progression, state.reflections]);
   const distributionRange = useMemo<DashboardDistributionRange | null>(() => {
@@ -112,6 +170,21 @@ export default function DashboardScreen() {
   }, [distributionCustomEnd, distributionCustomStart, distributionRangeKind, state.profile.timezone]);
   const distribution = useMemo(() => getDashboardDistributionStats(state, distributionRange), [distributionRange, state.missionCompletions, state.missions, state.profile, state.progression, state.reflections]);
   const completionRecords = useMemo(() => getMissionCompletionRecords(state), [state.missionCompletions, state.missions, state.progression, state.reflections]);
+  const todayLocalDate = getTodayLocalDate(state.profile.timezone);
+  const earliestVisualDate = useMemo(() => {
+    const dates = [
+      ...state.progression.map((event) => toLocalDate(event.occurredAt, state.profile.timezone)),
+      ...completionRecords.map((completion) => toLocalDate(completion.completedAt, state.profile.timezone)),
+      ...state.reflections.filter((reflection) => reflection.createdAt).map((reflection) => toLocalDate(reflection.createdAt, state.profile.timezone)),
+    ].sort();
+    return dates[0];
+  }, [completionRecords, state.profile.timezone, state.progression, state.reflections]);
+  const historyRange = useMemo(() => getDashboardVisualRange(historyRangeKind, todayLocalDate, historyCustomStart, historyCustomEnd, earliestVisualDate), [earliestVisualDate, historyCustomEnd, historyCustomStart, historyRangeKind, todayLocalDate]);
+  const radarRange = useMemo(() => getDashboardVisualRange(radarRangeKind, todayLocalDate, radarCustomStart, radarCustomEnd, earliestVisualDate), [earliestVisualDate, radarCustomEnd, radarCustomStart, radarRangeKind, todayLocalDate]);
+  const historyDays = useMemo(() => historyRangeKind === "last14Days" ? createDaySeries(14, state.profile.timezone) : historyRange ? createDateSeries(historyRange) : [], [historyRange, historyRangeKind, state.profile.timezone]);
+  const historyCompletionRecords = useMemo(() => completionRecords.filter((completion) => isReflectionInRange(completion.completedAt, historyRange, state.profile.timezone)), [completionRecords, historyRange, state.profile.timezone]);
+  const historyProgression = useMemo(() => state.progression.filter((event) => isReflectionInRange(event.occurredAt, historyRange, state.profile.timezone)), [historyRange, state.profile.timezone, state.progression]);
+  const radarReflections = useMemo(() => state.reflections.filter((reflection) => reflection.createdAt && isReflectionInRange(reflection.createdAt, radarRange, state.profile.timezone)), [radarRange, state.profile.timezone, state.reflections]);
   const forecast = useMemo(() => getEmotionalPatternForecast(state), [state.profile, state.reflections]);
   const wellbeing = useMemo(() => getWellbeingInsight(state), [state.profile, state.reflections]);
   const consistencyScenario = useMemo(() => getConsistencyScenario(state, consistencyHorizon), [consistencyHorizon, state.customQuestions, state.profile, state.reflections]);
@@ -160,34 +233,34 @@ export default function DashboardScreen() {
 
   const { powerSeries, timeSeries } = useMemo(() => {
     const progressionByDate = new Map<string, number>();
-    state.progression.forEach((event) => {
+    historyProgression.forEach((event) => {
       const date = toLocalDate(event.occurredAt, state.profile.timezone);
       progressionByDate.set(date, (progressionByDate.get(date) ?? 0) + event.powerAwarded);
     });
     const timeByDate = new Map<string, number>();
-    completionRecords.forEach((completion) => {
+    historyCompletionRecords.forEach((completion) => {
       const date = toLocalDate(completion.completedAt, state.profile.timezone);
       timeByDate.set(date, (timeByDate.get(date) ?? 0) + completion.durationMs / 3_600_000);
     });
     return {
-      powerSeries: daySeries.map((day) => ({ label: day.label, value: progressionByDate.get(day.localDate) ?? 0 })),
-      timeSeries: daySeries.map((day) => ({ label: day.label, value: timeByDate.get(day.localDate) ?? 0 })),
+      powerSeries: downsampleDashboardPoints(historyDays.map((day) => ({ label: day.label, value: progressionByDate.get(day.localDate) ?? 0 }))),
+      timeSeries: downsampleDashboardPoints(historyDays.map((day) => ({ label: day.label, value: timeByDate.get(day.localDate) ?? 0 }))),
     };
-  }, [completionRecords, daySeries, state.profile.timezone, state.progression]);
+  }, [historyCompletionRecords, historyDays, historyProgression, state.profile.timezone]);
 
   const skillPoints = useMemo(() => {
     const skillCounts = new Map<string, number>();
-    state.reflections.forEach((reflection) => reflection.skills.forEach((skill) => skillCounts.set(skill, (skillCounts.get(skill) ?? 0) + 1)));
+    radarReflections.forEach((reflection) => reflection.skills.forEach((skill) => skillCounts.set(skill, (skillCounts.get(skill) ?? 0) + 1)));
     return Array.from(skillCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([label, value]) => ({ label, value }));
-  }, [state.reflections]);
+  }, [radarReflections]);
 
   const emotionalPoints = useMemo(() => {
     const emotionCounts = new Map<string, number>();
-    state.reflections.forEach((reflection) => {
+    radarReflections.forEach((reflection) => {
       if (reflection.feelingAfter) emotionCounts.set(reflection.feelingAfter, (emotionCounts.get(reflection.feelingAfter) ?? 0) + 1);
     });
     return ["charged", "steady", "restless", "drained", "great"].map((label) => ({ label, value: emotionCounts.get(label) ?? 0 }));
-  }, [state.reflections]);
+  }, [radarReflections]);
 
   const customGraphData = useMemo(() => {
     const lastTwelveReflections = state.reflections.slice(-12);
@@ -329,11 +402,17 @@ export default function DashboardScreen() {
         </View>
 
         <SectionHeader title="Power & time history" />
-        <InteractiveChartCard title="Total Power by day" detail="Awarded power in the last 14 days" tag="POWER" onPress={() => router.push("/analytics?metric=power" as never)}>
-          <LineTrendChart points={powerSeries} color="#F4C95D" accessibilityLabel="Total Power line chart over the last fourteen days" />
+        <CommandCard accent="#F4C95D" style={styles.distributionRangeCard}>
+          <Text style={[styles.distributionRangeLabel, { color: "#F4C95D" }]}>VIEW POWER & TIME RANGE</Text>
+          <View style={styles.distributionRangeChips}>{DASHBOARD_RANGE_OPTIONS.map((kind) => { const active = historyRangeKind === kind; return <Pressable key={kind} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`View power and time for ${dashboardRangeLabel(kind)}`} onPress={() => setHistoryRangeKind(kind)} style={({ pressed }) => [styles.distributionRangeChip, { borderColor: active ? "#F4C95D" : colors.border, backgroundColor: active ? "#F4C95D18" : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.distributionRangeChipText, { color: active ? "#F4C95D" : colors.foreground }]}>{dashboardRangeLabel(kind)}</Text></Pressable>; })}</View>
+          {historyRangeKind === "custom" ? <View style={styles.distributionCustomInputs}><TextInput value={historyCustomStart} onChangeText={setHistoryCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /><TextInput value={historyCustomEnd} onChangeText={setHistoryCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
+          <Text style={[styles.distributionRangeDetail, { color: colors.muted }]}>Both charts use the same selected inclusive local-date range. Current default remains 14 days.</Text>
+        </CommandCard>
+        <InteractiveChartCard title="Total Power by day" detail={`Awarded power in ${dashboardRangeLabel(historyRangeKind)}`} tag="POWER" onPress={() => router.push("/analytics?metric=power" as never)}>
+          <LineTrendChart points={powerSeries} color="#F4C95D" accessibilityLabel={`Total Power line chart for ${dashboardRangeLabel(historyRangeKind)}`} />
         </InteractiveChartCard>
-        <InteractiveChartCard title="Time invested by day" detail="All task time is presented in hours" tag="HOURS" onPress={() => router.push("/analytics?metric=time" as never)}>
-          <BarsChart points={timeSeries} color={colors.primary} accessibilityLabel="Invested time bar chart in hours over the last fourteen days" />
+        <InteractiveChartCard title="Time invested by day" detail={`All task time in ${dashboardRangeLabel(historyRangeKind)} is presented in hours`} tag="HOURS" onPress={() => router.push("/analytics?metric=time" as never)}>
+          <BarsChart points={timeSeries} color={colors.primary} accessibilityLabel={`Invested time bar chart for ${dashboardRangeLabel(historyRangeKind)}`} />
         </InteractiveChartCard>
 
         <SectionHeader title="Skill tree & distribution" />
@@ -456,11 +535,17 @@ export default function DashboardScreen() {
         </CommandCard>
 
         <SectionHeader title="Emotional intelligence" />
-        <InteractiveChartCard title="Emotional radar" detail="How you tend to feel after finishing work" tag="INSIGHT" onPress={() => router.push("/analytics?metric=emotion" as never)}>
-          {state.reflections.length ? <RadarChart points={emotionalPoints} color={colors.warning} accessibilityLabel="Emotional radar based on post-mission feeling data" /> : <NoData label="Complete a mission debrief to reveal emotional patterns." icon="star.fill" />}
+        <CommandCard accent={colors.warning} style={styles.distributionRangeCard}>
+          <Text style={[styles.distributionRangeLabel, { color: colors.warning }]}>VIEW RADAR RANGE</Text>
+          <View style={styles.distributionRangeChips}>{DASHBOARD_RANGE_OPTIONS.map((kind) => { const active = radarRangeKind === kind; return <Pressable key={kind} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`View radars for ${dashboardRangeLabel(kind)}`} onPress={() => setRadarRangeKind(kind)} style={({ pressed }) => [styles.distributionRangeChip, { borderColor: active ? colors.warning : colors.border, backgroundColor: active ? `${colors.warning}18` : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.distributionRangeChipText, { color: active ? colors.warning : colors.foreground }]}>{dashboardRangeLabel(kind)}</Text></Pressable>; })}</View>
+          {radarRangeKind === "custom" ? <View style={styles.distributionCustomInputs}><TextInput value={radarCustomStart} onChangeText={setRadarCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /><TextInput value={radarCustomEnd} onChangeText={setRadarCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
+          <Text style={[styles.distributionRangeDetail, { color: colors.muted }]}>Both radars use reflections created inside the same selected local-date range. Default remains Lifetime.</Text>
+        </CommandCard>
+        <InteractiveChartCard title="Emotional radar" detail={`How you tend to feel after finishing work · ${dashboardRangeLabel(radarRangeKind)}`} tag="INSIGHT" onPress={() => router.push("/analytics?metric=emotion" as never)}>
+          {radarReflections.length ? <RadarChart points={emotionalPoints} color={colors.warning} accessibilityLabel="Emotional radar based on post-mission feeling data" /> : <NoData label="No emotional reflection data exists in this range." icon="star.fill" />}
         </InteractiveChartCard>
-        <InteractiveChartCard title="Skill radar" detail="Skills you logged during post-mission reflection" tag="GROWTH" onPress={() => router.push("/analytics?metric=skills" as never)}>
-          {skillPoints.length ? <RadarChart points={skillPoints} color={colors.primary} accessibilityLabel="Skill radar based on learned skills" /> : <NoData label="Add skills to a long-mission debrief to map your growth." icon="target" />}
+        <InteractiveChartCard title="Skill radar" detail={`Skills logged during post-mission reflection · ${dashboardRangeLabel(radarRangeKind)}`} tag="GROWTH" onPress={() => router.push("/analytics?metric=skills" as never)}>
+          {radarReflections.length && skillPoints.length ? <RadarChart points={skillPoints} color={colors.primary} accessibilityLabel="Skill radar based on learned skills" /> : <NoData label="No skill reflection data exists in this range." icon="target" />}
         </InteractiveChartCard>
 
         <SectionHeader title="Personal reflection signals" />
@@ -703,6 +788,7 @@ const styles = StyleSheet.create({
   chartDetail: { fontSize: 11, lineHeight: 16, marginTop: 2, fontWeight: "500" },
   distributionGrid: { gap: 11 },
   distributionRangeCard: { gap: 9 },
+  distributionRangeDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600" },
   distributionRangeLabel: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.8 },
   distributionRangeChips: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   distributionRangeChip: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 8 },
