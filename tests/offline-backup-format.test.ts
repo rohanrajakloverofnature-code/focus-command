@@ -25,6 +25,10 @@ function createPopulatedState(): FocusState {
   state.shadowGatePersonalDoorways = [{ id: "doorway_backup", label: "Open the marked Chemistry page", pinned: true, createdAt: "2026-08-14T07:50:00.000Z", updatedAt: "2026-08-14T07:50:00.000Z" }];
   state.mistakeLedgerEntries = [{ id: "mistake_backup", mistake: "Sign error", subject: "Maths", correction: "Check signs", status: "improving", missionId: "mission_backup", missionTitle: "Archive mission", createdAt: "2026-08-14T07:45:00.000Z", updatedAt: "2026-08-14T08:00:00.000Z" }];
   state.mistakeLedgerActivityLog = [{ id: "mistake_activity_backup", entryId: "mistake_backup", kind: "status", status: "improving", actionDate: "2026-08-14", occurredAt: "2026-08-14T08:00:00.000Z" }];
+  state.corePrinciplesTitle = "Daily Standards";
+  state.corePrincipleLists = [{ id: "core_list_backup", title: "Study", createdAt: "2026-08-14T07:45:00.000Z", updatedAt: "2026-08-14T07:45:00.000Z" }];
+  state.corePrincipleItems = [{ id: "core_item_backup", listId: "core_list_backup", text: "Plan tomorrow", active: true, createdAt: "2026-08-14T07:45:00.000Z", updatedAt: "2026-08-14T07:45:00.000Z" }];
+  state.corePrincipleDailyCheckIns = [{ localDate: "2026-08-14", items: [{ itemId: "core_item_backup", listId: "core_list_backup", listTitle: "Study", itemText: "Plan tomorrow", checked: true }], createdAt: "2026-08-14T08:00:00.000Z", updatedAt: "2026-08-14T08:00:00.000Z" }];
   state.personalGraphs[0] = { ...state.personalGraphs[0], title: "Exam preparation", xAxisLabel: "Practice month", yAxisLabel: "Score", datePrecision: "month", lines: [{ id: "score", name: "Mock score", color: "#A78BFA" }], points: [{ id: "score_sep", lineId: "score", xValue: "2026-09", xLabel: "2026-09", yValue: 82, createdAt: "2026-09-01T08:00:00.000Z", updatedAt: "2026-09-01T08:00:00.000Z" }] };
   state.personalGraphs[3] = { ...state.personalGraphs[3], title: "New private graph" };
   state.customQuestions = [{ id: "confidence", label: "How confident did you feel?", type: "rating", options: [], enabled: true, personalSignal: { enabled: true, role: "supportive", includeInProjection: true } }];
@@ -81,6 +85,10 @@ describe("offline Focus Command backup format", () => {
     expect(parsed.state.shadowGatePersonalDoorways).toEqual(state.shadowGatePersonalDoorways);
     expect(parsed.state.mistakeLedgerEntries).toEqual(state.mistakeLedgerEntries);
     expect(parsed.state.mistakeLedgerActivityLog).toEqual(state.mistakeLedgerActivityLog);
+    expect(parsed.state.corePrinciplesTitle).toBe("Daily Standards");
+    expect(parsed.state.corePrincipleLists).toEqual(state.corePrincipleLists);
+    expect(parsed.state.corePrincipleItems).toEqual(state.corePrincipleItems);
+    expect(parsed.state.corePrincipleDailyCheckIns).toEqual(state.corePrincipleDailyCheckIns);
     expect(parsed.state.personalGraphs).toEqual(state.personalGraphs);
     expect(parsed.state.personalGraphs).toHaveLength(5);
     expect(parsed.state.customQuestions[0].personalSignal).toEqual({ enabled: true, role: "supportive", includeInProjection: true });
@@ -148,6 +156,9 @@ describe("offline Focus Command backup format", () => {
       delete state.mistakeLedgerEntries;
       delete state.mistakeLedgerActivityLog;
       delete state.personalGraphs;
+      delete state.corePrincipleLists;
+      delete state.corePrincipleItems;
+      delete state.corePrincipleDailyCheckIns;
       const stateBytes = strToU8(JSON.stringify(state));
       entries["state.json"] = stateBytes;
       const manifest = readManifest(entries);
@@ -161,6 +172,9 @@ describe("offline Focus Command backup format", () => {
     expect(parseOfflineBackupArchive(legacy).state.mistakeLedgerEntries).toEqual([]);
     expect(parseOfflineBackupArchive(legacy).state.personalGraphs).toHaveLength(0);
     expect(parseOfflineBackupArchive(legacy).state.mistakeLedgerActivityLog).toEqual([]);
+    expect(parseOfflineBackupArchive(legacy).state.corePrincipleLists).toEqual([]);
+    expect(parseOfflineBackupArchive(legacy).state.corePrincipleItems).toEqual([]);
+    expect(parseOfflineBackupArchive(legacy).state.corePrincipleDailyCheckIns).toEqual([]);
   });
 
   it("round-trips built-in form music plus a complete custom form media set", () => {

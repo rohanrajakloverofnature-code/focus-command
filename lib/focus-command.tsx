@@ -669,6 +669,40 @@ export interface MistakeLedgerDraft {
   missionId?: string | null;
 }
 
+/** A user-owned Core Principles group. It never contributes to XP, rewards, or missions. */
+export interface CorePrincipleList {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A current editable Core Principles rule. Historical check-ins keep their own text snapshot. */
+export interface CorePrincipleItem {
+  id: string;
+  listId: string;
+  text: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CorePrincipleCheckInItem {
+  itemId: string;
+  listId: string;
+  listTitle: string;
+  itemText: string;
+  checked: boolean;
+}
+
+/** A daily immutable applicable-item snapshot, created only when the user first checks/unchecks a rule that day. */
+export interface CorePrincipleDailyCheckIn {
+  localDate: string;
+  items: CorePrincipleCheckInItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const EQUIPMENT_SLOT_BY_TYPE = {
   FocusDevice: "head",
   EnergyPack: "body",
@@ -713,6 +747,10 @@ export interface FocusState {
   srsActivityLog: SrsActivityEntry[];
   mistakeLedgerEntries: MistakeLedgerEntry[];
   mistakeLedgerActivityLog: MistakeLedgerActivity[];
+  corePrinciplesTitle: string;
+  corePrincipleLists: CorePrincipleList[];
+  corePrincipleItems: CorePrincipleItem[];
+  corePrincipleDailyCheckIns: CorePrincipleDailyCheckIn[];
   bosses: Boss[];
   journals: JournalEntry[];
   distractionLogs: DistractionLogEntry[];
@@ -1237,6 +1275,10 @@ export function createInitialState(): FocusState {
     srsActivityLog: [],
     mistakeLedgerEntries: [],
     mistakeLedgerActivityLog: [],
+    corePrinciplesTitle: "Core Principles",
+    corePrincipleLists: [],
+    corePrincipleItems: [],
+    corePrincipleDailyCheckIns: [],
     bosses: [],
     journals: [],
     distractionLogs: [],
@@ -2273,6 +2315,15 @@ interface FocusCommandContextValue {
   updateMistakeLedgerEntry: (entryId: string, patch: Partial<Pick<MistakeLedgerEntry, "mistake" | "subject" | "correction" | "missionId">>) => void;
   setMistakeLedgerStatus: (entryId: string, status: MistakeLedgerStatus) => void;
   removeMistakeLedgerEntry: (entryId: string) => void;
+  updateCorePrinciplesTitle: (title: string) => void;
+  addCorePrincipleList: (title: string) => string | null;
+  updateCorePrincipleList: (listId: string, title: string) => void;
+  removeCorePrincipleList: (listId: string) => void;
+  addCorePrincipleItem: (listId: string, text: string) => string | null;
+  updateCorePrincipleItem: (itemId: string, text: string) => void;
+  setCorePrincipleItemActive: (itemId: string, active: boolean) => void;
+  removeCorePrincipleItem: (itemId: string) => void;
+  setCorePrincipleItemChecked: (itemId: string, checked: boolean) => void;
   createBoss: (input: Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold">) => string;
   updateBoss: (bossId: string, patch: Partial<Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold" | "status">>) => void;
   removeBoss: (bossId: string) => void;
@@ -2524,6 +2575,50 @@ export function normalizeHydratedState(input: FocusState): FocusState {
           ))
         : [];
     })(),
+    corePrinciplesTitle: typeof input.corePrinciplesTitle === "string" && input.corePrinciplesTitle.trim()
+      ? input.corePrinciplesTitle.trim()
+      : defaults.corePrinciplesTitle,
+    corePrincipleLists: Array.isArray(input.corePrincipleLists)
+      ? input.corePrincipleLists.filter((list): list is CorePrincipleList => Boolean(
+          list
+          && typeof list.id === "string" && list.id
+          && typeof list.title === "string" && list.title.trim()
+          && typeof list.createdAt === "string" && Number.isFinite(Date.parse(list.createdAt))
+          && typeof list.updatedAt === "string" && Number.isFinite(Date.parse(list.updatedAt)),
+        )).map((list) => ({ ...list, title: list.title.trim() }))
+      : [],
+    corePrincipleItems: (() => {
+      const lists = new Set((input.corePrincipleLists ?? []).map((list) => list?.id));
+      return Array.isArray(input.corePrincipleItems)
+        ? input.corePrincipleItems.filter((item): item is CorePrincipleItem => Boolean(
+            item
+            && typeof item.id === "string" && item.id
+            && typeof item.listId === "string" && lists.has(item.listId)
+            && typeof item.text === "string" && item.text.trim()
+            && typeof item.active === "boolean"
+            && typeof item.createdAt === "string" && Number.isFinite(Date.parse(item.createdAt))
+            && typeof item.updatedAt === "string" && Number.isFinite(Date.parse(item.updatedAt)),
+          )).map((item) => ({ ...item, text: item.text.trim() }))
+        : [];
+    })(),
+    corePrincipleDailyCheckIns: Array.isArray(input.corePrincipleDailyCheckIns)
+      ? input.corePrincipleDailyCheckIns.filter((checkIn): checkIn is CorePrincipleDailyCheckIn => Boolean(
+          checkIn
+          && typeof checkIn.localDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(checkIn.localDate)
+          && Array.isArray(checkIn.items) && checkIn.items.length > 0
+          && checkIn.items.every((item) => item
+            && typeof item.itemId === "string" && item.itemId
+            && typeof item.listId === "string" && item.listId
+            && typeof item.listTitle === "string"
+            && typeof item.itemText === "string" && item.itemText.trim()
+            && typeof item.checked === "boolean")
+          && typeof checkIn.createdAt === "string" && Number.isFinite(Date.parse(checkIn.createdAt))
+          && typeof checkIn.updatedAt === "string" && Number.isFinite(Date.parse(checkIn.updatedAt)),
+        )).map((checkIn) => ({
+          ...checkIn,
+          items: checkIn.items.map((item) => ({ ...item, listTitle: item.listTitle.trim(), itemText: item.itemText.trim() })),
+        }))
+      : [],
     distractionLogs: (input.distractionLogs ?? []).filter((entry): entry is DistractionLogEntry =>
       Boolean(entry && typeof entry.id === "string" && typeof entry.missionId === "string" && currentMissionIds.has(entry.missionId) && typeof entry.occurredAt === "string" && DISTRACTION_CATEGORIES.includes(entry.category)),
     ).map((entry) => ({ ...entry, note: typeof entry.note === "string" && entry.note.trim() ? entry.note.trim().slice(0, 140) : undefined })),
@@ -3252,6 +3347,114 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     });
   }, [commit]);
 
+  const updateCorePrinciplesTitle = useCallback((title: string) => {
+    const nextTitle = title.trim() || "Core Principles";
+    commit((current) => current.corePrinciplesTitle === nextTitle ? current : withQueuedOperation({ ...current, corePrinciplesTitle: nextTitle }));
+  }, [commit]);
+
+  const addCorePrincipleList = useCallback((title: string): string | null => {
+    const safeTitle = title.trim();
+    if (!safeTitle) return null;
+    const id = createId("core_principles_list");
+    const timestamp = nowIso();
+    commit((current) => withQueuedOperation({
+      ...current,
+      corePrincipleLists: [...current.corePrincipleLists, { id, title: safeTitle, createdAt: timestamp, updatedAt: timestamp }],
+    }));
+    return id;
+  }, [commit]);
+
+  const updateCorePrincipleList = useCallback((listId: string, title: string) => {
+    const safeTitle = title.trim();
+    if (!safeTitle) return;
+    commit((current) => withQueuedOperation({
+      ...current,
+      corePrincipleLists: current.corePrincipleLists.map((list) => list.id === listId ? { ...list, title: safeTitle, updatedAt: nowIso() } : list),
+    }));
+  }, [commit]);
+
+  const removeCorePrincipleList = useCallback((listId: string) => {
+    commit((current) => {
+      if (!current.corePrincipleLists.some((list) => list.id === listId)) return current;
+      return withQueuedOperation({
+        ...current,
+        corePrincipleLists: current.corePrincipleLists.filter((list) => list.id !== listId),
+        corePrincipleItems: current.corePrincipleItems.filter((item) => item.listId !== listId),
+      });
+    });
+  }, [commit]);
+
+  const addCorePrincipleItem = useCallback((listId: string, text: string): string | null => {
+    const safeText = text.trim();
+    if (!safeText) return null;
+    const id = createId("core_principle_item");
+    const timestamp = nowIso();
+    commit((current) => {
+      if (!current.corePrincipleLists.some((list) => list.id === listId)) return current;
+      return withQueuedOperation({
+        ...current,
+        corePrincipleItems: [...current.corePrincipleItems, { id, listId, text: safeText, active: true, createdAt: timestamp, updatedAt: timestamp }],
+      });
+    });
+    return id;
+  }, [commit]);
+
+  const updateCorePrincipleItem = useCallback((itemId: string, text: string) => {
+    const safeText = text.trim();
+    if (!safeText) return;
+    commit((current) => withQueuedOperation({
+      ...current,
+      corePrincipleItems: current.corePrincipleItems.map((item) => item.id === itemId ? { ...item, text: safeText, updatedAt: nowIso() } : item),
+    }));
+  }, [commit]);
+
+  const setCorePrincipleItemActive = useCallback((itemId: string, active: boolean) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      corePrincipleItems: current.corePrincipleItems.map((item) => item.id === itemId ? { ...item, active, updatedAt: nowIso() } : item),
+    }));
+  }, [commit]);
+
+  const removeCorePrincipleItem = useCallback((itemId: string) => {
+    commit((current) => {
+      if (!current.corePrincipleItems.some((item) => item.id === itemId)) return current;
+      return withQueuedOperation({ ...current, corePrincipleItems: current.corePrincipleItems.filter((item) => item.id !== itemId) });
+    });
+  }, [commit]);
+
+  const setCorePrincipleItemChecked = useCallback((itemId: string, checked: boolean) => {
+    commit((current) => {
+      const target = current.corePrincipleItems.find((item) => item.id === itemId && item.active);
+      const list = target ? current.corePrincipleLists.find((entry) => entry.id === target.listId) : null;
+      if (!target || !list) return current;
+      const timestamp = nowIso();
+      const localDate = toLocalDate(timestamp, current.profile.timezone);
+      const activeSnapshotItems = current.corePrincipleItems
+        .filter((item) => item.active)
+        .flatMap((item) => {
+          const sourceList = current.corePrincipleLists.find((entry) => entry.id === item.listId);
+          return sourceList ? [{ itemId: item.id, listId: sourceList.id, listTitle: sourceList.title, itemText: item.text, checked: item.id === itemId ? checked : false }] : [];
+        });
+      if (!activeSnapshotItems.length) return current;
+      const existing = current.corePrincipleDailyCheckIns.find((checkIn) => checkIn.localDate === localDate);
+      const nextCheckIn: CorePrincipleDailyCheckIn = existing
+        ? {
+            ...existing,
+            items: existing.items.some((item) => item.itemId === itemId)
+              ? existing.items.map((item) => item.itemId === itemId ? { ...item, checked } : item)
+              : [...existing.items, { itemId: target.id, listId: list.id, listTitle: list.title, itemText: target.text, checked }],
+            updatedAt: timestamp,
+          }
+        : { localDate, items: activeSnapshotItems, createdAt: timestamp, updatedAt: timestamp };
+      return withQueuedOperation({
+        ...current,
+        corePrincipleDailyCheckIns: existing
+          ? current.corePrincipleDailyCheckIns.map((checkIn) => checkIn.localDate === localDate ? nextCheckIn : checkIn)
+          : [...current.corePrincipleDailyCheckIns, nextCheckIn],
+      });
+    });
+  }, [commit]);
+
   const createBoss = useCallback((input: Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold">) => {
     const id = createId("boss");
     commit((current) => withQueuedOperation({
@@ -3821,6 +4024,15 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     updateMistakeLedgerEntry,
     setMistakeLedgerStatus,
     removeMistakeLedgerEntry,
+    updateCorePrinciplesTitle,
+    addCorePrincipleList,
+    updateCorePrincipleList,
+    removeCorePrincipleList,
+    addCorePrincipleItem,
+    updateCorePrincipleItem,
+    setCorePrincipleItemActive,
+    removeCorePrincipleItem,
+    setCorePrincipleItemChecked,
     setJournalLifelinePercentage,
     getCurrentState,
     createMission,
@@ -3915,6 +4127,15 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     updateMistakeLedgerEntry,
     setMistakeLedgerStatus,
     removeMistakeLedgerEntry,
+    updateCorePrinciplesTitle,
+    addCorePrincipleList,
+    updateCorePrincipleList,
+    removeCorePrincipleList,
+    addCorePrincipleItem,
+    updateCorePrincipleItem,
+    setCorePrincipleItemActive,
+    removeCorePrincipleItem,
+    setCorePrincipleItemChecked,
     setJournalLifelinePercentage,
     updatePersonalGraph,
     addPersonalGraphLine,

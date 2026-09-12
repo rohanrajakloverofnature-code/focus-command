@@ -726,3 +726,10 @@
 - [x] Add local One week, One month, Lifetime, and Custom filters to Emotional Radar and Skill Radar, filtering reflection records without changing stored data or existing radar meanings.
 - [x] Add local One week, One month, Lifetime, and Custom date filters shared by Total Power by day and Time invested by day, preserving the existing 14-day default behavior for current users.
 - [x] Validate the four visual filters and protected Dashboard behavior, then publish only the isolated source, tests, and checklist update to public GitHub main with a temporary deploy key; do not start an APK or workflow.
+
+- [x] Implement offline Core Principles with a large editable title, unlimited lists and principle items, daily checkbox states, immutable daily snapshots, and green Success Ratio math without affecting existing gameplay or productivity systems.
+- [x] Add a compact Dashboard Core Principles entry and a dedicated history view with week, month, lifetime, and custom success-ratio trends plus neutral most-unchecked/list insights.
+- [x] Extend offline backup validation and compatibility for Core Principles, then validate daily math, historical isolation, range insights, long histories, and all protected features.
+- [ ] Publish only the validated Core Principles source, tests, and checklist update to public GitHub main after a separate request and temporary deploy-key authorization; do not start an APK or workflow.
+
+- [ ] Push the already validated Core Principles update to public GitHub main using a newly generated one-time deploy key; verify the remote commit and remove the local credential immediately afterward.

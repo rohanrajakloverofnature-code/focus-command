@@ -5,6 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { BarsChart, ChartPoint, DonutChart, LineTrendChart, MultiLineTrendChart, PersonalGraphTrendChart, RadarChart } from "@/components/focus-charts";
 import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, StatusPill, TapFeedback } from "@/components/focus-ui";
 import { CrossedGatesCard } from "@/components/crossed-gates-card";
+import { CorePrinciplesCard } from "@/components/core-principles-card";
 import { MistakeLedgerCard } from "@/components/mistake-ledger-card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
@@ -368,6 +369,8 @@ export default function DashboardScreen() {
         <CrossedGatesCard />
 
         <MistakeLedgerCard />
+
+        <CorePrinciplesCard />
 
         <TapFeedback onPress={() => router.push("/character-achievement-path" as never)} accessibilityLabel="Open character achievement path">
           <CommandCard accent="#F4C95D" style={styles.commandArchiveCard}>

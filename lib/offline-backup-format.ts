@@ -129,6 +129,7 @@ function assertStateShape(value: unknown): asserts value is FocusState {
     "missions", "missionCompletions", "reflections", "srsTopics", "bosses", "journals",
     "distractionLogs", "rewards", "transactions", "inventory", "progression", "characterMilestones", "lifeline",
     "customQuestions", "customGraphs", "allEquipment", "userEquipment",
+    "corePrincipleLists", "corePrincipleItems", "corePrincipleDailyCheckIns",
   ];
   if (!state.profile || typeof state.profile !== "object" || !state.combo || typeof state.combo !== "object") {
     throw new OfflineBackupValidationError("The backup profile or combo configuration is missing.");
@@ -183,6 +184,11 @@ function parseBackupState(bytes: Uint8Array): FocusState {
     if (!Array.isArray(parsedState.mistakeLedgerEntries)) parsedState.mistakeLedgerEntries = [];
     if (!Array.isArray(parsedState.mistakeLedgerActivityLog)) parsedState.mistakeLedgerActivityLog = [];
     if (!Array.isArray(parsedState.personalGraphs)) parsedState.personalGraphs = [];
+    // Core Principles was introduced as an independent private daily checklist.
+    // Older valid archives begin empty; no past daily ratio is inferred.
+    if (!Array.isArray(parsedState.corePrincipleLists)) parsedState.corePrincipleLists = [];
+    if (!Array.isArray(parsedState.corePrincipleItems)) parsedState.corePrincipleItems = [];
+    if (!Array.isArray(parsedState.corePrincipleDailyCheckIns)) parsedState.corePrincipleDailyCheckIns = [];
     const state = parsedState as FocusState;
     assertStateShape(state);
     return state;
@@ -437,6 +443,9 @@ export function parseOfflineBackupArchive(archive: Uint8Array): ParsedOfflineBac
     if (!Array.isArray(parsedState.mistakeLedgerEntries)) parsedState.mistakeLedgerEntries = [];
     if (!Array.isArray(parsedState.mistakeLedgerActivityLog)) parsedState.mistakeLedgerActivityLog = [];
     if (!Array.isArray(parsedState.personalGraphs)) parsedState.personalGraphs = [];
+    if (!Array.isArray(parsedState.corePrincipleLists)) parsedState.corePrincipleLists = [];
+    if (!Array.isArray(parsedState.corePrincipleItems)) parsedState.corePrincipleItems = [];
+    if (!Array.isArray(parsedState.corePrincipleDailyCheckIns)) parsedState.corePrincipleDailyCheckIns = [];
     state = parsedState as FocusState;
   } catch {
     throw new OfflineBackupValidationError("The backup command data cannot be read.");
