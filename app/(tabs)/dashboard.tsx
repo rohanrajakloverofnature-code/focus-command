@@ -1,5 +1,6 @@
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useIsFocused } from "@react-navigation/native";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { BarsChart, ChartPoint, DonutChart, LineTrendChart, MultiLineTrendChart, PersonalGraphTrendChart, RadarChart } from "@/components/focus-charts";
@@ -10,7 +11,7 @@ import { MistakeLedgerCard } from "@/components/mistake-ledger-card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { formatCompactNumber, getCalendarTimeAverages, getDashboardDistributionStats, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getTotalPower, getWellbeingInsight, toLocalDate, type DashboardDistributionRange, type FocusState, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
+import { formatCompactNumber, getCalendarTimeAverages, getDashboardDistributionStats, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getMissionCompletionRecordsInLocalDateRange, getTotalPower, getWellbeingInsight, toLocalDate, type DashboardDistributionRange, type FocusState, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { RECOGNITION_WINDOW_LAYOUT } from "@/lib/focus-layout";
 import { getFocusFrictionInsight, getFocusFrictionRangePresentation, type FocusFrictionRange } from "@/lib/distraction-log";
 import { getConsistencyScenario, type ConsistencyProjectionHorizon } from "@/lib/personal-reflection-signals";
@@ -79,6 +80,24 @@ function isReflectionInRange(createdAt: string, range: DashboardVisualDateRange 
   return Boolean(range.startDate && range.endDate && localDate >= range.startDate && localDate <= range.endDate);
 }
 
+function getEarliestDashboardVisualDate(
+  timezone: string,
+  progression: FocusState["progression"],
+  completionRecords: ReturnType<typeof getMissionCompletionRecords>,
+  reflections: FocusState["reflections"],
+) {
+  let earliest: string | undefined;
+  const include = (occurredAt: string | null | undefined) => {
+    if (!occurredAt) return;
+    const localDate = toLocalDate(occurredAt, timezone);
+    if (!earliest || localDate < earliest) earliest = localDate;
+  };
+  progression.forEach((event) => include(event.occurredAt));
+  completionRecords.forEach((completion) => include(completion.completedAt));
+  reflections.forEach((reflection) => include(reflection.createdAt));
+  return earliest;
+}
+
 const feelingScore = { drained: 1, restless: 2, steady: 3, charged: 4, great: 5 } as const;
 const DASHBOARD_RANGE_OPTIONS: DashboardVisualRangeKind[] = ["last14Days", "week", "month", "lifetime", "custom"];
 
@@ -134,10 +153,14 @@ function hasSameDashboardDependencies(left: DashboardDependencies, right: Dashbo
 }
 
 export default function DashboardScreen() {
+  const isFocused = useIsFocused();
   const colors = useColors();
   const ready = useFocusCommandReady();
   const { addLifelinePoint, removeLifelinePoint, updateProfile } = useFocusCommandActions();
-  const state = useFocusCommandSelector(selectDashboardDependencies, hasSameDashboardDependencies) as FocusState;
+  const subscribedState = useFocusCommandSelector(selectDashboardDependencies, hasSameDashboardDependencies) as FocusState;
+  const lastFocusedState = useRef(subscribedState);
+  if (isFocused || !subscribedState.hydrated) lastFocusedState.current = subscribedState;
+  const state = lastFocusedState.current;
   const [showLifelineEditor, setShowLifelineEditor] = useState(false);
   const [birthYear, setBirthYear] = useState(String(new Date().getFullYear() - 20));
   const [lifePerformance, setLifePerformance] = useState("5");
@@ -172,18 +195,20 @@ export default function DashboardScreen() {
   const distribution = useMemo(() => getDashboardDistributionStats(state, distributionRange), [distributionRange, state.missionCompletions, state.missions, state.profile, state.progression, state.reflections]);
   const completionRecords = useMemo(() => getMissionCompletionRecords(state), [state.missionCompletions, state.missions, state.progression, state.reflections]);
   const todayLocalDate = getTodayLocalDate(state.profile.timezone);
-  const earliestVisualDate = useMemo(() => {
-    const dates = [
-      ...state.progression.map((event) => toLocalDate(event.occurredAt, state.profile.timezone)),
-      ...completionRecords.map((completion) => toLocalDate(completion.completedAt, state.profile.timezone)),
-      ...state.reflections.filter((reflection) => reflection.createdAt).map((reflection) => toLocalDate(reflection.createdAt, state.profile.timezone)),
-    ].sort();
-    return dates[0];
-  }, [completionRecords, state.profile.timezone, state.progression, state.reflections]);
+  const earliestVisualDate = useMemo(
+    () => historyRangeKind === "lifetime"
+      ? getEarliestDashboardVisualDate(state.profile.timezone, state.progression, completionRecords, state.reflections)
+      : undefined,
+    [completionRecords, historyRangeKind, state.profile.timezone, state.progression, state.reflections],
+  );
   const historyRange = useMemo(() => getDashboardVisualRange(historyRangeKind, todayLocalDate, historyCustomStart, historyCustomEnd, earliestVisualDate), [earliestVisualDate, historyCustomEnd, historyCustomStart, historyRangeKind, todayLocalDate]);
   const radarRange = useMemo(() => getDashboardVisualRange(radarRangeKind, todayLocalDate, radarCustomStart, radarCustomEnd, earliestVisualDate), [earliestVisualDate, radarCustomEnd, radarCustomStart, radarRangeKind, todayLocalDate]);
   const historyDays = useMemo(() => historyRangeKind === "last14Days" ? createDaySeries(14, state.profile.timezone) : historyRange ? createDateSeries(historyRange) : [], [historyRange, historyRangeKind, state.profile.timezone]);
-  const historyCompletionRecords = useMemo(() => completionRecords.filter((completion) => isReflectionInRange(completion.completedAt, historyRange, state.profile.timezone)), [completionRecords, historyRange, state.profile.timezone]);
+  const historyCompletionRecords = useMemo(() => {
+    if (!historyRange) return [];
+    if (historyRangeKind === "lifetime") return completionRecords;
+    return getMissionCompletionRecordsInLocalDateRange(state, historyRange.startDate, historyRange.endDate, state.profile.timezone);
+  }, [completionRecords, historyRange, historyRangeKind, state]);
   const historyProgression = useMemo(() => state.progression.filter((event) => isReflectionInRange(event.occurredAt, historyRange, state.profile.timezone)), [historyRange, state.profile.timezone, state.progression]);
   const radarReflections = useMemo(() => state.reflections.filter((reflection) => reflection.createdAt && isReflectionInRange(reflection.createdAt, radarRange, state.profile.timezone)), [radarRange, state.profile.timezone, state.reflections]);
   const forecast = useMemo(() => getEmotionalPatternForecast(state), [state.profile, state.reflections]);

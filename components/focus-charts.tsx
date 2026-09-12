@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Svg, { Circle, Line, Path, Polygon, Rect } from "react-native-svg";
 
@@ -20,7 +20,7 @@ function ChartFocus({ label, value, color }: { label: string; value: number; col
   return <View style={[styles.focusRow, { borderColor: `${color}66`, backgroundColor: `${color}12` }]}><View style={[styles.focusDot, { backgroundColor: color }]} /><Text numberOfLines={1} style={[styles.focusLabel, { color: colors.foreground }]}>{label}</Text><Text style={[styles.focusValue, { color }]}>{displayValue(value)}</Text></View>;
 }
 
-export function LineTrendChart({ points, color, secondaryPoints, secondaryColor, height = 132, accessibilityLabel }: { points: ChartPoint[]; color: string; secondaryPoints?: ChartPoint[]; secondaryColor?: string; height?: number; accessibilityLabel: string }) {
+export const LineTrendChart = memo(function LineTrendChart({ points, color, secondaryPoints, secondaryColor, height = 132, accessibilityLabel }: { points: ChartPoint[]; color: string; secondaryPoints?: ChartPoint[]; secondaryColor?: string; height?: number; accessibilityLabel: string }) {
   const colors = useColors();
   const { width: windowWidth } = useWindowDimensions();
   const width = Math.max(240, windowWidth - 66);
@@ -57,7 +57,7 @@ export function LineTrendChart({ points, color, secondaryPoints, secondaryColor,
     <ChartFocus label={selected.label} value={selected.value} color={color} />
     <View style={styles.lineLabels}>{labelIndexes.map((index) => <Text key={`${points[index].label}-${index}`} style={[styles.axisLabel, { color: colors.muted }]}>{points[index].label}</Text>)}</View>
   </View>;
-}
+});
 
 export interface MultiLineSeries { id: string; label: string; color: string; points: ChartPoint[]; }
 
@@ -72,7 +72,7 @@ export function downsampleMultiLineSeries(series: MultiLineSeries[], maxPoints: 
   return series.map((item) => ({ ...item, points: indexes.flatMap((index) => item.points[index] ? [item.points[index]] : []) }));
 }
 
-export function MultiLineTrendChart({ series, height = 144, accessibilityLabel, maxRenderPoints }: { series: MultiLineSeries[]; height?: number; accessibilityLabel: string; maxRenderPoints?: number }) {
+export const MultiLineTrendChart = memo(function MultiLineTrendChart({ series, height = 144, accessibilityLabel, maxRenderPoints }: { series: MultiLineSeries[]; height?: number; accessibilityLabel: string; maxRenderPoints?: number }) {
   const colors = useColors();
   const { width: windowWidth } = useWindowDimensions();
   const displaySeries = maxRenderPoints ? downsampleMultiLineSeries(series, maxRenderPoints) : series;
@@ -103,7 +103,7 @@ export function MultiLineTrendChart({ series, height = 144, accessibilityLabel, 
     <ChartFocus label={`${selected?.label ?? "Series"} · ${latest.label}`} value={latest.value} color={selected?.color ?? colors.primary} />
     <View style={styles.lineLabels}>{(referencePoints.length <= 4 ? referencePoints.map((_, index) => index) : [0, Math.floor((referencePoints.length - 1) / 2), referencePoints.length - 1]).map((index) => <Text key={`${referencePoints[index].label}-${index}`} style={[styles.axisLabel, { color: colors.muted }]}>{referencePoints[index].label}</Text>)}</View>
   </View>;
-}
+});
 
 function personalGraphTimestamp(xValue: string, precision: PersonalGraph["datePrecision"]) {
   const comparable = precision === "date" ? `${xValue}T00:00:00Z` : precision === "month" ? `${xValue}-01T00:00:00Z` : `${xValue}-01-01T00:00:00Z`;
@@ -111,7 +111,7 @@ function personalGraphTimestamp(xValue: string, precision: PersonalGraph["datePr
 }
 
 /** A bounded manual-data view. It never changes or drops the graph's saved points. */
-export function PersonalGraphTrendChart({ graph, range, height = 174, accessibilityLabel }: { graph: PersonalGraph; range: PersonalGraphRange; height?: number; accessibilityLabel: string }) {
+export const PersonalGraphTrendChart = memo(function PersonalGraphTrendChart({ graph, range, height = 174, accessibilityLabel }: { graph: PersonalGraph; range: PersonalGraphRange; height?: number; accessibilityLabel: string }) {
   const colors = useColors();
   const { width: windowWidth } = useWindowDimensions();
   const width = Math.max(240, windowWidth - 66);
@@ -150,9 +150,9 @@ export function PersonalGraphTrendChart({ graph, range, height = 174, accessibil
     <ChartFocus label={`${selected?.name ?? graph.yAxisLabel} · ${latest?.xLabel ?? "No data"}`} value={latest?.yValue ?? 0} color={selected?.color ?? colors.primary} />
     <View style={styles.lineLabels}>{labelIndexes.map((index) => <Text key={`${xValues[index]}-${index}`} style={[styles.axisLabel, { color: colors.muted }]}>{xValues[index]}</Text>)}</View>
   </View>;
-}
+});
 
-export function BarsChart({ points, color, height = 132, accessibilityLabel }: { points: ChartPoint[]; color: string; height?: number; accessibilityLabel: string }) {
+export const BarsChart = memo(function BarsChart({ points, color, height = 132, accessibilityLabel }: { points: ChartPoint[]; color: string; height?: number; accessibilityLabel: string }) {
   const colors = useColors();
   const { width: windowWidth } = useWindowDimensions();
   const width = Math.max(240, windowWidth - 66);
@@ -173,12 +173,12 @@ export function BarsChart({ points, color, height = 132, accessibilityLabel }: {
     <ChartFocus label={selected.label} value={selected.value} color={selected.color ?? color} />
     <View style={styles.lineLabels}>{labelIndexes.map((index) => <Text key={`${points[index].label}-${index}`} style={[styles.axisLabel, { color: colors.muted }]}>{points[index].label}</Text>)}</View>
   </View>;
-}
+});
 
 function polarToCartesian(center: number, radius: number, angle: number) { const radians = ((angle - 90) * Math.PI) / 180; return { x: center + radius * Math.cos(radians), y: center + radius * Math.sin(radians) }; }
 function describeArc(center: number, radius: number, startAngle: number, endAngle: number) { const start = polarToCartesian(center, radius, endAngle); const end = polarToCartesian(center, radius, startAngle); const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1"; return [`M ${center} ${center}`, `L ${start.x} ${start.y}`, `A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`, "Z"].join(" "); }
 
-export function DonutChart({ points, size = 146, centerLabel, centerValue, accessibilityLabel }: { points: ChartPoint[]; size?: number; centerLabel: string; centerValue: string; accessibilityLabel: string }) {
+export const DonutChart = memo(function DonutChart({ points, size = 146, centerLabel, centerValue, accessibilityLabel }: { points: ChartPoint[]; size?: number; centerLabel: string; centerValue: string; accessibilityLabel: string }) {
   const colors = useColors();
   const total = points.reduce((sum, point) => sum + Math.max(0, point.value), 0);
   const radius = size / 2 - 8;
@@ -197,9 +197,9 @@ export function DonutChart({ points, size = 146, centerLabel, centerValue, acces
     <View pointerEvents="none" style={styles.donutCenter}><Text style={[styles.donutValue, { color: selected?.color ?? colors.foreground }]}>{selected ? `${Math.round((selected.value / Math.max(1, total)) * 100)}%` : centerValue}</Text><Text numberOfLines={2} style={[styles.donutLabel, { color: colors.muted }]}>{selected?.label ?? centerLabel}</Text></View>
     {selected ? <ChartFocus label={selected.label} value={selected.value} color={selected.color ?? defaultColors[selectedIndex % defaultColors.length]} /> : null}
   </View>;
-}
+});
 
-export function RadarChart({ points, color, size = 176, accessibilityLabel }: { points: ChartPoint[]; color: string; size?: number; accessibilityLabel: string }) {
+export const RadarChart = memo(function RadarChart({ points, color, size = 176, accessibilityLabel }: { points: ChartPoint[]; color: string; size?: number; accessibilityLabel: string }) {
   const colors = useColors();
   const maxValue = Math.max(1, ...points.map((point) => point.value));
   const center = size / 2;
@@ -219,7 +219,7 @@ export function RadarChart({ points, color, size = 176, accessibilityLabel }: { 
     <View style={styles.radarLegend}>{points.map((point, index) => <Pressable key={`${point.label}-${index}`} onPress={() => setSelectedIndex(index)} style={({ pressed }) => [styles.radarLegendItem, { opacity: pressed ? 0.65 : index === selectedIndex ? 1 : 0.62, borderColor: index === selectedIndex ? color : colors.border }]}><Text style={[styles.radarLegendText, { color: index === selectedIndex ? color : colors.muted }]}>{point.label}: {Math.round(point.value)}</Text></Pressable>)}</View>
     <ChartFocus label={selected.label} value={selected.value} color={color} />
   </View>;
-}
+});
 
 const styles = StyleSheet.create({
   lineLabels: { flexDirection: "row", justifyContent: "space-between", marginTop: -3 },

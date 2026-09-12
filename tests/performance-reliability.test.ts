@@ -23,6 +23,7 @@ const homeFireSource = readFileSync(resolve(process.cwd(), "components/home-fire
 const emotionPredictionTickerSource = readFileSync(resolve(process.cwd(), "components/emotion-prediction-ticker.tsx"), "utf8");
 const miniAchievementTickerSource = readFileSync(resolve(process.cwd(), "components/mini-achievement-ticker.tsx"), "utf8");
 const dashboardSource = readFileSync(resolve(process.cwd(), "app/(tabs)/dashboard.tsx"), "utf8");
+const chartSource = readFileSync(resolve(process.cwd(), "components/focus-charts.tsx"), "utf8");
 const analyticsSource = readFileSync(resolve(process.cwd(), "app/analytics.tsx"), "utf8");
 const personalReflectionSignalsSource = readFileSync(resolve(process.cwd(), "app/reflection-signals.tsx"), "utf8");
 const personalReflectionSignalHelperSource = readFileSync(resolve(process.cwd(), "lib/personal-reflection-signals.ts"), "utf8");
@@ -257,6 +258,17 @@ describe("Performance and reliability contracts", () => {
     expect(analyticsSource).toContain("type AnalyticsDependencies = Pick<FocusState");
     expect(analyticsSource).toContain("useFocusCommandSelector(selectAnalyticsDependencies, hasSameAnalyticsDependencies)");
     expect(analyticsSource).toContain("return {\n    profile: state.profile,");
+  });
+
+  it("keeps expensive Dashboard derivations dormant while the screen is unfocused and avoids repeat chart SVG work for unchanged props", () => {
+    expect(dashboardSource).toContain("const isFocused = useIsFocused();");
+    expect(dashboardSource).toContain("const lastFocusedState = useRef(subscribedState);");
+    expect(dashboardSource).toContain("if (isFocused || !subscribedState.hydrated) lastFocusedState.current = subscribedState;");
+    expect(dashboardSource).toContain("function getEarliestDashboardVisualDate(");
+    expect(dashboardSource).toContain("getMissionCompletionRecordsInLocalDateRange(state, historyRange.startDate, historyRange.endDate, state.profile.timezone)");
+    for (const chart of ["LineTrendChart", "MultiLineTrendChart", "PersonalGraphTrendChart", "BarsChart", "DonutChart", "RadarChart"]) {
+      expect(chartSource).toContain(`export const ${chart} = memo(function ${chart}`);
+    }
   });
 
   it("keeps the new reflection-signal detail virtualized and bounds the scenario’s source window without changing stored history", () => {
