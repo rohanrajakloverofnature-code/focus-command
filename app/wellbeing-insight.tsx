@@ -7,6 +7,7 @@ import { CommandCard, IconAction, LoadingScreen, ScreenTitle, StatusPill } from 
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { getWellbeingInsight, shallowEqual, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
+import { formatMinutes, getRecoveryContextForDates } from "@/lib/recovery-rhythm";
 
 function mean(values: (number | null | undefined)[]) {
   const available = values.filter((value): value is number => typeof value === "number" && value > 0);
@@ -29,9 +30,14 @@ export default function WellbeingInsightScreen() {
     profile: state.profile,
     missions: state.missions,
     reflections: state.reflections,
+    recoveryStressors: state.recoveryStressors ?? [],
+    sleepLogs: state.sleepLogs ?? [],
+    napLogs: state.napLogs ?? [],
+    screenTimeLogs: state.screenTimeLogs ?? [],
   }), shallowEqual);
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const insight = useMemo(() => getWellbeingInsight(wellbeingState), [wellbeingState]);
+  const recoveryContext = useMemo(() => getRecoveryContextForDates(wellbeingState, insight.records.map((record) => record.localDate)), [insight.records, wellbeingState]);
 
   const trendSeries = useMemo<MultiLineSeries[]>(() => {
     const chronological = [...insight.records].reverse();
@@ -94,6 +100,11 @@ export default function WellbeingInsightScreen() {
             {insight.available ? <Text style={[styles.trendChip, { color: insight.trend.direction === "rising" ? colors.success : insight.trend.direction === "easing" ? colors.warning : colors.muted }]}>{trendLabel(insight.trend.direction)} pattern</Text> : null}
           </View>
         </CommandCard>
+
+        {recoveryContext.contextDays ? <CommandCard accent={colors.success} style={styles.methodCard}>
+          <View style={styles.safetyTopline}><Text style={[styles.methodCaption, { color: colors.success }]}>RECOVERY CONTEXT · MANUAL LOGS</Text><StatusPill label={`${recoveryContext.contextDays} DAY${recoveryContext.contextDays === 1 ? "" : "S"}`} tone="success" /></View>
+          <Text style={[styles.methodText, { color: colors.muted }]}>Alongside the reflection dates shown here: stress {recoveryContext.averageStress === null ? "—" : `${recoveryContext.averageStress}/10`} · sleep {formatMinutes(recoveryContext.averageSleepMinutes)} · screen time {formatMinutes(recoveryContext.averageScreenMinutes)}. This context does not change the existing balance score or claim that one factor caused another.</Text>
+        </CommandCard> : null}
 
         <SectionHeading title="How the view is calculated" detail="Inputs stay visible: missing ratings are excluded instead of guessed." />
         <CommandCard accent={colors.primary} style={styles.methodCard}>

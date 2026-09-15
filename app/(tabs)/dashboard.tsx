@@ -15,6 +15,7 @@ import { formatCompactNumber, getCalendarTimeAverages, getDashboardDistributionS
 import { RECOGNITION_WINDOW_LAYOUT } from "@/lib/focus-layout";
 import { getFocusFrictionInsight, getFocusFrictionRangePresentation, type FocusFrictionRange } from "@/lib/distraction-log";
 import { getConsistencyScenario, type ConsistencyProjectionHorizon } from "@/lib/personal-reflection-signals";
+import { formatMinutes, getRecoveryContextForDates, getRecoverySummary } from "@/lib/recovery-rhythm";
 import { getWeeklyAfterActionReview } from "@/lib/weekly-after-action";
 import {
   getBehavioralReflectionWindowLabel,
@@ -118,6 +119,11 @@ type DashboardDependencies = Pick<FocusState,
   | "customQuestions"
   | "personalGraphs"
   | "lifeline"
+  | "recoveryStressors"
+  | "recoveryActions"
+  | "sleepLogs"
+  | "napLogs"
+  | "screenTimeLogs"
 >;
 
 function selectDashboardDependencies(state: FocusState): DashboardDependencies {
@@ -134,6 +140,11 @@ function selectDashboardDependencies(state: FocusState): DashboardDependencies {
     customQuestions: state.customQuestions,
     personalGraphs: state.personalGraphs,
     lifeline: state.lifeline,
+    recoveryStressors: state.recoveryStressors,
+    recoveryActions: state.recoveryActions,
+    sleepLogs: state.sleepLogs,
+    napLogs: state.napLogs,
+    screenTimeLogs: state.screenTimeLogs,
   };
 }
 
@@ -149,7 +160,12 @@ function hasSameDashboardDependencies(left: DashboardDependencies, right: Dashbo
     && left.customGraphs === right.customGraphs
     && left.customQuestions === right.customQuestions
     && left.personalGraphs === right.personalGraphs
-    && left.lifeline === right.lifeline;
+    && left.lifeline === right.lifeline
+    && left.recoveryStressors === right.recoveryStressors
+    && left.recoveryActions === right.recoveryActions
+    && left.sleepLogs === right.sleepLogs
+    && left.napLogs === right.napLogs
+    && left.screenTimeLogs === right.screenTimeLogs;
 }
 
 export default function DashboardScreen() {
@@ -213,6 +229,8 @@ export default function DashboardScreen() {
   const radarReflections = useMemo(() => state.reflections.filter((reflection) => reflection.createdAt && isReflectionInRange(reflection.createdAt, radarRange, state.profile.timezone)), [radarRange, state.profile.timezone, state.reflections]);
   const forecast = useMemo(() => getEmotionalPatternForecast(state), [state.profile, state.reflections]);
   const wellbeing = useMemo(() => getWellbeingInsight(state), [state.profile, state.reflections]);
+  const forecastRecoveryContext = useMemo(() => getRecoveryContextForDates(state, state.reflections.slice(-14).map((reflection) => toLocalDate(reflection.createdAt, state.profile.timezone))), [state.napLogs, state.profile.timezone, state.recoveryStressors, state.screenTimeLogs, state.sleepLogs, state.reflections]);
+  const recoveryWeek = useMemo(() => getRecoverySummary(state, "week"), [state.napLogs, state.profile, state.recoveryActions, state.recoveryStressors, state.screenTimeLogs, state.sleepLogs]);
   const consistencyScenario = useMemo(() => getConsistencyScenario(state, consistencyHorizon), [consistencyHorizon, state.customQuestions, state.profile, state.reflections]);
   const focusFrictionRange = useMemo<FocusFrictionRange>(() => focusFrictionRangeKind === "custom" ? appliedCustomFrictionRange ?? { kind: "custom", startDate: "", endDate: "" } : { kind: focusFrictionRangeKind }, [appliedCustomFrictionRange, focusFrictionRangeKind]);
   const focusFrictionRangePresentation = useMemo(() => getFocusFrictionRangePresentation(focusFrictionRange, state.profile.timezone), [focusFrictionRange, state.profile.timezone]);
@@ -492,6 +510,10 @@ export default function DashboardScreen() {
           </View>)}</View> : null}
           <StatusPill label={`${forecast.confidence.toUpperCase()} · ${forecast.sampleSize} SIGNAL${forecast.sampleSize === 1 ? "" : "S"}`} tone={forecast.available ? "primary" : "neutral"} icon="chart.xyaxis.line" />
         </CommandCard>
+        {forecastRecoveryContext.contextDays ? <CommandCard accent={colors.success} style={styles.forecastCard}>
+          <Text style={[styles.forecastEyebrow, { color: colors.success }]}>RECOVERY CONTEXT · MANUAL LOGS</Text>
+          <Text style={[styles.forecastDetail, { color: colors.muted }]}>Across {forecastRecoveryContext.contextDays} matching recorded day{forecastRecoveryContext.contextDays === 1 ? "" : "s"}: stress {forecastRecoveryContext.averageStress === null ? "—" : `${forecastRecoveryContext.averageStress}/10`} · sleep {formatMinutes(forecastRecoveryContext.averageSleepMinutes)} · screen {formatMinutes(forecastRecoveryContext.averageScreenMinutes)}. Context only; it does not alter this forecast.</Text>
+        </CommandCard> : null}
         </> : null}
 
         <SectionHeader title="Consistency scenario" />
@@ -533,6 +555,24 @@ export default function DashboardScreen() {
               <StatusPill label={wellbeing.available ? `${wellbeing.confidence.toUpperCase()} · ${wellbeing.sampleSize} LOG${wellbeing.sampleSize === 1 ? "" : "S"}` : "AWAITING DEBRIEF"} tone={wellbeing.available ? "primary" : "neutral"} icon="shield.fill" />
               <Text style={[styles.wellbeingOpen, { color: colors.primary }]}>VIEW DETAIL ›</Text>
             </View>
+          </CommandCard>
+        </TapFeedback>
+
+        <SectionHeader title="Recovery & Rhythm" />
+        <TapFeedback onPress={() => router.push("/recovery-rhythm" as never)} accessibilityLabel="Open private Recovery and Rhythm logs">
+          <CommandCard accent={colors.success} style={styles.wellbeingCard}>
+            <View style={styles.wellbeingHeading}>
+              <View style={styles.wellbeingCopy}>
+                <Text style={[styles.wellbeingEyebrow, { color: colors.success }]}>PRIVATE · MANUAL RECOVERY LOGS</Text>
+                <Text style={[styles.wellbeingTitle, { color: colors.foreground }]}>Stress, sleep, naps, and screen time</Text>
+              </View>
+              <View style={[styles.wellbeingScore, { borderColor: `${colors.success}55`, backgroundColor: `${colors.success}14` }]}>
+                <Text style={[styles.wellbeingScoreValue, { color: colors.success }]}>{recoveryWeek.averageStress === null ? "—" : recoveryWeek.averageStress}</Text>
+                <Text style={[styles.wellbeingScoreLabel, { color: colors.muted }]}>STRESS</Text>
+              </View>
+            </View>
+            <Text style={[styles.wellbeingDetail, { color: colors.muted }]}>This week: sleep {formatMinutes(recoveryWeek.averageSleepMinutes)} · screen {formatMinutes(recoveryWeek.averageScreenMinutes)} · {recoveryWeek.stressors.length} stressor{recoveryWeek.stressors.length === 1 ? "" : "s"} logged. Open your private Recovery & Rhythm workspace.</Text>
+            <View style={styles.wellbeingFooter}><StatusPill label={`${recoveryWeek.recordedDays.sleep + recoveryWeek.recordedDays.stress + recoveryWeek.recordedDays.screen} RECORDED DAYS`} tone="success" icon="shield.fill" /><Text style={[styles.wellbeingOpen, { color: colors.success }]}>OPEN ›</Text></View>
           </CommandCard>
         </TapFeedback>
 

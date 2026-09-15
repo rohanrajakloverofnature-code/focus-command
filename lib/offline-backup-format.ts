@@ -130,6 +130,7 @@ function assertStateShape(value: unknown): asserts value is FocusState {
     "distractionLogs", "rewards", "transactions", "inventory", "progression", "characterMilestones", "lifeline",
     "customQuestions", "customGraphs", "allEquipment", "userEquipment",
     "corePrincipleLists", "corePrincipleItems", "corePrincipleDailyCheckIns",
+    "recoveryStressors", "recoveryActions", "sleepLogs", "napLogs", "screenTimeLogs",
   ];
   if (!state.profile || typeof state.profile !== "object" || !state.combo || typeof state.combo !== "object") {
     throw new OfflineBackupValidationError("The backup profile or combo configuration is missing.");
@@ -189,6 +190,13 @@ function parseBackupState(bytes: Uint8Array): FocusState {
     if (!Array.isArray(parsedState.corePrincipleLists)) parsedState.corePrincipleLists = [];
     if (!Array.isArray(parsedState.corePrincipleItems)) parsedState.corePrincipleItems = [];
     if (!Array.isArray(parsedState.corePrincipleDailyCheckIns)) parsedState.corePrincipleDailyCheckIns = [];
+    // Recovery & Rhythm is optional manual history. Missing older fields begin
+    // empty; no stress, sleep, nap, or screen-time detail is inferred.
+    if (!Array.isArray(parsedState.recoveryStressors)) parsedState.recoveryStressors = [];
+    if (!Array.isArray(parsedState.recoveryActions)) parsedState.recoveryActions = [];
+    if (!Array.isArray(parsedState.sleepLogs)) parsedState.sleepLogs = [];
+    if (!Array.isArray(parsedState.napLogs)) parsedState.napLogs = [];
+    if (!Array.isArray(parsedState.screenTimeLogs)) parsedState.screenTimeLogs = [];
     const state = parsedState as FocusState;
     assertStateShape(state);
     return state;
@@ -446,6 +454,11 @@ export function parseOfflineBackupArchive(archive: Uint8Array): ParsedOfflineBac
     if (!Array.isArray(parsedState.corePrincipleLists)) parsedState.corePrincipleLists = [];
     if (!Array.isArray(parsedState.corePrincipleItems)) parsedState.corePrincipleItems = [];
     if (!Array.isArray(parsedState.corePrincipleDailyCheckIns)) parsedState.corePrincipleDailyCheckIns = [];
+    if (!Array.isArray(parsedState.recoveryStressors)) parsedState.recoveryStressors = [];
+    if (!Array.isArray(parsedState.recoveryActions)) parsedState.recoveryActions = [];
+    if (!Array.isArray(parsedState.sleepLogs)) parsedState.sleepLogs = [];
+    if (!Array.isArray(parsedState.napLogs)) parsedState.napLogs = [];
+    if (!Array.isArray(parsedState.screenTimeLogs)) parsedState.screenTimeLogs = [];
     state = parsedState as FocusState;
   } catch {
     throw new OfflineBackupValidationError("The backup command data cannot be read.");

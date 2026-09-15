@@ -738,3 +738,15 @@
 
 - [x] Implement only evidence-backed internal long-session safeguards: reduce unnecessary Home/Dashboard derivation work, preserve full lifetime history while bounding chart draw work, retain safe persistence while reducing repeated foreground serialization, and verify timer/media cleanup without changing visual or functional behavior.
 - [x] Validate protected calculations, navigation, saved-data/backup behavior, large histories, repeated interactions, and 5+ minute stress coverage; then publish only the scoped performance source/tests/checklist update to public GitHub main with a fresh temporary deploy key and no APK or workflow.
+
+- [x] Inspect and propose an offline Stress → Understand → Act → Recover feature, manual Sleep and Screen Time logs, and a unified weekly/monthly/lifetime/custom Command Overview without changing app source or saved data.
+
+- [x] Refine the Recovery & Rhythm proposal to connect manual records to existing Pattern Forecast and Wellbeing Insight, add safe record deletion, optional naps, two sleep-entry methods, and wake-day default attribution without changing source or saved data.
+
+- [x] Implement offline Recovery & Rhythm stressors, lifecycle actions, before/after stress checks, safe edit/delete actions, and isolated manual data collections.
+- [x] Implement Sleep and optional Nap logs with duration-or-bed/wake input, wake-day sleep attribution, editable date correction, and safe record deletion.
+- [x] Implement manual Screen Time logs with app/site/category labels, edit/delete actions, and no device tracking or background collection.
+- [x] Add contextual Recovery Context panels to existing Pattern Forecast and Wellbeing Insight without altering their current built-in emotional calculations or making diagnostic/causal claims.
+- [x] Add Recovery & Rhythm Dashboard entry and read-only Command Balance summaries for Week, Month, Lifetime, and Custom ranges while preserving all existing calculations.
+- [x] Extend offline backup safely, validate data isolation/legacy restore/long-history performance, and report results before any separate GitHub publication request.
+- [ ] Publish only the validated Recovery & Rhythm source, backup, tests, and checklist update to public GitHub main with a temporary deploy key; do not start an APK or workflow.

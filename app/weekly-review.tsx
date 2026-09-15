@@ -101,6 +101,14 @@ export default function WeeklyReviewScreen() {
         {review.friction.total ? <Text style={[styles.detail, { color: colors.muted }]}>{review.friction.topCategory} · {review.friction.topCategoryCount} disruption{review.friction.topCategoryCount === 1 ? "" : "s"}{review.friction.timeWindow ? ` · Most interrupted: ${review.friction.timeWindow}` : ""}</Text> : <Text style={[styles.detail, { color: colors.muted }]}>No distraction signals logged this week.</Text>}
       </CommandCard>
 
+      <Pressable accessibilityRole="button" accessibilityLabel="Open this week’s Command Balance" onPress={() => router.push("/recovery-rhythm-history" as never)} style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}>
+        <CommandCard accent={colors.success} style={styles.card}>
+          <Text style={[styles.cardTitle, { color: colors.foreground }]}>Command Balance</Text>
+          <Text style={[styles.detail, { color: colors.muted }]}>Open this week’s recorded stress, sleep, screen time, Success Ratio, and Mission Power together. It is read-only and does not change this review.</Text>
+          <Text style={[styles.eyebrow, { color: colors.success }]}>OPEN PRIVATE OVERVIEW ›</Text>
+        </CommandCard>
+      </Pressable>
+
       <SectionHeader title="Weekly revision review" />
       <CommandCard accent="#A78BFA" style={styles.revisionCard}>
         <View style={styles.revisionHeading}>

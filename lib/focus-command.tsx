@@ -703,6 +703,120 @@ export interface CorePrincipleDailyCheckIn {
   updatedAt: string;
 }
 
+export const RECOVERY_STRESSOR_STATUSES = ["identified", "understanding", "control", "action", "monitoring", "resolving", "resolved", "recurring"] as const;
+export type RecoveryStressorStatus = (typeof RECOVERY_STRESSOR_STATUSES)[number];
+export const RECOVERY_ACTION_TYPES = ["grounding", "paced_breathing", "relaxation", "mindfulness", "acceptance", "problem_solving", "other"] as const;
+export type RecoveryActionType = (typeof RECOVERY_ACTION_TYPES)[number];
+export type SleepEntryMode = "duration" | "bed_wake";
+export type SleepDreamPattern = "none_remembered" | "some_remembered" | "vivid_or_heavy";
+export type SleepAwakeningPattern = "none" | "once" | "two_or_more";
+
+/** A private manual stressor. It never modifies mission, reward, or reflection records. */
+export interface RecoveryStressor {
+  id: string;
+  title: string;
+  category: string;
+  status: RecoveryStressorStatus;
+  intensity: number;
+  emotions: string[];
+  bodySensations: string[];
+  concern: string;
+  controllability: "control" | "influence" | "cannot_control_today" | "unclear";
+  frequency: string;
+  urgency: string;
+  localDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One user-recorded response to a stressor, including optional before/after ratings. */
+export interface RecoveryActionRecord {
+  id: string;
+  stressorId: string;
+  type: RecoveryActionType;
+  beforeIntensity: number | null;
+  afterIntensity: number | null;
+  note: string;
+  localDate: string;
+  occurredAt: string;
+}
+
+/** An overnight sleep entry attributed by default to the local calendar day on which the user woke. */
+export interface SleepLog {
+  id: string;
+  localDate: string;
+  entryMode: SleepEntryMode;
+  durationMinutes: number;
+  bedTime: string | null;
+  wakeTime: string | null;
+  quality: number | null;
+  dreams: SleepDreamPattern | null;
+  awakenings: SleepAwakeningPattern | null;
+  restedRating: number | null;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A separate optional nap. It never changes the stored overnight-sleep duration. */
+export interface NapLog {
+  id: string;
+  localDate: string;
+  durationMinutes: number;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A private manual daily screen-time record; no device usage or browsing data is collected. */
+export interface ScreenTimeLog {
+  id: string;
+  localDate: string;
+  totalMinutes: number;
+  primaryLabel: string;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecoveryStressorDraft {
+  title: string;
+  category?: string;
+  status?: RecoveryStressorStatus;
+  intensity?: number;
+  emotions?: string[];
+  bodySensations?: string[];
+  concern?: string;
+  controllability?: RecoveryStressor["controllability"];
+  frequency?: string;
+  urgency?: string;
+  localDate?: string;
+}
+
+export interface RecoveryActionDraft {
+  type: RecoveryActionType;
+  beforeIntensity?: number | null;
+  afterIntensity?: number | null;
+  note?: string;
+  localDate?: string;
+}
+
+export interface SleepLogDraft {
+  localDate?: string;
+  entryMode: SleepEntryMode;
+  durationMinutes?: number;
+  bedTime?: string | null;
+  wakeTime?: string | null;
+  quality?: number | null;
+  dreams?: SleepDreamPattern | null;
+  awakenings?: SleepAwakeningPattern | null;
+  restedRating?: number | null;
+  note?: string;
+}
+
+export interface NapLogDraft { localDate?: string; durationMinutes: number; note?: string; }
+export interface ScreenTimeLogDraft { localDate?: string; totalMinutes: number; primaryLabel: string; note?: string; }
+
 export const EQUIPMENT_SLOT_BY_TYPE = {
   FocusDevice: "head",
   EnergyPack: "body",
@@ -751,6 +865,11 @@ export interface FocusState {
   corePrincipleLists: CorePrincipleList[];
   corePrincipleItems: CorePrincipleItem[];
   corePrincipleDailyCheckIns: CorePrincipleDailyCheckIn[];
+  recoveryStressors?: RecoveryStressor[];
+  recoveryActions?: RecoveryActionRecord[];
+  sleepLogs?: SleepLog[];
+  napLogs?: NapLog[];
+  screenTimeLogs?: ScreenTimeLog[];
   bosses: Boss[];
   journals: JournalEntry[];
   distractionLogs: DistractionLogEntry[];
@@ -1279,6 +1398,11 @@ export function createInitialState(): FocusState {
     corePrincipleLists: [],
     corePrincipleItems: [],
     corePrincipleDailyCheckIns: [],
+    recoveryStressors: [],
+    recoveryActions: [],
+    sleepLogs: [],
+    napLogs: [],
+    screenTimeLogs: [],
     bosses: [],
     journals: [],
     distractionLogs: [],
@@ -2324,6 +2448,21 @@ interface FocusCommandContextValue {
   setCorePrincipleItemActive: (itemId: string, active: boolean) => void;
   removeCorePrincipleItem: (itemId: string) => void;
   setCorePrincipleItemChecked: (itemId: string, checked: boolean) => void;
+  addRecoveryStressor: (draft: RecoveryStressorDraft) => string | null;
+  updateRecoveryStressor: (stressorId: string, patch: Partial<RecoveryStressorDraft>) => void;
+  removeRecoveryStressor: (stressorId: string) => void;
+  addRecoveryAction: (stressorId: string, draft: RecoveryActionDraft) => string | null;
+  updateRecoveryAction: (actionId: string, patch: Partial<RecoveryActionDraft>) => void;
+  removeRecoveryAction: (actionId: string) => void;
+  addSleepLog: (draft: SleepLogDraft) => string | null;
+  updateSleepLog: (logId: string, draft: SleepLogDraft) => void;
+  removeSleepLog: (logId: string) => void;
+  addNapLog: (draft: NapLogDraft) => string | null;
+  updateNapLog: (logId: string, draft: NapLogDraft) => void;
+  removeNapLog: (logId: string) => void;
+  addScreenTimeLog: (draft: ScreenTimeLogDraft) => string | null;
+  updateScreenTimeLog: (logId: string, draft: ScreenTimeLogDraft) => void;
+  removeScreenTimeLog: (logId: string) => void;
   createBoss: (input: Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold">) => string;
   updateBoss: (bossId: string, patch: Partial<Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold" | "status">>) => void;
   removeBoss: (bossId: string) => void;
@@ -2376,6 +2515,59 @@ const FocusCommandActionsContext = createContext<FocusCommandActions | null>(nul
 const FocusCommandStateStoreContext = createContext<FocusCommandStateStore | null>(null);
 const FocusCommandReadyContext = createContext(false);
 const PERSISTENCE_DEBOUNCE_MS = 250;
+
+const LOCAL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const CLOCK_TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+
+function clampWholeNumber(value: unknown, minimum: number, maximum: number, fallback = minimum): number {
+  const numeric = Math.round(Number(value));
+  return Number.isFinite(numeric) ? Math.max(minimum, Math.min(maximum, numeric)) : fallback;
+}
+
+function normalizeRecoveryLocalDate(value: unknown, fallback: string): string {
+  return typeof value === "string" && LOCAL_DATE_PATTERN.test(value) ? value : fallback;
+}
+
+function normalizeRecoveryText(value: unknown, limit: number): string {
+  return typeof value === "string" ? value.trim().slice(0, limit) : "";
+}
+
+function normalizeRecoveryTags(value: unknown, limit: number): string[] {
+  return Array.isArray(value)
+    ? Array.from(new Set(value.map((item) => normalizeRecoveryText(item, 48)).filter(Boolean))).slice(0, limit)
+    : [];
+}
+
+export function getSleepDurationMinutesFromBedWake(bedTime: string | null | undefined, wakeTime: string | null | undefined): number | null {
+  if (!bedTime || !wakeTime || !CLOCK_TIME_PATTERN.test(bedTime) || !CLOCK_TIME_PATTERN.test(wakeTime)) return null;
+  const [bedHour, bedMinute] = bedTime.split(":").map(Number);
+  const [wakeHour, wakeMinute] = wakeTime.split(":").map(Number);
+  const bedMinutes = bedHour * 60 + bedMinute;
+  const wakeMinutes = wakeHour * 60 + wakeMinute;
+  const duration = (wakeMinutes - bedMinutes + 1_440) % 1_440;
+  return duration > 0 ? duration : null;
+}
+
+function resolveSleepDraft(draft: SleepLogDraft, fallbackDate: string): Omit<SleepLog, "id" | "createdAt" | "updatedAt"> | null {
+  const entryMode: SleepEntryMode = draft.entryMode === "bed_wake" ? "bed_wake" : "duration";
+  const bedTime = typeof draft.bedTime === "string" && CLOCK_TIME_PATTERN.test(draft.bedTime) ? draft.bedTime : null;
+  const wakeTime = typeof draft.wakeTime === "string" && CLOCK_TIME_PATTERN.test(draft.wakeTime) ? draft.wakeTime : null;
+  const calculated = getSleepDurationMinutesFromBedWake(bedTime, wakeTime);
+  const durationMinutes = entryMode === "bed_wake" ? calculated : clampWholeNumber(draft.durationMinutes, 1, 1_440, 0);
+  if (!durationMinutes) return null;
+  return {
+    localDate: normalizeRecoveryLocalDate(draft.localDate, fallbackDate),
+    entryMode,
+    durationMinutes,
+    bedTime: entryMode === "bed_wake" ? bedTime : null,
+    wakeTime: entryMode === "bed_wake" ? wakeTime : null,
+    quality: draft.quality === null || draft.quality === undefined ? null : clampWholeNumber(draft.quality, 1, 5, 1),
+    dreams: draft.dreams && ["none_remembered", "some_remembered", "vivid_or_heavy"].includes(draft.dreams) ? draft.dreams : null,
+    awakenings: draft.awakenings && ["none", "once", "two_or_more"].includes(draft.awakenings) ? draft.awakenings : null,
+    restedRating: draft.restedRating === null || draft.restedRating === undefined ? null : clampWholeNumber(draft.restedRating, 1, 5, 1),
+    note: normalizeRecoveryText(draft.note, 360),
+  };
+}
 
 export function normalizeHydratedState(input: FocusState): FocusState {
   const { googleSheet: _legacyGoogleSheet, ...inputWithoutLegacyGoogleSheet } = input as FocusState & { googleSheet?: unknown };
@@ -2618,6 +2810,82 @@ export function normalizeHydratedState(input: FocusState): FocusState {
           ...checkIn,
           items: checkIn.items.map((item) => ({ ...item, listTitle: item.listTitle.trim(), itemText: item.itemText.trim() })),
         }))
+      : [],
+    recoveryStressors: Array.isArray(input.recoveryStressors)
+      ? input.recoveryStressors.filter((entry): entry is RecoveryStressor => Boolean(
+          entry
+          && typeof entry.id === "string" && entry.id
+          && typeof entry.title === "string" && entry.title.trim()
+          && RECOVERY_STRESSOR_STATUSES.includes(entry.status)
+          && typeof entry.localDate === "string" && LOCAL_DATE_PATTERN.test(entry.localDate)
+          && typeof entry.createdAt === "string" && Number.isFinite(Date.parse(entry.createdAt))
+          && typeof entry.updatedAt === "string" && Number.isFinite(Date.parse(entry.updatedAt)),
+        )).map((entry) => ({
+          ...entry,
+          title: normalizeRecoveryText(entry.title, 160),
+          category: normalizeRecoveryText(entry.category, 60),
+          intensity: clampWholeNumber(entry.intensity, 0, 10, 0),
+          emotions: normalizeRecoveryTags(entry.emotions, 8),
+          bodySensations: normalizeRecoveryTags(entry.bodySensations, 8),
+          concern: normalizeRecoveryText(entry.concern, 500),
+          controllability: ["control", "influence", "cannot_control_today", "unclear"].includes(entry.controllability) ? entry.controllability : "unclear",
+          frequency: normalizeRecoveryText(entry.frequency, 60),
+          urgency: normalizeRecoveryText(entry.urgency, 60),
+        }))
+      : [],
+    recoveryActions: (() => {
+      const stressorIds = new Set((input.recoveryStressors ?? []).map((entry) => entry?.id));
+      return Array.isArray(input.recoveryActions)
+        ? input.recoveryActions.filter((entry): entry is RecoveryActionRecord => Boolean(
+            entry
+            && typeof entry.id === "string" && entry.id
+            && typeof entry.stressorId === "string" && stressorIds.has(entry.stressorId)
+            && RECOVERY_ACTION_TYPES.includes(entry.type)
+            && typeof entry.localDate === "string" && LOCAL_DATE_PATTERN.test(entry.localDate)
+            && typeof entry.occurredAt === "string" && Number.isFinite(Date.parse(entry.occurredAt)),
+          )).map((entry) => ({
+            ...entry,
+            beforeIntensity: entry.beforeIntensity === null || entry.beforeIntensity === undefined ? null : clampWholeNumber(entry.beforeIntensity, 0, 10, 0),
+            afterIntensity: entry.afterIntensity === null || entry.afterIntensity === undefined ? null : clampWholeNumber(entry.afterIntensity, 0, 10, 0),
+            note: normalizeRecoveryText(entry.note, 360),
+          }))
+        : [];
+    })(),
+    sleepLogs: Array.isArray(input.sleepLogs)
+      ? input.sleepLogs.filter((entry): entry is SleepLog => Boolean(
+          entry && typeof entry.id === "string" && entry.id && LOCAL_DATE_PATTERN.test(entry.localDate)
+          && (entry.entryMode === "duration" || entry.entryMode === "bed_wake")
+          && Number.isFinite(entry.durationMinutes) && entry.durationMinutes > 0
+          && typeof entry.createdAt === "string" && Number.isFinite(Date.parse(entry.createdAt))
+          && typeof entry.updatedAt === "string" && Number.isFinite(Date.parse(entry.updatedAt)),
+        )).map((entry) => ({
+          ...entry,
+          durationMinutes: clampWholeNumber(entry.durationMinutes, 1, 1_440, 1),
+          bedTime: typeof entry.bedTime === "string" && CLOCK_TIME_PATTERN.test(entry.bedTime) ? entry.bedTime : null,
+          wakeTime: typeof entry.wakeTime === "string" && CLOCK_TIME_PATTERN.test(entry.wakeTime) ? entry.wakeTime : null,
+          quality: entry.quality === null || entry.quality === undefined ? null : clampWholeNumber(entry.quality, 1, 5, 1),
+          dreams: entry.dreams && ["none_remembered", "some_remembered", "vivid_or_heavy"].includes(entry.dreams) ? entry.dreams : null,
+          awakenings: entry.awakenings && ["none", "once", "two_or_more"].includes(entry.awakenings) ? entry.awakenings : null,
+          restedRating: entry.restedRating === null || entry.restedRating === undefined ? null : clampWholeNumber(entry.restedRating, 1, 5, 1),
+          note: normalizeRecoveryText(entry.note, 360),
+        }))
+      : [],
+    napLogs: Array.isArray(input.napLogs)
+      ? input.napLogs.filter((entry): entry is NapLog => Boolean(
+          entry && typeof entry.id === "string" && entry.id && LOCAL_DATE_PATTERN.test(entry.localDate)
+          && Number.isFinite(entry.durationMinutes) && entry.durationMinutes > 0
+          && typeof entry.createdAt === "string" && Number.isFinite(Date.parse(entry.createdAt))
+          && typeof entry.updatedAt === "string" && Number.isFinite(Date.parse(entry.updatedAt)),
+        )).map((entry) => ({ ...entry, durationMinutes: clampWholeNumber(entry.durationMinutes, 1, 720, 1), note: normalizeRecoveryText(entry.note, 240) }))
+      : [],
+    screenTimeLogs: Array.isArray(input.screenTimeLogs)
+      ? input.screenTimeLogs.filter((entry): entry is ScreenTimeLog => Boolean(
+          entry && typeof entry.id === "string" && entry.id && LOCAL_DATE_PATTERN.test(entry.localDate)
+          && Number.isFinite(entry.totalMinutes) && entry.totalMinutes >= 0
+          && typeof entry.primaryLabel === "string"
+          && typeof entry.createdAt === "string" && Number.isFinite(Date.parse(entry.createdAt))
+          && typeof entry.updatedAt === "string" && Number.isFinite(Date.parse(entry.updatedAt)),
+        )).map((entry) => ({ ...entry, totalMinutes: clampWholeNumber(entry.totalMinutes, 0, 1_440, 0), primaryLabel: normalizeRecoveryText(entry.primaryLabel, 80), note: normalizeRecoveryText(entry.note, 240) }))
       : [],
     distractionLogs: (input.distractionLogs ?? []).filter((entry): entry is DistractionLogEntry =>
       Boolean(entry && typeof entry.id === "string" && typeof entry.missionId === "string" && currentMissionIds.has(entry.missionId) && typeof entry.occurredAt === "string" && DISTRACTION_CATEGORIES.includes(entry.category)),
@@ -3455,6 +3723,193 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     });
   }, [commit]);
 
+  const addRecoveryStressor = useCallback((draft: RecoveryStressorDraft): string | null => {
+    const title = normalizeRecoveryText(draft.title, 160);
+    if (!title) return null;
+    const id = createId("recovery_stressor");
+    const timestamp = nowIso();
+    commit((current) => {
+      const localDate = normalizeRecoveryLocalDate(draft.localDate, toLocalDate(timestamp, current.profile.timezone));
+      const entry: RecoveryStressor = {
+        id,
+        title,
+        category: normalizeRecoveryText(draft.category, 60),
+        status: draft.status && RECOVERY_STRESSOR_STATUSES.includes(draft.status) ? draft.status : "identified",
+        intensity: clampWholeNumber(draft.intensity, 0, 10, 0),
+        emotions: normalizeRecoveryTags(draft.emotions, 8),
+        bodySensations: normalizeRecoveryTags(draft.bodySensations, 8),
+        concern: normalizeRecoveryText(draft.concern, 500),
+        controllability: draft.controllability && ["control", "influence", "cannot_control_today", "unclear"].includes(draft.controllability) ? draft.controllability : "unclear",
+        frequency: normalizeRecoveryText(draft.frequency, 60),
+        urgency: normalizeRecoveryText(draft.urgency, 60),
+        localDate,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      return withQueuedOperation({ ...current, recoveryStressors: [entry, ...(current.recoveryStressors ?? [])] });
+    });
+    return id;
+  }, [commit]);
+
+  const updateRecoveryStressor = useCallback((stressorId: string, patch: Partial<RecoveryStressorDraft>) => {
+    commit((current) => {
+      const existing = (current.recoveryStressors ?? []).find((entry) => entry.id === stressorId);
+      if (!existing) return current;
+      const timestamp = nowIso();
+      const next: RecoveryStressor = {
+        ...existing,
+        title: patch.title === undefined ? existing.title : normalizeRecoveryText(patch.title, 160),
+        category: patch.category === undefined ? existing.category : normalizeRecoveryText(patch.category, 60),
+        status: patch.status && RECOVERY_STRESSOR_STATUSES.includes(patch.status) ? patch.status : existing.status,
+        intensity: patch.intensity === undefined ? existing.intensity : clampWholeNumber(patch.intensity, 0, 10, existing.intensity),
+        emotions: patch.emotions === undefined ? existing.emotions : normalizeRecoveryTags(patch.emotions, 8),
+        bodySensations: patch.bodySensations === undefined ? existing.bodySensations : normalizeRecoveryTags(patch.bodySensations, 8),
+        concern: patch.concern === undefined ? existing.concern : normalizeRecoveryText(patch.concern, 500),
+        controllability: patch.controllability && ["control", "influence", "cannot_control_today", "unclear"].includes(patch.controllability) ? patch.controllability : existing.controllability,
+        frequency: patch.frequency === undefined ? existing.frequency : normalizeRecoveryText(patch.frequency, 60),
+        urgency: patch.urgency === undefined ? existing.urgency : normalizeRecoveryText(patch.urgency, 60),
+        localDate: patch.localDate === undefined ? existing.localDate : normalizeRecoveryLocalDate(patch.localDate, existing.localDate),
+        updatedAt: timestamp,
+      };
+      if (!next.title) return current;
+      return withQueuedOperation({ ...current, recoveryStressors: (current.recoveryStressors ?? []).map((entry) => entry.id === stressorId ? next : entry) });
+    });
+  }, [commit]);
+
+  const removeRecoveryStressor = useCallback((stressorId: string) => {
+    commit((current) => {
+      if (!(current.recoveryStressors ?? []).some((entry) => entry.id === stressorId)) return current;
+      return withQueuedOperation({
+        ...current,
+        recoveryStressors: (current.recoveryStressors ?? []).filter((entry) => entry.id !== stressorId),
+        recoveryActions: (current.recoveryActions ?? []).filter((entry) => entry.stressorId !== stressorId),
+      });
+    });
+  }, [commit]);
+
+  const addRecoveryAction = useCallback((stressorId: string, draft: RecoveryActionDraft): string | null => {
+    if (!RECOVERY_ACTION_TYPES.includes(draft.type)) return null;
+    const id = createId("recovery_action");
+    const timestamp = nowIso();
+    commit((current) => {
+      if (!(current.recoveryStressors ?? []).some((entry) => entry.id === stressorId)) return current;
+      const entry: RecoveryActionRecord = {
+        id,
+        stressorId,
+        type: draft.type,
+        beforeIntensity: draft.beforeIntensity === null || draft.beforeIntensity === undefined ? null : clampWholeNumber(draft.beforeIntensity, 0, 10, 0),
+        afterIntensity: draft.afterIntensity === null || draft.afterIntensity === undefined ? null : clampWholeNumber(draft.afterIntensity, 0, 10, 0),
+        note: normalizeRecoveryText(draft.note, 360),
+        localDate: normalizeRecoveryLocalDate(draft.localDate, toLocalDate(timestamp, current.profile.timezone)),
+        occurredAt: timestamp,
+      };
+      return withQueuedOperation({ ...current, recoveryActions: [entry, ...(current.recoveryActions ?? [])] });
+    });
+    return id;
+  }, [commit]);
+
+  const updateRecoveryAction = useCallback((actionId: string, patch: Partial<RecoveryActionDraft>) => {
+    commit((current) => {
+      const existing = (current.recoveryActions ?? []).find((entry) => entry.id === actionId);
+      if (!existing) return current;
+      const type = patch.type && RECOVERY_ACTION_TYPES.includes(patch.type) ? patch.type : existing.type;
+      return withQueuedOperation({
+        ...current,
+        recoveryActions: (current.recoveryActions ?? []).map((entry) => entry.id === actionId ? {
+          ...entry,
+          type,
+          beforeIntensity: patch.beforeIntensity === undefined ? entry.beforeIntensity : patch.beforeIntensity === null ? null : clampWholeNumber(patch.beforeIntensity, 0, 10, 0),
+          afterIntensity: patch.afterIntensity === undefined ? entry.afterIntensity : patch.afterIntensity === null ? null : clampWholeNumber(patch.afterIntensity, 0, 10, 0),
+          note: patch.note === undefined ? entry.note : normalizeRecoveryText(patch.note, 360),
+          localDate: patch.localDate === undefined ? entry.localDate : normalizeRecoveryLocalDate(patch.localDate, entry.localDate),
+        } : entry),
+      });
+    });
+  }, [commit]);
+
+  const removeRecoveryAction = useCallback((actionId: string) => {
+    commit((current) => withQueuedOperation({ ...current, recoveryActions: (current.recoveryActions ?? []).filter((entry) => entry.id !== actionId) }));
+  }, [commit]);
+
+  const addSleepLog = useCallback((draft: SleepLogDraft): string | null => {
+    const id = createId("sleep_log");
+    const timestamp = nowIso();
+    let saved = false;
+    commit((current) => {
+      const resolved = resolveSleepDraft(draft, toLocalDate(timestamp, current.profile.timezone));
+      if (!resolved) return current;
+      saved = true;
+      const entry: SleepLog = { id, ...resolved, createdAt: timestamp, updatedAt: timestamp };
+      return withQueuedOperation({ ...current, sleepLogs: [entry, ...(current.sleepLogs ?? [])] });
+    });
+    return saved ? id : null;
+  }, [commit]);
+
+  const updateSleepLog = useCallback((logId: string, draft: SleepLogDraft) => {
+    commit((current) => {
+      const existing = (current.sleepLogs ?? []).find((entry) => entry.id === logId);
+      if (!existing) return current;
+      const resolved = resolveSleepDraft(draft, existing.localDate);
+      if (!resolved) return current;
+      return withQueuedOperation({ ...current, sleepLogs: (current.sleepLogs ?? []).map((entry) => entry.id === logId ? { ...entry, ...resolved, updatedAt: nowIso() } : entry) });
+    });
+  }, [commit]);
+
+  const removeSleepLog = useCallback((logId: string) => {
+    commit((current) => withQueuedOperation({ ...current, sleepLogs: (current.sleepLogs ?? []).filter((entry) => entry.id !== logId) }));
+  }, [commit]);
+
+  const addNapLog = useCallback((draft: NapLogDraft): string | null => {
+    const durationMinutes = clampWholeNumber(draft.durationMinutes, 1, 720, 0);
+    if (!durationMinutes) return null;
+    const id = createId("nap_log");
+    const timestamp = nowIso();
+    commit((current) => {
+      const entry: NapLog = { id, localDate: normalizeRecoveryLocalDate(draft.localDate, toLocalDate(timestamp, current.profile.timezone)), durationMinutes, note: normalizeRecoveryText(draft.note, 240), createdAt: timestamp, updatedAt: timestamp };
+      return withQueuedOperation({ ...current, napLogs: [entry, ...(current.napLogs ?? [])] });
+    });
+    return id;
+  }, [commit]);
+
+  const updateNapLog = useCallback((logId: string, draft: NapLogDraft) => {
+    const durationMinutes = clampWholeNumber(draft.durationMinutes, 1, 720, 0);
+    if (!durationMinutes) return;
+    commit((current) => withQueuedOperation({
+      ...current,
+      napLogs: (current.napLogs ?? []).map((entry) => entry.id === logId ? { ...entry, localDate: normalizeRecoveryLocalDate(draft.localDate, entry.localDate), durationMinutes, note: normalizeRecoveryText(draft.note, 240), updatedAt: nowIso() } : entry),
+    }));
+  }, [commit]);
+
+  const removeNapLog = useCallback((logId: string) => {
+    commit((current) => withQueuedOperation({ ...current, napLogs: (current.napLogs ?? []).filter((entry) => entry.id !== logId) }));
+  }, [commit]);
+
+  const addScreenTimeLog = useCallback((draft: ScreenTimeLogDraft): string | null => {
+    const primaryLabel = normalizeRecoveryText(draft.primaryLabel, 80);
+    const totalMinutes = clampWholeNumber(draft.totalMinutes, 0, 1_440, -1);
+    if (totalMinutes < 0) return null;
+    const id = createId("screen_time_log");
+    const timestamp = nowIso();
+    commit((current) => {
+      const entry: ScreenTimeLog = { id, localDate: normalizeRecoveryLocalDate(draft.localDate, toLocalDate(timestamp, current.profile.timezone)), totalMinutes, primaryLabel, note: normalizeRecoveryText(draft.note, 240), createdAt: timestamp, updatedAt: timestamp };
+      return withQueuedOperation({ ...current, screenTimeLogs: [entry, ...(current.screenTimeLogs ?? [])] });
+    });
+    return id;
+  }, [commit]);
+
+  const updateScreenTimeLog = useCallback((logId: string, draft: ScreenTimeLogDraft) => {
+    const totalMinutes = clampWholeNumber(draft.totalMinutes, 0, 1_440, -1);
+    if (totalMinutes < 0) return;
+    commit((current) => withQueuedOperation({
+      ...current,
+      screenTimeLogs: (current.screenTimeLogs ?? []).map((entry) => entry.id === logId ? { ...entry, localDate: normalizeRecoveryLocalDate(draft.localDate, entry.localDate), totalMinutes, primaryLabel: normalizeRecoveryText(draft.primaryLabel, 80), note: normalizeRecoveryText(draft.note, 240), updatedAt: nowIso() } : entry),
+    }));
+  }, [commit]);
+
+  const removeScreenTimeLog = useCallback((logId: string) => {
+    commit((current) => withQueuedOperation({ ...current, screenTimeLogs: (current.screenTimeLogs ?? []).filter((entry) => entry.id !== logId) }));
+  }, [commit]);
+
   const createBoss = useCallback((input: Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold">) => {
     const id = createId("boss");
     commit((current) => withQueuedOperation({
@@ -4033,6 +4488,21 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     setCorePrincipleItemActive,
     removeCorePrincipleItem,
     setCorePrincipleItemChecked,
+    addRecoveryStressor,
+    updateRecoveryStressor,
+    removeRecoveryStressor,
+    addRecoveryAction,
+    updateRecoveryAction,
+    removeRecoveryAction,
+    addSleepLog,
+    updateSleepLog,
+    removeSleepLog,
+    addNapLog,
+    updateNapLog,
+    removeNapLog,
+    addScreenTimeLog,
+    updateScreenTimeLog,
+    removeScreenTimeLog,
     setJournalLifelinePercentage,
     getCurrentState,
     createMission,
@@ -4136,6 +4606,21 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     setCorePrincipleItemActive,
     removeCorePrincipleItem,
     setCorePrincipleItemChecked,
+    addRecoveryStressor,
+    updateRecoveryStressor,
+    removeRecoveryStressor,
+    addRecoveryAction,
+    updateRecoveryAction,
+    removeRecoveryAction,
+    addSleepLog,
+    updateSleepLog,
+    removeSleepLog,
+    addNapLog,
+    updateNapLog,
+    removeNapLog,
+    addScreenTimeLog,
+    updateScreenTimeLog,
+    removeScreenTimeLog,
     setJournalLifelinePercentage,
     updatePersonalGraph,
     addPersonalGraphLine,
