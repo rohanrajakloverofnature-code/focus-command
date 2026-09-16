@@ -752,6 +752,8 @@ export interface SleepLog {
   quality: number | null;
   dreams: SleepDreamPattern | null;
   awakenings: SleepAwakeningPattern | null;
+  /** Exact number of remembered night awakenings; legacy records may leave this null. */
+  awakeningCount: number | null;
   restedRating: number | null;
   note: string;
   createdAt: string;
@@ -810,6 +812,8 @@ export interface SleepLogDraft {
   quality?: number | null;
   dreams?: SleepDreamPattern | null;
   awakenings?: SleepAwakeningPattern | null;
+  /** Exact count is optional so older records and legacy category values remain valid. */
+  awakeningCount?: number | null;
   restedRating?: number | null;
   note?: string;
 }
@@ -2564,6 +2568,7 @@ function resolveSleepDraft(draft: SleepLogDraft, fallbackDate: string): Omit<Sle
     quality: draft.quality === null || draft.quality === undefined ? null : clampWholeNumber(draft.quality, 1, 5, 1),
     dreams: draft.dreams && ["none_remembered", "some_remembered", "vivid_or_heavy"].includes(draft.dreams) ? draft.dreams : null,
     awakenings: draft.awakenings && ["none", "once", "two_or_more"].includes(draft.awakenings) ? draft.awakenings : null,
+    awakeningCount: draft.awakeningCount === null || draft.awakeningCount === undefined ? null : clampWholeNumber(draft.awakeningCount, 0, 30, 0),
     restedRating: draft.restedRating === null || draft.restedRating === undefined ? null : clampWholeNumber(draft.restedRating, 1, 5, 1),
     note: normalizeRecoveryText(draft.note, 360),
   };
@@ -2866,6 +2871,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
           quality: entry.quality === null || entry.quality === undefined ? null : clampWholeNumber(entry.quality, 1, 5, 1),
           dreams: entry.dreams && ["none_remembered", "some_remembered", "vivid_or_heavy"].includes(entry.dreams) ? entry.dreams : null,
           awakenings: entry.awakenings && ["none", "once", "two_or_more"].includes(entry.awakenings) ? entry.awakenings : null,
+          awakeningCount: entry.awakeningCount === null || entry.awakeningCount === undefined ? null : clampWholeNumber(entry.awakeningCount, 0, 30, 0),
           restedRating: entry.restedRating === null || entry.restedRating === undefined ? null : clampWholeNumber(entry.restedRating, 1, 5, 1),
           note: normalizeRecoveryText(entry.note, 360),
         }))

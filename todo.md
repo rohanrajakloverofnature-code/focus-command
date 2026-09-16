@@ -749,4 +749,9 @@
 - [x] Add contextual Recovery Context panels to existing Pattern Forecast and Wellbeing Insight without altering their current built-in emotional calculations or making diagnostic/causal claims.
 - [x] Add Recovery & Rhythm Dashboard entry and read-only Command Balance summaries for Week, Month, Lifetime, and Custom ranges while preserving all existing calculations.
 - [x] Extend offline backup safely, validate data isolation/legacy restore/long-history performance, and report results before any separate GitHub publication request.
-- [ ] Publish only the validated Recovery & Rhythm source, backup, tests, and checklist update to public GitHub main with a temporary deploy key; do not start an APK or workflow.
+- [x] Publish only the validated Recovery & Rhythm source, backup, tests, and checklist update to public GitHub main with a temporary deploy key; do not start an APK or workflow.
+- [ ] Publish only the validated Personal Sleep Score update to public GitHub main with a fresh temporary deploy key; do not start an APK or workflow.
+- [x] Implement transparent evidence-informed Personal Sleep Score with visible component basis and non-clinical disclosure.
+- [x] Expose dream experience, exact night-awakening count, and rested-feeling inputs while preserving existing sleep records.
+- [x] Integrate sleep score into Recovery & Rhythm history without changing existing recovery mechanics.
+- [x] Validate focused and full tests, TypeScript, lint, web export, Android JavaScript preflight, and backup compatibility.

@@ -57,6 +57,54 @@ function average(values: Array<number | null | undefined>): number | null {
 
 function uniqueDays(records: Array<{ localDate: string }>): number { return new Set(records.map((record) => record.localDate)).size; }
 
+export type PersonalSleepScoreComponent = {
+  id: "duration" | "continuity" | "quality" | "rested";
+  label: string;
+  score: number | null;
+  weight: number;
+  basis: string;
+};
+
+export type PersonalSleepScore = {
+  score: number | null;
+  completeness: number;
+  components: PersonalSleepScoreComponent[];
+  dreamLabel: string | null;
+  awakeningCount: number | null;
+  basis: string;
+};
+
+/**
+ * Evidence-informed personal summary, not a clinical instrument.
+ * Duration uses the adult 7-hour reference as a ceiling for the duration component;
+ * continuity uses remembered awakenings; quality/rested are direct self-reports.
+ * Weights are transparent product choices and are renormalized when a legacy record
+ * has missing optional fields. Dream recall is deliberately contextual, not scored.
+ */
+export function getPersonalSleepScore(log: SleepLog): PersonalSleepScore {
+  const awakeningCount = typeof log.awakeningCount === "number"
+    ? Math.max(0, Math.round(log.awakeningCount))
+    : log.awakenings === "none" ? 0 : log.awakenings === "once" ? 1 : log.awakenings === "two_or_more" ? 2 : null;
+  const components: PersonalSleepScoreComponent[] = [
+    { id: "duration", label: "Duration", score: Math.round(Math.min(100, (log.durationMinutes / 420) * 100)), weight: 40, basis: "7 hours is the adult reference threshold; longer sleep is not penalized." },
+    { id: "continuity", label: "Continuity", score: awakeningCount === null ? null : Math.max(0, 100 - awakeningCount * 20), weight: 25, basis: "Fewer remembered awakenings indicate better reported continuity; this is an app estimate, not a clinical threshold." },
+    { id: "quality", label: "Sleep quality", score: typeof log.quality === "number" ? Math.round(((log.quality - 1) / 4) * 100) : null, weight: 20, basis: "Your 1–5 self-rating, converted linearly to 0–100." },
+    { id: "rested", label: "Rested feeling", score: typeof log.restedRating === "number" ? Math.round(((log.restedRating - 1) / 4) * 100) : null, weight: 15, basis: "Your 1–5 morning rested rating, converted linearly to 0–100." },
+  ];
+  const available = components.filter((component) => component.score !== null);
+  const totalWeight = available.reduce((sum, component) => sum + component.weight, 0);
+  const score = totalWeight ? Math.round(available.reduce((sum, component) => sum + (component.score as number) * component.weight, 0) / totalWeight) : null;
+  const dreamLabel = log.dreams === "none_remembered" ? "Not remembered" : log.dreams === "some_remembered" ? "A bit remembered" : log.dreams === "vivid_or_heavy" ? "Vivid or heavy" : null;
+  return {
+    score,
+    completeness: components.length ? Math.round((available.length / components.length) * 100) : 0,
+    components,
+    dreamLabel,
+    awakeningCount,
+    basis: "Personal, evidence-informed summary using duration, reported continuity, perceived quality, and morning restedness. Not clinically validated and not a diagnosis.",
+  };
+}
+
 export type RecoverySummary = {
   range: RecoveryDateRange;
   stressors: RecoveryStressor[];
@@ -68,6 +116,8 @@ export type RecoverySummary = {
   peakStress: number | null;
   averageSleepMinutes: number | null;
   averageSleepQuality: number | null;
+  averageSleepScore: number | null;
+  scoredSleepCount: number;
   totalNapMinutes: number;
   averageScreenMinutes: number | null;
   recordedDays: { stress: number; sleep: number; screen: number };
@@ -112,6 +162,8 @@ export function getRecoverySummary(
     peakStress: selectedStressors.length ? Math.max(...selectedStressors.map((stressor) => stressor.intensity)) : null,
     averageSleepMinutes: average(selectedSleep.map((entry) => entry.durationMinutes)),
     averageSleepQuality: average(selectedSleep.map((entry) => entry.quality)),
+    averageSleepScore: average(selectedSleep.map((entry) => getPersonalSleepScore(entry).score)),
+    scoredSleepCount: selectedSleep.filter((entry) => getPersonalSleepScore(entry).score !== null).length,
     totalNapMinutes: selectedNaps.reduce((sum, entry) => sum + entry.durationMinutes, 0),
     averageScreenMinutes: average(selectedScreen.map((entry) => entry.totalMinutes)),
     recordedDays: { stress: uniqueDays(selectedStressors), sleep: uniqueDays(selectedSleep), screen: uniqueDays(selectedScreen) },
