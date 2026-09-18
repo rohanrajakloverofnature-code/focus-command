@@ -735,8 +735,8 @@ function RecognitionCard({ title, subtitle, items, icon, accent, onPress }: { ti
 function InteractiveChartCard({ title, detail, tag, onPress, children }: { title: string; detail: string; tag: string; onPress: () => void; children: React.ReactNode }) {
   const colors = useColors();
   return (
-    <TapFeedback onPress={onPress} accessibilityLabel={`Open ${title}`}>
-      <CommandCard accent={colors.primary} style={styles.chartCard}>
+    <CommandCard accent={colors.primary} style={styles.chartCard}>
+      <TapFeedback onPress={onPress} accessibilityLabel={`Open ${title} details`}>
         <View style={styles.chartHeading}>
           <View style={styles.chartCopy}>
             <Text style={[styles.chartTitle, { color: colors.foreground }]}>{title}</Text>
@@ -744,9 +744,9 @@ function InteractiveChartCard({ title, detail, tag, onPress, children }: { title
           </View>
           <StatusPill label={tag} tone="primary" />
         </View>
-        {children}
-      </CommandCard>
-    </TapFeedback>
+      </TapFeedback>
+      {children}
+    </CommandCard>
   );
 }
 

@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ProgressBar, ScreenTitle, StatusPill } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -8,6 +8,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { DistractionLogger } from "@/components/distraction-logger";
 import { ShadowGateSheet } from "@/components/shadow-gate-sheet";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { getActiveCustomCharacterForm, getCurrentTitle, getLevelInfo, CustomQuestion, Feeling, formatHours, getDifficultyColor, getDifficultyLabel, getDueMissionRevisions, getMissionInvestedMilliseconds, isLongMissionReflectionEligible, ReflectionDraft, type FocusState, type SrsTopic, useFocusCommandActions, useFocusCommandSelector } from "@/lib/focus-command";
 import { getSavedSkillSuggestions, normalizeSavedSkill } from "@/lib/invested-time-filters";
 import { scheduleAchievementRecap, scheduleRevisionReminder } from "@/lib/focus-reminders";
@@ -93,6 +94,7 @@ function selectMissionDetailSnapshot(state: FocusState, missionId: string | unde
 
 export default function MissionDetailScreen() {
   const colors = useColors();
+  const { scrollRef, onInputFocus } = useKeyboardSafeFocus<ScrollView>();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { startMission, startMissionThroughShadowGate, toggleMissionPause, finishMission, logDistraction, logRevisionTopic, completeRevision, updateMission, removeMission } = useFocusCommandActions();
   const detail = useFocusCommandSelector((state) => selectMissionDetailSnapshot(state, id), hasSameMissionDetailSnapshot);
@@ -290,7 +292,7 @@ export default function MissionDetailScreen() {
 
   return (
     <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle
           eyebrow={mission.status === "completed" ? "Completed mission" : "Mission control"}
           title={mission.title}
@@ -311,10 +313,10 @@ export default function MissionDetailScreen() {
 
         {showEditor ? <CommandCard accent={colors.primary} style={styles.editorCard}>
           <Text style={[styles.editorTitle, { color: colors.foreground }]}>Edit mission</Text>
-          <TextInput value={editTitle} onChangeText={setEditTitle} placeholder="Mission title" placeholderTextColor={colors.muted} style={[styles.editorInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+          <TextInput value={editTitle} onFocus={onInputFocus} onChangeText={setEditTitle} placeholder="Mission title" placeholderTextColor={colors.muted} style={[styles.editorInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
           <View style={styles.editorRow}>
-            <TextInput value={editSubject} onChangeText={setEditSubject} placeholder="Subject" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-            <TextInput value={editCategory} onChangeText={setEditCategory} placeholder="Category" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            <TextInput value={editSubject} onFocus={onInputFocus} onChangeText={setEditSubject} placeholder="Subject" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            <TextInput value={editCategory} onFocus={onInputFocus} onChangeText={setEditCategory} placeholder="Category" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
           </View>
           <Pressable onPress={() => setEditIncludeInSubjectMap((value) => !value)} style={({ pressed }) => [styles.repeatabilityToggle, { borderColor: editIncludeInSubjectMap ? colors.primary : colors.border, backgroundColor: editIncludeInSubjectMap ? `${colors.primary}16` : colors.background, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
             <IconSymbol name={editIncludeInSubjectMap ? "checklist" : "xmark"} size={17} color={editIncludeInSubjectMap ? colors.primary : colors.muted} />
@@ -323,10 +325,10 @@ export default function MissionDetailScreen() {
               <Text style={[styles.repeatabilityDetail, { color: colors.muted }]}>{editIncludeInSubjectMap ? "This mission and its linked reviews contribute to this subject territory." : "This mission keeps all normal rewards and reviews without changing the India map."}</Text>
             </View>
           </Pressable>
-          <TextInput value={editTopic} onChangeText={setEditTopic} placeholder="Specific topic" placeholderTextColor={colors.muted} style={[styles.editorInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+          <TextInput value={editTopic} onFocus={onInputFocus} onChangeText={setEditTopic} placeholder="Specific topic" placeholderTextColor={colors.muted} style={[styles.editorInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
           <View style={styles.editorRow}>
-            <TextInput value={editXp} onChangeText={setEditXp} keyboardType="number-pad" placeholder="Base XP" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-            <TextInput value={editDueAt} onChangeText={setEditDueAt} autoCapitalize="none" placeholder="Deadline YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            <TextInput value={editXp} onFocus={onInputFocus} onChangeText={setEditXp} keyboardType="number-pad" placeholder="Base XP" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            <TextInput value={editDueAt} onFocus={onInputFocus} onChangeText={setEditDueAt} autoCapitalize="none" placeholder="Deadline YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
           </View>
           {mission.frequency === "daily" ? <Pressable onPress={() => setEditAllowMultipleDailyCompletions((value) => !value)} style={({ pressed }) => [styles.repeatabilityToggle, { borderColor: editAllowMultipleDailyCompletions ? colors.primary : colors.border, backgroundColor: editAllowMultipleDailyCompletions ? `${colors.primary}16` : colors.background, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
             <IconSymbol name={editAllowMultipleDailyCompletions ? "checklist" : "xmark"} size={17} color={editAllowMultipleDailyCompletions ? colors.primary : colors.muted} />
@@ -398,7 +400,7 @@ export default function MissionDetailScreen() {
               </View>
             ) : null}
             <View style={styles.revisionInputRow}>
-              <TextInput value={revisionTopic} onChangeText={setRevisionTopic} placeholder="Topic name" placeholderTextColor={colors.muted} style={[styles.revisionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} returnKeyType="done" onSubmitEditing={logTopic} />
+              <TextInput value={revisionTopic} onFocus={onInputFocus} onChangeText={setRevisionTopic} placeholder="Topic name" placeholderTextColor={colors.muted} style={[styles.revisionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} returnKeyType="done" onSubmitEditing={logTopic} />
               <CommandButton label="Log" onPress={logTopic} />
             </View>
             {mission.revisionTopicIds.length ? <Text style={[styles.loggedTopicText, { color: colors.success }]}>{mission.revisionTopicIds.length} topic{mission.revisionTopicIds.length === 1 ? "" : "s"} secured for review.</Text> : null}
@@ -427,11 +429,11 @@ export default function MissionDetailScreen() {
                   <RatingSelector label="How motivated did you feel?" value={reflection.motivationLevel ?? 0} onChange={(motivationLevel) => setReflection((current) => ({ ...current, motivationLevel }))} />
                   <RatingSelector label="How distracting was the environment?" value={reflection.distractionLevel ?? 0} onChange={(distractionLevel) => setReflection((current) => ({ ...current, distractionLevel }))} />
                 </View>
-                <TextInput value={reflection.frictionName ?? ""} onChangeText={(frictionName) => setReflection((current) => ({ ...current, frictionName }))} placeholder="What feeling or thought was resisting the task?" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+                <TextInput value={reflection.frictionName ?? ""} onFocus={onInputFocus} onChangeText={(frictionName) => setReflection((current) => ({ ...current, frictionName }))} placeholder="What feeling or thought was resisting the task?" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
                 <RatingSelector label="How strong was that resistance?" value={reflection.frictionRating ?? 0} onChange={(frictionRating) => setReflection((current) => ({ ...current, frictionRating }))} />
-                <TextInput value={reflection.provokingThought ?? ""} onChangeText={(provokingThought) => setReflection((current) => ({ ...current, provokingThought }))} placeholder="What thought got you moving?" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+                <TextInput value={reflection.provokingThought ?? ""} onFocus={onInputFocus} onChangeText={(provokingThought) => setReflection((current) => ({ ...current, provokingThought }))} placeholder="What thought got you moving?" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
                 <RatingSelector label="How powerful was that thought?" value={reflection.provokingThoughtRating ?? 0} onChange={(provokingThoughtRating) => setReflection((current) => ({ ...current, provokingThoughtRating }))} />
-                <TextInput value={skillsText} onChangeText={setSkillsText} placeholder="Skills gained, separated by commas" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+                <TextInput value={skillsText} onFocus={onInputFocus} onChangeText={setSkillsText} placeholder="Skills gained, separated by commas" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
                 {savedSkillSuggestions.length ? <View style={styles.skillSuggestionSection}>
                   <Text style={[styles.skillSuggestionLabel, { color: colors.muted }]}>REUSE A SAVED SKILL</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.skillSuggestionRow} keyboardShouldPersistTaps="handled">
@@ -444,12 +446,13 @@ export default function MissionDetailScreen() {
                     question={question}
                     answer={reflection.customAnswers?.[question.id]}
                     onChange={(answer) => setReflection((current) => ({ ...current, customAnswers: { ...current.customAnswers, [question.id]: answer } }))}
+                    onInputFocus={onInputFocus}
                   />
                 ))}
               </>
             ) : null}
 
-            <TextInput value={reflection.miniAchievement ?? ""} onChangeText={(miniAchievement) => setReflection((current) => ({ ...current, miniAchievement }))} placeholder="Your mini achievement" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+            <TextInput value={reflection.miniAchievement ?? ""} onFocus={onInputFocus} onChangeText={(miniAchievement) => setReflection((current) => ({ ...current, miniAchievement }))} placeholder="Your mini achievement" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
             <RatingSelector label="How powerful was this win?" value={reflection.miniAchievementRating ?? 3} onChange={(miniAchievementRating) => setReflection((current) => ({ ...current, miniAchievementRating }))} />
             <CommandButton label={isSubmittingResult ? "Saving mission result…" : "Confirm mission result"} icon="trophy.fill" onPress={finish} disabled={isSubmittingResult} />
           </CommandCard>
@@ -484,13 +487,13 @@ function FeelingSelector({ label, value, onChange }: { label: string; value: Fee
   );
 }
 
-function CustomQuestionInput({ question, answer, onChange }: { question: CustomQuestion; answer: string | number | boolean | string[] | undefined; onChange: (value: string | number | boolean | string[]) => void }) {
+function CustomQuestionInput({ question, answer, onChange, onInputFocus }: { question: CustomQuestion; answer: string | number | boolean | string[] | undefined; onChange: (value: string | number | boolean | string[]) => void; onInputFocus: NonNullable<TextInputProps["onFocus"]> }) {
   const colors = useColors();
   if (question.type === "rating") return <RatingSelector label={question.label} value={typeof answer === "number" ? answer : 0} onChange={onChange} />;
   if (question.type === "text") return (
     <View style={styles.selectorBlock}>
       <Text style={[styles.selectorLabel, { color: colors.muted }]}>{question.label.toUpperCase()}</Text>
-      <TextInput value={typeof answer === "string" ? answer : ""} onChangeText={onChange} placeholder="Write your answer" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+      <TextInput value={typeof answer === "string" ? answer : ""} onFocus={onInputFocus} onChangeText={onChange} placeholder="Write your answer" placeholderTextColor={colors.muted} style={[styles.reflectionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
     </View>
   );
   const selected = question.type === "multiple_choice" && Array.isArray(answer) ? answer : [];

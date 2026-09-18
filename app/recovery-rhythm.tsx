@@ -1,10 +1,11 @@
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
-import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 
 import { CommandCard, IconAction, LoadingScreen, ScreenTitle } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import {
   getSleepDurationMinutesFromBedWake,
   shallowEqual,
@@ -39,7 +40,11 @@ export default function RecoveryRhythmScreen() {
     screenLogs: state.screenTimeLogs ?? [],
   }), shallowEqual);
   const actions = useFocusCommandActions();
+  const { scrollRef, onInputFocus } = useKeyboardSafeFocus<FlatList<RecoveryListRecord>>();
   const [view, setView] = useState<ViewKey>("stress");
+  const [savedKind, setSavedKind] = useState<ViewKey | "nap" | null>(null);
+  const saveLockRef = useRef(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const localDate = today(data.profile.timezone);
   const summary = useMemo(() => getRecoverySummary({ profile: data.profile, recoveryStressors: data.stressors, recoveryActions: data.actions, sleepLogs: data.sleepLogs, napLogs: data.naps, screenTimeLogs: data.screenLogs }, "week"), [data]);
 
@@ -66,14 +71,32 @@ export default function RecoveryRhythmScreen() {
   const [screenLabel, setScreenLabel] = useState("");
   const [screenDate, setScreenDate] = useState(localDate);
 
+  useEffect(() => () => {
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+  }, []);
+
   if (!ready) return <LoadingScreen label="Opening your private Recovery & Rhythm records…" />;
 
+  const acknowledgeSave = (kind: ViewKey | "nap") => {
+    setSavedKind(kind);
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => setSavedKind((current) => current === kind ? null : current), 1_600);
+  };
+  const canSave = () => {
+    if (saveLockRef.current) return false;
+    saveLockRef.current = true;
+    requestAnimationFrame(() => { saveLockRef.current = false; });
+    return true;
+  };
   const addStressor = () => {
+    if (!canSave()) return;
     const id = actions.addRecoveryStressor({ title: stressorTitle, category: stressorCategory, intensity: numeric(stressorIntensity), concern: stressorConcern, controllability: stressorControl, localDate });
     if (!id) return;
     setStressorTitle(""); setStressorIntensity("5"); setStressorCategory(""); setStressorConcern(""); setStressorControl("unclear");
+    acknowledgeSave("stress");
   };
   const addSleep = () => {
+    if (!canSave()) return;
     const durationMinutes = numeric(sleepHours) * 60 + numeric(sleepMinutes);
     const id = actions.addSleepLog({
       localDate: sleepDate,
@@ -88,15 +111,19 @@ export default function RecoveryRhythmScreen() {
     });
     if (!id) return;
     setSleepHours(""); setSleepMinutes(""); setSleepQuality("3"); setSleepDreams(null); setAwakeningCount(""); setRestedRating("3");
+    acknowledgeSave("sleep");
   };
   const addNap = () => {
+    if (!canSave()) return;
     const id = actions.addNapLog({ localDate: sleepDate, durationMinutes: numeric(napMinutes) });
-    if (id) setNapMinutes("");
+    if (id) { setNapMinutes(""); acknowledgeSave("nap"); }
   };
   const addScreen = () => {
+    if (!canSave()) return;
     const id = actions.addScreenTimeLog({ localDate: screenDate, totalMinutes: numeric(screenHours) * 60 + numeric(screenMinutes), primaryLabel: screenLabel });
     if (!id) return;
     setScreenHours(""); setScreenMinutes(""); setScreenLabel("");
+    acknowledgeSave("screen");
   };
 
   const remove = (label: string, onRemove: () => void) => Alert.alert(`Delete ${label}?`, "This removes only this private entry. Existing missions, reflections, and scores will not change.", [
@@ -111,10 +138,12 @@ export default function RecoveryRhythmScreen() {
       : data.screenLogs;
   return <ScreenContainer className="px-4" containerClassName="bg-background" edges={["top", "bottom", "left", "right"]}>
     <FlatList<RecoveryListRecord>
+      ref={scrollRef}
       data={listData}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
       ListHeaderComponent={<>
         <ScreenTitle eyebrow="Private · On device" title="Recovery & Rhythm" detail="Log → understand → act → recover. This is private self-reflection, not diagnosis." right={<IconAction icon="chart.xyaxis.line" label="Open Recovery history" onPress={() => router.push("/recovery-rhythm-history" as never)} />} />
         <CommandCard accent={colors.success} style={styles.summaryCard}>
@@ -127,9 +156,9 @@ export default function RecoveryRhythmScreen() {
           <Text style={[styles.summaryDetail, { color: colors.muted }]}>Only your manually recorded days are shown. Sleep score average: {summary.averageSleepScore === null ? "—" : `${summary.averageSleepScore}/100`} from {summary.scoredSleepCount} scored night{summary.scoredSleepCount === 1 ? "" : "s"}. These values do not change emotional forecast or wellbeing scores.</Text>
         </CommandCard>
         <View style={styles.tabRow}>{tabs.map((tab) => <Pressable key={tab.key} onPress={() => setView(tab.key)} style={[styles.tab, { borderColor: view === tab.key ? colors.primary : colors.border, backgroundColor: view === tab.key ? `${colors.primary}16` : colors.surface }]}><Text style={[styles.tabText, { color: view === tab.key ? colors.primary : colors.muted }]}>{tab.label}</Text></Pressable>)}</View>
-        {view === "stress" ? <StressComposer colors={colors} title={stressorTitle} intensity={stressorIntensity} category={stressorCategory} concern={stressorConcern} control={stressorControl} onTitle={setStressorTitle} onIntensity={setStressorIntensity} onCategory={setStressorCategory} onConcern={setStressorConcern} onControl={setStressorControl} onAdd={addStressor} /> : null}
-        {view === "sleep" ? <SleepComposer colors={colors} mode={sleepMode} onMode={setSleepMode} hours={sleepHours} minutes={sleepMinutes} bedTime={bedTime} wakeTime={wakeTime} date={sleepDate} quality={sleepQuality} dreams={sleepDreams} awakeningCount={awakeningCount} restedRating={restedRating} napMinutes={napMinutes} onHours={setSleepHours} onMinutes={setSleepMinutes} onBed={setBedTime} onWake={setWakeTime} onDate={setSleepDate} onQuality={setSleepQuality} onDreams={setSleepDreams} onAwakeningCount={setAwakeningCount} onRestedRating={setRestedRating} onNap={setNapMinutes} onAdd={addSleep} onAddNap={addNap} /> : null}
-        {view === "screen" ? <ScreenComposer colors={colors} hours={screenHours} minutes={screenMinutes} label={screenLabel} date={screenDate} onHours={setScreenHours} onMinutes={setScreenMinutes} onLabel={setScreenLabel} onDate={setScreenDate} onAdd={addScreen} /> : null}
+        {view === "stress" ? <StressComposer colors={colors} title={stressorTitle} intensity={stressorIntensity} category={stressorCategory} concern={stressorConcern} control={stressorControl} onTitle={setStressorTitle} onIntensity={setStressorIntensity} onCategory={setStressorCategory} onConcern={setStressorConcern} onControl={setStressorControl} onAdd={addStressor} onInputFocus={onInputFocus} saved={savedKind === "stress"} /> : null}
+        {view === "sleep" ? <SleepComposer colors={colors} mode={sleepMode} onMode={setSleepMode} hours={sleepHours} minutes={sleepMinutes} bedTime={bedTime} wakeTime={wakeTime} date={sleepDate} quality={sleepQuality} dreams={sleepDreams} awakeningCount={awakeningCount} restedRating={restedRating} napMinutes={napMinutes} onHours={setSleepHours} onMinutes={setSleepMinutes} onBed={setBedTime} onWake={setWakeTime} onDate={setSleepDate} onQuality={setSleepQuality} onDreams={setSleepDreams} onAwakeningCount={setAwakeningCount} onRestedRating={setRestedRating} onNap={setNapMinutes} onAdd={addSleep} onAddNap={addNap} onInputFocus={onInputFocus} saved={savedKind === "sleep"} napSaved={savedKind === "nap"} /> : null}
+        {view === "screen" ? <ScreenComposer colors={colors} hours={screenHours} minutes={screenMinutes} label={screenLabel} date={screenDate} onHours={setScreenHours} onMinutes={setScreenMinutes} onLabel={setScreenLabel} onDate={setScreenDate} onAdd={addScreen} onInputFocus={onInputFocus} saved={savedKind === "screen"} /> : null}
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{view === "stress" ? "Your stressors" : view === "sleep" ? "Sleep and naps" : "Screen-time logs"}</Text>
       </>}
       renderItem={({ item }) => {
@@ -143,7 +172,7 @@ export default function RecoveryRhythmScreen() {
             {stressor.concern ? <Text style={[styles.recordDetail, { color: colors.muted }]}>{stressor.concern}</Text> : null}
             <View style={styles.actionTypes}>{(["grounding", "paced_breathing", "relaxation", "mindfulness", "acceptance", "problem_solving"] as RecoveryActionType[]).map((type) => <Pressable key={type} onPress={() => setActionType(type)} style={[styles.actionType, { borderColor: actionType === type ? colors.success : colors.border, backgroundColor: actionType === type ? `${colors.success}18` : colors.background }]}><Text style={[styles.statusText, { color: actionType === type ? colors.success : colors.muted }]}>{getRecoveryActionLabel(type)}</Text></Pressable>)}</View>
             <Pressable onPress={() => actions.addRecoveryAction(stressor.id, { type: actionType, beforeIntensity: stressor.intensity, afterIntensity: null, localDate })} style={[styles.actionButton, { borderColor: colors.success, backgroundColor: `${colors.success}12` }]}><Text style={[styles.actionText, { color: colors.success }]}>Record chosen action</Text></Pressable>
-            {latestAction ? <><Text style={[styles.latestAction, { color: colors.muted }]}>Latest: {getRecoveryActionLabel(latestAction.type)} · before {latestAction.beforeIntensity ?? "—"}/10 · after {latestAction.afterIntensity ?? "—"}/10</Text>{latestAction.afterIntensity === null ? <View style={styles.afterActionRow}><TextInput value={afterActionDrafts[latestAction.id] ?? ""} onChangeText={(value) => setAfterActionDrafts((current) => ({ ...current, [latestAction.id]: value }))} placeholder="After 0–10" placeholderTextColor={colors.muted} keyboardType="numeric" style={[styles.afterActionInput, { borderColor: colors.border, backgroundColor: colors.background, color: colors.foreground }]} /><Pressable onPress={() => { const value = numeric(afterActionDrafts[latestAction.id] ?? ""); if (value >= 0 && value <= 10) actions.updateRecoveryAction(latestAction.id, { afterIntensity: value }); }} style={[styles.secondaryButton, { borderColor: colors.success }]}><Text style={[styles.actionText, { color: colors.success }]}>Save after</Text></Pressable></View> : null}</> : null}
+            {latestAction ? <><Text style={[styles.latestAction, { color: colors.muted }]}>Latest: {getRecoveryActionLabel(latestAction.type)} · before {latestAction.beforeIntensity ?? "—"}/10 · after {latestAction.afterIntensity ?? "—"}/10</Text>{latestAction.afterIntensity === null ? <View style={styles.afterActionRow}><TextInput value={afterActionDrafts[latestAction.id] ?? ""} onChangeText={(value) => setAfterActionDrafts((current) => ({ ...current, [latestAction.id]: value }))} onFocus={onInputFocus} placeholder="After 0–10" placeholderTextColor={colors.muted} keyboardType="numeric" style={[styles.afterActionInput, { borderColor: colors.border, backgroundColor: colors.background, color: colors.foreground }]} /><Pressable onPress={() => { const value = numeric(afterActionDrafts[latestAction.id] ?? ""); if (value >= 0 && value <= 10) actions.updateRecoveryAction(latestAction.id, { afterIntensity: value }); }} style={[styles.secondaryButton, { borderColor: colors.success }]}><Text style={[styles.actionText, { color: colors.success }]}>Save after</Text></Pressable></View> : null}</> : null}
           </CommandCard>;
         }
         if (view === "sleep") {
@@ -161,20 +190,96 @@ export default function RecoveryRhythmScreen() {
 
 function Metric({ label, value }: { label: string; value: string }) { const colors = useColors(); return <View style={styles.metric}><Text style={[styles.metricLabel, { color: colors.muted }]}>{label.toUpperCase()}</Text><Text style={[styles.metricValue, { color: colors.foreground }]}>{value}</Text></View>; }
 
-function Field({ label, value, onChangeText, placeholder, keyboardType = "default", multiline = false }: { label: string; value: string; onChangeText: (value: string) => void; placeholder: string; keyboardType?: "default" | "numeric"; multiline?: boolean }) {
-  const colors = useColors(); return <View style={styles.field}><Text style={[styles.fieldLabel, { color: colors.muted }]}>{label.toUpperCase()}</Text><TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.muted} keyboardType={keyboardType} multiline={multiline} style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }, multiline && styles.multiline]} /></View>;
+function Field({ label, value, onChangeText, placeholder, keyboardType = "default", multiline = false, onInputFocus }: { label: string; value: string; onChangeText: (value: string) => void; placeholder: string; keyboardType?: "default" | "numeric"; multiline?: boolean; onInputFocus?: NonNullable<TextInputProps["onFocus"]> }) {
+  const colors = useColors(); return <View style={styles.field}><Text style={[styles.fieldLabel, { color: colors.muted }]}>{label.toUpperCase()}</Text><TextInput value={value} onChangeText={onChangeText} onFocus={onInputFocus} placeholder={placeholder} placeholderTextColor={colors.muted} keyboardType={keyboardType} multiline={multiline} style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }, multiline && styles.multiline]} /></View>;
 }
 
-function StressComposer(props: { colors: ReturnType<typeof useColors>; title: string; intensity: string; category: string; concern: string; control: "control" | "influence" | "cannot_control_today" | "unclear"; onTitle: (v: string) => void; onIntensity: (v: string) => void; onCategory: (v: string) => void; onConcern: (v: string) => void; onControl: (value: "control" | "influence" | "cannot_control_today" | "unclear") => void; onAdd: () => void }) {
-  const { colors } = props; const controls: { value: typeof props.control; label: string }[] = [{ value: "control", label: "I control" }, { value: "influence", label: "I influence" }, { value: "cannot_control_today", label: "Not today" }]; return <CommandCard accent={colors.warning} style={styles.composer}><Text style={[styles.composerTitle, { color: colors.foreground }]}>Stress → Understand → Act</Text><Text style={[styles.composerDetail, { color: colors.muted }]}>Start small. You can refine status and record a response later.</Text><Field label="What is happening?" value={props.title} onChangeText={props.onTitle} placeholder="Example: Exam workload" /><View style={styles.twoFields}><View style={styles.flexField}><Field label="Intensity 0–10" value={props.intensity} onChangeText={props.onIntensity} placeholder="5" keyboardType="numeric" /></View><View style={styles.flexField}><Field label="Category" value={props.category} onChangeText={props.onCategory} placeholder="Study, family…" /></View></View><Field label="What worries you? Optional" value={props.concern} onChangeText={props.onConcern} placeholder="Write a short private note" multiline /><Text style={[styles.fieldLabel, { color: colors.muted }]}>WHAT CAN I DO?</Text><View style={styles.statusRow}>{controls.map((option) => <Pressable key={option.value} onPress={() => props.onControl(option.value)} style={[styles.statusChip, { borderColor: props.control === option.value ? colors.warning : colors.border, backgroundColor: props.control === option.value ? `${colors.warning}18` : colors.background }]}><Text style={[styles.statusText, { color: props.control === option.value ? colors.warning : colors.muted }]}>{option.label}</Text></Pressable>)}</View><Pressable onPress={props.onAdd} style={[styles.primaryButton, { backgroundColor: colors.warning }]}><Text style={[styles.primaryButtonText, { color: colors.background }]}>Add private stressor</Text></Pressable></CommandCard>;
+type InputFocusHandler = NonNullable<TextInputProps["onFocus"]>;
+
+function SaveStatus({ visible, label, color }: { visible: boolean; label: string; color: string }) {
+  if (!visible) return null;
+  return <Text accessibilityLiveRegion="polite" style={[styles.savedNotice, { color }]}>✓ {label} saved locally</Text>;
 }
 
-function SleepComposer(props: { colors: ReturnType<typeof useColors>; mode: "duration" | "bed_wake"; onMode: (v: "duration" | "bed_wake") => void; hours: string; minutes: string; bedTime: string; wakeTime: string; date: string; quality: string; dreams: "none_remembered" | "some_remembered" | "vivid_or_heavy" | null; awakeningCount: string; restedRating: string; napMinutes: string; onHours: (v: string) => void; onMinutes: (v: string) => void; onBed: (v: string) => void; onWake: (v: string) => void; onDate: (v: string) => void; onQuality: (v: string) => void; onDreams: (v: "none_remembered" | "some_remembered" | "vivid_or_heavy" | null) => void; onAwakeningCount: (v: string) => void; onRestedRating: (v: string) => void; onNap: (v: string) => void; onAdd: () => void; onAddNap: () => void }) {
-  const { colors } = props; const calculated = getSleepDurationMinutesFromBedWake(props.bedTime, props.wakeTime); return <CommandCard accent={colors.success} style={styles.composer}><Text style={[styles.composerTitle, { color: colors.foreground }]}>Overnight sleep</Text><Text style={[styles.composerDetail, { color: colors.muted }]}>Morning entries belong to the wake-up day. You can change the date for an older entry.</Text><View style={styles.tabRow}><Pressable onPress={() => props.onMode("duration")} style={[styles.tab, { borderColor: props.mode === "duration" ? colors.success : colors.border }]}><Text style={[styles.statusText, { color: props.mode === "duration" ? colors.success : colors.muted }]}>Enter duration</Text></Pressable><Pressable onPress={() => props.onMode("bed_wake")} style={[styles.tab, { borderColor: props.mode === "bed_wake" ? colors.success : colors.border }]}><Text style={[styles.statusText, { color: props.mode === "bed_wake" ? colors.success : colors.muted }]}>Bed / wake</Text></Pressable></View>{props.mode === "duration" ? <View style={styles.twoFields}><View style={styles.flexField}><Field label="Hours" value={props.hours} onChangeText={props.onHours} placeholder="7" keyboardType="numeric" /></View><View style={styles.flexField}><Field label="Minutes" value={props.minutes} onChangeText={props.onMinutes} placeholder="30" keyboardType="numeric" /></View></View> : <><View style={styles.twoFields}><View style={styles.flexField}><Field label="Bed HH:MM" value={props.bedTime} onChangeText={props.onBed} placeholder="23:00" /></View><View style={styles.flexField}><Field label="Wake HH:MM" value={props.wakeTime} onChangeText={props.onWake} placeholder="07:00" /></View></View><Text style={[styles.calculated, { color: colors.success }]}>Calculated: {formatMinutes(calculated)}</Text></>}<View style={styles.twoFields}><View style={styles.flexField}><Field label="Wake date" value={props.date} onChangeText={props.onDate} placeholder="YYYY-MM-DD" /></View><View style={styles.flexField}><Field label="Quality 1–5" value={props.quality} onChangeText={props.onQuality} placeholder="3" keyboardType="numeric" /></View></View><Text style={[styles.fieldLabel, { color: colors.muted }]}>DREAM EXPERIENCE · CONTEXT ONLY</Text><View style={styles.statusRow}>{([{ value: "none_remembered", label: "Not remembered" }, { value: "some_remembered", label: "A bit dreamy" }, { value: "vivid_or_heavy", label: "Vivid / heavy" }] as const).map((option) => <Pressable key={option.value} onPress={() => props.onDreams(props.dreams === option.value ? null : option.value)} style={[styles.statusChip, { borderColor: props.dreams === option.value ? colors.success : colors.border, backgroundColor: props.dreams === option.value ? `${colors.success}18` : colors.background }]}><Text style={[styles.statusText, { color: props.dreams === option.value ? colors.success : colors.muted }]}>{option.label}</Text></Pressable>)}</View><View style={styles.twoFields}><View style={styles.flexField}><Field label="Night awakenings · exact count" value={props.awakeningCount} onChangeText={props.onAwakeningCount} placeholder="0" keyboardType="numeric" /></View><View style={styles.flexField}><Field label="Rested feeling 1–5" value={props.restedRating} onChangeText={props.onRestedRating} placeholder="3" keyboardType="numeric" /></View></View><Text style={[styles.composerDetail, { color: colors.muted }]}>Personal Sleep Score: duration uses the 7-hour adult reference; continuity uses awakenings; quality and rested feeling use your ratings. Dream experience is context only. This index is evidence-informed, not clinically validated.</Text><Pressable onPress={props.onAdd} style={[styles.primaryButton, { backgroundColor: colors.success }]}><Text style={[styles.primaryButtonText, { color: colors.background }]}>Save sleep</Text></Pressable><View style={[styles.napRow, { borderColor: colors.border }]}><View style={styles.flexField}><Field label="Optional nap minutes" value={props.napMinutes} onChangeText={props.onNap} placeholder="20" keyboardType="numeric" /></View><Pressable onPress={props.onAddNap} style={[styles.secondaryButton, { borderColor: colors.success }]}><Text style={[styles.actionText, { color: colors.success }]}>Add nap</Text></Pressable></View></CommandCard>;
+function StressComposer(props: { colors: ReturnType<typeof useColors>; title: string; intensity: string; category: string; concern: string; control: "control" | "influence" | "cannot_control_today" | "unclear"; onTitle: (v: string) => void; onIntensity: (v: string) => void; onCategory: (v: string) => void; onConcern: (v: string) => void; onControl: (value: "control" | "influence" | "cannot_control_today" | "unclear") => void; onAdd: () => void; onInputFocus: InputFocusHandler; saved: boolean }) {
+  const { colors } = props;
+  const controls: { value: typeof props.control; label: string }[] = [
+    { value: "control", label: "I control" },
+    { value: "influence", label: "I influence" },
+    { value: "cannot_control_today", label: "Not today" },
+  ];
+  return <CommandCard accent={colors.warning} style={styles.composer}>
+    <Text style={[styles.composerTitle, { color: colors.foreground }]}>Stress → Understand → Act</Text>
+    <Text style={[styles.composerDetail, { color: colors.muted }]}>Start small. You can refine status and record a response later.</Text>
+    <Field label="What is happening?" value={props.title} onChangeText={props.onTitle} onInputFocus={props.onInputFocus} placeholder="Example: Exam workload" />
+    <View style={styles.twoFields}>
+      <View style={styles.flexField}><Field label="Intensity 0–10" value={props.intensity} onChangeText={props.onIntensity} onInputFocus={props.onInputFocus} placeholder="5" keyboardType="numeric" /></View>
+      <View style={styles.flexField}><Field label="Category" value={props.category} onChangeText={props.onCategory} onInputFocus={props.onInputFocus} placeholder="Study, family…" /></View>
+    </View>
+    <Field label="What worries you? Optional" value={props.concern} onChangeText={props.onConcern} onInputFocus={props.onInputFocus} placeholder="Write a short private note" multiline />
+    <Text style={[styles.fieldLabel, { color: colors.muted }]}>WHAT CAN I DO?</Text>
+    <View style={styles.statusRow}>{controls.map((option) => <Pressable key={option.value} onPress={() => props.onControl(option.value)} style={({ pressed }) => [styles.statusChip, { borderColor: props.control === option.value ? colors.warning : colors.border, backgroundColor: props.control === option.value ? `${colors.warning}18` : colors.background, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.statusText, { color: props.control === option.value ? colors.warning : colors.muted }]}>{option.label}</Text></Pressable>)}</View>
+    <Pressable onPress={props.onAdd} accessibilityRole="button" accessibilityLabel="Add private stressor" style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.warning, opacity: pressed ? 0.82 : 1 }]}><Text style={[styles.primaryButtonText, { color: colors.background }]}>{props.saved ? "Stressor saved ✓" : "Add private stressor"}</Text></Pressable>
+    <SaveStatus visible={props.saved} label="Stressor" color={colors.success} />
+  </CommandCard>;
 }
 
-function ScreenComposer(props: { colors: ReturnType<typeof useColors>; hours: string; minutes: string; label: string; date: string; onHours: (v: string) => void; onMinutes: (v: string) => void; onLabel: (v: string) => void; onDate: (v: string) => void; onAdd: () => void }) { const { colors } = props; return <CommandCard accent={colors.primary} style={styles.composer}><Text style={[styles.composerTitle, { color: colors.foreground }]}>Manual screen time</Text><Text style={[styles.composerDetail, { color: colors.muted }]}>Enter what you choose to track. This app never reads device usage, apps, or browsing history.</Text><View style={styles.twoFields}><View style={styles.flexField}><Field label="Hours" value={props.hours} onChangeText={props.onHours} placeholder="3" keyboardType="numeric" /></View><View style={styles.flexField}><Field label="Minutes" value={props.minutes} onChangeText={props.onMinutes} placeholder="15" keyboardType="numeric" /></View></View><Field label="Primary app, site, or category" value={props.label} onChangeText={props.onLabel} placeholder="Example: YouTube, study, social" /><Field label="Date" value={props.date} onChangeText={props.onDate} placeholder="YYYY-MM-DD" /><Pressable onPress={props.onAdd} style={[styles.primaryButton, { backgroundColor: colors.primary }]}><Text style={[styles.primaryButtonText, { color: colors.background }]}>Save screen time</Text></Pressable></CommandCard>; }
+function SleepComposer(props: { colors: ReturnType<typeof useColors>; mode: "duration" | "bed_wake"; onMode: (v: "duration" | "bed_wake") => void; hours: string; minutes: string; bedTime: string; wakeTime: string; date: string; quality: string; dreams: "none_remembered" | "some_remembered" | "vivid_or_heavy" | null; awakeningCount: string; restedRating: string; napMinutes: string; onHours: (v: string) => void; onMinutes: (v: string) => void; onBed: (v: string) => void; onWake: (v: string) => void; onDate: (v: string) => void; onQuality: (v: string) => void; onDreams: (v: "none_remembered" | "some_remembered" | "vivid_or_heavy" | null) => void; onAwakeningCount: (v: string) => void; onRestedRating: (v: string) => void; onNap: (v: string) => void; onAdd: () => void; onAddNap: () => void; onInputFocus: InputFocusHandler; saved: boolean; napSaved: boolean }) {
+  const { colors } = props;
+  const calculated = getSleepDurationMinutesFromBedWake(props.bedTime, props.wakeTime);
+  return <CommandCard accent={colors.success} style={styles.composer}>
+    <Text style={[styles.composerTitle, { color: colors.foreground }]}>Overnight sleep</Text>
+    <Text style={[styles.composerDetail, { color: colors.muted }]}>Morning entries belong to the wake-up day. You can change the date for an older entry.</Text>
+    <View style={styles.tabRow}>
+      <Pressable onPress={() => props.onMode("duration")} style={({ pressed }) => [styles.tab, { borderColor: props.mode === "duration" ? colors.success : colors.border, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.statusText, { color: props.mode === "duration" ? colors.success : colors.muted }]}>Enter duration</Text></Pressable>
+      <Pressable onPress={() => props.onMode("bed_wake")} style={({ pressed }) => [styles.tab, { borderColor: props.mode === "bed_wake" ? colors.success : colors.border, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.statusText, { color: props.mode === "bed_wake" ? colors.success : colors.muted }]}>Bed / wake</Text></Pressable>
+    </View>
+    {props.mode === "duration" ? <View style={styles.twoFields}>
+      <View style={styles.flexField}><Field label="Hours" value={props.hours} onChangeText={props.onHours} onInputFocus={props.onInputFocus} placeholder="7" keyboardType="numeric" /></View>
+      <View style={styles.flexField}><Field label="Minutes" value={props.minutes} onChangeText={props.onMinutes} onInputFocus={props.onInputFocus} placeholder="30" keyboardType="numeric" /></View>
+    </View> : <>
+      <View style={styles.twoFields}>
+        <View style={styles.flexField}><Field label="Bed HH:MM" value={props.bedTime} onChangeText={props.onBed} onInputFocus={props.onInputFocus} placeholder="23:00" /></View>
+        <View style={styles.flexField}><Field label="Wake HH:MM" value={props.wakeTime} onChangeText={props.onWake} onInputFocus={props.onInputFocus} placeholder="07:00" /></View>
+      </View>
+      <Text style={[styles.calculated, { color: colors.success }]}>Calculated: {formatMinutes(calculated)}</Text>
+    </>}
+    <View style={styles.twoFields}>
+      <View style={styles.flexField}><Field label="Wake date" value={props.date} onChangeText={props.onDate} onInputFocus={props.onInputFocus} placeholder="YYYY-MM-DD" /></View>
+      <View style={styles.flexField}><Field label="Quality 1–5" value={props.quality} onChangeText={props.onQuality} onInputFocus={props.onInputFocus} placeholder="3" keyboardType="numeric" /></View>
+    </View>
+    <Text style={[styles.fieldLabel, { color: colors.muted }]}>DREAM EXPERIENCE · CONTEXT ONLY</Text>
+    <View style={styles.statusRow}>{([{ value: "none_remembered", label: "Not remembered" }, { value: "some_remembered", label: "A bit dreamy" }, { value: "vivid_or_heavy", label: "Vivid / heavy" }] as const).map((option) => <Pressable key={option.value} onPress={() => props.onDreams(props.dreams === option.value ? null : option.value)} style={({ pressed }) => [styles.statusChip, { borderColor: props.dreams === option.value ? colors.success : colors.border, backgroundColor: props.dreams === option.value ? `${colors.success}18` : colors.background, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.statusText, { color: props.dreams === option.value ? colors.success : colors.muted }]}>{option.label}</Text></Pressable>)}</View>
+    <View style={styles.twoFields}>
+      <View style={styles.flexField}><Field label="Night awakenings · exact count" value={props.awakeningCount} onChangeText={props.onAwakeningCount} onInputFocus={props.onInputFocus} placeholder="0" keyboardType="numeric" /></View>
+      <View style={styles.flexField}><Field label="Rested feeling 1–5" value={props.restedRating} onChangeText={props.onRestedRating} onInputFocus={props.onInputFocus} placeholder="3" keyboardType="numeric" /></View>
+    </View>
+    <Text style={[styles.composerDetail, { color: colors.muted }]}>Personal Sleep Score: duration uses the 7-hour adult reference; continuity uses awakenings; quality and rested feeling use your ratings. Dream experience is context only. This index is evidence-informed, not clinically validated.</Text>
+    <Pressable onPress={props.onAdd} accessibilityRole="button" accessibilityLabel="Save sleep" style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.success, opacity: pressed ? 0.82 : 1 }]}><Text style={[styles.primaryButtonText, { color: colors.background }]}>{props.saved ? "Sleep saved ✓" : "Save sleep"}</Text></Pressable>
+    <SaveStatus visible={props.saved} label="Sleep" color={colors.success} />
+    <View style={[styles.napRow, { borderColor: colors.border }]}>
+      <View style={styles.flexField}><Field label="Optional nap minutes" value={props.napMinutes} onChangeText={props.onNap} onInputFocus={props.onInputFocus} placeholder="20" keyboardType="numeric" /></View>
+      <Pressable onPress={props.onAddNap} accessibilityRole="button" accessibilityLabel="Add nap" style={({ pressed }) => [styles.secondaryButton, { borderColor: colors.success, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.actionText, { color: colors.success }]}>{props.napSaved ? "Nap saved ✓" : "Add nap"}</Text></Pressable>
+    </View>
+    <SaveStatus visible={props.napSaved} label="Nap" color={colors.success} />
+  </CommandCard>;
+}
 
+function ScreenComposer(props: { colors: ReturnType<typeof useColors>; hours: string; minutes: string; label: string; date: string; onHours: (v: string) => void; onMinutes: (v: string) => void; onLabel: (v: string) => void; onDate: (v: string) => void; onAdd: () => void; onInputFocus: InputFocusHandler; saved: boolean }) {
+  const { colors } = props;
+  return <CommandCard accent={colors.primary} style={styles.composer}>
+    <Text style={[styles.composerTitle, { color: colors.foreground }]}>Manual screen time</Text>
+    <Text style={[styles.composerDetail, { color: colors.muted }]}>Enter what you choose to track. This app never reads device usage, apps, or browsing history.</Text>
+    <View style={styles.twoFields}>
+      <View style={styles.flexField}><Field label="Hours" value={props.hours} onChangeText={props.onHours} onInputFocus={props.onInputFocus} placeholder="3" keyboardType="numeric" /></View>
+      <View style={styles.flexField}><Field label="Minutes" value={props.minutes} onChangeText={props.onMinutes} onInputFocus={props.onInputFocus} placeholder="15" keyboardType="numeric" /></View>
+    </View>
+    <Field label="Primary app, site, or category" value={props.label} onChangeText={props.onLabel} onInputFocus={props.onInputFocus} placeholder="Example: YouTube, study, social" />
+    <Field label="Date" value={props.date} onChangeText={props.onDate} onInputFocus={props.onInputFocus} placeholder="YYYY-MM-DD" />
+    <Pressable onPress={props.onAdd} accessibilityRole="button" accessibilityLabel="Save screen time" style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.primary, opacity: pressed ? 0.82 : 1 }]}><Text style={[styles.primaryButtonText, { color: colors.background }]}>{props.saved ? "Screen time saved ✓" : "Save screen time"}</Text></Pressable>
+    <SaveStatus visible={props.saved} label="Screen time" color={colors.success} />
+  </CommandCard>;
+}
 const styles = StyleSheet.create({
-  content: { gap: 13, paddingTop: 12, paddingBottom: 32 }, summaryCard: { gap: 8 }, summaryEyebrow: { fontSize: 9, fontWeight: "900", letterSpacing: 0.9 }, summaryRow: { flexDirection: "row", gap: 8 }, metric: { flex: 1, gap: 2 }, metricLabel: { fontSize: 8, fontWeight: "900", letterSpacing: 0.6 }, metricValue: { fontSize: 15, fontWeight: "900" }, summaryDetail: { fontSize: 10, lineHeight: 15, fontWeight: "600" }, tabRow: { flexDirection: "row", gap: 7 }, tab: { flex: 1, minHeight: 37, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 }, tabText: { fontSize: 11, fontWeight: "900" }, composer: { gap: 9 }, composerTitle: { fontSize: 17, lineHeight: 22, fontWeight: "900" }, composerDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600" }, field: { gap: 3 }, fieldLabel: { fontSize: 8, lineHeight: 11, fontWeight: "900", letterSpacing: 0.7 }, input: { borderWidth: StyleSheet.hairlineWidth, minHeight: 42, borderRadius: 11, paddingHorizontal: 11, fontSize: 13, fontWeight: "700" }, multiline: { minHeight: 72, paddingTop: 10, textAlignVertical: "top" }, twoFields: { flexDirection: "row", gap: 8 }, flexField: { flex: 1 }, primaryButton: { minHeight: 43, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }, primaryButtonText: { fontSize: 12, fontWeight: "900" }, secondaryButton: { alignSelf: "flex-end", minHeight: 42, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 12, borderRadius: 11, alignItems: "center", justifyContent: "center" }, actionText: { fontSize: 10, fontWeight: "900" }, napRow: { flexDirection: "row", gap: 8, alignItems: "flex-end", borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 9 }, calculated: { fontSize: 11, fontWeight: "900" }, sectionTitle: { fontSize: 17, lineHeight: 22, fontWeight: "900", marginTop: 2 }, recordCard: { gap: 8 }, recordTop: { flexDirection: "row", justifyContent: "space-between", gap: 9, alignItems: "flex-start" }, recordCopy: { flex: 1, gap: 2 }, recordTitle: { fontSize: 14, lineHeight: 19, fontWeight: "900" }, recordDetail: { fontSize: 10, lineHeight: 15, fontWeight: "600" }, statusRow: { flexDirection: "row", gap: 5, flexWrap: "wrap" }, statusChip: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 9, paddingHorizontal: 7, paddingVertical: 5 }, statusText: { fontSize: 9, fontWeight: "900" }, actionTypes: { flexDirection: "row", gap: 5, flexWrap: "wrap" }, actionType: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 9, paddingHorizontal: 7, paddingVertical: 5 }, actionButton: { minHeight: 36, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center" }, latestAction: { fontSize: 10, lineHeight: 14, fontWeight: "700" }, afterActionRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 }, afterActionInput: { flex: 1, minHeight: 42, borderWidth: StyleSheet.hairlineWidth, borderRadius: 11, paddingHorizontal: 11, fontSize: 12, fontWeight: "700" }, empty: { paddingVertical: 20 }, emptyText: { fontSize: 12, lineHeight: 18, fontWeight: "700", textAlign: "center" },
+  content: { gap: 13, paddingTop: 12, paddingBottom: 32 }, summaryCard: { gap: 8 }, summaryEyebrow: { fontSize: 9, fontWeight: "900", letterSpacing: 0.9 }, summaryRow: { flexDirection: "row", gap: 8 }, metric: { flex: 1, gap: 2 }, metricLabel: { fontSize: 8, fontWeight: "900", letterSpacing: 0.6 }, metricValue: { fontSize: 15, fontWeight: "900" }, summaryDetail: { fontSize: 10, lineHeight: 15, fontWeight: "600" }, tabRow: { flexDirection: "row", gap: 7 }, tab: { flex: 1, minHeight: 37, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 }, tabText: { fontSize: 11, fontWeight: "900" }, composer: { gap: 9 }, composerTitle: { fontSize: 17, lineHeight: 22, fontWeight: "900" }, composerDetail: { fontSize: 11, lineHeight: 16, fontWeight: "600" }, field: { gap: 3 }, fieldLabel: { fontSize: 8, lineHeight: 11, fontWeight: "900", letterSpacing: 0.7 }, input: { borderWidth: StyleSheet.hairlineWidth, minHeight: 42, borderRadius: 11, paddingHorizontal: 11, fontSize: 13, fontWeight: "700" }, multiline: { minHeight: 72, paddingTop: 10, textAlignVertical: "top" }, twoFields: { flexDirection: "row", gap: 8 }, flexField: { flex: 1 }, primaryButton: { minHeight: 43, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }, primaryButtonText: { fontSize: 12, fontWeight: "900" }, savedNotice: { fontSize: 10, lineHeight: 14, fontWeight: "900", textAlign: "center" }, secondaryButton: { alignSelf: "flex-end", minHeight: 42, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 12, borderRadius: 11, alignItems: "center", justifyContent: "center" }, actionText: { fontSize: 10, fontWeight: "900" }, napRow: { flexDirection: "row", gap: 8, alignItems: "flex-end", borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 9 }, calculated: { fontSize: 11, fontWeight: "900" }, sectionTitle: { fontSize: 17, lineHeight: 22, fontWeight: "900", marginTop: 2 }, recordCard: { gap: 8 }, recordTop: { flexDirection: "row", justifyContent: "space-between", gap: 9, alignItems: "flex-start" }, recordCopy: { flex: 1, gap: 2 }, recordTitle: { fontSize: 14, lineHeight: 19, fontWeight: "900" }, recordDetail: { fontSize: 10, lineHeight: 15, fontWeight: "600" }, statusRow: { flexDirection: "row", gap: 5, flexWrap: "wrap" }, statusChip: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 9, paddingHorizontal: 7, paddingVertical: 5 }, statusText: { fontSize: 9, fontWeight: "900" }, actionTypes: { flexDirection: "row", gap: 5, flexWrap: "wrap" }, actionType: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 9, paddingHorizontal: 7, paddingVertical: 5 }, actionButton: { minHeight: 36, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center" }, latestAction: { fontSize: 10, lineHeight: 14, fontWeight: "700" }, afterActionRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 }, afterActionInput: { flex: 1, minHeight: 42, borderWidth: StyleSheet.hairlineWidth, borderRadius: 11, paddingHorizontal: 11, fontSize: 12, fontWeight: "700" }, empty: { paddingVertical: 20 }, emptyText: { fontSize: 12, lineHeight: 18, fontWeight: "700", textAlign: "center" },
 });

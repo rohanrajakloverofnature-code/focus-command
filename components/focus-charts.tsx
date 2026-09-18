@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Svg, { Circle, Line, Path, Polygon, Rect } from "react-native-svg";
 
@@ -13,6 +13,17 @@ export interface ChartPoint {
 
 function displayValue(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function clampIndex(index: number, count: number) {
+  return Math.max(0, Math.min(Math.max(0, count - 1), index));
+}
+
+/** Maps every pixel in a chart plot to its nearest discrete x-position. */
+function nearestIndexFromX(locationX: number, left: number, plotWidth: number, count: number) {
+  if (count <= 1) return 0;
+  const fraction = Math.max(0, Math.min(1, (locationX - left) / Math.max(1, plotWidth)));
+  return clampIndex(Math.round(fraction * (count - 1)), count);
 }
 
 function ChartFocus({ label, value, color }: { label: string; value: number; color: string }) {
@@ -34,6 +45,7 @@ export const LineTrendChart = memo(function LineTrendChart({ points, color, seco
   const [selectedIndex, setSelectedIndex] = useState(Math.max(0, points.length - 1));
   const clampedIndex = Math.min(selectedIndex, Math.max(0, points.length - 1));
   const selected = points[clampedIndex] ?? { label: "No data", value: 0 };
+  const selectAt = useCallback((locationX: number) => setSelectedIndex(nearestIndexFromX(locationX, padding.left, chartWidth, points.length)), [chartWidth, padding.left, points.length]);
 
   const makePath = (series: ChartPoint[]) => series.map((point, index) => {
     const x = padding.left + (series.length <= 1 ? chartWidth / 2 : (index / (series.length - 1)) * chartWidth);
@@ -43,17 +55,14 @@ export const LineTrendChart = memo(function LineTrendChart({ points, color, seco
   const labelIndexes = points.length <= 4 ? points.map((_, index) => index) : [0, Math.floor((points.length - 1) / 2), points.length - 1];
 
   return <View accessibilityRole="image" accessibilityLabel={accessibilityLabel}>
-    <Svg width={width} height={height}>
-      {[0, 0.5, 1].map((fraction) => { const y = padding.top + chartHeight * fraction; return <Line key={fraction} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={colors.border} strokeWidth={1} opacity={0.65} />; })}
-      {points.length > 1 ? <Path d={makePath(points)} fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" /> : null}
-      {secondaryPoints && secondaryPoints.length > 1 ? <Path d={makePath(secondaryPoints)} fill="none" stroke={secondaryColor ?? colors.success} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" opacity={0.8} /> : null}
-      {points.map((point, index) => {
-        const x = padding.left + (points.length <= 1 ? chartWidth / 2 : (index / (points.length - 1)) * chartWidth);
-        const y = padding.top + chartHeight - ((point.value - minimum) / range) * chartHeight;
-        const active = index === clampedIndex;
-        return <Circle key={`${point.label}-${index}`} onPress={() => setSelectedIndex(index)} cx={x} cy={y} r={active ? 6 : 3.6} fill={color} stroke={colors.surface} strokeWidth={active ? 3 : 2} />;
-      })}
-    </Svg>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Select data point in ${accessibilityLabel}`} hitSlop={8} onPress={(event) => selectAt(event.nativeEvent.locationX)} style={styles.plotTap}>
+      <Svg width={width} height={height} pointerEvents="none">
+        {[0, 0.5, 1].map((fraction) => { const y = padding.top + chartHeight * fraction; return <Line key={fraction} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={colors.border} strokeWidth={1} opacity={0.65} />; })}
+        {points.length > 1 ? <Path d={makePath(points)} fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" /> : null}
+        {secondaryPoints && secondaryPoints.length > 1 ? <Path d={makePath(secondaryPoints)} fill="none" stroke={secondaryColor ?? colors.success} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" opacity={0.8} /> : null}
+        {points.map((point, index) => { const x = padding.left + (points.length <= 1 ? chartWidth / 2 : (index / (points.length - 1)) * chartWidth); const y = padding.top + chartHeight - ((point.value - minimum) / range) * chartHeight; const active = index === clampedIndex; return <Circle key={`${point.label}-${index}`} cx={x} cy={y} r={active ? 6 : 3.6} fill={color} stroke={colors.surface} strokeWidth={active ? 3 : 2} />; })}
+      </Svg>
+    </Pressable>
     <ChartFocus label={selected.label} value={selected.value} color={color} />
     <View style={styles.lineLabels}>{labelIndexes.map((index) => <Text key={`${points[index].label}-${index}`} style={[styles.axisLabel, { color: colors.muted }]}>{points[index].label}</Text>)}</View>
   </View>;
@@ -61,10 +70,7 @@ export const LineTrendChart = memo(function LineTrendChart({ points, color, seco
 
 export interface MultiLineSeries { id: string; label: string; color: string; points: ChartPoint[]; }
 
-/**
- * Samples matching positions from every series only for SVG drawing. The original
- * points stay intact in state and the newest point is always retained.
- */
+/** Samples matching positions from every series only for SVG drawing. The original points stay intact in state and the newest point is always retained. */
 export function downsampleMultiLineSeries(series: MultiLineSeries[], maxPoints: number): MultiLineSeries[] {
   const longest = Math.max(0, ...series.map((item) => item.points.length));
   if (longest <= maxPoints || maxPoints < 2) return series;
@@ -75,7 +81,7 @@ export function downsampleMultiLineSeries(series: MultiLineSeries[], maxPoints: 
 export const MultiLineTrendChart = memo(function MultiLineTrendChart({ series, height = 144, accessibilityLabel, maxRenderPoints }: { series: MultiLineSeries[]; height?: number; accessibilityLabel: string; maxRenderPoints?: number }) {
   const colors = useColors();
   const { width: windowWidth } = useWindowDimensions();
-  const displaySeries = maxRenderPoints ? downsampleMultiLineSeries(series, maxRenderPoints) : series;
+  const displaySeries = useMemo(() => maxRenderPoints ? downsampleMultiLineSeries(series, maxRenderPoints) : series, [maxRenderPoints, series]);
   const width = Math.max(240, windowWidth - 66);
   const padding = { top: 12, right: 10, bottom: 18, left: 6 };
   const chartHeight = height - padding.top - padding.bottom;
@@ -92,14 +98,27 @@ export const MultiLineTrendChart = memo(function MultiLineTrendChart({ series, h
     const y = padding.top + chartHeight - ((point.value - minimum) / range) * chartHeight;
     return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
   }).join(" ");
+  const selectNearestSeries = useCallback((locationX: number, locationY: number) => {
+    let nearestSeries = 0;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    displaySeries.forEach((item, seriesIndex) => item.points.forEach((point, pointIndex) => {
+      const x = padding.left + (item.points.length <= 1 ? chartWidth / 2 : (pointIndex / (item.points.length - 1)) * chartWidth);
+      const y = padding.top + chartHeight - ((point.value - minimum) / range) * chartHeight;
+      const distance = ((locationX - x) ** 2) + ((locationY - y) ** 2);
+      if (distance < nearestDistance) { nearestDistance = distance; nearestSeries = seriesIndex; }
+    }));
+    setSelectedSeries(nearestSeries);
+  }, [chartHeight, chartWidth, displaySeries, minimum, padding.left, padding.top, range]);
   const latest = selected?.points.at(-1) ?? { label: "No data", value: 0 };
 
   return <View accessibilityRole="image" accessibilityLabel={accessibilityLabel}>
-    <Svg width={width} height={height}>
-      {[0, 0.5, 1].map((fraction) => { const y = padding.top + chartHeight * fraction; return <Line key={fraction} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={colors.border} strokeWidth={1} opacity={0.65} />; })}
-      {displaySeries.map((item, index) => item.points.length > 1 ? <Path key={item.id} onPress={() => setSelectedSeries(index)} d={makePath(item.points)} fill="none" stroke={item.color} strokeWidth={index === selectedSeries ? 3.6 : 2.25} strokeLinecap="round" strokeLinejoin="round" opacity={index === selectedSeries ? 1 : 0.52} /> : null)}
-    </Svg>
-    <View style={styles.multiLegend}>{displaySeries.map((item, index) => <Pressable key={item.id} accessibilityRole="button" onPress={() => setSelectedSeries(index)} style={({ pressed }) => [styles.multiLegendItem, { opacity: pressed ? 0.65 : index === selectedSeries ? 1 : 0.58 }]}><View style={[styles.legendDot, { backgroundColor: item.color }]} /><Text style={[styles.axisLabel, { color: colors.muted }]}>{item.label}</Text></Pressable>)}</View>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Select series in ${accessibilityLabel}`} hitSlop={8} onPress={(event) => selectNearestSeries(event.nativeEvent.locationX, event.nativeEvent.locationY)} style={styles.plotTap}>
+      <Svg width={width} height={height} pointerEvents="none">
+        {[0, 0.5, 1].map((fraction) => { const y = padding.top + chartHeight * fraction; return <Line key={fraction} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={colors.border} strokeWidth={1} opacity={0.65} />; })}
+        {displaySeries.map((item, index) => item.points.length > 1 ? <Path key={item.id} d={makePath(item.points)} fill="none" stroke={item.color} strokeWidth={index === selectedSeries ? 3.6 : 2.25} strokeLinecap="round" strokeLinejoin="round" opacity={index === selectedSeries ? 1 : 0.52} /> : null)}
+      </Svg>
+    </Pressable>
+    <View style={styles.multiLegend}>{displaySeries.map((item, index) => <Pressable key={item.id} accessibilityRole="button" hitSlop={6} onPress={() => setSelectedSeries(index)} style={({ pressed }) => [styles.multiLegendItem, { opacity: pressed ? 0.65 : index === selectedSeries ? 1 : 0.58 }]}><View style={[styles.legendDot, { backgroundColor: item.color }]} /><Text style={[styles.axisLabel, { color: colors.muted }]}>{item.label}</Text></Pressable>)}</View>
     <ChartFocus label={`${selected?.label ?? "Series"} · ${latest.label}`} value={latest.value} color={selected?.color ?? colors.primary} />
     <View style={styles.lineLabels}>{(referencePoints.length <= 4 ? referencePoints.map((_, index) => index) : [0, Math.floor((referencePoints.length - 1) / 2), referencePoints.length - 1]).map((index) => <Text key={`${referencePoints[index].label}-${index}`} style={[styles.axisLabel, { color: colors.muted }]}>{referencePoints[index].label}</Text>)}</View>
   </View>;
@@ -119,11 +138,8 @@ export const PersonalGraphTrendChart = memo(function PersonalGraphTrendChart({ g
   const chartHeight = height - padding.top - padding.bottom;
   const chartWidth = width - padding.left - padding.right;
   const [selectedLineIndex, setSelectedLineIndex] = useState(0);
-  const rangePoints = getPersonalGraphPointsForRange(graph, range);
-  const series = graph.lines.map((line) => ({
-    ...line,
-    points: downsamplePersonalGraphPoints(rangePoints.filter((point) => point.lineId === line.id)),
-  }));
+  const rangePoints = useMemo(() => getPersonalGraphPointsForRange(graph, range), [graph, range]);
+  const series = useMemo(() => graph.lines.map((line) => ({ ...line, points: downsamplePersonalGraphPoints(rangePoints.filter((point) => point.lineId === line.id)) })), [graph.lines, rangePoints]);
   const values = series.flatMap((line) => line.points.map((point) => point.yValue));
   const minimum = values.length ? Math.min(...values) : 0;
   const maximum = values.length ? Math.max(...values) : 1;
@@ -138,15 +154,28 @@ export const PersonalGraphTrendChart = memo(function PersonalGraphTrendChart({ g
   const pointX = (xValue: string) => padding.left + ((personalGraphTimestamp(xValue, graph.datePrecision) - minimumX) / rangeX) * chartWidth;
   const pointY = (value: number) => padding.top + chartHeight - ((value - minimum) / rangeY) * chartHeight;
   const makePath = (points: typeof rangePoints) => points.map((point, index) => `${index === 0 ? "M" : "L"}${pointX(point.xValue).toFixed(2)} ${pointY(point.yValue).toFixed(2)}`).join(" ");
+  const selectNearestLine = useCallback((locationX: number, locationY: number) => {
+    let nearestLine = 0;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    series.forEach((line, lineIndex) => line.points.forEach((point) => {
+      const x = padding.left + ((personalGraphTimestamp(point.xValue, graph.datePrecision) - minimumX) / rangeX) * chartWidth;
+      const y = padding.top + chartHeight - ((point.yValue - minimum) / rangeY) * chartHeight;
+      const distance = ((locationX - x) ** 2) + ((locationY - y) ** 2);
+      if (distance < nearestDistance) { nearestDistance = distance; nearestLine = lineIndex; }
+    }));
+    setSelectedLineIndex(nearestLine);
+  }, [series, minimumX, rangeX, minimum, rangeY, chartHeight, chartWidth, graph.datePrecision, padding.left, padding.top]);
   const labelIndexes = xValues.length <= 4 ? xValues.map((_, index) => index) : [0, Math.floor((xValues.length - 1) / 2), xValues.length - 1];
 
   return <View accessibilityRole="image" accessibilityLabel={accessibilityLabel}>
-    <Svg width={width} height={height}>
-      {[0, 0.5, 1].map((fraction) => { const y = padding.top + chartHeight * fraction; return <Line key={fraction} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={colors.border} strokeWidth={1} opacity={0.65} />; })}
-      {series.map((line, index) => line.points.length > 1 ? <Path key={line.id} onPress={() => setSelectedLineIndex(index)} d={makePath(line.points)} fill="none" stroke={line.color} strokeWidth={index === selectedLineIndex ? 3.5 : 2.2} strokeLinecap="round" strokeLinejoin="round" opacity={index === selectedLineIndex ? 1 : 0.55} /> : null)}
-      {selected?.points.map((point) => <Circle key={point.id} onPress={() => setSelectedLineIndex(selectedLineIndex)} cx={pointX(point.xValue)} cy={pointY(point.yValue)} r={3.8} fill={selected.color} stroke={colors.surface} strokeWidth={2} />)}
-    </Svg>
-    <View style={styles.multiLegend}>{series.map((line, index) => <Pressable key={line.id} accessibilityRole="button" onPress={() => setSelectedLineIndex(index)} style={({ pressed }) => [styles.multiLegendItem, { opacity: pressed ? 0.65 : index === selectedLineIndex ? 1 : 0.58 }]}><View style={[styles.legendDot, { backgroundColor: line.color }]} /><Text style={[styles.axisLabel, { color: colors.muted }]}>{line.name}</Text></Pressable>)}</View>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Select line in ${accessibilityLabel}`} hitSlop={8} onPress={(event) => selectNearestLine(event.nativeEvent.locationX, event.nativeEvent.locationY)} style={styles.plotTap}>
+      <Svg width={width} height={height} pointerEvents="none">
+        {[0, 0.5, 1].map((fraction) => { const y = padding.top + chartHeight * fraction; return <Line key={fraction} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={colors.border} strokeWidth={1} opacity={0.65} />; })}
+        {series.map((line, index) => line.points.length > 1 ? <Path key={line.id} d={makePath(line.points)} fill="none" stroke={line.color} strokeWidth={index === selectedLineIndex ? 3.5 : 2.2} strokeLinecap="round" strokeLinejoin="round" opacity={index === selectedLineIndex ? 1 : 0.55} /> : null)}
+        {selected?.points.map((point) => <Circle key={point.id} cx={pointX(point.xValue)} cy={pointY(point.yValue)} r={3.8} fill={selected.color} stroke={colors.surface} strokeWidth={2} />)}
+      </Svg>
+    </Pressable>
+    <View style={styles.multiLegend}>{series.map((line, index) => <Pressable key={line.id} accessibilityRole="button" hitSlop={6} onPress={() => setSelectedLineIndex(index)} style={({ pressed }) => [styles.multiLegendItem, { opacity: pressed ? 0.65 : index === selectedLineIndex ? 1 : 0.58 }]}><View style={[styles.legendDot, { backgroundColor: line.color }]} /><Text style={[styles.axisLabel, { color: colors.muted }]}>{line.name}</Text></Pressable>)}</View>
     <ChartFocus label={`${selected?.name ?? graph.yAxisLabel} · ${latest?.xLabel ?? "No data"}`} value={latest?.yValue ?? 0} color={selected?.color ?? colors.primary} />
     <View style={styles.lineLabels}>{labelIndexes.map((index) => <Text key={`${xValues[index]}-${index}`} style={[styles.axisLabel, { color: colors.muted }]}>{xValues[index]}</Text>)}</View>
   </View>;
@@ -164,12 +193,15 @@ export const BarsChart = memo(function BarsChart({ points, color, height = 132, 
   const [selectedIndex, setSelectedIndex] = useState(Math.max(0, points.length - 1));
   const clampedIndex = Math.min(selectedIndex, Math.max(0, points.length - 1));
   const selected = points[clampedIndex] ?? { label: "No data", value: 0 };
+  const selectAt = useCallback((locationX: number) => setSelectedIndex(clampIndex(Math.floor(locationX / Math.max(1, barWidth + gap)), points.length)), [barWidth, gap, points.length]);
 
   return <View accessibilityRole="image" accessibilityLabel={accessibilityLabel}>
-    <Svg width={width} height={height}>
-      <Line x1={0} y1={chartHeight} x2={width} y2={chartHeight} stroke={colors.border} strokeWidth={1} />
-      {points.map((point, index) => { const barHeight = Math.max(2, (point.value / maximum) * (chartHeight - 8)); const x = gap + index * (barWidth + gap); const active = index === clampedIndex; return <Rect key={`${point.label}-${index}`} onPress={() => setSelectedIndex(index)} x={x} y={chartHeight - barHeight} width={barWidth} height={barHeight} rx={Math.min(4, barWidth / 2)} fill={point.color ?? color} opacity={point.value ? active ? 1 : 0.62 : 0.28} stroke={active ? colors.foreground : "transparent"} strokeWidth={active ? 1.5 : 0} />; })}
-    </Svg>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Select bar in ${accessibilityLabel}`} hitSlop={8} onPress={(event) => selectAt(event.nativeEvent.locationX)} style={styles.plotTap}>
+      <Svg width={width} height={height} pointerEvents="none">
+        <Line x1={0} y1={chartHeight} x2={width} y2={chartHeight} stroke={colors.border} strokeWidth={1} />
+        {points.map((point, index) => { const barHeight = Math.max(2, (point.value / maximum) * (chartHeight - 8)); const x = gap + index * (barWidth + gap); const active = index === clampedIndex; return <Rect key={`${point.label}-${index}`} x={x} y={chartHeight - barHeight} width={barWidth} height={barHeight} rx={Math.min(4, barWidth / 2)} fill={point.color ?? color} opacity={point.value ? active ? 1 : 0.62 : 0.28} stroke={active ? colors.foreground : "transparent"} strokeWidth={active ? 1.5 : 0} />; })}
+      </Svg>
+    </Pressable>
     <ChartFocus label={selected.label} value={selected.value} color={selected.color ?? color} />
     <View style={styles.lineLabels}>{labelIndexes.map((index) => <Text key={`${points[index].label}-${index}`} style={[styles.axisLabel, { color: colors.muted }]}>{points[index].label}</Text>)}</View>
   </View>;
@@ -186,14 +218,26 @@ export const DonutChart = memo(function DonutChart({ points, size = 146, centerL
   const defaultColors = ["#A78BFA", "#49D17D", "#F4C95D", "#FFAA4C", "#C092FF", "#FF6B6B"];
   const [selectedIndex, setSelectedIndex] = useState(0);
   const selected = points[Math.min(selectedIndex, Math.max(0, points.length - 1))];
+  const selectSliceAt = useCallback((locationX: number, locationY: number) => {
+    if (!total || !points.length) return;
+    const dx = locationX - center;
+    const dy = locationY - center;
+    if ((dx * dx) + (dy * dy) > (radius + 14) ** 2) return;
+    const angle = (Math.atan2(dy, dx) * 180 / Math.PI + 450) % 360;
+    let cursor = 0;
+    const index = points.findIndex((point) => { cursor += (Math.max(0, point.value) / total) * 360; return angle <= cursor; });
+    setSelectedIndex(index < 0 ? points.length - 1 : index);
+  }, [center, points, radius, total]);
   let cursor = 0;
 
   return <View style={styles.donutWrap} accessibilityRole="image" accessibilityLabel={accessibilityLabel}>
-    <Svg width={size} height={size}>
-      <Circle cx={center} cy={center} r={radius} fill={colors.border} opacity={0.42} />
-      {total > 0 ? points.map((point, index) => { const start = cursor; const span = (point.value / total) * 360; cursor += span; const active = index === selectedIndex; return <Path key={`${point.label}-${index}`} onPress={() => setSelectedIndex(index)} d={describeArc(center, active ? radius + 4 : radius, start + 1, start + Math.max(2, span - 1))} fill={point.color ?? defaultColors[index % defaultColors.length]} opacity={active ? 1 : 0.7} />; }) : null}
-      <Circle cx={center} cy={center} r={radius * 0.58} fill={colors.surface} />
-    </Svg>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Select segment in ${accessibilityLabel}`} hitSlop={9} onPress={(event) => selectSliceAt(event.nativeEvent.locationX, event.nativeEvent.locationY)} style={styles.donutPlotTap}>
+      <Svg width={size} height={size} pointerEvents="none">
+        <Circle cx={center} cy={center} r={radius} fill={colors.border} opacity={0.42} />
+        {total > 0 ? points.map((point, index) => { const start = cursor; const span = (point.value / total) * 360; cursor += span; const active = index === selectedIndex; return <Path key={`${point.label}-${index}`} d={describeArc(center, active ? radius + 4 : radius, start + 1, start + Math.max(2, span - 1))} fill={point.color ?? defaultColors[index % defaultColors.length]} opacity={active ? 1 : 0.7} />; }) : null}
+        <Circle cx={center} cy={center} r={radius * 0.58} fill={colors.surface} />
+      </Svg>
+    </Pressable>
     <View pointerEvents="none" style={styles.donutCenter}><Text style={[styles.donutValue, { color: selected?.color ?? colors.foreground }]}>{selected ? `${Math.round((selected.value / Math.max(1, total)) * 100)}%` : centerValue}</Text><Text numberOfLines={2} style={[styles.donutLabel, { color: colors.muted }]}>{selected?.label ?? centerLabel}</Text></View>
     {selected ? <ChartFocus label={selected.label} value={selected.value} color={selected.color ?? defaultColors[selectedIndex % defaultColors.length]} /> : null}
   </View>;
@@ -208,20 +252,28 @@ export const RadarChart = memo(function RadarChart({ points, color, size = 176, 
   const selected = points[Math.min(selectedIndex, Math.max(0, points.length - 1))] ?? { label: "No data", value: 0 };
   const coordinates = points.map((point, index) => { const angle = (Math.PI * 2 * index) / Math.max(1, points.length) - Math.PI / 2; const adjustedRadius = radius * (point.value / maxValue); return `${center + Math.cos(angle) * adjustedRadius},${center + Math.sin(angle) * adjustedRadius}`; }).join(" ");
   const fullCoordinates = points.map((_, index) => { const angle = (Math.PI * 2 * index) / Math.max(1, points.length) - Math.PI / 2; return `${center + Math.cos(angle) * radius},${center + Math.sin(angle) * radius}`; }).join(" ");
+  const selectAxisAt = useCallback((locationX: number, locationY: number) => {
+    const angle = (Math.atan2(locationY - center, locationX - center) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2);
+    const index = clampIndex(Math.round((angle / (Math.PI * 2)) * Math.max(1, points.length)) % Math.max(1, points.length), points.length);
+    setSelectedIndex(index);
+  }, [center, points.length]);
 
   return <View style={styles.radarWrap} accessibilityRole="image" accessibilityLabel={accessibilityLabel}>
-    <Svg width={size} height={size}>
-      {[0.33, 0.66, 1].map((fraction) => <Polygon key={fraction} points={points.map((_, index) => { const angle = (Math.PI * 2 * index) / Math.max(1, points.length) - Math.PI / 2; return `${center + Math.cos(angle) * radius * fraction},${center + Math.sin(angle) * radius * fraction}`; }).join(" ")} fill="none" stroke={colors.border} strokeWidth={1} />)}
-      {points.map((_, index) => { const angle = (Math.PI * 2 * index) / Math.max(1, points.length) - Math.PI / 2; return <Line key={index} onPress={() => setSelectedIndex(index)} x1={center} y1={center} x2={center + Math.cos(angle) * radius} y2={center + Math.sin(angle) * radius} stroke={index === selectedIndex ? color : colors.border} strokeWidth={index === selectedIndex ? 2.4 : 1} />; })}
-      <Polygon points={fullCoordinates} fill="none" stroke={colors.border} strokeWidth={1} />
-      <Polygon points={coordinates} fill={`${color}40`} stroke={color} strokeWidth={2} />
-    </Svg>
-    <View style={styles.radarLegend}>{points.map((point, index) => <Pressable key={`${point.label}-${index}`} onPress={() => setSelectedIndex(index)} style={({ pressed }) => [styles.radarLegendItem, { opacity: pressed ? 0.65 : index === selectedIndex ? 1 : 0.62, borderColor: index === selectedIndex ? color : colors.border }]}><Text style={[styles.radarLegendText, { color: index === selectedIndex ? color : colors.muted }]}>{point.label}: {Math.round(point.value)}</Text></Pressable>)}</View>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Select metric in ${accessibilityLabel}`} hitSlop={9} onPress={(event) => selectAxisAt(event.nativeEvent.locationX, event.nativeEvent.locationY)} style={styles.radarPlotTap}>
+      <Svg width={size} height={size} pointerEvents="none">
+        {[0.33, 0.66, 1].map((fraction) => <Polygon key={fraction} points={points.map((_, index) => { const angle = (Math.PI * 2 * index) / Math.max(1, points.length) - Math.PI / 2; return `${center + Math.cos(angle) * radius * fraction},${center + Math.sin(angle) * radius * fraction}`; }).join(" ")} fill="none" stroke={colors.border} strokeWidth={1} />)}
+        {points.map((_, index) => { const angle = (Math.PI * 2 * index) / Math.max(1, points.length) - Math.PI / 2; return <Line key={index} x1={center} y1={center} x2={center + Math.cos(angle) * radius} y2={center + Math.sin(angle) * radius} stroke={index === selectedIndex ? color : colors.border} strokeWidth={index === selectedIndex ? 2.4 : 1} />; })}
+        <Polygon points={fullCoordinates} fill="none" stroke={colors.border} strokeWidth={1} />
+        <Polygon points={coordinates} fill={`${color}40`} stroke={color} strokeWidth={2} />
+      </Svg>
+    </Pressable>
+    <View style={styles.radarLegend}>{points.map((point, index) => <Pressable key={`${point.label}-${index}`} hitSlop={6} onPress={() => setSelectedIndex(index)} style={({ pressed }) => [styles.radarLegendItem, { opacity: pressed ? 0.65 : index === selectedIndex ? 1 : 0.62, borderColor: index === selectedIndex ? color : colors.border }]}><Text style={[styles.radarLegendText, { color: index === selectedIndex ? color : colors.muted }]}>{point.label}: {Math.round(point.value)}</Text></Pressable>)}</View>
     <ChartFocus label={selected.label} value={selected.value} color={color} />
   </View>;
 });
 
 const styles = StyleSheet.create({
+  plotTap: { alignSelf: "flex-start" },
   lineLabels: { flexDirection: "row", justifyContent: "space-between", marginTop: -3 },
   axisLabel: { fontSize: 9, lineHeight: 12, fontWeight: "700" },
   focusRow: { minHeight: 28, marginTop: 3, borderWidth: StyleSheet.hairlineWidth, borderRadius: 9, paddingHorizontal: 8, flexDirection: "row", alignItems: "center", gap: 6 },
@@ -232,10 +284,12 @@ const styles = StyleSheet.create({
   multiLegendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   legendDot: { width: 7, height: 7, borderRadius: 9 },
   donutWrap: { width: 146, minHeight: 176, position: "relative", alignItems: "center", justifyContent: "flex-start" },
+  donutPlotTap: { width: 146, height: 146 },
   donutCenter: { position: "absolute", top: 45, alignItems: "center", justifyContent: "center", width: 86 },
   donutValue: { fontSize: 21, lineHeight: 25, fontWeight: "900" },
   donutLabel: { fontSize: 8, lineHeight: 11, letterSpacing: 0.6, fontWeight: "800", textAlign: "center" },
   radarWrap: { alignItems: "center", gap: 5 },
+  radarPlotTap: { width: 176, height: 176 },
   radarLegend: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, paddingHorizontal: 8 },
   radarLegendItem: { borderRadius: 7, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 6, paddingVertical: 3 },
   radarLegendText: { fontSize: 9, lineHeight: 12, fontWeight: "800" },

@@ -140,7 +140,7 @@ export default function SuperDashboardScreen() {
           {RANGE_ROWS.map((row) => <View key={row.map((item) => item.id).join("-")} style={styles.rangeRow}>
             {row.map((option) => {
               const active = rangeKind === option.id;
-              return <Pressable key={option.id} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`Show Super Dashboard for ${option.label.toLowerCase()}`} onPress={() => setRangeKind(option.id)} style={({ pressed }) => [styles.rangeChip, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? `${colors.primary}1A` : colors.surface, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.rangeChipText, { color: active ? colors.primary : colors.muted }]}>{option.label}</Text></Pressable>;
+              return <Pressable key={option.id} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`Show Super Dashboard for ${option.label.toLowerCase()}`} onPress={() => setRangeKind(option.id)} style={({ pressed }) => [styles.rangeChip, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? `${colors.primary}1A` : colors.surface, opacity: pressed ? 0.72 : 1 }]}><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={[styles.rangeChipText, { color: active ? colors.primary : colors.muted }]}>{option.label}</Text></Pressable>;
             })}
           </View>)}
         </View>
@@ -196,6 +196,7 @@ export default function SuperDashboardScreen() {
             <MetricTile style={styles.metricTile} label="Typical 7-day sleep" value={formatSuperDashboardMinutes(recentSleep.medianMinutes)} detail={recentSleep.medianMinutes === null ? `${recentSleep.loggedNights}/${recentSleep.requiredNights} recent nights logged` : `median of ${recentSleep.loggedNights} recent nights`} icon="timer" accent="#60A5FA" />
             <MetricTile style={styles.metricTile} label="Screen average" value={formatSuperDashboardMinutes(summary.recovery.averageScreenMinutes.value)} detail={summary.recovery.commonScreenLabel ? `most logged: ${summary.recovery.commonScreenLabel}` : metricEvidence(summary.recovery.screenRecordDays, "day")} icon="line.3.horizontal" accent={colors.primary} />
             <MetricTile style={styles.metricTile} label="Naps" value={formatSuperDashboardMinutes(summary.recovery.totalNapMinutes)} detail={`${summary.recovery.recoveryActions} recovery action${summary.recovery.recoveryActions === 1 ? "" : "s"} logged`} icon="timer" accent="#60A5FA" />
+            <MetricTile style={styles.metricTile} label="Rested feeling" value={displayAverage(summary.recovery.restedFeeling.value, "/5")} detail={metricEvidence(summary.recovery.restedFeeling.observations, "night")} icon="star.fill" accent="#60A5FA" />
           </View>
           <CommandCard accent={colors.warning} style={styles.detailCard}>
             <Text style={[styles.detailCardTitle, { color: colors.foreground }]}>Clear separation of stress records</Text>
@@ -207,6 +208,7 @@ export default function SuperDashboardScreen() {
             <MetricTile style={styles.metricTile} label="Disruptions" value={String(summary.focus.disruptions)} detail={summary.focus.disruptionsPerFocusedHour === null ? "No focused-time rate yet" : `${summary.focus.disruptionsPerFocusedHour} per focus hour`} icon="bolt.fill" accent={colors.warning} />
             <MetricTile style={styles.metricTile} label="Top interruption" value={summary.focus.topDistraction ?? "—"} detail={summary.focus.mostInterruptedWindow ? `most often ${summary.focus.mostInterruptedWindow}` : "No distraction logs in this range"} icon="flame.fill" accent="#FF7A59" />
             <MetricTile style={styles.metricTile} label="Logged interruption rate" value={interruption.value === null ? "—" : `${interruption.value}/h`} detail={interruption.sufficientData ? `${interruption.matchedLogs} matched logs across ${formatSuperDashboardMinutes(interruption.focusedMinutes)}` : `${interruption.completedMissions}/10 missions · ${interruption.activeDays}/5 days`} icon="bolt.fill" accent="#FFAA4C" />
+            <MetricTile style={styles.metricTile} label="Focus days" value={String(summary.missions.activeDays)} detail={`${summary.missions.completed} completed mission${summary.missions.completed === 1 ? "" : "s"} in this view`} icon="checklist" accent={colors.success} />
           </View>
           {summary.evidence.reflectionRecords ? <CommandCard accent={colors.primary} style={styles.reflectionCard}>
             <View style={styles.chartHeading}><View style={styles.chartCopy}><Text style={[styles.cardTitle, { color: colors.foreground }]}>Self-reported mission signals</Text><Text style={[styles.cardDetail, { color: colors.muted }]}>Tap a group to switch the comparison. Each value uses only debriefs that contain that rating; missing ratings are never treated as zero.</Text></View><StatusPill label={`${summary.evidence.reflectionRecords} DEBRIEFS`} tone="primary" /></View>
@@ -252,8 +254,8 @@ const styles = StyleSheet.create({
   content: { gap: 13, paddingTop: 12, paddingBottom: 32 },
   rangeStack: { gap: 6 },
   rangeRow: { flexDirection: "row", gap: 7 },
-  rangeChip: { flex: 1, minHeight: 39, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
-  rangeChipText: { fontSize: 10, lineHeight: 13, fontWeight: "900", letterSpacing: 0.45 },
+  rangeChip: { flex: 1, minWidth: 0, minHeight: 39, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
+  rangeChipText: { alignSelf: "stretch", textAlign: "center", fontSize: 10, lineHeight: 13, fontWeight: "900", letterSpacing: 0.18 },
   customRow: { flexDirection: "row", gap: 8 },
   dateInput: { flex: 1, minHeight: 43, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 10, fontSize: 11, lineHeight: 14, fontWeight: "700" },
   messageCard: { gap: 5 },
