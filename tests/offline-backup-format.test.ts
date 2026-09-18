@@ -39,7 +39,11 @@ function createPopulatedState(): FocusState {
   state.profile.tickerColorPreferences = { miniAchievement: { source: "character", surface: null, accent: null }, prediction: { source: "custom", surface: "#17102B", accent: "#16C7E8" } };
   state.profile.homeProfileCardColorPreference = { source: "custom", surface: "#101820", accent: "#F0C75E" };
   state.characterMilestones = [{ id: "milestone_backup", sourceProgressionEventId: "xp_backup", formKey: "custom:arcane_commander", formName: "Arcane Commander", portraitUri: "file:///portraits/arcane.png", achievedAt: "2026-08-14T08:00:00.000Z", levelAtAchievement: 600, totalPowerAtAchievement: 120_000 }];
+  state.recoveryStressors = [{ id: "stress_backup", title: "Exam week", category: "Study", status: "action", intensity: 7, emotions: ["worried"], bodySensations: [], concern: "", controllability: "influence", frequency: "", urgency: "", localDate: "2026-08-14", createdAt: "2026-08-14T07:00:00.000Z", updatedAt: "2026-08-14T07:00:00.000Z" }];
+  state.recoveryActions = [{ id: "action_backup", stressorId: "stress_backup", type: "grounding", beforeIntensity: 7, afterIntensity: 4, note: "", localDate: "2026-08-14", occurredAt: "2026-08-14T07:10:00.000Z" }];
   state.sleepLogs = [{ id: "sleep_backup", localDate: "2026-08-14", entryMode: "duration", durationMinutes: 420, bedTime: null, wakeTime: null, quality: 4, dreams: "some_remembered", awakenings: "once", awakeningCount: 1, restedRating: 4, note: "", createdAt: "2026-08-14T07:00:00.000Z", updatedAt: "2026-08-14T07:00:00.000Z" }];
+  state.napLogs = [{ id: "nap_backup", localDate: "2026-08-14", durationMinutes: 25, note: "", createdAt: "2026-08-14T15:00:00.000Z", updatedAt: "2026-08-14T15:00:00.000Z" }];
+  state.screenTimeLogs = [{ id: "screen_backup", localDate: "2026-08-14", totalMinutes: 95, primaryLabel: "Study video", note: "", createdAt: "2026-08-14T16:00:00.000Z", updatedAt: "2026-08-14T16:00:00.000Z" }];
   return state;
 }
 
@@ -94,7 +98,11 @@ describe("offline Focus Command backup format", () => {
     expect(parsed.state.personalGraphs).toHaveLength(5);
     expect(parsed.state.customQuestions[0].personalSignal).toEqual({ enabled: true, role: "supportive", includeInProjection: true });
     expect(parsed.state.characterMilestones).toEqual(state.characterMilestones);
+    expect(parsed.state.recoveryStressors).toEqual(state.recoveryStressors);
+    expect(parsed.state.recoveryActions).toEqual(state.recoveryActions);
     expect(parsed.state.sleepLogs).toEqual(state.sleepLogs);
+    expect(parsed.state.napLogs).toEqual(state.napLogs);
+    expect(parsed.state.screenTimeLogs).toEqual(state.screenTimeLogs);
   });
 
   it("validates a backup from fixed-size source chunks while streaming each media payload", async () => {

@@ -409,6 +409,19 @@ export default function DashboardScreen() {
           </CommandCard>
         </TapFeedback>
 
+        <TapFeedback onPress={() => router.push("/super-dashboard" as never)} accessibilityLabel="Open Super Dashboard">
+          <CommandCard accent={colors.success} style={styles.commandArchiveCard}>
+            <View style={styles.commandArchiveHeading}>
+              <View style={styles.commandArchiveCopy}>
+                <Text style={[styles.commandArchiveEyebrow, { color: colors.success }]}>PRIVATE · COMPLETE LOCAL VIEW</Text>
+                <Text style={[styles.commandArchiveTitle, { color: colors.foreground }]}>Super Dashboard</Text>
+                <Text style={[styles.commandArchiveDetail, { color: colors.muted }]}>Bring focused time, progress, stress, sleep, naps, screen time, friction, and personal patterns into one selected period.</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={22} color={colors.success} />
+            </View>
+          </CommandCard>
+        </TapFeedback>
+
         <CrossedGatesCard />
 
         <MistakeLedgerCard />
