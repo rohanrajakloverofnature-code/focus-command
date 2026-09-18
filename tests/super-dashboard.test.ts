@@ -202,6 +202,31 @@ describe("Super Dashboard calculation layer", () => {
     expect(summary.activity.reportedMinutes).toBe(690);
     expect(summary.activity.minimumUntrackedMinutes).toBe(750);
     expect(summary.evidence).toMatchObject({ recordedDays: 1, completionRecords: 1, recoveryRecords: 4, reflectionRecords: 1 });
+    expect(summary.focus.loggedInterruptionRate).toMatchObject({ value: 0.5, matchedLogs: 1, focusedMinutes: 120, completedMissions: 1, activeDays: 1, sufficientData: false });
+  });
+
+  it("counts only distraction logs that fall inside their linked completed-mission interval", () => {
+    const state = stateWithRecords();
+    state.distractionLogs.push({ id: "outside_run", missionId: state.missions[0].id, category: "phone", occurredAt: "2026-09-18T07:45:00.000Z" });
+    const summary = getSuperDashboardSummary(state, "today", "", "", NOW);
+
+    expect(summary.focus.disruptions).toBe(2);
+    expect(summary.focus.loggedInterruptionRate).toMatchObject({ matchedLogs: 1, value: 0.5 });
+  });
+
+  it("uses a median only after five recent night records and never imputes missing nights", () => {
+    const state = stateWithRecords();
+    state.sleepLogs = [300, 360, 420, 480, 540].map((durationMinutes, index) => ({
+      ...state.sleepLogs![0],
+      id: `recent_sleep_${index}`,
+      localDate: `2026-09-${14 + index}`,
+      durationMinutes,
+      createdAt: `2026-09-${14 + index}T07:00:00.000Z`,
+      updatedAt: `2026-09-${14 + index}T07:00:00.000Z`,
+    }));
+    const summary = getSuperDashboardSummary(state, "custom", "2026-09-12", "2026-09-18", NOW);
+
+    expect(summary.recovery.typicalRecentSleep).toEqual({ medianMinutes: 420, loggedNights: 5, requiredNights: 5, windowDays: 7 });
   });
 
   it("does not turn missing ratings into zero or fabricate overlap-free time", () => {
@@ -234,8 +259,26 @@ describe("Super Dashboard calculation layer", () => {
     expect(lifetime.supportingProgress).toMatchObject({ journalPoints: 5, revisionActions: 1, maturedRevisionActions: 1 });
   });
 
-  it("withholds personal context patterns until enough paired same-day observations exist", () => {
+  it("labels early personal context honestly and upgrades only after fourteen matched days", () => {
     const state = stateWithRecords();
-    expect(getSuperDashboardSummary(state, "month", "", "", NOW).patterns).toEqual([]);
+    const early = getSuperDashboardSummary(state, "month", "", "", NOW).patterns;
+    expect(early.find((pattern) => pattern.id === "sleep_focus")).toMatchObject({ pairedDays: 1, isReliable: false });
+
+    const completion = state.missionCompletions[0];
+    const sleep = state.sleepLogs![0];
+    state.missionCompletions = Array.from({ length: 14 }, (_, index) => {
+      const day = String(index + 1).padStart(2, "0");
+      const durationMs = index < 7 ? 60 * 60_000 : 120 * 60_000;
+      return { ...completion, id: `paired_completion_${index}`, startedAt: `2026-09-${day}T08:00:00.000Z`, completedAt: `2026-09-${day}T${index < 7 ? "09" : "10"}:00:00.000Z`, durationMs };
+    });
+    state.sleepLogs = Array.from({ length: 14 }, (_, index) => {
+      const day = String(index + 1).padStart(2, "0");
+      return { ...sleep, id: `paired_sleep_${index}`, localDate: `2026-09-${day}`, durationMinutes: index < 7 ? 360 : 480, createdAt: `2026-09-${day}T07:00:00.000Z`, updatedAt: `2026-09-${day}T07:00:00.000Z` };
+    });
+    state.screenTimeLogs = [];
+    state.recoveryStressors = [];
+    const reliable = getSuperDashboardSummary({ ...state }, "custom", "2026-09-01", "2026-09-14", NOW).patterns.find((pattern) => pattern.id === "sleep_focus");
+
+    expect(reliable).toMatchObject({ pairedDays: 14, higherDays: 7, lowerDays: 7, higherFocusMinutes: 120, lowerFocusMinutes: 60, isReliable: true });
   });
 });

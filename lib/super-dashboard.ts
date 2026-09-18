@@ -57,8 +57,12 @@ export type SuperDashboardActivity = {
 export type SuperDashboardContextPattern = {
   id: "sleep_focus" | "stress_focus" | "screen_focus";
   label: string;
-  detail: string;
   pairedDays: number;
+  higherDays: number;
+  lowerDays: number;
+  higherFocusMinutes: number | null;
+  lowerFocusMinutes: number | null;
+  isReliable: boolean;
 };
 
 export type SuperDashboardSummary = {
@@ -98,12 +102,26 @@ export type SuperDashboardSummary = {
     averageScreenMinutes: SuperDashboardMetric;
     screenRecordDays: number;
     commonScreenLabel: string | null;
+    typicalRecentSleep: {
+      medianMinutes: number | null;
+      loggedNights: number;
+      requiredNights: number;
+      windowDays: number;
+    };
   };
   focus: {
     disruptions: number;
     disruptionsPerFocusedHour: number | null;
     topDistraction: string | null;
     mostInterruptedWindow: string | null;
+    loggedInterruptionRate: {
+      value: number | null;
+      matchedLogs: number;
+      focusedMinutes: number;
+      completedMissions: number;
+      activeDays: number;
+      sufficientData: boolean;
+    };
   };
   emotions: {
     focus: SuperDashboardMetric;
@@ -191,6 +209,10 @@ function median(values: number[]): number | null {
   return Number(result.toFixed(1));
 }
 
+function sum(values: number[]): number {
+  return values.reduce((total, value) => total + value, 0);
+}
+
 function localHour(iso: string, timezone: string): number | null {
   if (!Number.isFinite(Date.parse(iso))) return null;
   const hour = new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "2-digit", hour12: false })
@@ -243,19 +265,64 @@ function contextualPattern(
         ? [{ value, focusedMinutes }]
         : [];
     });
-  if (paired.length < 4) return null;
+  if (!paired.length) return null;
   const dividingValue = median(paired.map((entry) => entry.value));
   if (dividingValue === null) return null;
   const lower = paired.filter((entry) => entry.value < dividingValue);
   const higher = paired.filter((entry) => entry.value >= dividingValue);
-  if (lower.length < 2 || higher.length < 2) return null;
-  const lowerHours = lower.reduce((sum, entry) => sum + entry.focusedMinutes, 0) / lower.length / 60;
-  const higherHours = higher.reduce((sum, entry) => sum + entry.focusedMinutes, 0) / higher.length / 60;
+  const isReliable = paired.length >= 14 && lower.length >= 7 && higher.length >= 7;
   return {
     id,
     label,
     pairedDays: paired.length,
-    detail: `${higherHours.toFixed(1)} h average focus on days at or above your personal midpoint, compared with ${lowerHours.toFixed(1)} h below it. Same-day personal context only; this does not prove cause.` ,
+    higherDays: higher.length,
+    lowerDays: lower.length,
+    higherFocusMinutes: higher.length ? Math.round(sum(higher.map((entry) => entry.focusedMinutes)) / higher.length) : null,
+    lowerFocusMinutes: lower.length ? Math.round(sum(lower.map((entry) => entry.focusedMinutes)) / lower.length) : null,
+    isReliable,
+  };
+}
+
+function typicalRecentSleep(selectedSleep: Array<{ localDate: string; durationMinutes: number }>, rangeEndDate: string) {
+  const windowStart = addDays(rangeEndDate, -6);
+  const values = selectedSleep
+    .filter((record) => record.localDate >= windowStart && record.localDate <= rangeEndDate)
+    .map((record) => Math.max(0, record.durationMinutes));
+  return {
+    medianMinutes: values.length >= 5 ? median(values) : null,
+    loggedNights: values.length,
+    requiredNights: 5,
+    windowDays: 7,
+  };
+}
+
+function calculateLoggedInterruptionRate(completions: readonly MissionCompletionRecord[], distractionLogs: SuperDashboardState["distractionLogs"], timezone: string) {
+  const completionByMission = new Map<string, Array<{ start: number; end: number }>>();
+  completions.forEach((completion) => {
+    const end = Date.parse(completion.completedAt);
+    const durationMs = Math.max(0, completion.durationMs);
+    if (!Number.isFinite(end) || durationMs <= 0) return;
+    const intervals = completionByMission.get(completion.missionId) ?? [];
+    intervals.push({ start: end - durationMs, end });
+    completionByMission.set(completion.missionId, intervals);
+  });
+  let matchedLogs = 0;
+  distractionLogs.forEach((entry) => {
+    const occurredAt = Date.parse(entry.occurredAt);
+    if (!Number.isFinite(occurredAt)) return;
+    const intervals = completionByMission.get(entry.missionId) ?? [];
+    if (intervals.some((interval) => occurredAt >= interval.start && occurredAt <= interval.end)) matchedLogs += 1;
+  });
+  const focusedMinutes = Math.round(completions.reduce((total, completion) => total + Math.max(0, completion.durationMs) / 60_000, 0));
+  const activeDays = new Set(completions.map((completion) => safeLocalDate(completion.completedAt, timezone)).filter(Boolean)).size;
+  const value = focusedMinutes > 0 ? Number((matchedLogs / (focusedMinutes / 60)).toFixed(1)) : null;
+  return {
+    value,
+    matchedLogs,
+    focusedMinutes,
+    completedMissions: completions.length,
+    activeDays,
+    sufficientData: completions.length >= 10 && activeDays >= 5 && focusedMinutes >= 300,
   };
 }
 
@@ -335,8 +402,8 @@ export function getSuperDashboardSummary(
       range,
       activity: { categories: [], reportedMinutes: 0, minimumUntrackedMinutes: 0, recordCount: 0, note: "Enter valid inclusive YYYY-MM-DD dates to calculate this private dashboard." },
       missions: { completed: 0, activeDays: 0, focusedMinutes: 0, averageSessionMinutes: null, medianSessionMinutes: null, totalPower: 0, baseXp: 0, goldEarned: 0, powerPerFocusedHour: null, topSubject: null, topCategory: null, mostActiveCompletionWindow: null },
-      recovery: { averageLoggedStress: emptyMetric, averageReflectionStress: emptyMetric, peakLoggedStress: null, stressorCount: 0, recoveryActions: 0, averageSleepMinutes: emptyMetric, averageSleepScore: emptyMetric, sleepQuality: emptyMetric, restedFeeling: emptyMetric, totalNapMinutes: 0, averageScreenMinutes: emptyMetric, screenRecordDays: 0, commonScreenLabel: null },
-      focus: { disruptions: 0, disruptionsPerFocusedHour: null, topDistraction: null, mostInterruptedWindow: null },
+      recovery: { averageLoggedStress: emptyMetric, averageReflectionStress: emptyMetric, peakLoggedStress: null, stressorCount: 0, recoveryActions: 0, averageSleepMinutes: emptyMetric, averageSleepScore: emptyMetric, sleepQuality: emptyMetric, restedFeeling: emptyMetric, totalNapMinutes: 0, averageScreenMinutes: emptyMetric, screenRecordDays: 0, commonScreenLabel: null, typicalRecentSleep: { medianMinutes: null, loggedNights: 0, requiredNights: 5, windowDays: 7 } },
+      focus: { disruptions: 0, disruptionsPerFocusedHour: null, topDistraction: null, mostInterruptedWindow: null, loggedInterruptionRate: { value: null, matchedLogs: 0, focusedMinutes: 0, completedMissions: 0, activeDays: 0, sufficientData: false } },
       emotions: { focus: emptyMetric, motivation: emptyMetric, clarity: emptyMetric, energy: emptyMetric, distraction: emptyMetric, friction: emptyMetric },
       supportingProgress: { revisionActions: 0, maturedRevisionActions: 0, journalPoints: 0, journalEntries: 0, successRatio: null, principleChecked: 0, principleApplicable: 0, principleRecordedDays: 0, characterFormsEarned: 0 },
       patterns: [],
@@ -401,8 +468,10 @@ export function getSuperDashboardSummary(
   });
   const dailySleep = new Map(selectedSleep.map((record) => [record.localDate, record.durationMinutes]));
   const dailyScreen = new Map(selectedScreen.map((record) => [record.localDate, record.totalMinutes]));
+  const recentSleep = typicalRecentSleep(selectedSleep, range.endDate);
 
   const friction = getFocusFrictionInsight(state as FocusState, now, { kind: "custom", startDate: range.startDate, endDate: range.endDate });
+  const loggedInterruptionRate = calculateLoggedInterruptionRate(selectedCompletions, state.distractionLogs, timezone);
   const coreCheckIns = getCorePrinciplesCheckInsInRange(state.corePrincipleDailyCheckIns, { kind: "custom", startDate: range.startDate, endDate: range.endDate }, timezone, now);
   const principles = getCorePrinciplesSummary(coreCheckIns);
   const revisionActions = state.srsActivityLog.filter((record) => dateInRange(record.actionDate, range));
@@ -463,12 +532,14 @@ export function getSuperDashboardSummary(
       averageScreenMinutes: average(selectedScreen.map((record) => record.totalMinutes)),
       screenRecordDays: new Set(selectedScreen.map((record) => record.localDate)).size,
       commonScreenLabel: bestLabel(screenLabels),
+      typicalRecentSleep: recentSleep,
     },
     focus: {
       disruptions: friction.total,
       disruptionsPerFocusedHour: focusedMinutes > 0 ? Number((friction.total / (focusedMinutes / 60)).toFixed(1)) : null,
       topDistraction: friction.topCategory?.label ?? null,
       mostInterruptedWindow: friction.timeWindow,
+      loggedInterruptionRate,
     },
     emotions: {
       focus: emotionMetric("focusQuality"),
