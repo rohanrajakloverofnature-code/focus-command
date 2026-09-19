@@ -79,15 +79,11 @@ function TerritoryLabels({ territories }: { territories: PositionedTerritory[] }
       const verticalScale = unscaledHeight > 0 ? Math.min(1, (labelClearance * 2) / unscaledHeight) : 0;
       const titleFont = unscaledTitleFont * verticalScale;
       const percentFont = unscaledPercentFont * verticalScale;
-      // Keep a compact, outlined fallback inside even the smallest guaranteed
-      // territory. The geometry remains untouched; only formerly-hidden text
-      // becomes readable over every territory fill.
+      // A full label has no readable placement in this small territory. Keep
+      // the geographic paint clean and show the subject, stages, and capture
+      // in the selected-territory card directly below the map instead.
       if (titleFont < 3.4 || percentFont < 4.2) {
-        const compactSubject = subject.length > 10 ? `${subject.slice(0, 9)}…` : subject;
-        return <G key={`label-${subject}`}>
-          <SvgText x={labelX} y={labelY - 2.2} fill="#FFFFFF" stroke="#08101D" strokeWidth={1.45} fontSize={4.8} fontWeight="900" textAnchor="middle">{compactSubject}</SvgText>
-          <SvgText x={labelX} y={labelY + 5} fill="#FFFFFF" stroke="#08101D" strokeWidth={1.7} fontSize={7.2} fontWeight="900" textAnchor="middle">{Math.round(capture * 100)}%</SvgText>
-        </G>;
+        return null;
       }
       const titleLineHeight = titleFont * 1.2;
       const gap = Math.max(1.4, titleFont * 0.3);
@@ -180,8 +176,9 @@ export const IndiaSubjectMap = memo(function IndiaSubjectMap({ subjects, accent,
         <Text style={[styles.mapKeyText, { color: muted }]}>Geographic India boundary · every visible subject territory is dynamically reflowed from your current revision progress</Text>
       </View>
     </View>
-    {selectedTerritory ? <Pressable onPress={() => onOpenSubject(selectedTerritory.subject)} style={({ pressed }) => [styles.detailCard, { borderColor: `${accent}66`, backgroundColor: `${accent}10`, opacity: pressed ? 0.76 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+    {selectedTerritory ? <Pressable onPress={() => onOpenSubject(selectedTerritory.subject)} accessibilityRole="button" accessibilityLabel={`Open ${selectedTerritory.subject} mission board`} style={({ pressed }) => [styles.detailCard, { borderColor: `${selectedTerritory.color}80`, backgroundColor: `${selectedTerritory.color}12`, opacity: pressed ? 0.76 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
       <View style={styles.detailCopy}>
+        <View style={styles.selectedKicker}><View style={[styles.selectedDot, { backgroundColor: selectedTerritory.color }]} /><Text style={[styles.selectedKickerText, { color: selectedTerritory.color }]}>SELECTED TERRITORY</Text></View>
         <Text style={[styles.detailTitle, { color: foreground }]}>{selectedTerritory.subject}</Text>
         <Text style={[styles.detailText, { color: muted }]}>{selectedSubject?.total ?? 0} revision topic{(selectedSubject?.total ?? 0) === 1 ? "" : "s"} · {selectedSubject?.matured ?? 0} matured · {selectedSubject?.developing ?? 0} developing · {selectedSubject?.emerging ?? 0} emerging · {selectedSubject?.seedSown ?? 0} seed</Text>
       </View>
@@ -197,8 +194,11 @@ const styles = StyleSheet.create({
   mapKey: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 12, paddingBottom: 10 },
   mapKeyDot: { width: 8, height: 8, borderRadius: 99 },
   mapKeyText: { flex: 1, fontSize: 10, lineHeight: 14, fontWeight: "600" },
-  detailCard: { minHeight: 62, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 13, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 10 },
+  detailCard: { minHeight: 72, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 13, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 10 },
   detailCopy: { flex: 1, minWidth: 0 },
+  selectedKicker: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 2 },
+  selectedDot: { width: 7, height: 7, borderRadius: 99 },
+  selectedKickerText: { fontSize: 8, lineHeight: 11, letterSpacing: 0.8, fontWeight: "900" },
   detailTitle: { fontSize: 14, lineHeight: 18, fontWeight: "900" },
   detailText: { fontSize: 11, lineHeight: 16, fontWeight: "600", marginTop: 1 },
   detailPercent: { fontSize: 23, lineHeight: 28, fontWeight: "900" },

@@ -16,6 +16,11 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        // Keep each tab's navigation and scroll state, while freezing its
+        // native screen tree when it is not visible. This prevents inactive
+        // dashboards and long lists from competing with the active screen.
+        lazy: true,
+        freezeOnBlur: true,
         tabBarButton: HapticTab,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,

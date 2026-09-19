@@ -33,8 +33,11 @@ describe("first-touch, keyboard, and recovery-save contracts", () => {
   it("uses enlarged territory hit geometry before the visible India-map paint", () => {
     expect(mapSource).toContain('fill="#00000001" stroke="#00000001" strokeWidth={14}');
     expect(mapSource).toContain("<G key={subject} onPress={interactive ? () => onSelect?.(subject) : undefined}>");
-    expect(mapSource).toContain("Keep a compact, outlined fallback inside even the smallest guaranteed");
-    expect(mapSource).toContain('stroke="#08101D"');
+    expect(mapSource).toContain("A full label has no readable placement in this small territory.");
+    expect(mapSource).toContain("return null;");
+    expect(mapSource).toContain("SELECTED TERRITORY");
+    expect(mapSource).not.toContain("compactSubject");
+    expect(mapSource).not.toContain('stroke="#08101D"');
   });
 
   it("resizes native windows and provides both global and exact-field keyboard protection", () => {

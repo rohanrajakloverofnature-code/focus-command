@@ -356,7 +356,7 @@ export default function HomeScreen() {
           <View style={styles.heroContent}>
             <HomeFloat reduceMotion={state.profile.reduceMotion} distance={8} sway={2} duration={2_800} delay={180}>
               <View style={[styles.operatorColumn, { transform: [{ scale: operatorScale }] }]}>
-              <RankCharacter title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} compact compactAccentColor={homeProfileCardColors.accentColor} compactSupportColor={homeProfileCardColors.supportColor} onPress={openRankAchievement} equipment={equippedCharacterGear} acknowledgementNonce={characterAcknowledgement} />
+              <RankCharacter title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} compact compactAccentColor={homeProfileCardColors.accentColor} compactSupportColor={homeProfileCardColors.supportColor} onPress={openRankAchievement} equipment={equippedCharacterGear} acknowledgementNonce={characterAcknowledgement} motionActive={isFocused && !showRankAchievement} />
               <HomeFire reduceMotion={state.profile.reduceMotion} />
               <Text numberOfLines={1} style={styles.operatorPlayerName}>{state.profile.firstName.toUpperCase()}</Text>
                 <Text numberOfLines={1} style={styles.operatorName}>{title.title.toUpperCase()}</Text>

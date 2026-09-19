@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { BlurView } from "expo-blur";
 import { VideoView, useVideoPlayer } from "expo-video";
+import { useIsFocused } from "@react-navigation/native";
 import { AppState, Image, Modal, Pressable, type ImageSourcePropType, StyleSheet, Text, View } from "react-native";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 
 import { useColors } from "@/hooks/use-colors";
@@ -38,6 +39,8 @@ export type RankCharacterProps = {
   onPress?: () => void;
   equipment?: EquippedCharacterGear;
   acknowledgementNonce?: number;
+  /** Stops only idle decorative motion; character content and press behavior remain unchanged. */
+  motionActive?: boolean;
 };
 
 export type CharacterPresentationMode = "evolution" | "acknowledgement";
@@ -128,8 +131,9 @@ function CharacterGrowthLayers({ stage, accent, secondaryAccent, equipment, comp
   );
 }
 
-export function RankCharacter({ title, level, reduceMotion, compact = false, compactAccentColor, compactSupportColor, onPress, equipment, acknowledgementNonce = 0 }: RankCharacterProps) {
+export function RankCharacter({ title, level, reduceMotion, compact = false, compactAccentColor, compactSupportColor, onPress, equipment, acknowledgementNonce = 0, motionActive = true }: RankCharacterProps) {
   const colors = useColors();
+  const isFocused = useIsFocused();
   const customCharacterForms = useFocusCommandSelector((state) => state.profile.customCharacterForms);
   const profile = getRankProfile(title, level, customCharacterForms);
   const accentColor = compact ? compactAccentColor ?? profile.accent : profile.accent;
@@ -141,7 +145,10 @@ export function RankCharacter({ title, level, reduceMotion, compact = false, com
   const gearCount = getEquippedGearLabels(equipment ?? {}).length;
 
   useEffect(() => {
-    if (reduceMotion) {
+    cancelAnimation(float);
+    cancelAnimation(glow);
+    cancelAnimation(transition);
+    if (reduceMotion || !isFocused || !motionActive) {
       float.value = 0;
       glow.value = 0.55;
       transition.value = 1;
@@ -152,13 +159,23 @@ export function RankCharacter({ title, level, reduceMotion, compact = false, com
     glow.value = withRepeat(withSequence(withTiming(0.9, { duration: 1_500 }), withTiming(0.38 + profile.stage * 0.05, { duration: 1_500 })), -1, false);
     transition.value = 0.42;
     transition.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) });
-  }, [float, glow, profile.stage, reduceMotion, title, transition]);
+    return () => {
+      cancelAnimation(float);
+      cancelAnimation(glow);
+      cancelAnimation(transition);
+    };
+  }, [float, glow, isFocused, motionActive, profile.stage, reduceMotion, title, transition]);
 
   useEffect(() => {
-    if (!acknowledgementNonce || reduceMotion) return;
+    cancelAnimation(acknowledgement);
+    if (!acknowledgementNonce || reduceMotion || !isFocused || !motionActive) {
+      acknowledgement.value = 0;
+      return;
+    }
     acknowledgement.value = 0;
     acknowledgement.value = withSequence(withTiming(1, { duration: 130, easing: Easing.out(Easing.quad) }), withTiming(0, { duration: 680, easing: Easing.out(Easing.cubic) }));
-  }, [acknowledgement, acknowledgementNonce, reduceMotion]);
+    return () => cancelAnimation(acknowledgement);
+  }, [acknowledgement, acknowledgementNonce, isFocused, motionActive, reduceMotion]);
 
   const motionStyle = useAnimatedStyle(() => ({ transform: [{ translateY: float.value }, { scale: 1 + acknowledgement.value * 0.055 }] }));
   const auraStyle = useAnimatedStyle(() => ({ opacity: glow.value + acknowledgement.value * 0.28, transform: [{ scale: 0.95 + acknowledgement.value * 0.18 }] }));

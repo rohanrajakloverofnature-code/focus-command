@@ -12,6 +12,7 @@ const missionBoardSource = readFileSync(resolve(process.cwd(), "app/(tabs)/missi
 const mediaLifecycleSource = readFileSync(resolve(process.cwd(), "lib/media-lifecycle.ts"), "utf8");
 const focusUiSource = readFileSync(resolve(process.cwd(), "components/focus-ui.tsx"), "utf8");
 const tabSource = readFileSync(resolve(process.cwd(), "components/haptic-tab.tsx"), "utf8");
+const tabLayoutSource = readFileSync(resolve(process.cwd(), "app/(tabs)/_layout.tsx"), "utf8");
 const tapBridgeSource = readFileSync(resolve(process.cwd(), "components/focus-tap-feedback-bridge.tsx"), "utf8");
 const focusAudioSource = readFileSync(resolve(process.cwd(), "lib/focus-audio.ts"), "utf8");
 const homeSource = readFileSync(resolve(process.cwd(), "app/(tabs)/index.tsx"), "utf8");
@@ -107,6 +108,17 @@ describe("Performance and reliability contracts", () => {
     expect(missionBoardSource).toContain("getMissionCompletionRecords(completionState)");
     expect(missionBoardSource).toContain("missionCompletions: state.missionCompletions");
     expect(missionBoardSource).toContain("useFocusCommandActions");
+  });
+
+  it("keeps inactive tabs dormant and pauses only hidden decorative character motion", () => {
+    expect(tabLayoutSource).toContain("lazy: true");
+    expect(tabLayoutSource).toContain("freezeOnBlur: true");
+    expect(cinematicSource).toContain('import { useIsFocused } from "@react-navigation/native"');
+    expect(cinematicSource).toContain("motionActive?: boolean");
+    expect(cinematicSource).toContain("if (reduceMotion || !isFocused || !motionActive)");
+    expect(cinematicSource).toContain("cancelAnimation(float);");
+    expect(cinematicSource).toContain("cancelAnimation(glow);");
+    expect(homeSource).toContain("motionActive={isFocused && !showRankAchievement}");
   });
 
   it("keeps every final long-session screen on a narrow state subscription and retains the full weekly data contract", () => {
