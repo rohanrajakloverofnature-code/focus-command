@@ -130,7 +130,7 @@ function assertStateShape(value: unknown): asserts value is FocusState {
     "distractionLogs", "rewards", "transactions", "inventory", "progression", "characterMilestones", "lifeline",
     "customQuestions", "customGraphs", "allEquipment", "userEquipment",
     "corePrincipleLists", "corePrincipleItems", "corePrincipleDailyCheckIns",
-    "recoveryStressors", "recoveryActions", "sleepLogs", "napLogs", "screenTimeLogs",
+    "recoveryStressors", "recoveryActions", "sleepLogs", "napLogs", "screenTimeLogs", "illnessContextRecords",
   ];
   if (!state.profile || typeof state.profile !== "object" || !state.combo || typeof state.combo !== "object") {
     throw new OfflineBackupValidationError("The backup profile or combo configuration is missing.");
@@ -197,6 +197,9 @@ function parseBackupState(bytes: Uint8Array): FocusState {
     if (!Array.isArray(parsedState.sleepLogs)) parsedState.sleepLogs = [];
     if (!Array.isArray(parsedState.napLogs)) parsedState.napLogs = [];
     if (!Array.isArray(parsedState.screenTimeLogs)) parsedState.screenTimeLogs = [];
+    // Illness Context is an optional private annotation. Older archives receive
+    // an empty collection; no health history is inferred during restore.
+    if (!Array.isArray(parsedState.illnessContextRecords)) parsedState.illnessContextRecords = [];
     const state = parsedState as FocusState;
     assertStateShape(state);
     return state;
@@ -459,6 +462,7 @@ export function parseOfflineBackupArchive(archive: Uint8Array): ParsedOfflineBac
     if (!Array.isArray(parsedState.sleepLogs)) parsedState.sleepLogs = [];
     if (!Array.isArray(parsedState.napLogs)) parsedState.napLogs = [];
     if (!Array.isArray(parsedState.screenTimeLogs)) parsedState.screenTimeLogs = [];
+    if (!Array.isArray(parsedState.illnessContextRecords)) parsedState.illnessContextRecords = [];
     state = parsedState as FocusState;
   } catch {
     throw new OfflineBackupValidationError("The backup command data cannot be read.");

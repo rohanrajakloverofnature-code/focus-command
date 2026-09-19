@@ -44,6 +44,7 @@ function createPopulatedState(): FocusState {
   state.sleepLogs = [{ id: "sleep_backup", localDate: "2026-08-14", entryMode: "duration", durationMinutes: 420, bedTime: null, wakeTime: null, quality: 4, dreams: "some_remembered", awakenings: "once", awakeningCount: 1, restedRating: 4, note: "", createdAt: "2026-08-14T07:00:00.000Z", updatedAt: "2026-08-14T07:00:00.000Z" }];
   state.napLogs = [{ id: "nap_backup", localDate: "2026-08-14", durationMinutes: 25, note: "", createdAt: "2026-08-14T15:00:00.000Z", updatedAt: "2026-08-14T15:00:00.000Z" }];
   state.screenTimeLogs = [{ id: "screen_backup", localDate: "2026-08-14", totalMinutes: 95, primaryLabel: "Study video", note: "", createdAt: "2026-08-14T16:00:00.000Z", updatedAt: "2026-08-14T16:00:00.000Z" }];
+  state.illnessContextRecords = [{ id: "illness_backup", startDate: "2026-08-13", endDate: "2026-08-14", symptomsReported: true, severity: "moderate", fatigueReported: true, sleepDisrupted: true, stressElevated: false, note: "Private context note", createdAt: "2026-08-14T06:30:00.000Z", updatedAt: "2026-08-14T06:30:00.000Z" }];
   return state;
 }
 
@@ -103,6 +104,7 @@ describe("offline Focus Command backup format", () => {
     expect(parsed.state.sleepLogs).toEqual(state.sleepLogs);
     expect(parsed.state.napLogs).toEqual(state.napLogs);
     expect(parsed.state.screenTimeLogs).toEqual(state.screenTimeLogs);
+    expect(parsed.state.illnessContextRecords).toEqual(state.illnessContextRecords);
   });
 
   it("validates a backup from fixed-size source chunks while streaming each media payload", async () => {
@@ -169,6 +171,7 @@ describe("offline Focus Command backup format", () => {
       delete state.corePrincipleLists;
       delete state.corePrincipleItems;
       delete state.corePrincipleDailyCheckIns;
+      delete state.illnessContextRecords;
       const stateBytes = strToU8(JSON.stringify(state));
       entries["state.json"] = stateBytes;
       const manifest = readManifest(entries);
@@ -185,6 +188,7 @@ describe("offline Focus Command backup format", () => {
     expect(parseOfflineBackupArchive(legacy).state.corePrincipleLists).toEqual([]);
     expect(parseOfflineBackupArchive(legacy).state.corePrincipleItems).toEqual([]);
     expect(parseOfflineBackupArchive(legacy).state.corePrincipleDailyCheckIns).toEqual([]);
+    expect(parseOfflineBackupArchive(legacy).state.illnessContextRecords).toEqual([]);
   });
 
   it("round-trips built-in form music plus a complete custom form media set", () => {

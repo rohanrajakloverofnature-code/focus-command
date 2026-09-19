@@ -148,6 +148,19 @@ function stateWithRecords(): FocusState {
     createdAt: "2026-09-18T17:00:00.000Z",
     updatedAt: "2026-09-18T17:00:00.000Z",
   }];
+  state.illnessContextRecords = [{
+    id: "super_dashboard_illness",
+    startDate: "2026-09-17",
+    endDate: "2026-09-18",
+    symptomsReported: true,
+    severity: "mild",
+    fatigueReported: true,
+    sleepDisrupted: false,
+    stressElevated: false,
+    note: "Private only",
+    createdAt: "2026-09-17T08:00:00.000Z",
+    updatedAt: "2026-09-17T08:00:00.000Z",
+  }];
   state.distractionLogs = [{ id: "super_dashboard_distraction", missionId: completedMission.id, category: "phone", occurredAt: "2026-09-18T09:30:00.000Z" }];
   return state;
 }
@@ -173,6 +186,7 @@ describe("Super Dashboard calculation layer", () => {
     expect(summary.recovery.screenRecordDays).toBe(1);
     expect(summary.recovery.averageSleepMinutes).toEqual({ value: 420, observations: 1 });
     expect(summary.recovery.averageSleepScore).toEqual({ value: 86, observations: 1 });
+    expect(summary.recovery.illnessContext).toMatchObject({ recordCount: 1, contextDays: 1, debriefDays: 1, fatigueRecords: 1 });
   });
 
   it("calculates mission totals, rates, category shares, and evidence from only selected records", () => {
@@ -201,7 +215,7 @@ describe("Super Dashboard calculation layer", () => {
     ]);
     expect(summary.activity.reportedMinutes).toBe(690);
     expect(summary.activity.minimumUntrackedMinutes).toBe(750);
-    expect(summary.evidence).toMatchObject({ recordedDays: 1, completionRecords: 1, recoveryRecords: 4, reflectionRecords: 1 });
+    expect(summary.evidence).toMatchObject({ recordedDays: 1, completionRecords: 1, recoveryRecords: 5, reflectionRecords: 1 });
     expect(summary.focus.loggedInterruptionRate).toMatchObject({ value: 0.5, matchedLogs: 1, focusedMinutes: 120, completedMissions: 1, activeDays: 1, sufficientData: false });
   });
 
@@ -280,5 +294,14 @@ describe("Super Dashboard calculation layer", () => {
     const reliable = getSuperDashboardSummary({ ...state }, "custom", "2026-09-01", "2026-09-14", NOW).patterns.find((pattern) => pattern.id === "sleep_focus");
 
     expect(reliable).toMatchObject({ pairedDays: 14, higherDays: 7, lowerDays: 7, higherFocusMinutes: 120, lowerFocusMinutes: 60, isReliable: true });
+  });
+
+  it("keeps illness context descriptive, selected-range only, and separate from emotional values", () => {
+    const state = stateWithRecords();
+    const summary = getSuperDashboardSummary(state, "custom", "2026-09-18", "2026-09-18", NOW);
+
+    expect(summary.recovery.illnessContext).toMatchObject({ recordCount: 1, contextDays: 1, debriefDays: 1, ongoingRecords: 0 });
+    expect(summary.emotions).toMatchObject({ focus: { value: 4, observations: 1 }, motivation: { value: 5, observations: 1 } });
+    expect(summary.recovery.averageReflectionStress).toEqual({ value: 3, observations: 1 });
   });
 });

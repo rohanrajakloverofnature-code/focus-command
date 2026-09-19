@@ -49,6 +49,7 @@ function selectSuperDashboardState(state: SuperDashboardState): SuperDashboardSt
     sleepLogs: state.sleepLogs,
     napLogs: state.napLogs,
     screenTimeLogs: state.screenTimeLogs,
+    illnessContextRecords: state.illnessContextRecords,
     journals: state.journals,
     distractionLogs: state.distractionLogs,
     progression: state.progression,
@@ -202,6 +203,10 @@ export default function SuperDashboardScreen() {
             <Text style={[styles.detailCardTitle, { color: colors.foreground }]}>Clear separation of stress records</Text>
             <Text style={[styles.detailCardText, { color: colors.muted }]}><Text style={highlightedStyle(colors.warning)}>Logged Stress: {displayAverage(summary.recovery.averageLoggedStress.value, "/10")}</Text> comes from <Text style={highlightedStyle(colors.foreground)}>{summary.recovery.stressorCount} Recovery & Rhythm entry{summary.recovery.stressorCount === 1 ? "" : "ies"}</Text>. <Text style={highlightedStyle("#FF7A59")}>Mission Stress: {displayAverage(summary.recovery.averageReflectionStress.value, "/5")}</Text> comes from <Text style={highlightedStyle(colors.foreground)}>{summary.recovery.averageReflectionStress.observations} optional mission debrief{summary.recovery.averageReflectionStress.observations === 1 ? "" : "s"}</Text>. They remain separate because their scales and questions are different. Highest logged stress: <Text style={highlightedStyle(colors.warning)}>{summary.recovery.peakLoggedStress === null ? "—" : `${summary.recovery.peakLoggedStress}/10`}</Text>.</Text>
           </CommandCard>
+          {summary.recovery.illnessContext.recordCount ? <CommandCard accent={colors.warning} style={styles.detailCard}>
+            <Text style={[styles.detailCardTitle, { color: colors.foreground }]}>Private illness context</Text>
+            <Text style={[styles.detailCardText, { color: colors.muted }]}><Text style={highlightedStyle(colors.warning)}>{summary.recovery.illnessContext.contextDays} self-reported context day{summary.recovery.illnessContext.contextDays === 1 ? "" : "s"}</Text> from <Text style={highlightedStyle(colors.foreground)}>{summary.recovery.illnessContext.recordCount} private record{summary.recovery.illnessContext.recordCount === 1 ? "" : "s"}</Text> in this view{summary.recovery.illnessContext.ongoingRecords ? ` · ${summary.recovery.illnessContext.ongoingRecords} ongoing` : ""}. {summary.recovery.illnessContext.debriefDays ? <><Text style={highlightedStyle(colors.primary)}>{summary.recovery.illnessContext.debriefDays} mission-debrief day{summary.recovery.illnessContext.debriefDays === 1 ? "" : "s"}</Text> carry this annotation.</> : "No mission debrief date overlaps this context yet."} It does not change or explain any forecast, wellbeing score, mission, reward, or Sleep Score.</Text>
+          </CommandCard> : null}
 
           <SectionHeader title="Focus, friction & emotional data" />
           <View style={styles.metricGrid}>

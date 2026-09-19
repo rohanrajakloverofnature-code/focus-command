@@ -7,6 +7,7 @@ import {
 } from "./focus-command";
 import { getCorePrinciplesCheckInsInRange, getCorePrinciplesSummary } from "./core-principles";
 import { getFocusFrictionInsight } from "./distraction-log";
+import { getIllnessContextSummary } from "./illness-context";
 import { getPersonalSleepScore } from "./recovery-rhythm";
 
 export type SuperDashboardRangeKind = "today" | "week" | "month" | "lifetime" | "custom";
@@ -34,6 +35,7 @@ export type SuperDashboardState = Pick<FocusState,
   | "sleepLogs"
   | "napLogs"
   | "screenTimeLogs"
+  | "illnessContextRecords"
   | "journals"
   | "distractionLogs"
   | "progression"
@@ -107,6 +109,14 @@ export type SuperDashboardSummary = {
       loggedNights: number;
       requiredNights: number;
       windowDays: number;
+    };
+    illnessContext: {
+      recordCount: number;
+      contextDays: number;
+      debriefDays: number;
+      ongoingRecords: number;
+      fatigueRecords: number;
+      sleepDisruptedRecords: number;
     };
   };
   focus: {
@@ -344,6 +354,7 @@ function earliestRecordedDay(state: SuperDashboardState, completionRecords: read
   (state.sleepLogs ?? []).forEach((record) => includeLocal(record.localDate));
   (state.napLogs ?? []).forEach((record) => includeLocal(record.localDate));
   (state.screenTimeLogs ?? []).forEach((record) => includeLocal(record.localDate));
+  (state.illnessContextRecords ?? []).forEach((record) => includeLocal(record.startDate));
   return candidates.sort()[0] ?? today;
 }
 
@@ -402,7 +413,7 @@ export function getSuperDashboardSummary(
       range,
       activity: { categories: [], reportedMinutes: 0, minimumUntrackedMinutes: 0, recordCount: 0, note: "Enter valid inclusive YYYY-MM-DD dates to calculate this private dashboard." },
       missions: { completed: 0, activeDays: 0, focusedMinutes: 0, averageSessionMinutes: null, medianSessionMinutes: null, totalPower: 0, baseXp: 0, goldEarned: 0, powerPerFocusedHour: null, topSubject: null, topCategory: null, mostActiveCompletionWindow: null },
-      recovery: { averageLoggedStress: emptyMetric, averageReflectionStress: emptyMetric, peakLoggedStress: null, stressorCount: 0, recoveryActions: 0, averageSleepMinutes: emptyMetric, averageSleepScore: emptyMetric, sleepQuality: emptyMetric, restedFeeling: emptyMetric, totalNapMinutes: 0, averageScreenMinutes: emptyMetric, screenRecordDays: 0, commonScreenLabel: null, typicalRecentSleep: { medianMinutes: null, loggedNights: 0, requiredNights: 5, windowDays: 7 } },
+      recovery: { averageLoggedStress: emptyMetric, averageReflectionStress: emptyMetric, peakLoggedStress: null, stressorCount: 0, recoveryActions: 0, averageSleepMinutes: emptyMetric, averageSleepScore: emptyMetric, sleepQuality: emptyMetric, restedFeeling: emptyMetric, totalNapMinutes: 0, averageScreenMinutes: emptyMetric, screenRecordDays: 0, commonScreenLabel: null, typicalRecentSleep: { medianMinutes: null, loggedNights: 0, requiredNights: 5, windowDays: 7 }, illnessContext: { recordCount: 0, contextDays: 0, debriefDays: 0, ongoingRecords: 0, fatigueRecords: 0, sleepDisruptedRecords: 0 } },
       focus: { disruptions: 0, disruptionsPerFocusedHour: null, topDistraction: null, mostInterruptedWindow: null, loggedInterruptionRate: { value: null, matchedLogs: 0, focusedMinutes: 0, completedMissions: 0, activeDays: 0, sufficientData: false } },
       emotions: { focus: emptyMetric, motivation: emptyMetric, clarity: emptyMetric, energy: emptyMetric, distraction: emptyMetric, friction: emptyMetric },
       supportingProgress: { revisionActions: 0, maturedRevisionActions: 0, journalPoints: 0, journalEntries: 0, successRatio: null, principleChecked: 0, principleApplicable: 0, principleRecordedDays: 0, characterFormsEarned: 0 },
@@ -424,6 +435,12 @@ export function getSuperDashboardSummary(
   const selectedSleep = latestDailyRecords((state.sleepLogs ?? []).filter((record) => dateInRange(record.localDate, range)));
   const selectedNaps = (state.napLogs ?? []).filter((record) => dateInRange(record.localDate, range));
   const selectedScreen = latestDailyRecords((state.screenTimeLogs ?? []).filter((record) => dateInRange(record.localDate, range)));
+  const illnessContext = getIllnessContextSummary(
+    state.illnessContextRecords ?? [],
+    range,
+    today,
+    selectedReflections.map((record) => safeLocalDate(record.createdAt, timezone)).filter((day): day is string => Boolean(day)),
+  );
 
   const missionMinutesByCategory = new Map<string, number>();
   const missionMinutesBySubject = new Map<string, number>();
@@ -485,6 +502,13 @@ export function getSuperDashboardSummary(
   selectedCompletions.forEach((record) => { const day = safeLocalDate(record.completedAt, timezone); if (day) recordedDays.add(day); });
   selectedReflections.forEach((record) => { const day = safeLocalDate(record.createdAt, timezone); if (day) recordedDays.add(day); });
   [...selectedStressors, ...selectedActions, ...selectedSleep, ...selectedNaps, ...selectedScreen, ...journals, ...revisionActions, ...coreCheckIns].forEach((record) => recordedDays.add("localDate" in record ? record.localDate : record.actionDate));
+  (state.illnessContextRecords ?? []).forEach((record) => {
+    const recordEnd = record.endDate ?? today;
+    for (let day = record.startDate > range.startDate ? record.startDate : range.startDate; day <= recordEnd && day <= range.endDate;) {
+      recordedDays.add(day);
+      day = addDays(day, 1);
+    }
+  });
 
   const patterns = [
     contextualPattern("sleep_focus", "Sleep and focus context", dailySleep, focusedMinutesByDay),
@@ -533,6 +557,14 @@ export function getSuperDashboardSummary(
       screenRecordDays: new Set(selectedScreen.map((record) => record.localDate)).size,
       commonScreenLabel: bestLabel(screenLabels),
       typicalRecentSleep: recentSleep,
+      illnessContext: {
+        recordCount: illnessContext.recordCount,
+        contextDays: illnessContext.contextDays,
+        debriefDays: illnessContext.debriefDays,
+        ongoingRecords: illnessContext.ongoingRecords,
+        fatigueRecords: illnessContext.fatigueRecords,
+        sleepDisruptedRecords: illnessContext.sleepDisruptedRecords,
+      },
     },
     focus: {
       disruptions: friction.total,
@@ -564,7 +596,7 @@ export function getSuperDashboardSummary(
     evidence: {
       recordedDays: recordedDays.size,
       completionRecords: selectedCompletions.length,
-      recoveryRecords: selectedStressors.length + selectedActions.length + selectedSleep.length + selectedNaps.length + selectedScreen.length,
+      recoveryRecords: selectedStressors.length + selectedActions.length + selectedSleep.length + selectedNaps.length + selectedScreen.length + illnessContext.recordCount,
       reflectionRecords: selectedReflections.length,
       note: "Every result is calculated on-device from the selected local-date range. A missing record remains missing and is never converted into zero.",
     },

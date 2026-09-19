@@ -79,10 +79,16 @@ function TerritoryLabels({ territories }: { territories: PositionedTerritory[] }
       const verticalScale = unscaledHeight > 0 ? Math.min(1, (labelClearance * 2) / unscaledHeight) : 0;
       const titleFont = unscaledTitleFont * verticalScale;
       const percentFont = unscaledPercentFont * verticalScale;
-      // A territory without enough geometric room shows no in-map text rather
-      // than allowing a label to cross a border. Its full name remains in the
-      // selected territory card directly below the map.
-      if (titleFont < 3.4 || percentFont < 4.2) return null;
+      // Keep a compact, outlined fallback inside even the smallest guaranteed
+      // territory. The geometry remains untouched; only formerly-hidden text
+      // becomes readable over every territory fill.
+      if (titleFont < 3.4 || percentFont < 4.2) {
+        const compactSubject = subject.length > 10 ? `${subject.slice(0, 9)}…` : subject;
+        return <G key={`label-${subject}`}>
+          <SvgText x={labelX} y={labelY - 2.2} fill="#FFFFFF" stroke="#08101D" strokeWidth={1.45} fontSize={4.8} fontWeight="900" textAnchor="middle">{compactSubject}</SvgText>
+          <SvgText x={labelX} y={labelY + 5} fill="#FFFFFF" stroke="#08101D" strokeWidth={1.7} fontSize={7.2} fontWeight="900" textAnchor="middle">{Math.round(capture * 100)}%</SvgText>
+        </G>;
+      }
       const titleLineHeight = titleFont * 1.2;
       const gap = Math.max(1.4, titleFont * 0.3);
       const contentHeight = lines.length * titleLineHeight + gap + percentFont * 1.2;

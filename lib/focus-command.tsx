@@ -781,6 +781,24 @@ export interface ScreenTimeLog {
   updatedAt: string;
 }
 
+/** A private health-context annotation, never a diagnosis or forecast input. */
+export type IllnessContextSeverity = "mild" | "moderate" | "severe";
+
+export interface IllnessContextRecord {
+  id: string;
+  startDate: string;
+  /** Null means the user has not ended this private context record yet. */
+  endDate: string | null;
+  symptomsReported: boolean;
+  severity: IllnessContextSeverity | null;
+  fatigueReported: boolean;
+  sleepDisrupted: boolean;
+  stressElevated: boolean;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface RecoveryStressorDraft {
   title: string;
   category?: string;
@@ -820,6 +838,16 @@ export interface SleepLogDraft {
 
 export interface NapLogDraft { localDate?: string; durationMinutes: number; note?: string; }
 export interface ScreenTimeLogDraft { localDate?: string; totalMinutes: number; primaryLabel: string; note?: string; }
+export interface IllnessContextDraft {
+  startDate: string;
+  endDate?: string | null;
+  symptomsReported?: boolean;
+  severity?: IllnessContextSeverity | null;
+  fatigueReported?: boolean;
+  sleepDisrupted?: boolean;
+  stressElevated?: boolean;
+  note?: string;
+}
 
 export const EQUIPMENT_SLOT_BY_TYPE = {
   FocusDevice: "head",
@@ -874,6 +902,7 @@ export interface FocusState {
   sleepLogs?: SleepLog[];
   napLogs?: NapLog[];
   screenTimeLogs?: ScreenTimeLog[];
+  illnessContextRecords?: IllnessContextRecord[];
   bosses: Boss[];
   journals: JournalEntry[];
   distractionLogs: DistractionLogEntry[];
@@ -1407,6 +1436,7 @@ export function createInitialState(): FocusState {
     sleepLogs: [],
     napLogs: [],
     screenTimeLogs: [],
+    illnessContextRecords: [],
     bosses: [],
     journals: [],
     distractionLogs: [],
@@ -2467,6 +2497,9 @@ interface FocusCommandContextValue {
   addScreenTimeLog: (draft: ScreenTimeLogDraft) => string | null;
   updateScreenTimeLog: (logId: string, draft: ScreenTimeLogDraft) => void;
   removeScreenTimeLog: (logId: string) => void;
+  addIllnessContextRecord: (draft: IllnessContextDraft) => string | null;
+  updateIllnessContextRecord: (recordId: string, patch: Partial<IllnessContextDraft>) => void;
+  removeIllnessContextRecord: (recordId: string) => void;
   createBoss: (input: Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold">) => string;
   updateBoss: (bossId: string, patch: Partial<Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold" | "status">>) => void;
   removeBoss: (bossId: string) => void;
@@ -2570,6 +2603,25 @@ function resolveSleepDraft(draft: SleepLogDraft, fallbackDate: string): Omit<Sle
     awakenings: draft.awakenings && ["none", "once", "two_or_more"].includes(draft.awakenings) ? draft.awakenings : null,
     awakeningCount: draft.awakeningCount === null || draft.awakeningCount === undefined ? null : clampWholeNumber(draft.awakeningCount, 0, 30, 0),
     restedRating: draft.restedRating === null || draft.restedRating === undefined ? null : clampWholeNumber(draft.restedRating, 1, 5, 1),
+    note: normalizeRecoveryText(draft.note, 360),
+  };
+}
+
+function resolveIllnessContextDraft(draft: IllnessContextDraft, fallbackDate: string): Omit<IllnessContextRecord, "id" | "createdAt" | "updatedAt"> | null {
+  if (!LOCAL_DATE_PATTERN.test(draft.startDate)) return null;
+  const startDate = normalizeRecoveryLocalDate(draft.startDate, fallbackDate);
+  const rawEnd = typeof draft.endDate === "string" ? draft.endDate.trim() : "";
+  if (rawEnd && !LOCAL_DATE_PATTERN.test(rawEnd)) return null;
+  const requestedEnd = rawEnd || null;
+  if (requestedEnd && requestedEnd < startDate) return null;
+  return {
+    startDate,
+    endDate: requestedEnd,
+    symptomsReported: draft.symptomsReported !== false,
+    severity: draft.severity === "mild" || draft.severity === "moderate" || draft.severity === "severe" ? draft.severity : null,
+    fatigueReported: draft.fatigueReported === true,
+    sleepDisrupted: draft.sleepDisrupted === true,
+    stressElevated: draft.stressElevated === true,
     note: normalizeRecoveryText(draft.note, 360),
   };
 }
@@ -2892,6 +2944,22 @@ export function normalizeHydratedState(input: FocusState): FocusState {
           && typeof entry.createdAt === "string" && Number.isFinite(Date.parse(entry.createdAt))
           && typeof entry.updatedAt === "string" && Number.isFinite(Date.parse(entry.updatedAt)),
         )).map((entry) => ({ ...entry, totalMinutes: clampWholeNumber(entry.totalMinutes, 0, 1_440, 0), primaryLabel: normalizeRecoveryText(entry.primaryLabel, 80), note: normalizeRecoveryText(entry.note, 240) }))
+      : [],
+    illnessContextRecords: Array.isArray(input.illnessContextRecords)
+      ? input.illnessContextRecords.filter((entry): entry is IllnessContextRecord => Boolean(
+          entry
+          && typeof entry.id === "string" && entry.id
+          && typeof entry.startDate === "string" && LOCAL_DATE_PATTERN.test(entry.startDate)
+          && (entry.endDate === null || (typeof entry.endDate === "string" && LOCAL_DATE_PATTERN.test(entry.endDate) && entry.endDate >= entry.startDate))
+          && typeof entry.symptomsReported === "boolean"
+          && (entry.severity === null || entry.severity === "mild" || entry.severity === "moderate" || entry.severity === "severe")
+          && typeof entry.fatigueReported === "boolean"
+          && typeof entry.sleepDisrupted === "boolean"
+          && typeof entry.stressElevated === "boolean"
+          && typeof entry.note === "string"
+          && typeof entry.createdAt === "string" && Number.isFinite(Date.parse(entry.createdAt))
+          && typeof entry.updatedAt === "string" && Number.isFinite(Date.parse(entry.updatedAt)),
+        )).map((entry) => ({ ...entry, note: normalizeRecoveryText(entry.note, 360) }))
       : [],
     distractionLogs: (input.distractionLogs ?? []).filter((entry): entry is DistractionLogEntry =>
       Boolean(entry && typeof entry.id === "string" && typeof entry.missionId === "string" && currentMissionIds.has(entry.missionId) && typeof entry.occurredAt === "string" && DISTRACTION_CATEGORIES.includes(entry.category)),
@@ -3838,17 +3906,15 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   }, [commit]);
 
   const addSleepLog = useCallback((draft: SleepLogDraft): string | null => {
-    const id = createId("sleep_log");
     const timestamp = nowIso();
-    let saved = false;
+    const resolved = resolveSleepDraft(draft, toLocalDate(timestamp, stateRef.current.profile.timezone));
+    if (!resolved) return null;
+    const id = createId("sleep_log");
     commit((current) => {
-      const resolved = resolveSleepDraft(draft, toLocalDate(timestamp, current.profile.timezone));
-      if (!resolved) return current;
-      saved = true;
       const entry: SleepLog = { id, ...resolved, createdAt: timestamp, updatedAt: timestamp };
       return withQueuedOperation({ ...current, sleepLogs: [entry, ...(current.sleepLogs ?? [])] });
     });
-    return saved ? id : null;
+    return id;
   }, [commit]);
 
   const updateSleepLog = useCallback((logId: string, draft: SleepLogDraft) => {
@@ -3914,6 +3980,47 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
 
   const removeScreenTimeLog = useCallback((logId: string) => {
     commit((current) => withQueuedOperation({ ...current, screenTimeLogs: (current.screenTimeLogs ?? []).filter((entry) => entry.id !== logId) }));
+  }, [commit]);
+
+  const addIllnessContextRecord = useCallback((draft: IllnessContextDraft): string | null => {
+    const timestamp = nowIso();
+    const resolved = resolveIllnessContextDraft(draft, toLocalDate(timestamp, stateRef.current.profile.timezone));
+    if (!resolved) return null;
+    const id = createId("illness_context");
+    commit((current) => withQueuedOperation({
+      ...current,
+      illnessContextRecords: [{ id, ...resolved, createdAt: timestamp, updatedAt: timestamp }, ...(current.illnessContextRecords ?? [])],
+    }));
+    return id;
+  }, [commit]);
+
+  const updateIllnessContextRecord = useCallback((recordId: string, patch: Partial<IllnessContextDraft>) => {
+    commit((current) => {
+      const existing = (current.illnessContextRecords ?? []).find((entry) => entry.id === recordId);
+      if (!existing) return current;
+      const resolved = resolveIllnessContextDraft({
+        startDate: patch.startDate ?? existing.startDate,
+        endDate: patch.endDate === undefined ? existing.endDate : patch.endDate,
+        symptomsReported: patch.symptomsReported ?? existing.symptomsReported,
+        severity: patch.severity === undefined ? existing.severity : patch.severity,
+        fatigueReported: patch.fatigueReported ?? existing.fatigueReported,
+        sleepDisrupted: patch.sleepDisrupted ?? existing.sleepDisrupted,
+        stressElevated: patch.stressElevated ?? existing.stressElevated,
+        note: patch.note ?? existing.note,
+      }, existing.startDate);
+      if (!resolved) return current;
+      return withQueuedOperation({
+        ...current,
+        illnessContextRecords: (current.illnessContextRecords ?? []).map((entry) => entry.id === recordId ? { ...entry, ...resolved, updatedAt: nowIso() } : entry),
+      });
+    });
+  }, [commit]);
+
+  const removeIllnessContextRecord = useCallback((recordId: string) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      illnessContextRecords: (current.illnessContextRecords ?? []).filter((entry) => entry.id !== recordId),
+    }));
   }, [commit]);
 
   const createBoss = useCallback((input: Pick<Boss, "title" | "objective" | "deadlineAt" | "rewardXp" | "rewardGold">) => {
@@ -4509,6 +4616,9 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     addScreenTimeLog,
     updateScreenTimeLog,
     removeScreenTimeLog,
+    addIllnessContextRecord,
+    updateIllnessContextRecord,
+    removeIllnessContextRecord,
     setJournalLifelinePercentage,
     getCurrentState,
     createMission,
@@ -4627,6 +4737,9 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     addScreenTimeLog,
     updateScreenTimeLog,
     removeScreenTimeLog,
+    addIllnessContextRecord,
+    updateIllnessContextRecord,
+    removeIllnessContextRecord,
     setJournalLifelinePercentage,
     updatePersonalGraph,
     addPersonalGraphLine,

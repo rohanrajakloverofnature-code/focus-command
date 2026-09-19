@@ -12,6 +12,7 @@ const missionSource = readFileSync(resolve(process.cwd(), "app/mission/[id].tsx"
 const recoverySource = readFileSync(resolve(process.cwd(), "app/recovery-rhythm.tsx"), "utf8");
 const dashboardSource = readFileSync(resolve(process.cwd(), "app/super-dashboard.tsx"), "utf8");
 const dashboardTabSource = readFileSync(resolve(process.cwd(), "app/(tabs)/dashboard.tsx"), "utf8");
+const focusCommandSource = readFileSync(resolve(process.cwd(), "lib/focus-command.tsx"), "utf8");
 
 describe("first-touch, keyboard, and recovery-save contracts", () => {
   it("uses full plot press targets instead of tiny SVG-only press handlers", () => {
@@ -32,6 +33,8 @@ describe("first-touch, keyboard, and recovery-save contracts", () => {
   it("uses enlarged territory hit geometry before the visible India-map paint", () => {
     expect(mapSource).toContain('fill="#00000001" stroke="#00000001" strokeWidth={14}');
     expect(mapSource).toContain("<G key={subject} onPress={interactive ? () => onSelect?.(subject) : undefined}>");
+    expect(mapSource).toContain("Keep a compact, outlined fallback inside even the smallest guaranteed");
+    expect(mapSource).toContain('stroke="#08101D"');
   });
 
   it("resizes native windows and provides both global and exact-field keyboard protection", () => {
@@ -55,6 +58,9 @@ describe("first-touch, keyboard, and recovery-save contracts", () => {
     expect(recoverySource).toContain("Sleep saved ✓");
     expect(recoverySource).toContain("Screen time saved ✓");
     expect(recoverySource).toContain("accessibilityLiveRegion=\"polite\"");
+    expect(focusCommandSource).toContain("const resolved = resolveSleepDraft(draft, toLocalDate(timestamp, stateRef.current.profile.timezone));");
+    expect(focusCommandSource).toContain("return id;");
+    expect(focusCommandSource).not.toContain("let saved = false;");
   });
 
   it("keeps the current range layout while ensuring labels fit and metric grids remain complete", () => {
