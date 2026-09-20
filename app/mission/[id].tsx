@@ -94,7 +94,7 @@ function selectMissionDetailSnapshot(state: FocusState, missionId: string | unde
 
 export default function MissionDetailScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus<ScrollView>();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { startMission, startMissionThroughShadowGate, toggleMissionPause, finishMission, logDistraction, logRevisionTopic, completeRevision, updateMission, removeMission } = useFocusCommandActions();
   const detail = useFocusCommandSelector((state) => selectMissionDetailSnapshot(state, id), hasSameMissionDetailSnapshot);

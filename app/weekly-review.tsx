@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { CommandCard, IconAction, LoadingScreen, ScreenTitle, SectionHeader } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { shallowEqual, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { filterWeeklyRevisionActivities, formatWeeklyRange, getWeeklyAfterActionReview } from "@/lib/weekly-after-action";
 import { filterMonthlyArchiveStudiedTopicsByProgress, MONTHLY_ARCHIVE_REVISION_PROGRESS_FILTERS, type MonthlyArchiveRevisionProgressFilter } from "@/lib/monthly-command-archive";
@@ -23,6 +24,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 export default function WeeklyReviewScreen() {
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const router = useRouter();
   const ready = useFocusCommandReady();
   const weeklyState = useFocusCommandSelector((state) => ({
@@ -51,7 +53,7 @@ export default function WeeklyReviewScreen() {
     : "No dated plans were scheduled this week.";
 
   return <ScreenContainer className="px-4" containerClassName="bg-background">
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <ScreenTitle
         eyebrow="Command review"
         title="Weekly after-action"
@@ -118,7 +120,7 @@ export default function WeeklyReviewScreen() {
           </View>
           <Text style={[styles.revisionRange, { color: "#A78BFA" }]}>{formatWeeklyRange(review.weekStart, review.weekEnd)}</Text>
         </View>
-        <View style={[styles.revisionSearch, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.eyebrow, { color: "#55B7FF" }]}>SEARCH WEEKLY</Text><TextInput value={revisionSearchQuery} onChangeText={setRevisionSearchQuery} placeholder="Topic or subject" placeholderTextColor={colors.muted} returnKeyType="done" accessibilityLabel="Search weekly revision topics by topic or subject" style={[styles.revisionSearchInput, { color: colors.foreground }]} /></View>
+        <View style={[styles.revisionSearch, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.eyebrow, { color: "#55B7FF" }]}>SEARCH WEEKLY</Text><TextInput onFocus={onInputFocus} value={revisionSearchQuery} onChangeText={setRevisionSearchQuery} placeholder="Topic or subject" placeholderTextColor={colors.muted} returnKeyType="done" accessibilityLabel="Search weekly revision topics by topic or subject" style={[styles.revisionSearchInput, { color: colors.foreground }]} /></View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.revisionFilters}>
           {MONTHLY_ARCHIVE_REVISION_PROGRESS_FILTERS.map((filter) => {
             const active = filter.id === revisionFilter;

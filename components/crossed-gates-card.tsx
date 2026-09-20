@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 
 import { CommandButton, CommandCard } from "@/components/focus-ui";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -27,7 +27,7 @@ function hasSameCrossedGatesDependencies(left: CrossedGatesDependencies, right: 
     && left.shadowGateEntries === right.shadowGateEntries;
 }
 
-export function CrossedGatesCard() {
+export function CrossedGatesCard({ onInputFocus }: { onInputFocus?: TextInputProps["onFocus"] }) {
   const colors = useColors();
   const { timezone, showDashboardCard, shadowGateEntries } = useFocusCommandSelector(selectCrossedGatesDependencies, hasSameCrossedGatesDependencies);
   const [rangeKind, setRangeKind] = useState<ShadowGateDateRange["kind"]>("last30Days");
@@ -80,9 +80,9 @@ export function CrossedGatesCard() {
       {rangeKind === "custom" ? (
         <View style={styles.customRange}>
           <View style={styles.dateInputs}>
-            <TextInput value={customStart} onChangeText={setCustomStart} placeholder="YYYY-MM-DD" autoCapitalize="none" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+            <TextInput value={customStart} onFocus={onInputFocus} onChangeText={setCustomStart} placeholder="YYYY-MM-DD" autoCapitalize="none" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
             <Text style={[styles.dateArrow, { color: colors.muted }]}>→</Text>
-            <TextInput value={customEnd} onChangeText={setCustomEnd} placeholder="YYYY-MM-DD" autoCapitalize="none" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+            <TextInput value={customEnd} onFocus={onInputFocus} onChangeText={setCustomEnd} placeholder="YYYY-MM-DD" autoCapitalize="none" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
           </View>
           {rangeError ? <Text style={[styles.rangeError, { color: colors.error }]}>{rangeError}</Text> : null}
           <CommandButton label="Apply date range" variant="secondary" onPress={applyCustomRange} />

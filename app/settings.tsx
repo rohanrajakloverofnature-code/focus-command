@@ -7,6 +7,7 @@ import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, Sec
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { ComboTier, getComboTiers, PaletteToken, SoundRoleId, SoundStyle, type TickerColorPreference, type TickerColorSource, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { configureDailyMissionReminder, enableFocusReminders, refreshScheduledReminderSounds } from "@/lib/focus-reminders";
 import { chooseAndValidateOfflineBackup, createAndShareOfflineBackup, discardMaterializedOfflineBackup, materializeOfflineBackupMedia } from "@/lib/offline-backup";
@@ -16,6 +17,7 @@ import { pickAndPersistFocusSound, removePersistedFocusSound } from "@/lib/focus
 
 export default function SettingsScreen() {
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const { setColorScheme } = useThemeContext();
   const ready = useFocusCommandReady();
   const {
@@ -250,7 +252,7 @@ export default function SettingsScreen() {
 
   return (
     <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle
           eyebrow="Hamburger menu"
           title="Command settings"
@@ -291,7 +293,7 @@ export default function SettingsScreen() {
         <CommandCard accent={colors.primary} style={styles.cardStack}>
           <Text style={[styles.fieldLabel, { color: colors.muted }]}>COMMANDER NAME</Text>
           <View style={styles.inputRow}>
-            <TextInput
+            <TextInput onFocus={onInputFocus}
               value={firstName}
               onChangeText={setFirstName}
               onBlur={updateName}
@@ -407,13 +409,13 @@ export default function SettingsScreen() {
           <SwitchRow label="Daily mission briefing" detail="A recurring reminder to deploy one clear mission." value={state.profile.notificationRules.dailyMissionEnabled} onValueChange={(dailyMissionEnabled) => { void patchNotificationRules({ dailyMissionEnabled }); }} />
           {state.profile.notificationRules.dailyMissionEnabled ? <View style={styles.notificationTimeRow}>
             <View style={styles.settingCopy}><Text style={[styles.settingTitle, { color: colors.foreground }]}>Daily briefing time</Text><Text style={[styles.settingDetail, { color: colors.muted }]}>Use 24-hour HH:MM format.</Text></View>
-            <TextInput value={state.profile.notificationRules.dailyMissionTime} onChangeText={(dailyMissionTime) => { void patchNotificationRules({ dailyMissionTime }); }} placeholder="09:00" placeholderTextColor={colors.muted} style={[styles.timeInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            <TextInput onFocus={onInputFocus} value={state.profile.notificationRules.dailyMissionTime} onChangeText={(dailyMissionTime) => { void patchNotificationRules({ dailyMissionTime }); }} placeholder="09:00" placeholderTextColor={colors.muted} style={[styles.timeInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
           </View> : null}
           <Divider />
           <SwitchRow label="Revision reminders" detail="Alert when a Day 1, Day 7, or Day 30 review is due." value={state.profile.notificationRules.revisionEnabled} onValueChange={(revisionEnabled) => { void patchNotificationRules({ revisionEnabled }); }} />
           {state.profile.notificationRules.revisionEnabled ? <View style={styles.notificationTimeRow}>
             <View style={styles.settingCopy}><Text style={[styles.settingTitle, { color: colors.foreground }]}>Revision alert time</Text><Text style={[styles.settingDetail, { color: colors.muted }]}>Used on the scheduled review day.</Text></View>
-            <TextInput value={state.profile.notificationRules.revisionTime} onChangeText={(revisionTime) => { void patchNotificationRules({ revisionTime }); }} placeholder="09:00" placeholderTextColor={colors.muted} style={[styles.timeInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            <TextInput onFocus={onInputFocus} value={state.profile.notificationRules.revisionTime} onChangeText={(revisionTime) => { void patchNotificationRules({ revisionTime }); }} placeholder="09:00" placeholderTextColor={colors.muted} style={[styles.timeInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
           </View> : null}
           <Divider />
           <SwitchRow label="Multiplier activation" detail="Confirm that a next-day gold multiplier is now live." value={state.profile.notificationRules.multiplierEnabled} onValueChange={(multiplierEnabled) => { void patchNotificationRules({ multiplierEnabled }); }} />
@@ -433,7 +435,7 @@ export default function SettingsScreen() {
                   <View style={[styles.paletteSwatch, { backgroundColor: preview }]} />
                   <Text style={[styles.paletteLabel, { color: colors.foreground }]}>{label}</Text>
                 </View>
-                <TextInput value={custom} onChangeText={(value) => updatePaletteToken(token, value)} autoCapitalize="characters" placeholder={colors[token]} placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+                <TextInput onFocus={onInputFocus} value={custom} onChangeText={(value) => updatePaletteToken(token, value)} autoCapitalize="characters" placeholder={colors[token]} placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
                 <CommandButton label="Reset" variant="ghost" onPress={() => updatePaletteToken(token, "")} />
               </View>;
             })}
@@ -459,8 +461,8 @@ export default function SettingsScreen() {
                 })}
               </View>
               {preference.source === "custom" ? <View style={styles.tickerCustomInputs}>
-                <TextInput value={preference.surface ?? ""} onChangeText={(surface) => updateTickerPreference(id, { surface: surface.trim() || null })} autoCapitalize="characters" placeholder="Surface #101827" placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
-                <TextInput value={preference.accent ?? ""} onChangeText={(accent) => updateTickerPreference(id, { accent: accent.trim() || null })} autoCapitalize="characters" placeholder="Accent #8B5CF6" placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+                <TextInput onFocus={onInputFocus} value={preference.surface ?? ""} onChangeText={(surface) => updateTickerPreference(id, { surface: surface.trim() || null })} autoCapitalize="characters" placeholder="Surface #101827" placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+                <TextInput onFocus={onInputFocus} value={preference.accent ?? ""} onChangeText={(accent) => updateTickerPreference(id, { accent: accent.trim() || null })} autoCapitalize="characters" placeholder="Accent #8B5CF6" placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
               </View> : null}
               </View>;
           })}
@@ -476,8 +478,8 @@ export default function SettingsScreen() {
               })}
             </View>
             {state.profile.homeProfileCardColorPreference.source === "custom" ? <View style={styles.tickerCustomInputs}>
-              <TextInput value={state.profile.homeProfileCardColorPreference.surface ?? ""} onChangeText={(surface) => updateHomeProfileCardPreference({ surface: surface.trim() || null })} autoCapitalize="characters" placeholder="Surface #101827" placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
-              <TextInput value={state.profile.homeProfileCardColorPreference.accent ?? ""} onChangeText={(accent) => updateHomeProfileCardPreference({ accent: accent.trim() || null })} autoCapitalize="characters" placeholder="Accent #8B5CF6" placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+              <TextInput onFocus={onInputFocus} value={state.profile.homeProfileCardColorPreference.surface ?? ""} onChangeText={(surface) => updateHomeProfileCardPreference({ surface: surface.trim() || null })} autoCapitalize="characters" placeholder="Surface #101827" placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+              <TextInput onFocus={onInputFocus} value={state.profile.homeProfileCardColorPreference.accent ?? ""} onChangeText={(accent) => updateHomeProfileCardPreference({ accent: accent.trim() || null })} autoCapitalize="characters" placeholder="Accent #8B5CF6" placeholderTextColor={colors.muted} style={[styles.paletteInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
             </View> : null}
           </View>
         </CommandCard>
@@ -510,8 +512,8 @@ export default function SettingsScreen() {
                 <StatusPill label={`${tier.multiplier.toFixed(2)}×`} tone={tier.enabled ? "primary" : "neutral"} icon="flame.fill" />
               </View>
               <View style={styles.tierInputs}>
-                <TextInput value={String(tier.days)} onChangeText={(value) => patchTier(tier.id, { days: Number(value) || 1 })} keyboardType="number-pad" placeholder="Days" placeholderTextColor={colors.muted} style={[styles.smallInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
-                <TextInput value={String(tier.multiplier)} onChangeText={(value) => patchTier(tier.id, { multiplier: Number(value) || 1 })} keyboardType="decimal-pad" placeholder="Multiplier" placeholderTextColor={colors.muted} style={[styles.smallInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+                <TextInput onFocus={onInputFocus} value={String(tier.days)} onChangeText={(value) => patchTier(tier.id, { days: Number(value) || 1 })} keyboardType="number-pad" placeholder="Days" placeholderTextColor={colors.muted} style={[styles.smallInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+                <TextInput onFocus={onInputFocus} value={String(tier.multiplier)} onChangeText={(value) => patchTier(tier.id, { multiplier: Number(value) || 1 })} keyboardType="decimal-pad" placeholder="Multiplier" placeholderTextColor={colors.muted} style={[styles.smallInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
               </View>
               <View style={styles.tierActions}>
                 <CommandButton label={tier.enabled ? "Disable" : "Enable"} variant="secondary" onPress={() => patchTier(tier.id, { enabled: !tier.enabled })} />
@@ -520,8 +522,8 @@ export default function SettingsScreen() {
             </View>
           ))}
           <View style={styles.addTierRow}>
-            <TextInput value={newTierDays} onChangeText={setNewTierDays} placeholder="Days" placeholderTextColor={colors.muted} keyboardType="number-pad" style={[styles.smallInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
-            <TextInput value={newTierMultiplier} onChangeText={setNewTierMultiplier} placeholder="Multiplier" placeholderTextColor={colors.muted} keyboardType="decimal-pad" style={[styles.smallInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+            <TextInput onFocus={onInputFocus} value={newTierDays} onChangeText={setNewTierDays} placeholder="Days" placeholderTextColor={colors.muted} keyboardType="number-pad" style={[styles.smallInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+            <TextInput onFocus={onInputFocus} value={newTierMultiplier} onChangeText={setNewTierMultiplier} placeholder="Multiplier" placeholderTextColor={colors.muted} keyboardType="decimal-pad" style={[styles.smallInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
             <CommandButton label="Add" icon="plus" onPress={addTier} style={styles.addTierButton} />
           </View>
         </CommandCard>

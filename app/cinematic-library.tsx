@@ -5,6 +5,7 @@ import { Alert, FlatList, Image, Pressable, StyleSheet, Text, TextInput, View } 
 import { CommandCard, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { deriveCharacterCinematicColors } from "@/lib/character-visual-colors";
 import { type CharacterCinematicVariant } from "@/lib/character-development";
 import { pickAndPersistCharacterMusic, pickAndPersistCharacterPortrait, pickAndPersistCharacterVideo, removePersistedCharacterMedia, type CharacterMusicSlot } from "@/lib/character-form-media";
@@ -58,6 +59,7 @@ function MusicControl({ slot, current, isBusy, onChoose, onRemove, required = fa
 
 export default function CinematicLibraryScreen() {
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const { setCinematicOverride, removeCinematicOverride, updateProfile } = useFocusCommandActions();
   const profile = useFocusCommandSelector((state) => state.profile);
@@ -224,7 +226,7 @@ export default function CinematicLibraryScreen() {
 
   return (
     <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
-      <FlatList
+      <FlatList ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none"
         data={CINEMATIC_ENTRIES}
         keyExtractor={(entry) => entry.variant}
         showsVerticalScrollIndicator={false}
@@ -296,8 +298,8 @@ export default function CinematicLibraryScreen() {
                       <Text numberOfLines={1} style={[styles.videoName, { color: form.video ? colors.success : colors.muted }]}>{form.video ? `Video: ${form.video.name}` : "Video required before activation"}</Text>
                     </View>
                   </View>
-                  <TextInput value={form.name} onChangeText={(name) => updateCustomForm(form.id, { name })} placeholder="Character form name" placeholderTextColor={colors.muted} returnKeyType="done" style={[styles.formInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} />
-                  <View style={styles.levelEditor}><Text style={[styles.levelLabel, { color: colors.muted }]}>Activation level</Text><TextInput defaultValue={String(form.activationLevel)} onEndEditing={(event) => updateActivationLevel(form, event.nativeEvent.text)} keyboardType="number-pad" returnKeyType="done" style={[styles.levelInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} /></View>
+                  <TextInput onFocus={onInputFocus} value={form.name} onChangeText={(name) => updateCustomForm(form.id, { name })} placeholder="Character form name" placeholderTextColor={colors.muted} returnKeyType="done" style={[styles.formInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} />
+                  <View style={styles.levelEditor}><Text style={[styles.levelLabel, { color: colors.muted }]}>Activation level</Text><TextInput onFocus={onInputFocus} defaultValue={String(form.activationLevel)} onEndEditing={(event) => updateActivationLevel(form, event.nativeEvent.text)} keyboardType="number-pad" returnKeyType="done" style={[styles.levelInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} /></View>
                   <View style={styles.actions}>
                     <Pressable accessibilityRole="button" disabled={isBusy} onPress={() => { void chooseCustomMedia(form, "portrait"); }} style={({ pressed }) => [styles.chooseButton, { borderColor: colors.primary, opacity: isBusy ? 0.5 : pressed ? 0.72 : 1 }]}><Text style={[styles.chooseText, { color: colors.primary }]}>{form.portrait ? "REPLACE PNG PORTRAIT" : "CHOOSE PNG PORTRAIT"}</Text></Pressable>
                     <Pressable accessibilityRole="button" disabled={isBusy} onPress={() => { void chooseCustomMedia(form, "video"); }} style={({ pressed }) => [styles.chooseButton, { borderColor: colors.primary, opacity: isBusy ? 0.5 : pressed ? 0.72 : 1 }]}><Text style={[styles.chooseText, { color: colors.primary }]}>{form.video ? "REPLACE VIDEO" : "CHOOSE VIDEO"}</Text></Pressable>

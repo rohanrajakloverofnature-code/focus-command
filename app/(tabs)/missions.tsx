@@ -6,6 +6,7 @@ import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScree
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { Difficulty, Mission, MissionCompletionRecord, MissionFrequency, getDifficultyColor, getDifficultyLabel, getMissionCompletionRecords, getMissionInvestedMilliseconds, shallowEqual, toLocalDate, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 
 type MissionFilter = "open" | "active" | "completed";
@@ -26,6 +27,7 @@ function missionMatchesSearch(mission: Pick<Mission, "title" | "subject" | "cate
 
 export default function MissionsScreen() {
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const { compose, filter: requestedFilter, bossId: requestedBossId, archiveMonth, archiveSubject } = useLocalSearchParams<{ compose?: string; filter?: MissionFilter; bossId?: string; archiveMonth?: string; archiveSubject?: string }>();
   const ready = useFocusCommandReady();
   const { bosses, missionCompletions, missions: allMissions, progression, reflections, timezone } = useFocusCommandSelector((state) => ({
@@ -161,7 +163,7 @@ export default function MissionsScreen() {
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background">
-      <FlatList
+      <FlatList ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none"
         data={boardItems}
         renderItem={renderBoardItem}
         keyExtractor={(item) => item.key}
@@ -186,10 +188,10 @@ export default function MissionsScreen() {
               </View>
               <StatusPill label="READY" tone="primary" icon="target" />
             </View>
-            <TextInput value={title} onChangeText={setTitle} placeholder="Mission name" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} returnKeyType="next" />
+            <TextInput onFocus={onInputFocus} value={title} onChangeText={setTitle} placeholder="Mission name" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} returnKeyType="next" />
             <View style={styles.twoColumns}>
-              <TextInput value={subject} onChangeText={setSubject} placeholder="Subject" placeholderTextColor={colors.muted} style={[styles.input, styles.half, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-              <TextInput value={category} onChangeText={setCategory} placeholder="Category" placeholderTextColor={colors.muted} style={[styles.input, styles.half, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+              <TextInput onFocus={onInputFocus} value={subject} onChangeText={setSubject} placeholder="Subject" placeholderTextColor={colors.muted} style={[styles.input, styles.half, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+              <TextInput onFocus={onInputFocus} value={category} onChangeText={setCategory} placeholder="Category" placeholderTextColor={colors.muted} style={[styles.input, styles.half, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
             </View>
             <Pressable onPress={() => setIncludeInSubjectMap((value) => !value)} style={({ pressed }) => [styles.revisionToggle, { borderColor: includeInSubjectMap ? colors.primary : colors.border, backgroundColor: includeInSubjectMap ? `${colors.primary}16` : colors.background, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
               <IconSymbol name={includeInSubjectMap ? "checklist" : "xmark"} size={17} color={includeInSubjectMap ? colors.primary : colors.muted} />
@@ -198,7 +200,7 @@ export default function MissionsScreen() {
                 <Text style={[styles.revisionDetail, { color: colors.muted }]}>{includeInSubjectMap ? "This mission and its linked reviews can capture this subject territory." : "This mission remains fully functional without changing any India-map territory."}</Text>
               </View>
             </Pressable>
-            <TextInput value={topic} onChangeText={setTopic} placeholder="Specific topic (for revision)" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            <TextInput onFocus={onInputFocus} value={topic} onChangeText={setTopic} placeholder="Specific topic (for revision)" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
             <View>
               <Text style={[styles.inputLabel, { color: colors.muted }]}>DIFFICULTY</Text>
               <View style={styles.choiceRow}>
@@ -219,7 +221,7 @@ export default function MissionsScreen() {
                 <Text style={[styles.inputLabel, { color: colors.muted }]}>BASE XP REWARD</Text>
                 <Text style={[styles.xpDetail, { color: colors.muted }]}>Applied once when the mission ends.</Text>
               </View>
-              <TextInput value={xp} onChangeText={setXp} keyboardType="number-pad" style={[styles.xpInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+              <TextInput onFocus={onInputFocus} value={xp} onChangeText={setXp} keyboardType="number-pad" style={[styles.xpInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
             </View>
             <Pressable onPress={() => setRevisionEnabled((value) => !value)} style={({ pressed }) => [styles.revisionToggle, { borderColor: revisionEnabled ? colors.primary : colors.border, backgroundColor: revisionEnabled ? `${colors.primary}16` : colors.background, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
               <IconSymbol name={revisionEnabled ? "checklist" : "xmark"} size={17} color={revisionEnabled ? colors.primary : colors.muted} />
@@ -265,10 +267,10 @@ export default function MissionsScreen() {
               ) : null}
               <CommandButton label={showBossDraft ? "Cancel boss draft" : "Create boss for this mission"} icon={showBossDraft ? "xmark" : "trophy.fill"} variant="secondary" onPress={() => setShowBossDraft((value) => !value)} />
               {showBossDraft ? <View style={[styles.bossDraft, { borderColor: `${colors.warning}70`, backgroundColor: `${colors.warning}0E` }]}>
-                <TextInput value={bossTitle} onChangeText={setBossTitle} placeholder="Boss campaign name" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-                <TextInput value={bossObjective} onChangeText={setBossObjective} placeholder="What will victory look like?" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.bossObjectiveInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+                <TextInput onFocus={onInputFocus} value={bossTitle} onChangeText={setBossTitle} placeholder="Boss campaign name" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+                <TextInput onFocus={onInputFocus} value={bossObjective} onChangeText={setBossObjective} placeholder="What will victory look like?" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.bossObjectiveInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
                 <Text style={[styles.inputLabel, { color: colors.muted }]}>REQUIRED DEADLINE · YYYY-MM-DD</Text>
-                <TextInput value={bossDeadline} onChangeText={setBossDeadline} placeholder="2026-12-31" autoCapitalize="none" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+                <TextInput onFocus={onInputFocus} value={bossDeadline} onChangeText={setBossDeadline} placeholder="2026-12-31" autoCapitalize="none" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
                 <CommandButton label="Activate & link boss" icon="trophy.fill" onPress={createBossFromMission} />
               </View> : null}
             </View>
@@ -292,7 +294,7 @@ export default function MissionsScreen() {
           <Pressable onPress={() => setShowSearch((value) => !value)} style={({ pressed }) => [styles.searchToggle, { borderColor: showSearch ? colors.primary : colors.border, backgroundColor: showSearch ? `${colors.primary}18` : colors.surface, opacity: pressed ? 0.72 : 1 }]}>
             <Text style={[styles.searchToggleText, { color: showSearch ? colors.primary : colors.muted }]}>{showSearch ? "CLOSE SEARCH" : filter === "completed" ? "SEARCH HISTORY" : "SEARCH PLANNED"}</Text>
           </Pressable>
-          {showSearch ? <TextInput value={searchQuery} onChangeText={setSearchQuery} placeholder={filter === "completed" ? "Search title, subject, category, or topic" : "Search title, subject, category, or topic"} placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.searchInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /> : null}
+          {showSearch ? <TextInput onFocus={onInputFocus} value={searchQuery} onChangeText={setSearchQuery} placeholder={filter === "completed" ? "Search title, subject, category, or topic" : "Search title, subject, category, or topic"} placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.searchInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /> : null}
         </View> : null}
 
         <SectionHeader title={filter === "open" ? "Planned missions" : filter === "active" ? "Live missions" : archiveHistoryLabel ? `History · ${archiveHistoryLabel}` : "Completed history"} action={filter === "open" ? "New mission" : undefined} onAction={filter === "open" ? () => setShowComposer(true) : undefined} />

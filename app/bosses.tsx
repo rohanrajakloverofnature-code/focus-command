@@ -6,6 +6,7 @@ import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScree
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { Boss, formatTimeUntil, getBossProgress, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 
 const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T12:00:00`));
@@ -15,6 +16,7 @@ const blankForm = (): BossForm => ({ title: "", objective: "", deadline: "", rew
 
 export default function BossesScreen() {
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const bosses = useFocusCommandSelector((state) => state.bosses);
   const missions = useFocusCommandSelector((state) => state.missions);
   const ready = useFocusCommandReady();
@@ -85,7 +87,7 @@ export default function BossesScreen() {
 
   return (
     <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle
           eyebrow="Campaigns"
           title="Active bosses"

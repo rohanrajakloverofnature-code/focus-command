@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef } from "react";
-import { findNodeHandle, Keyboard, Platform, type NativeScrollEvent, type NativeSyntheticEvent, type TextInputProps } from "react-native";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
+import { findNodeHandle, Keyboard, Platform, TextInput, type NativeScrollEvent, type NativeSyntheticEvent, type TextInputProps } from "react-native";
 
 type KeyboardScrollResponder = {
   scrollResponderScrollNativeHandleToKeyboard?: (
@@ -12,6 +12,7 @@ type KeyboardScrollResponder = {
 type KeyboardScrollable = {
   getScrollResponder?: () => KeyboardScrollResponder | null | undefined;
 };
+let activeScrollResponder: KeyboardScrollResponder | null = null;
 
 /**
  * Keeps a focused native text input above the soft keyboard without storing any
@@ -26,7 +27,7 @@ export function useKeyboardSafeFocus<T>(additionalOffset = 88) {
   const keepFocusedInputVisible = useCallback(() => {
     const target = focusedTargetRef.current;
     if (Platform.OS === "web" || target === null) return;
-    const responder = (scrollRef.current as unknown as KeyboardScrollable | null)?.getScrollResponder?.();
+    const responder = (scrollRef.current as unknown as KeyboardScrollable | null)?.getScrollResponder?.() ?? activeScrollResponder;
     if (!responder?.scrollResponderScrollNativeHandleToKeyboard) return;
     if (correctionFrameRef.current !== null) cancelAnimationFrame(correctionFrameRef.current);
     correctionFrameRef.current = requestAnimationFrame(() => {
@@ -57,14 +58,29 @@ export function useKeyboardSafeFocus<T>(additionalOffset = 88) {
 
   useEffect(() => {
     if (Platform.OS === "web") return;
+    const responder = (scrollRef.current as unknown as KeyboardScrollable | null)?.getScrollResponder?.();
+    if (responder) activeScrollResponder = responder;
     const showSubscription = Keyboard.addListener("keyboardDidShow", keepFocusedInputVisible);
     const frameSubscription = Keyboard.addListener("keyboardDidChangeFrame", keepFocusedInputVisible);
     return () => {
       showSubscription.remove();
       frameSubscription.remove();
+      if (activeScrollResponder === responder) activeScrollResponder = null;
       if (correctionFrameRef.current !== null) cancelAnimationFrame(correctionFrameRef.current);
     };
   }, [keepFocusedInputVisible]);
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const subscription = Keyboard.addListener("keyboardDidShow", () => {
+      const focused = (TextInput as unknown as { State?: { currentlyFocusedInput?: () => unknown } }).State?.currentlyFocusedInput?.();
+      const target = focused ? findNodeHandle(focused as never) : null;
+      if (target !== null) focusedTargetRef.current = target;
+      keepFocusedInputVisible();
+    });
+    return () => subscription.remove();
+  }, [keepFocusedInputVisible]);
 
-  return { scrollRef, onInputFocus, onInputBlur, onScroll };
+  // The same helper is shared by ScrollView and FlatList screens. Keep the
+  // public ref component-agnostic; the native responder is narrowed above.
+  return { scrollRef: scrollRef as unknown as RefObject<never>, onInputFocus, onInputBlur, onScroll };
 }

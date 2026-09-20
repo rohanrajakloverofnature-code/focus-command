@@ -1,10 +1,11 @@
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { CustomQuestion, GraphSeries, RankTitle, shallowEqual, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 
 const graphMetrics: { metric: GraphSeries["metric"]; label: string; color: string }[] = [
@@ -28,6 +29,7 @@ function parseOptions(value: string) {
 
 export default function CustomizeScreen() {
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const { updateProfile, addCustomQuestion, updateCustomQuestion, removeCustomQuestion, updateCustomGraph } = useFocusCommandActions();
   const { profile, customQuestions, customGraphs } = useFocusCommandSelector((state) => ({
@@ -133,7 +135,7 @@ export default function CustomizeScreen() {
 
   return (
     <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle eyebrow="Customization" title="Tune the system" detail="Adjust the RPG rules, reflection prompts, and dashboard lenses to fit your real life." right={<IconAction icon="xmark" label="Close customization" onPress={() => router.back()} />} />
 
         <SectionHeader title="Level rules" />
@@ -182,6 +184,7 @@ export default function CustomizeScreen() {
               question={question}
               onUpdate={(patch) => updateCustomQuestion(question.id, patch)}
               onRemove={() => confirmQuestionRemoval(question.id)}
+              onInputFocus={onInputFocus}
             />
           )) : <Text style={[styles.emptyText, { color: colors.muted }]}>No additional questions yet.</Text>}
         </CommandCard>
@@ -239,7 +242,7 @@ export default function CustomizeScreen() {
   );
 }
 
-function QuestionEditor({ question, onUpdate, onRemove }: { question: CustomQuestion; onUpdate: (patch: Partial<Omit<CustomQuestion, "id">>) => void; onRemove: () => void }) {
+function QuestionEditor({ question, onUpdate, onRemove, onInputFocus }: { question: CustomQuestion; onUpdate: (patch: Partial<Omit<CustomQuestion, "id">>) => void; onRemove: () => void; onInputFocus: TextInputProps["onFocus"] }) {
   const colors = useColors();
   const isChoice = question.type === "single_choice" || question.type === "multiple_choice";
   return (
@@ -251,14 +254,14 @@ function QuestionEditor({ question, onUpdate, onRemove }: { question: CustomQues
           <CommandButton label="Remove" variant="ghost" onPress={onRemove} />
         </View>
       </View>
-      <TextInput value={question.label} onChangeText={(label) => onUpdate({ label })} placeholder="Question prompt" placeholderTextColor={colors.muted} style={[styles.questionInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+      <TextInput onFocus={onInputFocus} value={question.label} onChangeText={(label) => onUpdate({ label })} placeholder="Question prompt" placeholderTextColor={colors.muted} style={[styles.questionInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
       <View style={styles.typeChoices}>
         {questionTypes.map((choice) => {
           const active = question.type === choice.type;
           return <Pressable key={choice.type} onPress={() => onUpdate({ type: choice.type, options: choice.type === "single_choice" || choice.type === "multiple_choice" ? question.options : [], personalSignal: choice.type === "rating" ? question.personalSignal ?? { enabled: false, role: "supportive", includeInProjection: false } : undefined })} style={({ pressed }) => [styles.typeChoice, { backgroundColor: active ? `${colors.success}1D` : colors.surface, borderColor: active ? colors.success : colors.border, opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}><Text style={[styles.typeChoiceText, { color: active ? colors.success : colors.muted }]}>{choice.label}</Text></Pressable>;
         })}
       </View>
-      {isChoice ? <TextInput value={question.options.join(", ")} onChangeText={(value) => onUpdate({ options: parseOptions(value) })} placeholder="Choices, separated by commas" placeholderTextColor={colors.muted} style={[styles.questionInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} /> : null}
+      {isChoice ? <TextInput onFocus={onInputFocus} value={question.options.join(", ")} onChangeText={(value) => onUpdate({ options: parseOptions(value) })} placeholder="Choices, separated by commas" placeholderTextColor={colors.muted} style={[styles.questionInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} /> : null}
       {question.type === "rating" ? <View style={[styles.personalSignalEditor, { borderColor: `${colors.primary}66`, backgroundColor: `${colors.primary}0D` }]}>
         <View style={styles.questionHeader}>
           <View style={styles.personalSignalCopy}><Text style={[styles.personalSignalTitle, { color: colors.foreground }]}>Personal reflection signal</Text><Text style={[styles.personalSignalDetail, { color: colors.muted }]}>Use this 1–5 rating in its own private trend. Its meaning is chosen by you.</Text></View>

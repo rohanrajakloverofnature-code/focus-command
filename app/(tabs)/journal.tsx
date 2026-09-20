@@ -7,6 +7,7 @@ import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScree
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { playFocusRole } from "@/lib/focus-audio";
 import {
   formatCompactNumber,
@@ -21,6 +22,7 @@ import {
 
 export default function JournalScreen() {
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const { compose } = useLocalSearchParams<{ compose?: string }>();
   const ready = useFocusCommandReady();
   const { addJournal, setJournalLifelinePercentage } = useFocusCommandActions();
@@ -79,7 +81,7 @@ export default function JournalScreen() {
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background">
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="none" onScroll={onScroll} scrollEventThrottle={32}>
         <ScreenTitle
           eyebrow="Daily reflection"
           title="Journal"
@@ -99,7 +101,7 @@ export default function JournalScreen() {
           </View>
           <View style={styles.rateControls}>
             <CommandButton label="−" variant="secondary" onPress={() => setLifelinePercentageInput(String(Math.max(0, (Number(lifelinePercentageInput) || 0) - 1)))} style={styles.rateButton} />
-            <TextInput value={lifelinePercentageInput} onChangeText={setLifelinePercentageInput} keyboardType="number-pad" maxLength={3} style={[styles.rateInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            <TextInput value={lifelinePercentageInput} onChangeText={setLifelinePercentageInput} onFocus={onInputFocus} keyboardType="number-pad" maxLength={3} style={[styles.rateInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
             <Text style={[styles.rateSuffix, { color: colors.muted }]}>%</Text>
             <CommandButton label="+" variant="secondary" onPress={() => setLifelinePercentageInput(String(Math.min(100, (Number(lifelinePercentageInput) || 0) + 1)))} style={styles.rateButton} />
           </View>
@@ -137,12 +139,12 @@ export default function JournalScreen() {
               </View>
               <View style={styles.pointControls}>
                 <CommandButton label="−" variant="secondary" onPress={() => setPoints(String(Math.max(0, (Number(points) || 0) - 1)))} style={styles.pointButton} />
-                <TextInput value={points} onChangeText={setPoints} keyboardType="number-pad" style={[styles.pointsInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+                <TextInput value={points} onChangeText={setPoints} onFocus={onInputFocus} keyboardType="number-pad" style={[styles.pointsInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
                 <CommandButton label="+" variant="secondary" onPress={() => setPoints(String((Number(points) || 0) + 1))} style={styles.pointButton} />
               </View>
             </View>
 
-            <TextInput value={note} onChangeText={setNote} multiline placeholder="Optional reflection: What changed your day?" placeholderTextColor={colors.muted} style={[styles.noteInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} textAlignVertical="top" />
+            <TextInput value={note} onChangeText={setNote} onFocus={onInputFocus} multiline placeholder="Optional reflection: What changed your day?" placeholderTextColor={colors.muted} style={[styles.noteInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} textAlignVertical="top" />
             <CommandButton label={todayEntry ? "Update entry" : "Log today"} icon="book.closed.fill" onPress={submit} />
           </CommandCard>
         ) : null}

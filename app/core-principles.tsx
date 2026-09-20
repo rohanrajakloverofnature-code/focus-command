@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import { CommandCard, LoadingScreen, ScreenTitle, SectionHeader, StatusPill, TapFeedback } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { getCorePrinciplesSummary } from "@/lib/core-principles";
 import {
   shallowEqual,
@@ -31,6 +32,7 @@ const selectCorePrinciples = (state: FocusState) => ({
 
 export default function CorePrinciplesScreen() {
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const actions = useFocusCommandActions();
   const { title, lists, items, checkIns, timezone } = useFocusCommandSelector(selectCorePrinciples, shallowEqual);
@@ -152,20 +154,20 @@ export default function CorePrinciplesScreen() {
     </View>
     {titleEditorOpen ? <CommandCard accent={colors.primary} style={styles.editor}>
       <Text style={[styles.editorLabel, { color: colors.muted }]}>FEATURE TITLE</Text>
-      <TextInput value={titleDraft} onChangeText={setTitleDraft} placeholder="Core Principles" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} returnKeyType="done" onSubmitEditing={saveTitle} />
+      <TextInput onFocus={onInputFocus} value={titleDraft} onChangeText={setTitleDraft} placeholder="Core Principles" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} returnKeyType="done" onSubmitEditing={saveTitle} />
       <Pressable onPress={saveTitle} style={({ pressed }) => [styles.primary, { backgroundColor: colors.primary, opacity: pressed ? 0.8 : 1 }]}><Text style={[styles.primaryText, { color: colors.background }]}>Save title</Text></Pressable>
     </CommandCard> : null}
     <CommandCard accent={colors.success} style={styles.editor}>
       <Text style={[styles.editorLabel, { color: colors.muted }]}>ADD A LIST</Text>
       <View style={styles.inlineComposer}>
-        <TextInput value={listDraft} onChangeText={setListDraft} placeholder="For example: Study standards" placeholderTextColor={colors.muted} style={[styles.input, styles.flexInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} returnKeyType="done" onSubmitEditing={addList} />
+        <TextInput onFocus={onInputFocus} value={listDraft} onChangeText={setListDraft} placeholder="For example: Study standards" placeholderTextColor={colors.muted} style={[styles.input, styles.flexInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} returnKeyType="done" onSubmitEditing={addList} />
         <Pressable onPress={addList} style={({ pressed }) => [styles.addButton, { backgroundColor: colors.success, opacity: pressed ? 0.78 : 1 }]}><Text style={[styles.addButtonText, { color: colors.background }]}>Add</Text></Pressable>
       </View>
     </CommandCard>
   </>;
 
   return <ScreenContainer className="px-4" containerClassName="bg-background">
-    <FlatList
+    <FlatList ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none"
       data={rows}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.content}
@@ -176,7 +178,7 @@ export default function CorePrinciplesScreen() {
         <View style={styles.listTop}>
           <View style={styles.listCopy}>
             {editingListId === item.list.id
-              ? <TextInput value={editingListDraft} onChangeText={setEditingListDraft} autoFocus placeholderTextColor={colors.muted} style={[styles.listInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} returnKeyType="done" onSubmitEditing={saveListEdit} />
+              ? <TextInput onFocus={onInputFocus} value={editingListDraft} onChangeText={setEditingListDraft} autoFocus placeholderTextColor={colors.muted} style={[styles.listInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} returnKeyType="done" onSubmitEditing={saveListEdit} />
               : <Text style={[styles.listTitle, { color: colors.foreground }]}>{item.list.title}</Text>}
             <Text style={[styles.listDetail, { color: colors.muted }]}>{item.itemCount} visible principle{item.itemCount === 1 ? "" : "s"}</Text>
           </View>
@@ -185,7 +187,7 @@ export default function CorePrinciplesScreen() {
           </View>
         </View>
         {addingToListId === item.list.id ? <View style={styles.itemComposer}>
-          <TextInput value={itemDraft} onChangeText={setItemDraft} multiline placeholder="Write a positive rule or habit…" placeholderTextColor={colors.muted} style={[styles.textarea, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+          <TextInput onFocus={onInputFocus} value={itemDraft} onChangeText={setItemDraft} multiline placeholder="Write a positive rule or habit…" placeholderTextColor={colors.muted} style={[styles.textarea, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
           <Pressable onPress={addItem} style={({ pressed }) => [styles.primary, { backgroundColor: colors.success, opacity: pressed ? 0.8 : 1 }]}><Text style={[styles.primaryText, { color: colors.background }]}>Save principle</Text></Pressable>
         </View> : null}
       </CommandCard> : <CommandCard accent={item.item.active ? colors.success : "#8EA0B8"} style={[styles.itemCard, !item.item.active && styles.pausedCard]}>
@@ -193,7 +195,7 @@ export default function CorePrinciplesScreen() {
           <Pressable disabled={!item.item.active} onPress={() => actions.setCorePrincipleItemChecked(item.item.id, !checkedById.get(item.item.id))} accessibilityRole="checkbox" accessibilityState={{ checked: Boolean(checkedById.get(item.item.id)), disabled: !item.item.active }} style={({ pressed }) => [styles.checkbox, { borderColor: checkedById.get(item.item.id) ? colors.success : colors.border, backgroundColor: checkedById.get(item.item.id) ? colors.success : colors.background, opacity: pressed && item.item.active ? 0.7 : 1 }]}><Text style={[styles.checkmark, { color: checkedById.get(item.item.id) ? colors.background : colors.muted }]}>{checkedById.get(item.item.id) ? "✓" : ""}</Text></Pressable>
           <View style={styles.itemCopy}>
             {editingItemId === item.item.id
-              ? <TextInput value={editingItemDraft} onChangeText={setEditingItemDraft} multiline autoFocus placeholderTextColor={colors.muted} style={[styles.textarea, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+              ? <TextInput onFocus={onInputFocus} value={editingItemDraft} onChangeText={setEditingItemDraft} multiline autoFocus placeholderTextColor={colors.muted} style={[styles.textarea, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
               : <Text style={[styles.itemText, { color: item.item.active ? colors.foreground : colors.muted }, checkedById.get(item.item.id) && styles.checkedText]}>{item.item.text}</Text>}
             <Text style={[styles.itemList, { color: colors.muted }]}>{item.list.title}{item.item.active ? "" : " · PAUSED"}</Text>
           </View>

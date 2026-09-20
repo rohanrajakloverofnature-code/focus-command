@@ -5,6 +5,7 @@ import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "r
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { type ShadowGatePersonalDoorway, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 
 const DoorwayRow = memo(function DoorwayRow({ doorway, onEdit, onTogglePin, onRemove }: { doorway: ShadowGatePersonalDoorway; onEdit: (doorway: ShadowGatePersonalDoorway) => void; onTogglePin: (doorway: ShadowGatePersonalDoorway) => void; onRemove: (doorway: ShadowGatePersonalDoorway) => void }) {
@@ -32,6 +33,7 @@ function ActionTextButton({ label, color, onPress }: { label: string; color: str
 
 export default function ShadowGateSettingsScreen() {
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const doorways = useFocusCommandSelector((state) => state.shadowGatePersonalDoorways);
   const { addShadowGatePersonalDoorway, updateShadowGatePersonalDoorway, removeShadowGatePersonalDoorway } = useFocusCommandActions();
@@ -71,7 +73,7 @@ export default function ShadowGateSettingsScreen() {
 
   return (
     <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
-      <FlatList
+      <FlatList ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none"
         data={sortedDoorways}
         keyExtractor={(doorway) => doorway.id}
         renderItem={renderDoorway}
@@ -86,10 +88,10 @@ export default function ShadowGateSettingsScreen() {
             <ScreenTitle eyebrow="Local-only tools" title="Personal Doorways" detail="Write one short action that helps you cross a Shadow Gate. These stay private, can be pinned for quick reuse, and are never sent anywhere." right={<IconAction icon="xmark" label="Close Shadow Gate settings" onPress={() => router.back()} />} />
             <CommandCard accent="#8B5CF9" style={styles.addCard}>
               <Text style={[styles.addLabel, { color: "#C4B5FD" }]}>NEW PERSONAL DOORWAY</Text>
-              <TextInput value={newDoorway} onChangeText={setNewDoorway} maxLength={90} placeholder="For example: Open the marked Chemistry page" placeholderTextColor={colors.muted} style={[styles.textInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} returnKeyType="done" onSubmitEditing={addDoorway} />
+              <TextInput onFocus={onInputFocus} value={newDoorway} onChangeText={setNewDoorway} maxLength={90} placeholder="For example: Open the marked Chemistry page" placeholderTextColor={colors.muted} style={[styles.textInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} returnKeyType="done" onSubmitEditing={addDoorway} />
               <View style={styles.addFooter}><Text style={[styles.limit, { color: colors.muted }]}>{newDoorway.length}/90</Text><CommandButton label="Save doorway" disabled={!newDoorway.trim()} onPress={addDoorway} /></View>
             </CommandCard>
-            {editingDoorway ? <CommandCard accent="#8B5CF9" style={styles.editCard}><Text style={[styles.addLabel, { color: "#C4B5FD" }]}>EDIT PERSONAL DOORWAY</Text><TextInput value={editingLabel} onChangeText={setEditingLabel} maxLength={90} autoFocus placeholderTextColor={colors.muted} style={[styles.textInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} returnKeyType="done" onSubmitEditing={saveEditing} /><View style={styles.editActions}><CommandButton label="Cancel" variant="ghost" onPress={() => { setEditingDoorway(null); setEditingLabel(""); }} /><CommandButton label="Save changes" disabled={!editingLabel.trim()} onPress={saveEditing} /></View></CommandCard> : null}
+            {editingDoorway ? <CommandCard accent="#8B5CF9" style={styles.editCard}><Text style={[styles.addLabel, { color: "#C4B5FD" }]}>EDIT PERSONAL DOORWAY</Text><TextInput onFocus={onInputFocus} value={editingLabel} onChangeText={setEditingLabel} maxLength={90} autoFocus placeholderTextColor={colors.muted} style={[styles.textInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} returnKeyType="done" onSubmitEditing={saveEditing} /><View style={styles.editActions}><CommandButton label="Cancel" variant="ghost" onPress={() => { setEditingDoorway(null); setEditingLabel(""); }} /><CommandButton label="Save changes" disabled={!editingLabel.trim()} onPress={saveEditing} /></View></CommandCard> : null}
             <Text style={[styles.listTitle, { color: colors.muted }]}>{sortedDoorways.length ? "SAVED DOORWAYS" : "NO PERSONAL DOORWAYS YET"}</Text>
           </View>
         )}

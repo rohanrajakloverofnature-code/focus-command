@@ -6,6 +6,7 @@ import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScree
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { formatCompactNumber, getGoldBalance, getLifetimeGold, RewardCategory, shallowEqual, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { scheduleMultiplierReminder } from "@/lib/focus-reminders";
 import { playFocusRole } from "@/lib/focus-audio";
@@ -20,6 +21,7 @@ const categories: { value: RewardCategory | "all"; label: string; icon: "gift.fi
 
 export default function RewardsScreen() {
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const {
     inventory: allInventory,
@@ -122,7 +124,7 @@ export default function RewardsScreen() {
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background">
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle
           eyebrow="Reward vault"
           title="Spend with intent"
@@ -165,14 +167,14 @@ export default function RewardsScreen() {
         {showComposer ? (
           <CommandCard accent={colors.primary} style={styles.composer}>
             <Text style={[styles.composerTitle, { color: colors.foreground }]}>{editingRewardId ? "Edit reward" : "Create custom reward"}</Text>
-            <TextInput value={title} onChangeText={setTitle} placeholder="Reward name (e.g., 30 min YouTube)" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
-            <TextInput value={description} onChangeText={setDescription} placeholder="Why this reward is worth it" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+            <TextInput onFocus={onInputFocus} value={title} onChangeText={setTitle} placeholder="Reward name (e.g., 30 min YouTube)" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+            <TextInput onFocus={onInputFocus} value={description} onChangeText={setDescription} placeholder="Why this reward is worth it" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
             <View style={styles.composerCostRow}>
               <View style={styles.costCopy}>
                 <Text style={[styles.inputLabel, { color: colors.muted }]}>GOLD COST</Text>
                 <Text style={[styles.costDetail, { color: colors.muted }]}>A reward will be disabled when this exceeds your balance.</Text>
               </View>
-              <TextInput value={cost} onChangeText={setCost} keyboardType="number-pad" style={[styles.costInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
+              <TextInput onFocus={onInputFocus} value={cost} onChangeText={setCost} keyboardType="number-pad" style={[styles.costInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
             </View>
             <View>
               <Text style={[styles.inputLabel, { color: colors.muted }]}>CATEGORY</Text>
@@ -191,8 +193,8 @@ export default function RewardsScreen() {
                 <Text style={[styles.lootToggleDetail, { color: colors.muted }]}>Add this reward to your random post-mission loot pool.</Text>
               </View>
             </Pressable>
-            {lootEnabled ? <View style={styles.composerCostRow}><View style={styles.costCopy}><Text style={[styles.inputLabel, { color: colors.muted }]}>LOOT WEIGHT</Text><Text style={[styles.costDetail, { color: colors.muted }]}>Higher values make this reward more likely within a successful draw.</Text></View><TextInput value={lootWeight} onChangeText={setLootWeight} keyboardType="number-pad" style={[styles.costInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
-            {draftCategory === "multiplier" ? <View style={styles.composerCostRow}><View style={styles.costCopy}><Text style={[styles.inputLabel, { color: colors.muted }]}>NEXT-DAY GOLD MULTIPLIER</Text><Text style={[styles.costDetail, { color: colors.muted }]}>Applied only to missions completed tomorrow, then archived in inventory.</Text></View><TextInput value={goldMultiplier} onChangeText={setGoldMultiplier} keyboardType="decimal-pad" style={[styles.costInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
+            {lootEnabled ? <View style={styles.composerCostRow}><View style={styles.costCopy}><Text style={[styles.inputLabel, { color: colors.muted }]}>LOOT WEIGHT</Text><Text style={[styles.costDetail, { color: colors.muted }]}>Higher values make this reward more likely within a successful draw.</Text></View><TextInput onFocus={onInputFocus} value={lootWeight} onChangeText={setLootWeight} keyboardType="number-pad" style={[styles.costInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
+            {draftCategory === "multiplier" ? <View style={styles.composerCostRow}><View style={styles.costCopy}><Text style={[styles.inputLabel, { color: colors.muted }]}>NEXT-DAY GOLD MULTIPLIER</Text><Text style={[styles.costDetail, { color: colors.muted }]}>Applied only to missions completed tomorrow, then archived in inventory.</Text></View><TextInput onFocus={onInputFocus} value={goldMultiplier} onChangeText={setGoldMultiplier} keyboardType="decimal-pad" style={[styles.costInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
             <CommandButton label={editingRewardId ? "Save reward" : "Add to vault"} icon="gift.fill" onPress={submit} />
           </CommandCard>
         ) : null}

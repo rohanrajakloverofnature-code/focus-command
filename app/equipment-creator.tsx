@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ScrollView, View, Text, TextInput, Pressable, FlatList } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { useFocusCommandActions, useFocusCommandSelector } from "@/lib/focus-command";
 import { formatEquipmentModifierDelta } from "@/lib/equipment-modifiers";
 import * as Haptics from "expo-haptics";
@@ -12,6 +13,7 @@ const types = ["FocusDevice", "EnergyPack", "AuraGenerator"] as const;
 
 export default function EquipmentCreatorScreen() {
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const router = useRouter();
   const { addEquipment } = useFocusCommandActions();
   const allEquipment = useFocusCommandSelector((state) => state.allEquipment);
@@ -56,7 +58,7 @@ export default function EquipmentCreatorScreen() {
 
   return (
     <ScreenContainer className="p-4">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={{ flexGrow: 1 }}>
         <View className="gap-6">
           {/* Header */}
           <View className="gap-2">
@@ -69,7 +71,7 @@ export default function EquipmentCreatorScreen() {
             {/* Name */}
             <View className="gap-2">
               <Text className="text-sm font-semibold text-foreground">Equipment Name *</Text>
-              <TextInput
+              <TextInput onFocus={onInputFocus}
                 value={name}
                 onChangeText={setName}
                 placeholder="e.g., Cognitive Amplifier"
@@ -82,7 +84,7 @@ export default function EquipmentCreatorScreen() {
             {/* Description */}
             <View className="gap-2">
               <Text className="text-sm font-semibold text-foreground">Description</Text>
-              <TextInput
+              <TextInput onFocus={onInputFocus}
                 value={description}
                 onChangeText={setDescription}
                 placeholder="Optional description"
@@ -161,7 +163,7 @@ export default function EquipmentCreatorScreen() {
             {/* Level */}
             <View className="gap-2">
               <Text className="text-sm font-semibold text-foreground">Level</Text>
-              <TextInput
+              <TextInput onFocus={onInputFocus}
                 value={level}
                 onChangeText={setLevel}
                 placeholder="1"
@@ -176,7 +178,7 @@ export default function EquipmentCreatorScreen() {
             <View className="gap-2">
               <Text className="text-sm font-semibold text-foreground">XP Modifier (%)</Text>
               <Text className="text-xs text-muted">100 = no change, 110 = +10%, 90 = -10%</Text>
-              <TextInput
+              <TextInput onFocus={onInputFocus}
                 value={xpModifier}
                 onChangeText={setXpModifier}
                 placeholder="100"
@@ -191,7 +193,7 @@ export default function EquipmentCreatorScreen() {
             <View className="gap-2">
               <Text className="text-sm font-semibold text-foreground">Energy Consumption Modifier (%)</Text>
               <Text className="text-xs text-muted">100 = no change, 95 = -5%, 110 = +10%</Text>
-              <TextInput
+              <TextInput onFocus={onInputFocus}
                 value={energyModifier}
                 onChangeText={setEnergyModifier}
                 placeholder="100"

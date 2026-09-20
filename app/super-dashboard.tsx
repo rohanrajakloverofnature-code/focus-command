@@ -6,6 +6,7 @@ import { BarsChart, DonutChart, type ChartPoint } from "@/components/focus-chart
 import { CommandCard, IconAction, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { shallowEqual, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import {
   formatSuperDashboardMinutes,
@@ -96,6 +97,7 @@ function highlightedStyle(color: string) {
 
 export default function SuperDashboardScreen() {
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const state = useFocusCommandSelector(selectSuperDashboardState, sameSuperDashboardState);
   const [rangeKind, setRangeKind] = useState<SuperDashboardRangeKind>("week");
@@ -129,7 +131,7 @@ export default function SuperDashboardScreen() {
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background" edges={["top", "bottom", "left", "right"]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle
           eyebrow="Private · complete local view"
           title="Super Dashboard"
@@ -146,8 +148,8 @@ export default function SuperDashboardScreen() {
           </View>)}
         </View>
         {rangeKind === "custom" ? <View style={styles.customRow}>
-          <TextInput value={customStart} onChangeText={setCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.dateInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
-          <TextInput value={customEnd} onChangeText={setCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.dateInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+          <TextInput onFocus={onInputFocus} value={customStart} onChangeText={setCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.dateInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+          <TextInput onFocus={onInputFocus} value={customEnd} onChangeText={setCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.dateInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
         </View> : null}
 
         {rangeIsCustomInvalid ? <CommandCard accent={colors.warning} style={styles.messageCard}>

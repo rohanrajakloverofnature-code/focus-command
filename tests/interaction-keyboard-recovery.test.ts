@@ -11,6 +11,7 @@ const themeProviderSource = readFileSync(resolve(process.cwd(), "lib/theme-provi
 const keyboardHookSource = readFileSync(resolve(process.cwd(), "hooks/use-keyboard-safe-focus.ts"), "utf8");
 const missionSource = readFileSync(resolve(process.cwd(), "app/mission/[id].tsx"), "utf8");
 const recoverySource = readFileSync(resolve(process.cwd(), "app/recovery-rhythm.tsx"), "utf8");
+const journalSource = readFileSync(resolve(process.cwd(), "app/(tabs)/journal.tsx"), "utf8");
 const dashboardSource = readFileSync(resolve(process.cwd(), "app/super-dashboard.tsx"), "utf8");
 const dashboardTabSource = readFileSync(resolve(process.cwd(), "app/(tabs)/dashboard.tsx"), "utf8");
 const focusCommandSource = readFileSync(resolve(process.cwd(), "lib/focus-command.tsx"), "utf8");
@@ -51,9 +52,9 @@ describe("first-touch, keyboard, and recovery-save contracts", () => {
     expect(rootSource).not.toContain('behavior={Platform.OS === "ios" ? "padding" : "height"}');
     expect(keyboardHookSource).toContain("scrollResponderScrollNativeHandleToKeyboard");
     expect(keyboardHookSource).toContain("requestAnimationFrame");
-    expect(missionSource).toContain("useKeyboardSafeFocus<ScrollView>()");
+    expect(missionSource).toContain("useKeyboardSafeFocus()");
     expect(missionSource).toContain("onFocus={onInputFocus}");
-    expect(recoverySource).toContain("useKeyboardSafeFocus<FlatList<RecoveryListRecord>>()");
+    expect(recoverySource).toContain("useKeyboardSafeFocus<FlatList<RecoveryListRecord>>");
     expect(recoverySource).toContain('keyboardShouldPersistTaps="handled"');
     expect(themeProviderSource).toContain("backgroundColor: palette.background");
     expect(themeProviderSource).toContain("SystemUI.setBackgroundColorAsync(palette.background)");
@@ -70,6 +71,13 @@ describe("first-touch, keyboard, and recovery-save contracts", () => {
     expect(recoverySource).toContain("scrollEventThrottle={32}");
     expect(missionSource).toContain("onScroll={onScroll}");
     expect(missionSource).toContain("scrollEventThrottle={32}");
+    expect(journalSource).toContain("useKeyboardSafeFocus()");
+    expect(journalSource).toContain("ref={scrollRef}");
+    expect(journalSource).toContain('keyboardDismissMode="none"');
+    expect(journalSource).toContain("onScroll={onScroll}");
+    expect(journalSource).toContain("onFocus={onInputFocus}");
+    expect(readFileSync(resolve(process.cwd(), "components/distraction-logger.tsx"), "utf8")).toContain("keyboardDismissMode=\"none\"");
+    expect(readFileSync(resolve(process.cwd(), "components/distraction-logger.tsx"), "utf8")).toContain("onFocus={onInputFocus}");
     expect(keyboardHookSource).not.toContain("paddingBottom");
     expect(rootSource).not.toContain('behavior="height"');
   });

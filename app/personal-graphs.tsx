@@ -6,6 +6,7 @@ import { PersonalGraphTrendChart } from "@/components/focus-charts";
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { PERSONAL_GRAPH_COLORS, type PersonalGraphDatePrecision, type PersonalGraphRange } from "@/lib/personal-graphs";
 
@@ -20,6 +21,7 @@ const rangeOptions: { value: PersonalGraphRange; label: string }[] = [
 
 export default function PersonalGraphsScreen() {
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const { graphId } = useLocalSearchParams<{ graphId?: string }>();
   const graphs = useFocusCommandSelector((state) => state.personalGraphs);
@@ -110,7 +112,7 @@ export default function PersonalGraphsScreen() {
   const selectedPrecision = precisionOptions.find((option) => option.value === graph.datePrecision) ?? precisionOptions[0];
 
   return <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
-    <FlatList
+    <FlatList ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none"
       data={pointRows}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.content}
@@ -122,10 +124,10 @@ export default function PersonalGraphsScreen() {
 
         <SectionHeader title="Graph identity" />
         <CommandCard accent={colors.primary} style={styles.cardStack}>
-          <TextInput value={titleDraft} onChangeText={setTitleDraft} onEndEditing={saveLabels} placeholder="Graph title" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+          <TextInput onFocus={onInputFocus} value={titleDraft} onChangeText={setTitleDraft} onEndEditing={saveLabels} placeholder="Graph title" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
           <View style={styles.axisRow}>
-            <TextInput value={xAxisDraft} onChangeText={setXAxisDraft} onEndEditing={saveLabels} placeholder="X-axis name" placeholderTextColor={colors.muted} style={[styles.axisInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-            <TextInput value={yAxisDraft} onChangeText={setYAxisDraft} onEndEditing={saveLabels} placeholder="Y-axis name" placeholderTextColor={colors.muted} style={[styles.axisInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            <TextInput onFocus={onInputFocus} value={xAxisDraft} onChangeText={setXAxisDraft} onEndEditing={saveLabels} placeholder="X-axis name" placeholderTextColor={colors.muted} style={[styles.axisInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            <TextInput onFocus={onInputFocus} value={yAxisDraft} onChangeText={setYAxisDraft} onEndEditing={saveLabels} placeholder="Y-axis name" placeholderTextColor={colors.muted} style={[styles.axisInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
           </View>
           <Text style={[styles.help, { color: colors.muted }]}>Choose your time format before adding points. It locks after the first saved point so no existing date can be changed or lost.</Text>
           <View style={styles.choiceRow}>{precisionOptions.map((option) => <Pressable key={option.value} onPress={() => changePrecision(option.value)} style={({ pressed }) => [styles.choice, { borderColor: option.value === graph.datePrecision ? colors.primary : colors.border, backgroundColor: option.value === graph.datePrecision ? `${colors.primary}1A` : colors.background, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.choiceTitle, { color: option.value === graph.datePrecision ? colors.primary : colors.muted }]}>{option.label}</Text><Text style={[styles.choiceExample, { color: colors.muted }]}>{option.example}</Text></Pressable>)}</View>
@@ -135,15 +137,15 @@ export default function PersonalGraphsScreen() {
         <SectionHeader title={`Lines · ${graph.lines.length}/4`} />
         <CommandCard accent={colors.success} style={styles.cardStack}>
           <Text style={[styles.help, { color: colors.muted }]}>Name up to four lines. Every line shares your one numeric Y-axis, so visible intersections are real comparisons of your values.</Text>
-          <View style={styles.addRow}><TextInput value={lineDraft} onChangeText={setLineDraft} placeholder="e.g., Mock score" placeholderTextColor={colors.muted} style={[styles.flexInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /><CommandButton label="Add line" icon="plus" onPress={addLine} style={styles.addButton} /></View>
-          {graph.lines.map((line) => <View key={line.id} style={[styles.lineEditor, { borderColor: line.color, backgroundColor: colors.background }]}><Pressable onPress={() => setSelectedLineId(line.id)} style={({ pressed }) => [styles.lineSelector, { backgroundColor: selectedLineId === line.id ? `${line.color}1A` : "transparent", opacity: pressed ? 0.72 : 1 }]}><View style={[styles.dot, { backgroundColor: line.color }]} /><Text style={[styles.lineName, { color: selectedLineId === line.id ? line.color : colors.foreground }]}>SELECT LINE</Text></Pressable><TextInput defaultValue={line.name} onEndEditing={({ nativeEvent }) => updatePersonalGraphLine(graph.id, line.id, { name: nativeEvent.text })} placeholder="Line name" placeholderTextColor={colors.muted} style={[styles.lineNameInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} /><View style={styles.colorRow}>{PERSONAL_GRAPH_COLORS.map((color) => <Pressable key={color} onPress={() => updatePersonalGraphLine(graph.id, line.id, { color })} style={({ pressed }) => [styles.colorButton, { borderColor: line.color === color ? color : colors.border, opacity: pressed ? 0.65 : 1 }]}><View style={[styles.colorFill, { backgroundColor: color }]} /></Pressable>)}</View><IconAction icon="xmark" label={`Remove ${line.name}`} onPress={() => Alert.alert("Remove this line?", `This removes ${line.name} and only its ${graph.points.filter((point) => point.lineId === line.id).length} Personal Graph points.`, [{ text: "Cancel" }, { text: "Remove", style: "destructive", onPress: () => removePersonalGraphLine(graph.id, line.id) }])} /></View>)}
+          <View style={styles.addRow}><TextInput onFocus={onInputFocus} value={lineDraft} onChangeText={setLineDraft} placeholder="e.g., Mock score" placeholderTextColor={colors.muted} style={[styles.flexInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /><CommandButton label="Add line" icon="plus" onPress={addLine} style={styles.addButton} /></View>
+          {graph.lines.map((line) => <View key={line.id} style={[styles.lineEditor, { borderColor: line.color, backgroundColor: colors.background }]}><Pressable onPress={() => setSelectedLineId(line.id)} style={({ pressed }) => [styles.lineSelector, { backgroundColor: selectedLineId === line.id ? `${line.color}1A` : "transparent", opacity: pressed ? 0.72 : 1 }]}><View style={[styles.dot, { backgroundColor: line.color }]} /><Text style={[styles.lineName, { color: selectedLineId === line.id ? line.color : colors.foreground }]}>SELECT LINE</Text></Pressable><TextInput onFocus={onInputFocus} defaultValue={line.name} onEndEditing={({ nativeEvent }) => updatePersonalGraphLine(graph.id, line.id, { name: nativeEvent.text })} placeholder="Line name" placeholderTextColor={colors.muted} style={[styles.lineNameInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} /><View style={styles.colorRow}>{PERSONAL_GRAPH_COLORS.map((color) => <Pressable key={color} onPress={() => updatePersonalGraphLine(graph.id, line.id, { color })} style={({ pressed }) => [styles.colorButton, { borderColor: line.color === color ? color : colors.border, opacity: pressed ? 0.65 : 1 }]}><View style={[styles.colorFill, { backgroundColor: color }]} /></Pressable>)}</View><IconAction icon="xmark" label={`Remove ${line.name}`} onPress={() => Alert.alert("Remove this line?", `This removes ${line.name} and only its ${graph.points.filter((point) => point.lineId === line.id).length} Personal Graph points.`, [{ text: "Cancel" }, { text: "Remove", style: "destructive", onPress: () => removePersonalGraphLine(graph.id, line.id) }])} /></View>)}
         </CommandCard>
 
         <SectionHeader title="Add a real point" />
         <CommandCard accent="#F4C95D" style={styles.cardStack}>
           <Text style={[styles.help, { color: colors.muted }]}>Selected time format: {selectedPrecision.label} ({selectedPrecision.example}). One value per named line at each time value keeps the chart truthful and easy to read.</Text>
           <View style={styles.lineChoiceRow}>{graph.lines.map((line) => <Pressable key={line.id} onPress={() => setSelectedLineId(line.id)} style={({ pressed }) => [styles.lineChoice, { borderColor: selectedLineId === line.id ? line.color : colors.border, backgroundColor: selectedLineId === line.id ? `${line.color}1A` : colors.background, opacity: pressed ? 0.72 : 1 }]}><View style={[styles.dot, { backgroundColor: line.color }]} /><Text style={[styles.lineChoiceText, { color: selectedLineId === line.id ? line.color : colors.muted }]}>{line.name}</Text></Pressable>)}</View>
-          <View style={styles.axisRow}><TextInput value={xValue} onChangeText={setXValue} placeholder={selectedPrecision.example} placeholderTextColor={colors.muted} autoCapitalize="none" style={[styles.axisInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /><TextInput value={yValue} onChangeText={setYValue} placeholder={graph.yAxisLabel} placeholderTextColor={colors.muted} keyboardType="decimal-pad" style={[styles.axisInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /></View>
+          <View style={styles.axisRow}><TextInput onFocus={onInputFocus} value={xValue} onChangeText={setXValue} placeholder={selectedPrecision.example} placeholderTextColor={colors.muted} autoCapitalize="none" style={[styles.axisInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /><TextInput onFocus={onInputFocus} value={yValue} onChangeText={setYValue} placeholder={graph.yAxisLabel} placeholderTextColor={colors.muted} keyboardType="decimal-pad" style={[styles.axisInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /></View>
           <View style={styles.addRow}><CommandButton label={editingPointId ? "Save point" : "Add point"} icon={editingPointId ? "checklist" : "plus"} onPress={savePoint} style={styles.flexButton} />{editingPointId ? <CommandButton label="Cancel" variant="secondary" onPress={() => { setEditingPointId(null); setXValue(""); setYValue(""); }} style={styles.cancelButton} /> : null}</View>
         </CommandCard>
 

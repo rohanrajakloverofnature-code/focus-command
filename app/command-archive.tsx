@@ -6,6 +6,7 @@ import { BarsChart, LineTrendChart, type ChartPoint } from "@/components/focus-c
 import { CommandCard, IconAction, LoadingScreen, ScreenTitle, SectionHeader, TapFeedback } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import {
   MONTHLY_ARCHIVE_METRICS,
@@ -62,6 +63,7 @@ function formatMetricValue(month: MonthlyCommandArchiveMonth, metric: MonthlyArc
 
 function MonthMetric({ label, value, accent, onPress }: { label: string; value: string; accent: string; onPress?: () => void }) {
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const content = <View style={[styles.monthMetric, { borderColor: `${accent}66`, backgroundColor: colors.background }]}>
     <Text style={[styles.monthMetricValue, { color: accent }]}>{value}</Text>
     <Text style={[styles.monthMetricLabel, { color: colors.muted }]}>{label}</Text>

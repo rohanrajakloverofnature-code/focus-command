@@ -11,6 +11,7 @@ import { MistakeLedgerCard } from "@/components/mistake-ledger-card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { formatCompactNumber, getCalendarTimeAverages, getDashboardDistributionStats, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getMissionCompletionRecordsInLocalDateRange, getTotalPower, getWellbeingInsight, toLocalDate, type DashboardDistributionRange, type FocusState, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { RECOGNITION_WINDOW_LAYOUT } from "@/lib/focus-layout";
 import { getFocusFrictionInsight, getFocusFrictionRangePresentation, type FocusFrictionRange } from "@/lib/distraction-log";
@@ -171,6 +172,7 @@ function hasSameDashboardDependencies(left: DashboardDependencies, right: Dashbo
 export default function DashboardScreen() {
   const isFocused = useIsFocused();
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const { addLifelinePoint, removeLifelinePoint, updateProfile } = useFocusCommandActions();
   const subscribedState = useFocusCommandSelector(selectDashboardDependencies, hasSameDashboardDependencies) as FocusState;
@@ -381,7 +383,7 @@ export default function DashboardScreen() {
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background">
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle
           eyebrow="Analytics suite"
           title="Command intelligence"
@@ -422,7 +424,7 @@ export default function DashboardScreen() {
           </CommandCard>
         </TapFeedback>
 
-        <CrossedGatesCard />
+        <CrossedGatesCard onInputFocus={onInputFocus} />
 
         <MistakeLedgerCard />
 
@@ -464,7 +466,7 @@ export default function DashboardScreen() {
         <CommandCard accent="#F4C95D" style={styles.distributionRangeCard}>
           <Text style={[styles.distributionRangeLabel, { color: "#F4C95D" }]}>VIEW POWER & TIME RANGE</Text>
           <View style={styles.distributionRangeChips}>{DASHBOARD_RANGE_OPTIONS.map((kind) => { const active = historyRangeKind === kind; return <Pressable key={kind} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`View power and time for ${dashboardRangeLabel(kind)}`} onPress={() => setHistoryRangeKind(kind)} style={({ pressed }) => [styles.distributionRangeChip, { borderColor: active ? "#F4C95D" : colors.border, backgroundColor: active ? "#F4C95D18" : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.distributionRangeChipText, { color: active ? "#F4C95D" : colors.foreground }]}>{dashboardRangeLabel(kind)}</Text></Pressable>; })}</View>
-          {historyRangeKind === "custom" ? <View style={styles.distributionCustomInputs}><TextInput value={historyCustomStart} onChangeText={setHistoryCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /><TextInput value={historyCustomEnd} onChangeText={setHistoryCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
+          {historyRangeKind === "custom" ? <View style={styles.distributionCustomInputs}><TextInput onFocus={onInputFocus} value={historyCustomStart} onChangeText={setHistoryCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /><TextInput onFocus={onInputFocus} value={historyCustomEnd} onChangeText={setHistoryCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
           <Text style={[styles.distributionRangeDetail, { color: colors.muted }]}>Both charts use the same selected inclusive local-date range. Current default remains 14 days.</Text>
         </CommandCard>
         <InteractiveChartCard title="Total Power by day" detail={`Awarded power in ${dashboardRangeLabel(historyRangeKind)}`} tag="POWER" onPress={() => router.push("/analytics?metric=power" as never)}>
@@ -484,7 +486,7 @@ export default function DashboardScreen() {
               return <Pressable key={kind} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`View distribution for ${label}`} onPress={() => setDistributionRangeKind(kind)} style={({ pressed }) => [styles.distributionRangeChip, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? `${colors.primary}18` : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.distributionRangeChipText, { color: active ? colors.primary : colors.foreground }]}>{label}</Text></Pressable>;
             })}
           </View>
-          {distributionRangeKind === "custom" ? <View style={styles.distributionCustomInputs}><TextInput value={distributionCustomStart} onChangeText={setDistributionCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /><TextInput value={distributionCustomEnd} onChangeText={setDistributionCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
+          {distributionRangeKind === "custom" ? <View style={styles.distributionCustomInputs}><TextInput onFocus={onInputFocus} value={distributionCustomStart} onChangeText={setDistributionCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /><TextInput onFocus={onInputFocus} value={distributionCustomEnd} onChangeText={setDistributionCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
         </CommandCard>
         <View style={styles.distributionGrid}>
           <CommandCard accent={colors.primary} style={styles.distributionCard}>
@@ -596,8 +598,8 @@ export default function DashboardScreen() {
           </View>
           {focusFrictionRangeKind === "custom" ? <View style={styles.frictionCustomRange}>
             <View style={styles.frictionCustomInputs}>
-              <TextInput value={customFrictionStart} onChangeText={setCustomFrictionStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.frictionDateInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-              <TextInput value={customFrictionEnd} onChangeText={setCustomFrictionEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.frictionDateInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+              <TextInput onFocus={onInputFocus} value={customFrictionStart} onChangeText={setCustomFrictionStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.frictionDateInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+              <TextInput onFocus={onInputFocus} value={customFrictionEnd} onChangeText={setCustomFrictionEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.frictionDateInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
             </View>
             <CommandButton label="Apply" variant="secondary" onPress={applyCustomFocusFrictionRange} />
             {focusFrictionRangeError ? <Text style={[styles.frictionRangeError, { color: colors.error }]}>{focusFrictionRangeError}</Text> : null}
@@ -619,7 +621,7 @@ export default function DashboardScreen() {
         <CommandCard accent={colors.warning} style={styles.distributionRangeCard}>
           <Text style={[styles.distributionRangeLabel, { color: colors.warning }]}>VIEW RADAR RANGE</Text>
           <View style={styles.distributionRangeChips}>{DASHBOARD_RANGE_OPTIONS.map((kind) => { const active = radarRangeKind === kind; return <Pressable key={kind} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`View radars for ${dashboardRangeLabel(kind)}`} onPress={() => setRadarRangeKind(kind)} style={({ pressed }) => [styles.distributionRangeChip, { borderColor: active ? colors.warning : colors.border, backgroundColor: active ? `${colors.warning}18` : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.distributionRangeChipText, { color: active ? colors.warning : colors.foreground }]}>{dashboardRangeLabel(kind)}</Text></Pressable>; })}</View>
-          {radarRangeKind === "custom" ? <View style={styles.distributionCustomInputs}><TextInput value={radarCustomStart} onChangeText={setRadarCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /><TextInput value={radarCustomEnd} onChangeText={setRadarCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
+          {radarRangeKind === "custom" ? <View style={styles.distributionCustomInputs}><TextInput onFocus={onInputFocus} value={radarCustomStart} onChangeText={setRadarCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /><TextInput onFocus={onInputFocus} value={radarCustomEnd} onChangeText={setRadarCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
           <Text style={[styles.distributionRangeDetail, { color: colors.muted }]}>Both radars use reflections created inside the same selected local-date range. Default remains Lifetime.</Text>
         </CommandCard>
         <InteractiveChartCard title="Emotional radar" detail={`How you tend to feel after finishing work · ${dashboardRangeLabel(radarRangeKind)}`} tag="INSIGHT" onPress={() => router.push("/analytics?metric=emotion" as never)}>
@@ -642,7 +644,7 @@ export default function DashboardScreen() {
         <View style={styles.behavioralWindowRow}>
           {(["last12", "last100", "last500", "lifetime", "custom"] as const).map((window) => <TapFeedback key={window} onPress={() => chooseBehavioralReflectionWindow(window)} accessibilityLabel={`Show ${window === "lifetime" ? "lifetime" : window === "custom" ? "a custom number of" : window.replace("last", "last ")} reflections`} style={[styles.behavioralWindowOption, { borderColor: state.profile.behavioralReflectionWindow === window ? `${colors.primary}99` : colors.border, backgroundColor: state.profile.behavioralReflectionWindow === window ? `${colors.primary}18` : colors.background }]}><Text style={[styles.behavioralWindowOptionLabel, { color: state.profile.behavioralReflectionWindow === window ? colors.primary : colors.muted }]}>{window === "last12" ? "12" : window === "last100" ? "100" : window === "last500" ? "500" : window === "lifetime" ? "LIFE" : "CUSTOM"}</Text></TapFeedback>)}
         </View>
-        {state.profile.behavioralReflectionWindow === "custom" ? <View style={styles.behavioralCustomWindow}><TextInput value={customBehavioralReflectionCount} onChangeText={setCustomBehavioralReflectionCount} keyboardType="number-pad" placeholder="Number of reflections" placeholderTextColor={colors.muted} style={[styles.behavioralCustomInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /><CommandButton label="Apply" variant="secondary" onPress={applyCustomBehavioralReflectionWindow} /></View> : null}
+        {state.profile.behavioralReflectionWindow === "custom" ? <View style={styles.behavioralCustomWindow}><TextInput onFocus={onInputFocus} value={customBehavioralReflectionCount} onChangeText={setCustomBehavioralReflectionCount} keyboardType="number-pad" placeholder="Number of reflections" placeholderTextColor={colors.muted} style={[styles.behavioralCustomInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /><CommandButton label="Apply" variant="secondary" onPress={applyCustomBehavioralReflectionWindow} /></View> : null}
         <Text style={[styles.behavioralWindowDetail, { color: colors.muted }]}>Showing {recentEmotionReflections.length} of {state.reflections.length} completed-mission debrief{state.reflections.length === 1 ? "" : "s"} · {behavioralWindowLabel}</Text>
         <View style={styles.behavioralStack}>
           {behavioralCharts.filter(({ chart }) => chart.enabled).map(({ chart, detail, series }) => (
@@ -658,11 +660,11 @@ export default function DashboardScreen() {
             <Text style={[styles.editorTitle, { color: colors.foreground }]}>Add a Lifeline baseline</Text>
             <Text style={[styles.editorDetail, { color: colors.muted }]}>Record a year from your life history. Daily journal points remain a separate, derived contribution.</Text>
             <View style={styles.editorRow}>
-              <TextInput value={birthYear} onChangeText={setBirthYear} keyboardType="number-pad" placeholder="Year" placeholderTextColor={colors.muted} style={[styles.editorInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-              <TextInput value={lifePerformance} onChangeText={setLifePerformance} keyboardType="decimal-pad" placeholder="Life" placeholderTextColor={colors.muted} style={[styles.editorInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-              <TextInput value={experience} onChangeText={setExperience} keyboardType="decimal-pad" placeholder="Experience" placeholderTextColor={colors.muted} style={[styles.editorInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+              <TextInput onFocus={onInputFocus} value={birthYear} onChangeText={setBirthYear} keyboardType="number-pad" placeholder="Year" placeholderTextColor={colors.muted} style={[styles.editorInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+              <TextInput onFocus={onInputFocus} value={lifePerformance} onChangeText={setLifePerformance} keyboardType="decimal-pad" placeholder="Life" placeholderTextColor={colors.muted} style={[styles.editorInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+              <TextInput onFocus={onInputFocus} value={experience} onChangeText={setExperience} keyboardType="decimal-pad" placeholder="Experience" placeholderTextColor={colors.muted} style={[styles.editorInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
             </View>
-            <TextInput value={lifelineNote} onChangeText={setLifelineNote} placeholder="Optional note" placeholderTextColor={colors.muted} style={[styles.noteInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            <TextInput onFocus={onInputFocus} value={lifelineNote} onChangeText={setLifelineNote} placeholder="Optional note" placeholderTextColor={colors.muted} style={[styles.noteInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
             <CommandButton label="Add baseline" icon="plus" onPress={submitLifelinePoint} />
           </CommandCard>
         ) : null}

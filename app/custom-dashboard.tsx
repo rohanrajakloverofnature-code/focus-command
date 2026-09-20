@@ -1,11 +1,12 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 
 import { BarsChart, DonutChart, LineTrendChart, RadarChart } from "@/components/focus-charts";
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import {
   DashboardChartType,
   DashboardDateRange,
@@ -44,6 +45,7 @@ function normaliseWidget(widget: DashboardWidgetConfig): DashboardWidgetConfig {
 
 export default function CustomDashboardScreen() {
   const colors = useColors();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const { updateProfile } = useFocusCommandActions();
   const workspaceState = useFocusCommandSelector((state) => ({
@@ -92,7 +94,7 @@ export default function CustomDashboardScreen() {
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background" edges={["top", "bottom", "left", "right"]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle
           eyebrow="Dashboard within Dashboard"
           title="Custom analytics"
@@ -134,6 +136,7 @@ export default function CustomDashboardScreen() {
               workspaceState={workspaceState}
               onToggle={() => setExpandedWidgetId((current) => current === widget.id ? null : widget.id)}
               onUpdate={(patch) => updateWidget(widget.id, patch)}
+              onInputFocus={onInputFocus}
               onRemove={() => removeWidget(widget.id)}
             />
           ))}
@@ -155,6 +158,7 @@ function DashboardWidgetCard({
   workspaceState,
   onToggle,
   onUpdate,
+  onInputFocus,
   onRemove,
 }: {
   widget: DashboardWidgetConfig;
@@ -165,6 +169,7 @@ function DashboardWidgetCard({
   workspaceState: Pick<FocusState, "profile" | "missions" | "missionCompletions" | "progression" | "reflections" | "journals" | "transactions" | "srsTopics">;
   onToggle: () => void;
   onUpdate: (patch: Partial<DashboardWidgetConfig>) => void;
+  onInputFocus: TextInputProps["onFocus"];
   onRemove: () => void;
 }) {
   const colors = useColors();
@@ -194,14 +199,14 @@ function DashboardWidgetCard({
         <Text style={[styles.editorDetail, { color: colors.muted }]}>Each selection affects this widget only. Choose any combination; the preview updates from records that match it.</Text>
 
         <Text style={[styles.fieldLabel, { color: colors.muted }]}>WIDGET TITLE</Text>
-        <TextInput value={widget.title} onChangeText={(title) => onUpdate({ title })} placeholder={result.metricLabel} placeholderTextColor={colors.muted} style={[styles.titleInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+        <TextInput onFocus={onInputFocus} value={widget.title} onChangeText={(title) => onUpdate({ title })} placeholder={result.metricLabel} placeholderTextColor={colors.muted} style={[styles.titleInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
 
         <OptionGroup label="Metric" items={DASHBOARD_METRICS.map((item) => ({ id: item.id, label: item.shortLabel }))} selected={widget.metric} accent={accent} onChange={(value) => onUpdate({ metric: value as DashboardMetricId })} />
         <OptionGroup label="Chart style" items={DASHBOARD_CHART_TYPES.map((item) => ({ id: item.id, label: item.label }))} selected={widget.chartType} accent={accent} onChange={(value) => onUpdate({ chartType: value as DashboardChartType })} />
         <OptionGroup label="Date range" items={DASHBOARD_DATE_RANGES} selected={widget.dateRange} accent={accent} onChange={(value) => onUpdate({ dateRange: value as DashboardDateRange })} />
         {widget.dateRange === "custom" ? <View style={styles.customDateRow}>
-          <TextInput value={widget.customStartDate} onChangeText={(customStartDate) => onUpdate({ customStartDate })} autoCapitalize="none" placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
-          <TextInput value={widget.customEndDate} onChangeText={(customEndDate) => onUpdate({ customEndDate })} autoCapitalize="none" placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+          <TextInput onFocus={onInputFocus} value={widget.customStartDate} onChangeText={(customStartDate) => onUpdate({ customStartDate })} autoCapitalize="none" placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
+          <TextInput onFocus={onInputFocus} value={widget.customEndDate} onChangeText={(customEndDate) => onUpdate({ customEndDate })} autoCapitalize="none" placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
         </View> : null}
         <Text style={[styles.dateHint, { color: colors.muted }]}>{widget.dateRange === "custom" ? "Use YYYY-MM-DD. Leaving either date blank falls back to a recent 30-day view or today." : "Choose Custom dates for an exact start and end date."}</Text>
 
