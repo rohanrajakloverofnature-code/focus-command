@@ -54,11 +54,24 @@ describe("first-touch, keyboard, and recovery-save contracts", () => {
     expect(missionSource).toContain("useKeyboardSafeFocus<ScrollView>()");
     expect(missionSource).toContain("onFocus={onInputFocus}");
     expect(recoverySource).toContain("useKeyboardSafeFocus<FlatList<RecoveryListRecord>>()");
-    expect(recoverySource).toContain("keyboardShouldPersistTaps=\"handled\"");
+    expect(recoverySource).toContain('keyboardShouldPersistTaps="handled"');
     expect(themeProviderSource).toContain("backgroundColor: palette.background");
     expect(themeProviderSource).toContain("SystemUI.setBackgroundColorAsync(palette.background)");
     expect(themeProviderSource).toContain("NavigationBar.setBackgroundColorAsync(palette.background)");
     expect(appConfigSource).toContain("androidNavigationBar:");
+  });
+
+  it("keeps the focused field above the keyboard after manual scrolling without adding an inset", () => {
+    expect(keyboardHookSource).toContain('Keyboard.addListener("keyboardDidShow"');
+    expect(keyboardHookSource).toContain('Keyboard.addListener("keyboardDidChangeFrame"');
+    expect(keyboardHookSource).toContain("const onScroll");
+    expect(keyboardHookSource).toContain("keepFocusedInputVisible");
+    expect(recoverySource).toContain("onScroll={onScroll}");
+    expect(recoverySource).toContain("scrollEventThrottle={32}");
+    expect(missionSource).toContain("onScroll={onScroll}");
+    expect(missionSource).toContain("scrollEventThrottle={32}");
+    expect(keyboardHookSource).not.toContain("paddingBottom");
+    expect(rootSource).not.toContain('behavior="height"');
   });
 
   it("acknowledges accepted recovery saves immediately while retaining single-frame duplicate protection", () => {

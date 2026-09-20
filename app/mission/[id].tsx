@@ -94,7 +94,7 @@ function selectMissionDetailSnapshot(state: FocusState, missionId: string | unde
 
 export default function MissionDetailScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus } = useKeyboardSafeFocus<ScrollView>();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus<ScrollView>();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { startMission, startMissionThroughShadowGate, toggleMissionPause, finishMission, logDistraction, logRevisionTopic, completeRevision, updateMission, removeMission } = useFocusCommandActions();
   const detail = useFocusCommandSelector((state) => selectMissionDetailSnapshot(state, id), hasSameMissionDetailSnapshot);
@@ -292,7 +292,7 @@ export default function MissionDetailScreen() {
 
   return (
     <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" onScroll={onScroll} scrollEventThrottle={32}>
         <ScreenTitle
           eyebrow={mission.status === "completed" ? "Completed mission" : "Mission control"}
           title={mission.title}

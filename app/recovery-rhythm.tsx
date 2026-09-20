@@ -42,7 +42,7 @@ export default function RecoveryRhythmScreen() {
     illnessContexts: state.illnessContextRecords ?? [],
   }), shallowEqual);
   const actions = useFocusCommandActions();
-  const { scrollRef, onInputFocus } = useKeyboardSafeFocus<FlatList<RecoveryListRecord>>();
+  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus<FlatList<RecoveryListRecord>>();
   const [view, setView] = useState<ViewKey>("stress");
   const [savedKind, setSavedKind] = useState<ViewKey | "nap" | null>(null);
   const saveLockRef = useRef(false);
@@ -188,6 +188,8 @@ export default function RecoveryRhythmScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      onScroll={onScroll}
+      scrollEventThrottle={32}
       ListHeaderComponent={<>
         <ScreenTitle eyebrow="Private · On device" title="Recovery & Rhythm" detail="Log → understand → act → recover. This is private self-reflection, not diagnosis." right={<IconAction icon="chart.xyaxis.line" label="Open Recovery history" onPress={() => router.push("/recovery-rhythm-history" as never)} />} />
         <CommandCard accent={colors.success} style={styles.summaryCard}>
