@@ -100,6 +100,7 @@ function stateWithRecords(): FocusState {
     bodySensations: [],
     concern: "",
     controllability: "influence",
+    controlNote: "",
     frequency: "",
     urgency: "",
     localDate: "2026-09-18",

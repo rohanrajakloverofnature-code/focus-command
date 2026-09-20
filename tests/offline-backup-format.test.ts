@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 
-import { createInitialState, type FocusState } from "../lib/focus-command";
+import { createInitialState, normalizeHydratedState, type FocusState } from "../lib/focus-command";
 import {
   createOfflineBackupArchive,
   hashBackupBytes,
@@ -39,7 +39,7 @@ function createPopulatedState(): FocusState {
   state.profile.tickerColorPreferences = { miniAchievement: { source: "character", surface: null, accent: null }, prediction: { source: "custom", surface: "#17102B", accent: "#16C7E8" } };
   state.profile.homeProfileCardColorPreference = { source: "custom", surface: "#101820", accent: "#F0C75E" };
   state.characterMilestones = [{ id: "milestone_backup", sourceProgressionEventId: "xp_backup", formKey: "custom:arcane_commander", formName: "Arcane Commander", portraitUri: "file:///portraits/arcane.png", achievedAt: "2026-08-14T08:00:00.000Z", levelAtAchievement: 600, totalPowerAtAchievement: 120_000 }];
-  state.recoveryStressors = [{ id: "stress_backup", title: "Exam week", category: "Study", status: "action", intensity: 7, emotions: ["worried"], bodySensations: [], concern: "", controllability: "influence", frequency: "", urgency: "", localDate: "2026-08-14", createdAt: "2026-08-14T07:00:00.000Z", updatedAt: "2026-08-14T07:00:00.000Z" }];
+  state.recoveryStressors = [{ id: "stress_backup", title: "Exam week", category: "Study", status: "action", intensity: 7, emotions: ["worried"], bodySensations: [], concern: "", controllability: "influence", controlNote: "Ask the teacher what to prioritise", frequency: "", urgency: "", localDate: "2026-08-14", createdAt: "2026-08-14T07:00:00.000Z", updatedAt: "2026-08-14T07:00:00.000Z" }];
   state.recoveryActions = [{ id: "action_backup", stressorId: "stress_backup", type: "grounding", beforeIntensity: 7, afterIntensity: 4, note: "", localDate: "2026-08-14", occurredAt: "2026-08-14T07:10:00.000Z" }];
   state.sleepLogs = [{ id: "sleep_backup", localDate: "2026-08-14", entryMode: "duration", durationMinutes: 420, bedTime: null, wakeTime: null, quality: 4, dreams: "some_remembered", awakenings: "once", awakeningCount: 1, restedRating: 4, note: "", createdAt: "2026-08-14T07:00:00.000Z", updatedAt: "2026-08-14T07:00:00.000Z" }];
   state.napLogs = [{ id: "nap_backup", localDate: "2026-08-14", durationMinutes: 25, note: "", createdAt: "2026-08-14T15:00:00.000Z", updatedAt: "2026-08-14T15:00:00.000Z" }];
@@ -189,6 +189,27 @@ describe("offline Focus Command backup format", () => {
     expect(parseOfflineBackupArchive(legacy).state.corePrincipleItems).toEqual([]);
     expect(parseOfflineBackupArchive(legacy).state.corePrincipleDailyCheckIns).toEqual([]);
     expect(parseOfflineBackupArchive(legacy).state.illnessContextRecords).toEqual([]);
+  });
+
+  it("hydrates older stress records without the optional private control note", () => {
+    const state = createInitialState();
+    state.hydrated = true;
+    state.recoveryStressors = [{ id: "stress_legacy", title: "Exam week", category: "Study", status: "action", intensity: 7, emotions: [], bodySensations: [], concern: "", controllability: "influence", controlNote: "Ask the teacher what to prioritise", frequency: "", urgency: "", localDate: "2026-08-14", createdAt: "2026-08-14T07:00:00.000Z", updatedAt: "2026-08-14T07:00:00.000Z" }];
+    const { archive } = createOfflineBackupArchive(state);
+    const legacy = mutateArchive(archive, (entries) => {
+      const state = JSON.parse(strFromU8(entries["state.json"])) as { recoveryStressors?: Array<Record<string, unknown>> };
+      delete state.recoveryStressors?.[0]?.controlNote;
+      const stateBytes = strToU8(JSON.stringify(state));
+      entries["state.json"] = stateBytes;
+      const manifest = readManifest(entries);
+      manifest.stateSha256 = hashBackupBytes(stateBytes);
+      writeManifest(entries, manifest);
+    });
+
+    const parsed = parseOfflineBackupArchive(legacy);
+    const hydrated = normalizeHydratedState(parsed.state);
+    expect(hydrated.recoveryStressors?.[0]?.controlNote).toBe("");
+    expect(hydrated.recoveryStressors?.[0]?.title).toBe("Exam week");
   });
 
   it("round-trips built-in form music plus a complete custom form media set", () => {

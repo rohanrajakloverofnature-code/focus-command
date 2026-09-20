@@ -722,6 +722,8 @@ export interface RecoveryStressor {
   bodySensations: string[];
   concern: string;
   controllability: "control" | "influence" | "cannot_control_today" | "unclear";
+  /** Optional private explanation of what the user can control, influence, or defer today. */
+  controlNote: string;
   frequency: string;
   urgency: string;
   localDate: string;
@@ -808,6 +810,7 @@ export interface RecoveryStressorDraft {
   bodySensations?: string[];
   concern?: string;
   controllability?: RecoveryStressor["controllability"];
+  controlNote?: string;
   frequency?: string;
   urgency?: string;
   localDate?: string;
@@ -2886,6 +2889,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
           bodySensations: normalizeRecoveryTags(entry.bodySensations, 8),
           concern: normalizeRecoveryText(entry.concern, 500),
           controllability: ["control", "influence", "cannot_control_today", "unclear"].includes(entry.controllability) ? entry.controllability : "unclear",
+          controlNote: normalizeRecoveryText(entry.controlNote, 500),
           frequency: normalizeRecoveryText(entry.frequency, 60),
           urgency: normalizeRecoveryText(entry.urgency, 60),
         }))
@@ -3814,6 +3818,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         bodySensations: normalizeRecoveryTags(draft.bodySensations, 8),
         concern: normalizeRecoveryText(draft.concern, 500),
         controllability: draft.controllability && ["control", "influence", "cannot_control_today", "unclear"].includes(draft.controllability) ? draft.controllability : "unclear",
+        controlNote: normalizeRecoveryText(draft.controlNote, 500),
         frequency: normalizeRecoveryText(draft.frequency, 60),
         urgency: normalizeRecoveryText(draft.urgency, 60),
         localDate,
@@ -3840,6 +3845,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         bodySensations: patch.bodySensations === undefined ? existing.bodySensations : normalizeRecoveryTags(patch.bodySensations, 8),
         concern: patch.concern === undefined ? existing.concern : normalizeRecoveryText(patch.concern, 500),
         controllability: patch.controllability && ["control", "influence", "cannot_control_today", "unclear"].includes(patch.controllability) ? patch.controllability : existing.controllability,
+        controlNote: patch.controlNote === undefined ? existing.controlNote : normalizeRecoveryText(patch.controlNote, 500),
         frequency: patch.frequency === undefined ? existing.frequency : normalizeRecoveryText(patch.frequency, 60),
         urgency: patch.urgency === undefined ? existing.urgency : normalizeRecoveryText(patch.urgency, 60),
         localDate: patch.localDate === undefined ? existing.localDate : normalizeRecoveryLocalDate(patch.localDate, existing.localDate),

@@ -7,6 +7,7 @@ const chartSource = readFileSync(resolve(process.cwd(), "components/focus-charts
 const mapSource = readFileSync(resolve(process.cwd(), "components/india-subject-map.tsx"), "utf8");
 const appConfigSource = readFileSync(resolve(process.cwd(), "app.config.ts"), "utf8");
 const rootSource = readFileSync(resolve(process.cwd(), "app/_layout.tsx"), "utf8");
+const themeProviderSource = readFileSync(resolve(process.cwd(), "lib/theme-provider.tsx"), "utf8");
 const keyboardHookSource = readFileSync(resolve(process.cwd(), "hooks/use-keyboard-safe-focus.ts"), "utf8");
 const missionSource = readFileSync(resolve(process.cwd(), "app/mission/[id].tsx"), "utf8");
 const recoverySource = readFileSync(resolve(process.cwd(), "app/recovery-rhythm.tsx"), "utf8");
@@ -33,8 +34,10 @@ describe("first-touch, keyboard, and recovery-save contracts", () => {
   it("uses enlarged territory hit geometry before the visible India-map paint", () => {
     expect(mapSource).toContain('fill="#00000001" stroke="#00000001" strokeWidth={14}');
     expect(mapSource).toContain("<G key={subject} onPress={interactive ? () => onSelect?.(subject) : undefined}>");
-    expect(mapSource).toContain("A full label has no readable placement in this small territory.");
-    expect(mapSource).toContain("return null;");
+    expect(mapSource).toContain("A full subject label has no readable placement in this small territory.");
+    expect(mapSource).toContain("compact-label-${subject}");
+    expect(mapSource).toContain("const percentage = `${Math.round(capture * 100)}%`;");
+    expect(mapSource).toContain('fill="#08101DD9"');
     expect(mapSource).toContain("SELECTED TERRITORY");
     expect(mapSource).not.toContain("compactSubject");
     expect(mapSource).not.toContain('stroke="#08101D"');
@@ -50,6 +53,10 @@ describe("first-touch, keyboard, and recovery-save contracts", () => {
     expect(missionSource).toContain("onFocus={onInputFocus}");
     expect(recoverySource).toContain("useKeyboardSafeFocus<FlatList<RecoveryListRecord>>()");
     expect(recoverySource).toContain("keyboardShouldPersistTaps=\"handled\"");
+    expect(themeProviderSource).toContain("backgroundColor: palette.background");
+    expect(themeProviderSource).toContain("SystemUI.setBackgroundColorAsync(palette.background)");
+    expect(themeProviderSource).toContain("NavigationBar.setBackgroundColorAsync(palette.background)");
+    expect(appConfigSource).toContain("androidNavigationBar:");
   });
 
   it("acknowledges accepted recovery saves immediately while retaining single-frame duplicate protection", () => {
@@ -64,6 +71,20 @@ describe("first-touch, keyboard, and recovery-save contracts", () => {
     expect(focusCommandSource).toContain("const resolved = resolveSleepDraft(draft, toLocalDate(timestamp, stateRef.current.profile.timezone));");
     expect(focusCommandSource).toContain("return id;");
     expect(focusCommandSource).not.toContain("let saved = false;");
+  });
+
+  it("edits the same stressor with its full private draft and retains the optional control note", () => {
+    expect(recoverySource).toContain("const [stressorEditId, setStressorEditId]");
+    expect(recoverySource).toContain("const editStressor =");
+    expect(recoverySource).toContain("Edit stressor");
+    expect(recoverySource).toContain("Save stress changes");
+    expect(recoverySource).toContain("WHAT CAN I CONTROL? · OPTIONAL");
+    expect(recoverySource).toContain("WHAT CAN I INFLUENCE? · OPTIONAL");
+    expect(recoverySource).toContain("WHAT CANNOT I CONTROL TODAY? · OPTIONAL");
+    expect(recoverySource).toContain("My control note:");
+    expect(focusCommandSource).toContain("controlNote: normalizeRecoveryText(draft.controlNote, 500)");
+    expect(focusCommandSource).toContain("controlNote: normalizeRecoveryText(entry.controlNote, 500)");
+    expect(focusCommandSource).toContain("controlNote: patch.controlNote === undefined ? existing.controlNote");
   });
 
   it("keeps the current range layout while ensuring labels fit and metric grids remain complete", () => {

@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Appearance, View, useColorScheme as useSystemColorScheme } from "react-native";
+import { Appearance, Platform, View, useColorScheme as useSystemColorScheme } from "react-native";
 import { colorScheme as nativewindColorScheme, vars } from "nativewind";
+import * as SystemUI from "expo-system-ui";
+import * as NavigationBar from "expo-navigation-bar";
 
 import { SchemeColors, type ColorScheme } from "@/constants/theme";
 
@@ -44,6 +46,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyTheme(colorScheme, palette);
   }, [applyTheme, colorScheme, palette]);
 
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    // Keep the native root and Android navigation inset on the same palette
+    // as React content after keyboard-driven window resizing.
+    void SystemUI.setBackgroundColorAsync(palette.background).catch(() => undefined);
+    if (Platform.OS === "android") {
+      void NavigationBar.setBackgroundColorAsync(palette.background).catch(() => undefined);
+      void NavigationBar.setBorderColorAsync(palette.background).catch(() => undefined);
+      void NavigationBar.setButtonStyleAsync(colorScheme === "dark" ? "light" : "dark").catch(() => undefined);
+    }
+  }, [colorScheme, palette.background]);
+
   const themeVariables = useMemo(
     () => vars({
       "color-primary": palette.primary,
@@ -60,7 +74,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(() => ({ colorScheme, setColorScheme, setPalette }), [colorScheme, setColorScheme, setPalette]);
-  return <ThemeContext.Provider value={value}><View style={[{ flex: 1 }, themeVariables]}>{children}</View></ThemeContext.Provider>;
+  return <ThemeContext.Provider value={value}><View style={[{ flex: 1, backgroundColor: palette.background }, themeVariables]}>{children}</View></ThemeContext.Provider>;
 }
 
 export function useThemeContext(): ThemeContextValue {

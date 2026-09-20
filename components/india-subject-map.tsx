@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
-import Svg, { ClipPath, Defs, G, LinearGradient, Path, Stop, Text as SvgText } from "react-native-svg";
+import Svg, { ClipPath, Defs, G, LinearGradient, Path, Rect, Stop, Text as SvgText } from "react-native-svg";
 
 import { INDIA_BOUNDARY_PATH, INDIA_BOUNDARY_VIEWBOX } from "@/components/india-boundary";
 import { getDynamicTerritories, getTerritoryLabelLines, type DynamicTerritory } from "@/lib/territory-partition";
@@ -79,11 +79,19 @@ function TerritoryLabels({ territories }: { territories: PositionedTerritory[] }
       const verticalScale = unscaledHeight > 0 ? Math.min(1, (labelClearance * 2) / unscaledHeight) : 0;
       const titleFont = unscaledTitleFont * verticalScale;
       const percentFont = unscaledPercentFont * verticalScale;
-      // A full label has no readable placement in this small territory. Keep
-      // the geographic paint clean and show the subject, stages, and capture
-      // in the selected-territory card directly below the map instead.
+      // A full subject label has no readable placement in this small territory.
+      // Keep the territory clean, but retain its primary progress signal with a
+      // compact percentage badge; the selected card provides the full title and
+      // stage breakdown directly below the map.
       if (titleFont < 3.4 || percentFont < 4.2) {
-        return null;
+        const percentage = `${Math.round(capture * 100)}%`;
+        const compactPercentFont = Math.min(8.8, Math.max(5.8, widthSafePercentFont));
+        const badgeWidth = Math.max(15, percentage.length * compactPercentFont * 0.72 + 6);
+        const badgeHeight = compactPercentFont * 1.55;
+        return <G key={`compact-label-${subject}`}>
+          <Rect x={labelX - badgeWidth / 2} y={labelY - badgeHeight / 2} width={badgeWidth} height={badgeHeight} rx={badgeHeight / 2} fill="#08101DD9" />
+          <SvgText x={labelX} y={labelY + compactPercentFont * 0.34} fill="#FFFFFF" fontSize={compactPercentFont} fontWeight="900" textAnchor="middle">{percentage}</SvgText>
+        </G>;
       }
       const titleLineHeight = titleFont * 1.2;
       const gap = Math.max(1.4, titleFont * 0.3);

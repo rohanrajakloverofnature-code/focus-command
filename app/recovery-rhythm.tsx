@@ -23,7 +23,7 @@ import {
 import { formatMinutes, getPersonalSleepScore, getRecoveryActionLabel, getRecoveryStressorLabel, getRecoverySummary } from "@/lib/recovery-rhythm";
 
 type ViewKey = "stress" | "sleep" | "screen" | "illness";
-type RecoveryListRecord = SleepLog | NapLog | ScreenTimeLog | IllnessContextRecord | { id: string; localDate: string; title: string; status: RecoveryStressorStatus; intensity: number; category: string; concern: string; controllability: "control" | "influence" | "cannot_control_today" | "unclear" };
+type RecoveryListRecord = SleepLog | NapLog | ScreenTimeLog | IllnessContextRecord | { id: string; localDate: string; title: string; status: RecoveryStressorStatus; intensity: number; category: string; concern: string; controlNote: string; controllability: "control" | "influence" | "cannot_control_today" | "unclear" };
 const STRESS_STATUSES: RecoveryStressorStatus[] = ["identified", "understanding", "control", "action", "monitoring", "resolving", "resolved", "recurring"];
 
 function today(timezone: string) { return toLocalDate(new Date().toISOString(), timezone); }
@@ -51,10 +51,14 @@ export default function RecoveryRhythmScreen() {
   const summary = useMemo(() => getRecoverySummary({ profile: data.profile, recoveryStressors: data.stressors, recoveryActions: data.actions, sleepLogs: data.sleepLogs, napLogs: data.naps, screenTimeLogs: data.screenLogs }, "week"), [data]);
 
   const [stressorTitle, setStressorTitle] = useState("");
+  const [stressorEditId, setStressorEditId] = useState<string | null>(null);
   const [stressorIntensity, setStressorIntensity] = useState("5");
   const [stressorCategory, setStressorCategory] = useState("");
   const [stressorConcern, setStressorConcern] = useState("");
   const [stressorControl, setStressorControl] = useState<"control" | "influence" | "cannot_control_today" | "unclear">("unclear");
+  const [stressorControlNote, setStressorControlNote] = useState("");
+  const [stressorStatus, setStressorStatus] = useState<RecoveryStressorStatus>("identified");
+  const [stressorDate, setStressorDate] = useState(localDate);
   const [actionType, setActionType] = useState<RecoveryActionType>("grounding");
   const [afterActionDrafts, setAfterActionDrafts] = useState<Record<string, string>>({});
   const [sleepMode, setSleepMode] = useState<"duration" | "bed_wake">("duration");
@@ -99,12 +103,24 @@ export default function RecoveryRhythmScreen() {
     requestAnimationFrame(() => { saveLockRef.current = false; });
     return true;
   };
+  const resetStressorDraft = () => {
+    setStressorEditId(null); setStressorTitle(""); setStressorIntensity("5"); setStressorCategory(""); setStressorConcern(""); setStressorControl("unclear"); setStressorControlNote(""); setStressorStatus("identified"); setStressorDate(localDate);
+  };
   const addStressor = () => {
     if (!canSave()) return;
-    const id = actions.addRecoveryStressor({ title: stressorTitle, category: stressorCategory, intensity: numeric(stressorIntensity), concern: stressorConcern, controllability: stressorControl, localDate });
+    const draft = { title: stressorTitle, category: stressorCategory, intensity: numeric(stressorIntensity), concern: stressorConcern, controllability: stressorControl, controlNote: stressorControlNote, status: stressorStatus, localDate: stressorDate };
+    if (stressorEditId) {
+      actions.updateRecoveryStressor(stressorEditId, draft);
+      resetStressorDraft(); acknowledgeSave("stress");
+      return;
+    }
+    const id = actions.addRecoveryStressor(draft);
     if (!id) return;
-    setStressorTitle(""); setStressorIntensity("5"); setStressorCategory(""); setStressorConcern(""); setStressorControl("unclear");
+    resetStressorDraft();
     acknowledgeSave("stress");
+  };
+  const editStressor = (stressor: Extract<RecoveryListRecord, { status: RecoveryStressorStatus }>) => {
+    setStressorEditId(stressor.id); setStressorTitle(stressor.title); setStressorIntensity(String(stressor.intensity)); setStressorCategory(stressor.category); setStressorConcern(stressor.concern); setStressorControl(stressor.controllability); setStressorControlNote(stressor.controlNote); setStressorStatus(stressor.status); setStressorDate(stressor.localDate); setView("stress");
   };
   const addSleep = () => {
     if (!canSave()) return;
@@ -184,7 +200,7 @@ export default function RecoveryRhythmScreen() {
           <Text style={[styles.summaryDetail, { color: colors.muted }]}>Only your manually recorded days are shown. Sleep score average: {summary.averageSleepScore === null ? "—" : `${summary.averageSleepScore}/100`} from {summary.scoredSleepCount} scored night{summary.scoredSleepCount === 1 ? "" : "s"}. These values do not change emotional forecast or wellbeing scores.</Text>
         </CommandCard>
         <View style={styles.tabRow}>{tabs.map((tab) => <Pressable key={tab.key} onPress={() => setView(tab.key)} style={[styles.tab, { borderColor: view === tab.key ? colors.primary : colors.border, backgroundColor: view === tab.key ? `${colors.primary}16` : colors.surface }]}><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.76} style={[styles.tabText, { color: view === tab.key ? colors.primary : colors.muted }]}>{tab.label}</Text></Pressable>)}</View>
-        {view === "stress" ? <StressComposer colors={colors} title={stressorTitle} intensity={stressorIntensity} category={stressorCategory} concern={stressorConcern} control={stressorControl} onTitle={setStressorTitle} onIntensity={setStressorIntensity} onCategory={setStressorCategory} onConcern={setStressorConcern} onControl={setStressorControl} onAdd={addStressor} onInputFocus={onInputFocus} saved={savedKind === "stress"} /> : null}
+        {view === "stress" ? <StressComposer colors={colors} editing={stressorEditId !== null} title={stressorTitle} intensity={stressorIntensity} category={stressorCategory} concern={stressorConcern} control={stressorControl} controlNote={stressorControlNote} status={stressorStatus} date={stressorDate} onTitle={setStressorTitle} onIntensity={setStressorIntensity} onCategory={setStressorCategory} onConcern={setStressorConcern} onControl={setStressorControl} onControlNote={setStressorControlNote} onStatus={setStressorStatus} onDate={setStressorDate} onAdd={addStressor} onCancel={resetStressorDraft} onInputFocus={onInputFocus} saved={savedKind === "stress"} /> : null}
         {view === "sleep" ? <SleepComposer colors={colors} mode={sleepMode} onMode={setSleepMode} hours={sleepHours} minutes={sleepMinutes} bedTime={bedTime} wakeTime={wakeTime} date={sleepDate} quality={sleepQuality} dreams={sleepDreams} awakeningCount={awakeningCount} restedRating={restedRating} napMinutes={napMinutes} onHours={setSleepHours} onMinutes={setSleepMinutes} onBed={setBedTime} onWake={setWakeTime} onDate={setSleepDate} onQuality={setSleepQuality} onDreams={setSleepDreams} onAwakeningCount={setAwakeningCount} onRestedRating={setRestedRating} onNap={setNapMinutes} onAdd={addSleep} onAddNap={addNap} onInputFocus={onInputFocus} saved={savedKind === "sleep"} napSaved={savedKind === "nap"} /> : null}
         {view === "screen" ? <ScreenComposer colors={colors} hours={screenHours} minutes={screenMinutes} label={screenLabel} date={screenDate} onHours={setScreenHours} onMinutes={setScreenMinutes} onLabel={setScreenLabel} onDate={setScreenDate} onAdd={addScreen} onInputFocus={onInputFocus} saved={savedKind === "screen"} /> : null}
         {view === "illness" ? <IllnessContextComposer colors={colors} editing={illnessEditId !== null} startDate={illnessStartDate} endDate={illnessEndDate} severity={illnessSeverity} symptomsReported={illnessSymptoms} fatigueReported={illnessFatigue} sleepDisrupted={illnessSleepDisrupted} stressElevated={illnessStressElevated} note={illnessNote} onStartDate={setIllnessStartDate} onEndDate={setIllnessEndDate} onSeverity={setIllnessSeverity} onSymptomsReported={setIllnessSymptoms} onFatigueReported={setIllnessFatigue} onSleepDisrupted={setIllnessSleepDisrupted} onStressElevated={setIllnessStressElevated} onNote={setIllnessNote} onSave={saveIllnessContext} onCancel={resetIllnessDraft} onInputFocus={onInputFocus} saved={savedKind === "illness"} /> : null}
@@ -199,6 +215,8 @@ export default function RecoveryRhythmScreen() {
             <View style={styles.statusRow}>{STRESS_STATUSES.map((status) => <Pressable key={status} onPress={() => actions.updateRecoveryStressor(stressor.id, { status })} style={[styles.statusChip, { borderColor: stressor.status === status ? colors.primary : colors.border, backgroundColor: stressor.status === status ? `${colors.primary}18` : colors.background }]}><Text style={[styles.statusText, { color: stressor.status === status ? colors.primary : colors.muted }]}>{getRecoveryStressorLabel(status)}</Text></Pressable>)}</View>
             <Text style={[styles.recordDetail, { color: colors.muted }]}>Control: {stressor.controllability === "control" ? "I can control" : stressor.controllability === "influence" ? "I can influence" : stressor.controllability === "cannot_control_today" ? "I cannot control today" : "Not set"}</Text>
             {stressor.concern ? <Text style={[styles.recordDetail, { color: colors.muted }]}>{stressor.concern}</Text> : null}
+            {stressor.controlNote ? <Text style={[styles.recordDetail, { color: colors.muted }]}>My control note: {stressor.controlNote}</Text> : null}
+            <View style={styles.recordActions}><Pressable onPress={() => editStressor(stressor)} accessibilityRole="button" accessibilityLabel={`Edit ${stressor.title}`} style={({ pressed }) => [styles.smallAction, { borderColor: colors.primary, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.actionText, { color: colors.primary }]}>Edit stressor</Text></Pressable></View>
             <View style={styles.actionTypes}>{(["grounding", "paced_breathing", "relaxation", "mindfulness", "acceptance", "problem_solving"] as RecoveryActionType[]).map((type) => <Pressable key={type} onPress={() => setActionType(type)} style={[styles.actionType, { borderColor: actionType === type ? colors.success : colors.border, backgroundColor: actionType === type ? `${colors.success}18` : colors.background }]}><Text style={[styles.statusText, { color: actionType === type ? colors.success : colors.muted }]}>{getRecoveryActionLabel(type)}</Text></Pressable>)}</View>
             <Pressable onPress={() => actions.addRecoveryAction(stressor.id, { type: actionType, beforeIntensity: stressor.intensity, afterIntensity: null, localDate })} style={[styles.actionButton, { borderColor: colors.success, backgroundColor: `${colors.success}12` }]}><Text style={[styles.actionText, { color: colors.success }]}>Record chosen action</Text></Pressable>
             {latestAction ? <><Text style={[styles.latestAction, { color: colors.muted }]}>Latest: {getRecoveryActionLabel(latestAction.type)} · before {latestAction.beforeIntensity ?? "—"}/10 · after {latestAction.afterIntensity ?? "—"}/10</Text>{latestAction.afterIntensity === null ? <View style={styles.afterActionRow}><TextInput value={afterActionDrafts[latestAction.id] ?? ""} onChangeText={(value) => setAfterActionDrafts((current) => ({ ...current, [latestAction.id]: value }))} onFocus={onInputFocus} placeholder="After 0–10" placeholderTextColor={colors.muted} keyboardType="numeric" style={[styles.afterActionInput, { borderColor: colors.border, backgroundColor: colors.background, color: colors.foreground }]} /><Pressable onPress={() => { const value = numeric(afterActionDrafts[latestAction.id] ?? ""); if (value >= 0 && value <= 10) actions.updateRecoveryAction(latestAction.id, { afterIntensity: value }); }} style={[styles.secondaryButton, { borderColor: colors.success }]}><Text style={[styles.actionText, { color: colors.success }]}>Save after</Text></Pressable></View> : null}</> : null}
@@ -235,25 +253,35 @@ function SaveStatus({ visible, label, color }: { visible: boolean; label: string
   return <Text accessibilityLiveRegion="polite" style={[styles.savedNotice, { color }]}>✓ {label} saved locally</Text>;
 }
 
-function StressComposer(props: { colors: ReturnType<typeof useColors>; title: string; intensity: string; category: string; concern: string; control: "control" | "influence" | "cannot_control_today" | "unclear"; onTitle: (v: string) => void; onIntensity: (v: string) => void; onCategory: (v: string) => void; onConcern: (v: string) => void; onControl: (value: "control" | "influence" | "cannot_control_today" | "unclear") => void; onAdd: () => void; onInputFocus: InputFocusHandler; saved: boolean }) {
+function StressComposer(props: {
+  colors: ReturnType<typeof useColors>; editing: boolean; title: string; intensity: string; category: string; concern: string; control: "control" | "influence" | "cannot_control_today" | "unclear"; controlNote: string; status: RecoveryStressorStatus; date: string;
+  onTitle: (value: string) => void; onIntensity: (value: string) => void; onCategory: (value: string) => void; onConcern: (value: string) => void; onControl: (value: "control" | "influence" | "cannot_control_today" | "unclear") => void; onControlNote: (value: string) => void; onStatus: (value: RecoveryStressorStatus) => void; onDate: (value: string) => void; onAdd: () => void; onCancel: () => void; onInputFocus: InputFocusHandler; saved: boolean;
+}) {
   const { colors } = props;
   const controls: { value: typeof props.control; label: string }[] = [
     { value: "control", label: "I control" },
     { value: "influence", label: "I influence" },
     { value: "cannot_control_today", label: "Not today" },
   ];
+  const controlNoteLabel = props.control === "control" ? "WHAT CAN I CONTROL? · OPTIONAL" : props.control === "influence" ? "WHAT CAN I INFLUENCE? · OPTIONAL" : props.control === "cannot_control_today" ? "WHAT CANNOT I CONTROL TODAY? · OPTIONAL" : "MY CONTROL NOTE · OPTIONAL";
+  const controlNotePlaceholder = props.control === "control" ? "Example: I can make a small plan" : props.control === "influence" ? "Example: I can calmly ask for support" : props.control === "cannot_control_today" ? "Example: I cannot decide this today" : "What is within or outside your control?";
   return <CommandCard accent={colors.warning} style={styles.composer}>
-    <Text style={[styles.composerTitle, { color: colors.foreground }]}>Stress → Understand → Act</Text>
-    <Text style={[styles.composerDetail, { color: colors.muted }]}>Start small. You can refine status and record a response later.</Text>
+    <Text style={[styles.composerTitle, { color: colors.foreground }]}>{props.editing ? "Edit private stressor" : "Stress → Understand → Act"}</Text>
+    <Text style={[styles.composerDetail, { color: colors.muted }]}>{props.editing ? "Update only this private stressor. Its actions and history stay attached." : "Start small. You can refine status and record a response later."}</Text>
     <Field label="What is happening?" value={props.title} onChangeText={props.onTitle} onInputFocus={props.onInputFocus} placeholder="Example: Exam workload" />
     <View style={styles.twoFields}>
       <View style={styles.flexField}><Field label="Intensity 0–10" value={props.intensity} onChangeText={props.onIntensity} onInputFocus={props.onInputFocus} placeholder="5" keyboardType="numeric" /></View>
       <View style={styles.flexField}><Field label="Category" value={props.category} onChangeText={props.onCategory} onInputFocus={props.onInputFocus} placeholder="Study, family…" /></View>
     </View>
+    <Field label="Date" value={props.date} onChangeText={props.onDate} onInputFocus={props.onInputFocus} placeholder="YYYY-MM-DD" />
+    <Text style={[styles.fieldLabel, { color: colors.muted }]}>CURRENT STATUS</Text>
+    <View style={styles.statusRow}>{STRESS_STATUSES.map((status) => <Pressable key={status} onPress={() => props.onStatus(status)} style={({ pressed }) => [styles.statusChip, { borderColor: props.status === status ? colors.primary : colors.border, backgroundColor: props.status === status ? `${colors.primary}18` : colors.background, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.statusText, { color: props.status === status ? colors.primary : colors.muted }]}>{getRecoveryStressorLabel(status)}</Text></Pressable>)}</View>
     <Field label="What worries you? Optional" value={props.concern} onChangeText={props.onConcern} onInputFocus={props.onInputFocus} placeholder="Write a short private note" multiline />
     <Text style={[styles.fieldLabel, { color: colors.muted }]}>WHAT CAN I DO?</Text>
     <View style={styles.statusRow}>{controls.map((option) => <Pressable key={option.value} onPress={() => props.onControl(option.value)} style={({ pressed }) => [styles.statusChip, { borderColor: props.control === option.value ? colors.warning : colors.border, backgroundColor: props.control === option.value ? `${colors.warning}18` : colors.background, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.statusText, { color: props.control === option.value ? colors.warning : colors.muted }]}>{option.label}</Text></Pressable>)}</View>
-    <Pressable onPress={props.onAdd} accessibilityRole="button" accessibilityLabel="Add private stressor" style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.warning, opacity: pressed ? 0.82 : 1 }]}><Text style={[styles.primaryButtonText, { color: colors.background }]}>{props.saved ? "Stressor saved ✓" : "Add private stressor"}</Text></Pressable>
+    <Field label={controlNoteLabel} value={props.controlNote} onChangeText={props.onControlNote} onInputFocus={props.onInputFocus} placeholder={controlNotePlaceholder} multiline />
+    <Pressable onPress={props.onAdd} accessibilityRole="button" accessibilityLabel={props.editing ? "Save private stressor changes" : "Add private stressor"} style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.warning, opacity: pressed ? 0.82 : 1 }]}><Text style={[styles.primaryButtonText, { color: colors.background }]}>{props.saved ? "Stressor saved ✓" : props.editing ? "Save stress changes" : "Add private stressor"}</Text></Pressable>
+    {props.editing ? <Pressable onPress={props.onCancel} accessibilityRole="button" accessibilityLabel="Cancel stress editing" style={({ pressed }) => [styles.secondaryButton, { borderColor: colors.border, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.actionText, { color: colors.muted }]}>Cancel edit</Text></Pressable> : null}
     <SaveStatus visible={props.saved} label="Stressor" color={colors.success} />
   </CommandCard>;
 }

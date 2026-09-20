@@ -54,6 +54,11 @@ const config: ExpoConfig = {
         "ITSAppUsesNonExemptEncryption": false
       }
   },
+  androidNavigationBar: {
+    backgroundColor: "#0B1220",
+    barStyle: "light-content",
+    enforceContrast: false,
+  },
   android: {
     adaptiveIcon: {
       backgroundColor: "#24123B",
