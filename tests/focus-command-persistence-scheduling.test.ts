@@ -9,8 +9,9 @@ describe("Focus Command interaction-safe persistence scheduling", () => {
     expect(source).toContain("function getRuntimeInteractionManager()");
     expect(source).toContain("interactionManager?.runAfterInteractions(flushWhenIdle)");
     expect(source).toContain("if (!interactionPersistenceTask.current) flushWhenIdle()");
-    expect(source).toContain("if (nextState !== \"active\") void flushPendingPersistence()");
+    expect(source).toContain("if (nextState !== \"active\") {");
     expect(source).toContain("void flushPendingPersistence();");
+    expect(source).toContain("stateRef.current.profile.timezone");
     expect(source).toContain("interactionPersistenceTask.current.cancel?.();");
   });
 });

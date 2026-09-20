@@ -1117,6 +1117,27 @@ export function toLocalDate(iso: string, timeZone?: string): string {
 }
 
 /**
+ * Finds the next local calendar rollover without waking the provider every
+ * few seconds. Date comparison keeps the timer correct through ordinary and
+ * daylight-saving transitions for the selected timezone.
+ */
+export function getMillisecondsUntilNextLocalDay(timeZone?: string, nowMilliseconds = Date.now()): number {
+  const currentDate = toLocalDate(new Date(nowMilliseconds).toISOString(), timeZone);
+  let low = nowMilliseconds + 1_000;
+  let high = nowMilliseconds + 27 * 60 * 60 * 1_000;
+
+  while (toLocalDate(new Date(high).toISOString(), timeZone) === currentDate) high += 27 * 60 * 60 * 1_000;
+  while (low < high) {
+    const middle = low + Math.floor((high - low) / 2);
+    if (toLocalDate(new Date(middle).toISOString(), timeZone) === currentDate) low = middle + 1;
+    else high = middle;
+  }
+
+  // Retain a small safety margin for native timer precision at the boundary.
+  return Math.max(1_000, low - nowMilliseconds + 250);
+}
+
+/**
  * Daily missions that are intentionally repeatable remain eligible for another
  * start on the same local day, even if an older scheduled date is present.
  * Non-repeatable daily missions retain the existing next-day schedule gate.
@@ -3149,19 +3170,25 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     const appState = getRuntimeAppState();
     if (!appState) return;
     const subscription = appState.addEventListener("change", (nextState) => {
-      if (nextState !== "active") void flushPendingPersistence();
+      if (nextState !== "active") {
+        void flushPendingPersistence();
+        return;
+      }
+      const nextDay = toLocalDate(nowIso(), stateRef.current.profile.timezone);
+      setLocalDay((currentDay) => currentDay === nextDay ? currentDay : nextDay);
     });
     return () => subscription.remove();
   }, [flushPendingPersistence]);
 
   useEffect(() => {
-    const refreshLocalDay = () => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const refreshAtRollover = () => {
       const nextDay = toLocalDate(nowIso(), state.profile.timezone);
       setLocalDay((currentDay) => currentDay === nextDay ? currentDay : nextDay);
+      timer = setTimeout(refreshAtRollover, getMillisecondsUntilNextLocalDay(state.profile.timezone));
     };
-    refreshLocalDay();
-    const interval = setInterval(refreshLocalDay, 15_000);
-    return () => clearInterval(interval);
+    timer = setTimeout(refreshAtRollover, getMillisecondsUntilNextLocalDay(state.profile.timezone));
+    return () => { if (timer) clearTimeout(timer); };
   }, [state.profile.timezone]);
 
   const commit = useCallback((producer: (current: FocusState) => FocusState, options?: { deferSubscriberNotification?: boolean }) => {

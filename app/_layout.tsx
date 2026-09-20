@@ -78,25 +78,31 @@ export default function RootLayout() {
     };
   }, [initialInsets, initialFrame]);
 
-  const content = (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <FocusCommandProvider>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} enabled={Platform.OS !== "web"}>
-          <FocusThemeBridge />
-          <FocusNotificationAudioBridge />
-          <FocusTapFeedbackBridge />
-          {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
-          {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
-          {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-          </Stack>
-          <LaunchAnimation />
-          <StatusBar style="auto" />
-        </KeyboardAvoidingView>
-      </FocusCommandProvider>
-    </GestureHandlerRootView>
+  const appShell = (
+    <FocusCommandProvider>
+      <FocusThemeBridge />
+      <FocusNotificationAudioBridge />
+      <FocusTapFeedbackBridge />
+      {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
+      {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
+      {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+      </Stack>
+      <LaunchAnimation />
+      <StatusBar style="auto" />
+    </FocusCommandProvider>
   );
+
+  // Android already resizes its native window through
+  // `softwareKeyboardLayoutMode: "resize"`. Wrapping that same window in a
+  // second height-based avoider can leave a stale empty band below the tab bar
+  // after the keyboard dismisses. iOS keeps its existing padding avoidance.
+  const keyboardSafeShell = Platform.OS === "ios"
+    ? <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">{appShell}</KeyboardAvoidingView>
+    : appShell;
+
+  const content = <GestureHandlerRootView style={{ flex: 1 }}>{keyboardSafeShell}</GestureHandlerRootView>;
 
   const shouldOverrideSafeArea = Platform.OS === "web";
 

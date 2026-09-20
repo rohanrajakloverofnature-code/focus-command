@@ -43,10 +43,12 @@ describe("first-touch, keyboard, and recovery-save contracts", () => {
     expect(mapSource).not.toContain('stroke="#08101D"');
   });
 
-  it("resizes native windows and provides both global and exact-field keyboard protection", () => {
+  it("lets Android own native window resizing while retaining iOS and exact-field keyboard protection", () => {
     expect(appConfigSource).toContain('softwareKeyboardLayoutMode: "resize"');
     expect(rootSource).toContain("<KeyboardAvoidingView");
-    expect(rootSource).toContain('behavior={Platform.OS === "ios" ? "padding" : "height"}');
+    expect(rootSource).toContain('Platform.OS === "ios"');
+    expect(rootSource).toContain('behavior="padding"');
+    expect(rootSource).not.toContain('behavior={Platform.OS === "ios" ? "padding" : "height"}');
     expect(keyboardHookSource).toContain("scrollResponderScrollNativeHandleToKeyboard");
     expect(keyboardHookSource).toContain("requestAnimationFrame");
     expect(missionSource).toContain("useKeyboardSafeFocus<ScrollView>()");

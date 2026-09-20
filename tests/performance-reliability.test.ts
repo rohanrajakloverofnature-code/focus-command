@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { createInitialState, getDashboardStats, getMissionCompletionRecords, shallowEqual } from "../lib/focus-command";
+import { createInitialState, getDashboardStats, getMillisecondsUntilNextLocalDay, getMissionCompletionRecords, shallowEqual, toLocalDate } from "../lib/focus-command";
 import { getMonthlyCommandArchive } from "../lib/monthly-command-archive";
 
 const focusCommandSource = readFileSync(resolve(process.cwd(), "lib/focus-command.tsx"), "utf8");
@@ -13,6 +13,8 @@ const mediaLifecycleSource = readFileSync(resolve(process.cwd(), "lib/media-life
 const focusUiSource = readFileSync(resolve(process.cwd(), "components/focus-ui.tsx"), "utf8");
 const tabSource = readFileSync(resolve(process.cwd(), "components/haptic-tab.tsx"), "utf8");
 const tabLayoutSource = readFileSync(resolve(process.cwd(), "app/(tabs)/_layout.tsx"), "utf8");
+const rootLayoutSource = readFileSync(resolve(process.cwd(), "app/_layout.tsx"), "utf8");
+const appConfigSource = readFileSync(resolve(process.cwd(), "app.config.ts"), "utf8");
 const tapBridgeSource = readFileSync(resolve(process.cwd(), "components/focus-tap-feedback-bridge.tsx"), "utf8");
 const focusAudioSource = readFileSync(resolve(process.cwd(), "lib/focus-audio.ts"), "utf8");
 const homeSource = readFileSync(resolve(process.cwd(), "app/(tabs)/index.tsx"), "utf8");
@@ -119,6 +121,31 @@ describe("Performance and reliability contracts", () => {
     expect(cinematicSource).toContain("cancelAnimation(float);");
     expect(cinematicSource).toContain("cancelAnimation(glow);");
     expect(homeSource).toContain("motionActive={isFocused && !showRankAchievement}");
+  });
+
+  it("keeps Android keyboard resizing owned by the native window and reserves the global avoider for iOS only", () => {
+    expect(appConfigSource).toContain('softwareKeyboardLayoutMode: "resize"');
+    expect(rootLayoutSource).toContain('Platform.OS === "ios"');
+    expect(rootLayoutSource).toContain('behavior="padding"');
+    expect(rootLayoutSource).not.toContain('behavior={Platform.OS === "ios" ? "padding" : "height"}');
+  });
+
+  it("replaces the idle 15-second day poll with one timezone-safe next-day wakeup", () => {
+    const beforeUtcMidnight = Date.parse("2026-06-01T23:59:58.000Z");
+    const wait = getMillisecondsUntilNextLocalDay("UTC", beforeUtcMidnight);
+    expect(wait).toBeGreaterThan(2_000);
+    expect(wait).toBeLessThan(4_000);
+    expect(toLocalDate(new Date(beforeUtcMidnight + wait).toISOString(), "UTC")).toBe("2026-06-02");
+    expect(focusCommandSource).toContain("getMillisecondsUntilNextLocalDay");
+    expect(focusCommandSource).not.toContain("setInterval(refreshLocalDay, 15_000)");
+    expect(focusCommandSource).toContain("nextState !== \"active\"");
+    expect(focusCommandSource).toContain("stateRef.current.profile.timezone");
+  });
+
+  it("reuses Home equipped-gear selection while its source arrays remain unchanged", () => {
+    expect(homeSource).toContain("const equippedGearSelectionCache = new WeakMap");
+    expect(homeSource).toContain("const cached = cachedByEquipment?.get(state.allEquipment);");
+    expect(homeSource).toContain("if (cached) return cached;");
   });
 
   it("keeps every final long-session screen on a narrow state subscription and retains the full weekly data contract", () => {

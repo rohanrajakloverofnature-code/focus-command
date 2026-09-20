@@ -116,13 +116,23 @@ function hasSameHomeDependencies(left: HomeDependencies, right: HomeDependencies
     && left.hydrated === right.hydrated;
 }
 
-function selectEquippedCharacterGear(state: FocusState) {
+type EquippedCharacterGearSelection = { head?: FocusState["allEquipment"][number]; body?: FocusState["allEquipment"][number]; accessory?: FocusState["allEquipment"][number] };
+const equippedGearSelectionCache = new WeakMap<object, WeakMap<object, EquippedCharacterGearSelection>>();
+
+function selectEquippedCharacterGear(state: FocusState): EquippedCharacterGearSelection {
+  const cachedByEquipment = equippedGearSelectionCache.get(state.userEquipment);
+  const cached = cachedByEquipment?.get(state.allEquipment);
+  if (cached) return cached;
+
   const equipped: { head?: FocusState["allEquipment"][number]; body?: FocusState["allEquipment"][number]; accessory?: FocusState["allEquipment"][number] } = {};
   for (const userEquipment of state.userEquipment) {
     if (userEquipment.isEquipped === "false") continue;
     const equipment = state.allEquipment.find((candidate) => candidate.id === userEquipment.equipmentId);
     if (equipment) equipped[userEquipment.isEquipped as "head" | "body" | "accessory"] = equipment;
   }
+  const nextCachedByEquipment = cachedByEquipment ?? new WeakMap<object, EquippedCharacterGearSelection>();
+  if (!cachedByEquipment) equippedGearSelectionCache.set(state.userEquipment, nextCachedByEquipment);
+  nextCachedByEquipment.set(state.allEquipment, equipped);
   return equipped;
 }
 
