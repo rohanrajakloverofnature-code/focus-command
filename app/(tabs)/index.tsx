@@ -460,6 +460,7 @@ export default function HomeScreen() {
           </View>
           <IndiaSubjectMap
             subjects={subjectCapture}
+            playerName={state.profile.firstName}
             accent={colors.primary}
             foreground={colors.foreground}
             muted={colors.muted}

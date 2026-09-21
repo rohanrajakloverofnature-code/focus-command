@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { ClipPath, Defs, G, LinearGradient, Path, Rect, Stop, Text as SvgText } from "react-native-svg";
 
-import { INDIA_BOUNDARY_PATH, INDIA_BOUNDARY_VIEWBOX } from "@/components/india-boundary";
+import { FICTIONAL_BOUNDARY_PATH, FICTIONAL_BOUNDARY_VIEWBOX } from "@/components/fictional-boundary";
 import { getDynamicTerritories, getTerritoryLabelLines, type DynamicTerritory } from "@/lib/territory-partition";
 
 export interface SubjectTerritory {
@@ -20,6 +20,7 @@ export interface SubjectTerritory {
 
 interface IndiaSubjectMapProps {
   subjects: SubjectTerritory[];
+  playerName: string;
   accent: string;
   foreground: string;
   muted: string;
@@ -106,7 +107,7 @@ function TerritoryLabels({ territories }: { territories: PositionedTerritory[] }
   </G>;
 }
 
-export const IndiaSubjectMap = memo(function IndiaSubjectMap({ subjects, accent, foreground, muted, surface, border, onOpenSubject }: IndiaSubjectMapProps) {
+export const IndiaSubjectMap = memo(function IndiaSubjectMap({ subjects, playerName, accent, foreground, muted, surface, border, onOpenSubject }: IndiaSubjectMapProps) {
   const [selected, setSelected] = useState<string | null>(subjects[0]?.subject ?? null);
   const [previousTerritories, setPreviousTerritories] = useState<PositionedTerritory[]>([]);
   const reflowOpacity = useRef(new Animated.Value(0)).current;
@@ -145,45 +146,46 @@ export const IndiaSubjectMap = memo(function IndiaSubjectMap({ subjects, accent,
 
   if (!subjects.length) {
     return <View style={[styles.empty, { borderColor: border, backgroundColor: surface }]}>
-      <Text style={[styles.emptyTitle, { color: foreground }]}>India subject territory awaits</Text>
-      <Text style={[styles.emptyDetail, { color: muted }]}>Create a mission with a subject name. Focus Command will dynamically partition the geographic India boundary from your mission and revision logs.</Text>
+      <Text style={[styles.emptyTitle, { color: foreground }]}>Frontier territory awaits</Text>
+      <Text style={[styles.emptyDetail, { color: muted }]}>Create a mission with a subject name. Focus Command will dynamically partition the fictional frontier from your mission and revision logs.</Text>
     </View>;
   }
 
   return <View style={styles.wrap}>
     <View style={[styles.canvas, { borderColor: border, backgroundColor: surface }]}>
-      <Svg viewBox={INDIA_BOUNDARY_VIEWBOX} width="100%" height={348} accessibilityLabel="Dynamic geographic India subject territory map with revision-progress capture percentages">
+      <Svg viewBox={FICTIONAL_BOUNDARY_VIEWBOX} width="100%" height={348} accessibilityLabel="Dynamic fictional subject territory map with revision-progress capture percentages">
         <Defs>
-          <ClipPath id="india-geographic-boundary"><Path d={INDIA_BOUNDARY_PATH} /></ClipPath>
-          <LinearGradient id="india-terrain" x1="0" y1="0" x2="1" y2="1">
+          <ClipPath id="fictional-frontier-boundary"><Path d={FICTIONAL_BOUNDARY_PATH} /></ClipPath>
+          <LinearGradient id="frontier-terrain" x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0" stopColor="#261141" />
             <Stop offset="0.62" stopColor="#15112B" />
             <Stop offset="1" stopColor="#0C1427" />
           </LinearGradient>
         </Defs>
-        <Path d={INDIA_BOUNDARY_PATH} fill="#090D18" opacity={0.55} transform="translate(4 7)" />
-        <Path d={INDIA_BOUNDARY_PATH} fill="url(#india-terrain)" stroke={`${accent}99`} strokeWidth={2.2} />
-        <G clipPath="url(#india-geographic-boundary)">
+        <Path d={FICTIONAL_BOUNDARY_PATH} fill="#090D18" opacity={0.55} transform="translate(4 7)" />
+        <Path d={FICTIONAL_BOUNDARY_PATH} fill="url(#frontier-terrain)" stroke={`${accent}99`} strokeWidth={2.2} />
+        <G clipPath="url(#fictional-frontier-boundary)">
           <Path d="M0 72 H320 M0 145 H320 M0 218 H320 M0 291 H320 M64 0 V380 M128 0 V380 M192 0 V380 M256 0 V380" stroke="#FFFFFF12" strokeWidth={0.8} strokeDasharray="3 6" />
           <TerritoryLayer territories={positioned} selectedSubject={selectedTerritory?.subject ?? null} interactive onSelect={setSelected} />
         </G>
         <TerritoryLabels territories={positioned} />
-        <Path d={INDIA_BOUNDARY_PATH} fill="none" stroke="#FFF8" strokeWidth={0.7} pointerEvents="none" />
-        <Path d={INDIA_BOUNDARY_PATH} fill="none" stroke={`${accent}99`} strokeWidth={2.2} pointerEvents="none" />
+        <Path d={FICTIONAL_BOUNDARY_PATH} fill="none" stroke="#FFF8" strokeWidth={0.7} pointerEvents="none" />
+        <Path d={FICTIONAL_BOUNDARY_PATH} fill="none" stroke={`${accent}99`} strokeWidth={2.2} pointerEvents="none" />
       </Svg>
       {previousTerritories.length ? <Animated.View pointerEvents="none" style={[styles.reflowOverlay, { opacity: reflowOpacity }]}>
-        <Svg viewBox={INDIA_BOUNDARY_VIEWBOX} width="100%" height={348}>
-          <Defs><ClipPath id="india-geographic-boundary-previous"><Path d={INDIA_BOUNDARY_PATH} /></ClipPath></Defs>
-          <G clipPath="url(#india-geographic-boundary-previous)">
+          <Svg viewBox={FICTIONAL_BOUNDARY_VIEWBOX} width="100%" height={348}>
+          <Defs><ClipPath id="fictional-frontier-boundary-previous"><Path d={FICTIONAL_BOUNDARY_PATH} /></ClipPath></Defs>
+          <G clipPath="url(#fictional-frontier-boundary-previous)">
             <TerritoryLayer territories={previousTerritories} selectedSubject={null} />
           </G>
         </Svg>
       </Animated.View> : null}
       <View style={styles.mapKey}>
         <View style={[styles.mapKeyDot, { backgroundColor: accent }]} />
-        <Text style={[styles.mapKeyText, { color: muted }]}>Geographic India boundary · every visible subject territory is dynamically reflowed from your current revision progress</Text>
+        <Text style={[styles.mapKeyText, { color: muted }]}>Fictional frontier · every visible subject territory is dynamically reflowed from your current revision progress</Text>
       </View>
     </View>
+    <Text style={[styles.empireLabel, { color: accent }]}>{playerName.trim() || "Player"}&apos;s empire</Text>
     {selectedTerritory ? <Pressable onPress={() => onOpenSubject(selectedTerritory.subject)} accessibilityRole="button" accessibilityLabel={`Open ${selectedTerritory.subject} mission board`} style={({ pressed }) => [styles.detailCard, { borderColor: `${selectedTerritory.color}80`, backgroundColor: `${selectedTerritory.color}12`, opacity: pressed ? 0.76 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
       <View style={styles.detailCopy}>
         <View style={styles.selectedKicker}><View style={[styles.selectedDot, { backgroundColor: selectedTerritory.color }]} /><Text style={[styles.selectedKickerText, { color: selectedTerritory.color }]}>SELECTED TERRITORY</Text></View>
@@ -202,6 +204,7 @@ const styles = StyleSheet.create({
   mapKey: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 12, paddingBottom: 10 },
   mapKeyDot: { width: 8, height: 8, borderRadius: 99 },
   mapKeyText: { flex: 1, fontSize: 10, lineHeight: 14, fontWeight: "600" },
+  empireLabel: { textAlign: "center", fontSize: 12, lineHeight: 16, fontWeight: "900", letterSpacing: 0.8, marginTop: -2 },
   detailCard: { minHeight: 72, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 13, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 10 },
   detailCopy: { flex: 1, minWidth: 0 },
   selectedKicker: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 2 },

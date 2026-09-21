@@ -1,4 +1,4 @@
-import { INDIA_INTERIOR_CELL_COUNT, INDIA_INTERIOR_CELL_SIZE, INDIA_INTERIOR_CELLS } from "./india-interior-mask";
+import { FICTIONAL_INTERIOR_CELL_COUNT, FICTIONAL_INTERIOR_CELL_SIZE, FICTIONAL_INTERIOR_CELLS } from "./fictional-interior-mask";
 
 export interface TerritoryPartitionSubject {
   subject: string;
@@ -55,8 +55,8 @@ function distanceSquared(first: Cell, second: Cell) {
 
 function readCells(): Cell[] {
   const cells: Cell[] = [];
-  for (let index = 0; index < INDIA_INTERIOR_CELLS.length; index += 2) {
-    cells.push({ x: INDIA_INTERIOR_CELLS[index]!, y: INDIA_INTERIOR_CELLS[index + 1]! });
+  for (let index = 0; index < FICTIONAL_INTERIOR_CELLS.length; index += 2) {
+    cells.push({ x: FICTIONAL_INTERIOR_CELLS[index]!, y: FICTIONAL_INTERIOR_CELLS[index + 1]! });
   }
   return cells;
 }
@@ -111,7 +111,7 @@ function territoryPath(cellIndexes: number[], cells: Cell[]) {
     const cell = cells[cellIndex]!;
     const x = cell.x;
     const y = cell.y;
-    const size = INDIA_INTERIOR_CELL_SIZE;
+    const size = FICTIONAL_INTERIOR_CELL_SIZE;
     const vertices = [{ x, y }, { x: x + size, y }, { x: x + size, y: y + size }, { x, y: y + size }];
     vertices.forEach((from, edgeIndex) => {
       const to = vertices[(edgeIndex + 1) % vertices.length]!;
@@ -183,8 +183,8 @@ function safeInteriorLabelAnchor(
   indexByPoint: Map<string, number>,
 ) {
   const mean = regionCells.reduce((sum, cellIndex) => ({
-    x: sum.x + cells[cellIndex]!.x + INDIA_INTERIOR_CELL_SIZE / 2,
-    y: sum.y + cells[cellIndex]!.y + INDIA_INTERIOR_CELL_SIZE / 2,
+    x: sum.x + cells[cellIndex]!.x + FICTIONAL_INTERIOR_CELL_SIZE / 2,
+    y: sum.y + cells[cellIndex]!.y + FICTIONAL_INTERIOR_CELL_SIZE / 2,
   }), { x: 0, y: 0 });
   const meanX = mean.x / regionCells.length;
   const meanY = mean.y / regionCells.length;
@@ -193,8 +193,8 @@ function safeInteriorLabelAnchor(
     for (let row = -radius; row <= radius; row += 1) {
       for (let column = -radius; column <= radius; column += 1) {
         const candidate = indexByPoint.get(pointKey(
-          cell.x + column * INDIA_INTERIOR_CELL_SIZE,
-          cell.y + row * INDIA_INTERIOR_CELL_SIZE,
+          cell.x + column * FICTIONAL_INTERIOR_CELL_SIZE,
+          cell.y + row * FICTIONAL_INTERIOR_CELL_SIZE,
         ));
         if (candidate === undefined || assignments[candidate] !== owner) return false;
       }
@@ -207,7 +207,7 @@ function safeInteriorLabelAnchor(
     const cell = cells[cellIndex]!;
     let radius = 0;
     while (squareBelongsToOwner(cell, radius + 1)) radius += 1;
-    const center = { x: cell.x + INDIA_INTERIOR_CELL_SIZE / 2, y: cell.y + INDIA_INTERIOR_CELL_SIZE / 2 };
+    const center = { x: cell.x + FICTIONAL_INTERIOR_CELL_SIZE / 2, y: cell.y + FICTIONAL_INTERIOR_CELL_SIZE / 2 };
     const distanceToMean = (center.x - meanX) ** 2 + (center.y - meanY) ** 2;
     if (!best || radius > best.radius || (radius === best.radius && distanceToMean < best.distanceToMean)) {
       best = { cell, radius, distanceToMean };
@@ -216,16 +216,16 @@ function safeInteriorLabelAnchor(
 
   const anchor = best ?? { cell: cells[regionCells[0]!]!, radius: 0 };
   return {
-    labelX: anchor.cell.x + INDIA_INTERIOR_CELL_SIZE / 2,
-    labelY: anchor.cell.y + INDIA_INTERIOR_CELL_SIZE / 2,
+    labelX: anchor.cell.x + FICTIONAL_INTERIOR_CELL_SIZE / 2,
+    labelY: anchor.cell.y + FICTIONAL_INTERIOR_CELL_SIZE / 2,
     // A small buffer protects glyph antialiasing from the closest region edge.
-    labelClearance: Math.max(0, (anchor.radius + 0.5) * INDIA_INTERIOR_CELL_SIZE - 1),
+    labelClearance: Math.max(0, (anchor.radius + 0.5) * FICTIONAL_INTERIOR_CELL_SIZE - 1),
   };
 }
 
 /**
  * Produces a compact, contiguous and completion-weighted land partition. Every
- * available India cell belongs to exactly one subject; all visible regions are
+ * available fictional-map cell belongs to exactly one subject; all visible regions are
  * constrained again by the geographic SVG clip at render time.
  */
 export function getDynamicTerritories(subjects: TerritoryPartitionSubject[]): DynamicTerritory[] {
@@ -239,10 +239,10 @@ export function getDynamicTerritories(subjects: TerritoryPartitionSubject[]): Dy
   const seeds = selectSeeds(normalized, cells);
   const indexByPoint = new Map(cells.map((cell, index) => [pointKey(cell.x, cell.y), index]));
   const neighbors = cells.map((cell) => [
-    indexByPoint.get(pointKey(cell.x + INDIA_INTERIOR_CELL_SIZE, cell.y)),
-    indexByPoint.get(pointKey(cell.x - INDIA_INTERIOR_CELL_SIZE, cell.y)),
-    indexByPoint.get(pointKey(cell.x, cell.y + INDIA_INTERIOR_CELL_SIZE)),
-    indexByPoint.get(pointKey(cell.x, cell.y - INDIA_INTERIOR_CELL_SIZE)),
+    indexByPoint.get(pointKey(cell.x + FICTIONAL_INTERIOR_CELL_SIZE, cell.y)),
+    indexByPoint.get(pointKey(cell.x - FICTIONAL_INTERIOR_CELL_SIZE, cell.y)),
+    indexByPoint.get(pointKey(cell.x, cell.y + FICTIONAL_INTERIOR_CELL_SIZE)),
+    indexByPoint.get(pointKey(cell.x, cell.y - FICTIONAL_INTERIOR_CELL_SIZE)),
   ].filter((index): index is number => index !== undefined));
   const assignments = Array.from({ length: cells.length }, () => -1);
   const owned = normalized.map((): number[] => []);
@@ -297,4 +297,4 @@ export function getDynamicTerritories(subjects: TerritoryPartitionSubject[]): Dy
   });
 }
 
-export const DYNAMIC_TERRITORY_INTERIOR_CELL_COUNT = INDIA_INTERIOR_CELL_COUNT;
+export const DYNAMIC_TERRITORY_INTERIOR_CELL_COUNT = FICTIONAL_INTERIOR_CELL_COUNT;
