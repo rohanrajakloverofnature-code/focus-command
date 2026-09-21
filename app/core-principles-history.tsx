@@ -22,7 +22,7 @@ function downsample(points: ChartPoint[], maxPoints = 240) {
 
 export default function CorePrinciplesHistoryScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const { title, checkIns, timezone } = useFocusCommandSelector(selectCorePrinciplesHistory, shallowEqual);
   const [rangeKind, setRangeKind] = useState<CorePrinciplesRange["kind"]>("week");
@@ -52,7 +52,7 @@ export default function CorePrinciplesHistoryScreen() {
     <SectionHeader title="Recorded days" />
   </>;
 
-  return <ScreenContainer className="px-4" containerClassName="bg-background"><FlatList ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" data={rows} keyExtractor={(item) => item.localDate} contentContainerStyle={styles.content} ListHeaderComponent={header} ListEmptyComponent={<CommandCard accent="#8EA0B8"><Text style={[styles.emptyTitle, { color: colors.foreground }]}>No check-ins in this view</Text><Text style={[styles.emptyCopy, { color: colors.muted }]}>Return to your principles and check a rule to create a real daily record.</Text></CommandCard>} renderItem={({ item }) => <DailyRecordCard checkIn={item} colors={colors} />} /></ScreenContainer>;
+  return <ScreenContainer className="px-4" containerClassName="bg-background"><FlatList ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" data={rows} keyExtractor={(item) => item.localDate} contentContainerStyle={[styles.content, keyboardContentContainerStyle]} ListHeaderComponent={header} ListEmptyComponent={<CommandCard accent="#8EA0B8"><Text style={[styles.emptyTitle, { color: colors.foreground }]}>No check-ins in this view</Text><Text style={[styles.emptyCopy, { color: colors.muted }]}>Return to your principles and check a rule to create a real daily record.</Text></CommandCard>} renderItem={({ item }) => <DailyRecordCard checkIn={item} colors={colors} />} /></ScreenContainer>;
 }
 
 function DailyRecordCard({ checkIn, colors }: { checkIn: CorePrincipleDailyCheckIn; colors: ReturnType<typeof useColors> }) {

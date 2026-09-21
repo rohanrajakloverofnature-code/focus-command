@@ -17,7 +17,7 @@ import { pickAndPersistFocusSound, removePersistedFocusSound } from "@/lib/focus
 
 export default function SettingsScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const { setColorScheme } = useThemeContext();
   const ready = useFocusCommandReady();
   const {
@@ -252,7 +252,7 @@ export default function SettingsScreen() {
 
   return (
     <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
-      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={[styles.content, keyboardContentContainerStyle]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle
           eyebrow="Hamburger menu"
           title="Command settings"

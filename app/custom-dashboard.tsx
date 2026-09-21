@@ -45,7 +45,7 @@ function normaliseWidget(widget: DashboardWidgetConfig): DashboardWidgetConfig {
 
 export default function CustomDashboardScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const { updateProfile } = useFocusCommandActions();
   const workspaceState = useFocusCommandSelector((state) => ({
@@ -94,7 +94,7 @@ export default function CustomDashboardScreen() {
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background" edges={["top", "bottom", "left", "right"]}>
-      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={[styles.content, keyboardContentContainerStyle]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle
           eyebrow="Dashboard within Dashboard"
           title="Custom analytics"

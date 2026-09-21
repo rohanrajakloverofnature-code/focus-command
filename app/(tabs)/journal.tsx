@@ -22,7 +22,7 @@ import {
 
 export default function JournalScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const { compose } = useLocalSearchParams<{ compose?: string }>();
   const ready = useFocusCommandReady();
   const { addJournal, setJournalLifelinePercentage } = useFocusCommandActions();
@@ -81,7 +81,7 @@ export default function JournalScreen() {
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background">
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="none" onScroll={onScroll} scrollEventThrottle={32}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[styles.content, keyboardContentContainerStyle]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="none" onScroll={onScroll} scrollEventThrottle={32}>
         <ScreenTitle
           eyebrow="Daily reflection"
           title="Journal"

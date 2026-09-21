@@ -42,7 +42,7 @@ export default function RecoveryRhythmScreen() {
     illnessContexts: state.illnessContextRecords ?? [],
   }), shallowEqual);
   const actions = useFocusCommandActions();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus<FlatList<RecoveryListRecord>>();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus<FlatList<RecoveryListRecord>>();
   const [view, setView] = useState<ViewKey>("stress");
   const [savedKind, setSavedKind] = useState<ViewKey | "nap" | null>(null);
   const saveLockRef = useRef(false);
@@ -185,7 +185,7 @@ export default function RecoveryRhythmScreen() {
       ref={scrollRef}
       data={listData}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, keyboardContentContainerStyle]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       onScroll={onScroll}

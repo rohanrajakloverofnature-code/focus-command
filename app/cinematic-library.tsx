@@ -59,7 +59,7 @@ function MusicControl({ slot, current, isBusy, onChoose, onRemove, required = fa
 
 export default function CinematicLibraryScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const { setCinematicOverride, removeCinematicOverride, updateProfile } = useFocusCommandActions();
   const profile = useFocusCommandSelector((state) => state.profile);
@@ -230,7 +230,7 @@ export default function CinematicLibraryScreen() {
         data={CINEMATIC_ENTRIES}
         keyExtractor={(entry) => entry.variant}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, keyboardContentContainerStyle]}
         ListHeaderComponent={(
           <>
             <ScreenTitle

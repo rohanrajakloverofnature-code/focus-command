@@ -14,7 +14,7 @@ const rangeOptions: { kind: RecoveryRangeKind; label: string }[] = [{ kind: "wee
 
 export default function RecoveryRhythmHistoryScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const data = useFocusCommandSelector((state) => ({
     profile: state.profile, recoveryStressors: state.recoveryStressors ?? [], recoveryActions: state.recoveryActions ?? [], sleepLogs: state.sleepLogs ?? [], napLogs: state.napLogs ?? [], screenLogs: state.screenTimeLogs ?? [], coreChecks: state.corePrincipleDailyCheckIns, missions: state.missions, missionCompletions: state.missionCompletions, progression: state.progression, reflections: state.reflections,
@@ -34,7 +34,7 @@ export default function RecoveryRhythmHistoryScreen() {
 
   if (!ready) return <LoadingScreen label="Preparing your private Recovery history…" />;
   const customValid = kind !== "custom" || (/^\d{4}-\d{2}-\d{2}$/.test(customStart) && /^\d{4}-\d{2}-\d{2}$/.test(customEnd) && customStart <= customEnd);
-  return <ScreenContainer className="px-4" containerClassName="bg-background" edges={["top", "bottom", "left", "right"]}><ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+  return <ScreenContainer className="px-4" containerClassName="bg-background" edges={["top", "bottom", "left", "right"]}><ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={[styles.content, keyboardContentContainerStyle]} showsVerticalScrollIndicator={false}>
     <ScreenTitle eyebrow="Private · Read-only overview" title="Command Balance" detail="Your recorded stress, sleep, screen time, Success Ratio, and Mission Power in one selected period." right={<IconAction icon="chevron.right" label="Return to Recovery & Rhythm" onPress={() => router.back()} />} />
     <View style={styles.rangeRow}>{rangeOptions.map((option) => <Pressable key={option.kind} onPress={() => setKind(option.kind)} style={[styles.rangeChip, { borderColor: kind === option.kind ? colors.primary : colors.border, backgroundColor: kind === option.kind ? `${colors.primary}18` : colors.surface }]}><Text style={[styles.rangeText, { color: kind === option.kind ? colors.primary : colors.muted }]}>{option.label}</Text></Pressable>)}</View>
     {kind === "custom" ? <View style={styles.customRow}><TextInput onFocus={onInputFocus} value={customStart} onChangeText={setCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.dateInput, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.foreground }]} /><TextInput onFocus={onInputFocus} value={customEnd} onChangeText={setCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.dateInput, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.foreground }]} /></View> : null}

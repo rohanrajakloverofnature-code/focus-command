@@ -62,7 +62,7 @@ describe("first-touch, keyboard, and recovery-save contracts", () => {
     expect(appConfigSource).toContain("androidNavigationBar:");
   });
 
-  it("keeps the focused field above the keyboard after manual scrolling without adding an inset", () => {
+  it("keeps the focused field above the keyboard even when content has no spare scroll range", () => {
     expect(keyboardHookSource).toContain('Keyboard.addListener("keyboardDidShow"');
     expect(keyboardHookSource).toContain('Keyboard.addListener("keyboardDidChangeFrame"');
     expect(keyboardHookSource).toContain("const onScroll");
@@ -78,7 +78,10 @@ describe("first-touch, keyboard, and recovery-save contracts", () => {
     expect(journalSource).toContain("onFocus={onInputFocus}");
     expect(readFileSync(resolve(process.cwd(), "components/distraction-logger.tsx"), "utf8")).toContain("keyboardDismissMode=\"none\"");
     expect(readFileSync(resolve(process.cwd(), "components/distraction-logger.tsx"), "utf8")).toContain("onFocus={onInputFocus}");
-    expect(keyboardHookSource).not.toContain("paddingBottom");
+    expect(keyboardHookSource).toContain("paddingBottom: keyboardInset");
+    expect(recoverySource).toContain("keyboardContentContainerStyle");
+    expect(missionSource).toContain("keyboardContentContainerStyle");
+    expect(journalSource).toContain("keyboardContentContainerStyle");
     expect(rootSource).not.toContain('behavior="height"');
   });
 

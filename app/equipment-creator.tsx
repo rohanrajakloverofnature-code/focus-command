@@ -13,7 +13,7 @@ const types = ["FocusDevice", "EnergyPack", "AuraGenerator"] as const;
 
 export default function EquipmentCreatorScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const router = useRouter();
   const { addEquipment } = useFocusCommandActions();
   const allEquipment = useFocusCommandSelector((state) => state.allEquipment);
@@ -58,7 +58,7 @@ export default function EquipmentCreatorScreen() {
 
   return (
     <ScreenContainer className="p-4">
-      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={[{ flexGrow: 1 }, keyboardContentContainerStyle]}>
         <View className="gap-6">
           {/* Header */}
           <View className="gap-2">

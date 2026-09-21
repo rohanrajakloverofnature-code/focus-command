@@ -63,7 +63,6 @@ function formatMetricValue(month: MonthlyCommandArchiveMonth, metric: MonthlyArc
 
 function MonthMetric({ label, value, accent, onPress }: { label: string; value: string; accent: string; onPress?: () => void }) {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
   const content = <View style={[styles.monthMetric, { borderColor: `${accent}66`, backgroundColor: colors.background }]}>
     <Text style={[styles.monthMetricValue, { color: accent }]}>{value}</Text>
     <Text style={[styles.monthMetricLabel, { color: colors.muted }]}>{label}</Text>
@@ -288,16 +287,20 @@ function ArchiveMonthView({ month, selectedMetric, onSelectMetric, onBack, onOpe
 function ArchiveTopicListView({ topics, period, searchQuery, progressFilter, onSearchChange, onProgressFilterChange, onBack }: { topics: MonthlyArchiveStudiedTopic[]; period: ArchiveTopicPeriod; searchQuery: string; progressFilter: MonthlyArchiveRevisionProgressFilter; onSearchChange: (value: string) => void; onProgressFilterChange: (value: MonthlyArchiveRevisionProgressFilter) => void; onBack: () => void }) {
   const colors = useColors();
   const router = useRouter();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const title = period.monthKey ? new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${period.monthKey}-01T12:00:00Z`)) : period.lifetime ? "Lifetime revision overview" : `${period.year} yearly revision overview`;
   const searchable = true;
   const searchLabel = period.lifetime ? "SEARCH LIFETIME" : period.monthKey ? "SEARCH THIS MONTH" : "SEARCH THIS YEAR";
   const searchPeriodLabel = period.lifetime ? "lifetime" : period.monthKey ? "monthly" : "yearly";
   const progressLabel = (phase: MonthlyArchiveStudiedTopic["revisionPhase"]) => MONTHLY_ARCHIVE_REVISION_PROGRESS_FILTERS.find((filter) => filter.id === phase)?.label ?? "Seed Sown";
   return <FlatList
+    ref={scrollRef}
+    onScroll={onScroll}
+    scrollEventThrottle={32}
     data={topics}
     keyExtractor={(item) => item.key}
     showsVerticalScrollIndicator={false}
-    contentContainerStyle={styles.monthContent}
+    contentContainerStyle={[styles.monthContent, keyboardContentContainerStyle]}
     renderItem={({ item }) => <TapFeedback onPress={() => router.push({ pathname: "/revisions", params: { topic: item.revisionTopicId! } })} accessibilityLabel={`Open revision for ${item.topic}`}>
       <View style={[styles.topicRow, { borderColor: colors.border, backgroundColor: colors.background }]}> 
         <View style={styles.subjectCopy}><Text style={[styles.eyebrow, { color: "#55B7FF" }]}>{item.subject.toUpperCase()}</Text><Text style={[styles.subjectTitle, { color: colors.foreground }]}>{item.topic}</Text><Text style={[styles.detail, { color: colors.muted }]}>{item.actionLabel} · {item.actionDate}</Text></View>
@@ -305,7 +308,7 @@ function ArchiveTopicListView({ topics, period, searchQuery, progressFilter, onS
       </View>
     </TapFeedback>}
     ListEmptyComponent={<CommandCard accent="#A78BFA" style={styles.emptySubjectCard}><Text style={[styles.detail, { color: colors.muted }]}>{searchable && (searchQuery.trim() || progressFilter !== "all") ? "No revision activity matches this search or phase filter." : "No revision activity was recorded for this period."}</Text></CommandCard>}
-    ListHeaderComponent={<><ScreenTitle eyebrow="Read-only revision view" title={title} detail="Each row is one real action: Seed Sown, Emerging, Developing, or Matured, preserved without changing the revision cadence." right={<IconAction icon="xmark" label="Close topic review" onPress={onBack} />} /><TapFeedback onPress={onBack} accessibilityLabel="Return to command archive"><View style={[styles.returnControl, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.returnControlText, { color: colors.primary }]}>Return to command archive</Text></View></TapFeedback>{searchable ? <><View style={[styles.topicSearch, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.eyebrow, { color: "#55B7FF" }]}>{searchLabel}</Text><TextInput value={searchQuery} onChangeText={onSearchChange} placeholder="Topic or subject" placeholderTextColor={colors.muted} returnKeyType="done" accessibilityLabel={`Search ${searchPeriodLabel} revision topics by topic or subject`} style={[styles.topicSearchInput, { color: colors.foreground }]} /></View><View style={styles.progressFilterBlock}><Text style={[styles.eyebrow, { color: "#5DD6C0" }]}>FILTER PHASE</Text><FlatList horizontal data={MONTHLY_ARCHIVE_REVISION_PROGRESS_FILTERS} keyExtractor={(item) => item.id} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.revisionProgressSelector} renderItem={({ item }) => { const active = item.id === progressFilter; return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`Filter revision activity by ${item.label}`} onPress={() => onProgressFilterChange(item.id)} style={({ pressed }) => [styles.revisionProgressChip, { borderColor: active ? "#5DD6C0" : colors.border, backgroundColor: active ? "#5DD6C01F" : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.metricChipText, { color: active ? "#5DD6C0" : colors.foreground }]}>{item.label}</Text></Pressable>; }} /></View></> : null}<SectionHeader title="Revision activity" /></>}
+    ListHeaderComponent={<><ScreenTitle eyebrow="Read-only revision view" title={title} detail="Each row is one real action: Seed Sown, Emerging, Developing, or Matured, preserved without changing the revision cadence." right={<IconAction icon="xmark" label="Close topic review" onPress={onBack} />} /><TapFeedback onPress={onBack} accessibilityLabel="Return to command archive"><View style={[styles.returnControl, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.returnControlText, { color: colors.primary }]}>Return to command archive</Text></View></TapFeedback>{searchable ? <><View style={[styles.topicSearch, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.eyebrow, { color: "#55B7FF" }]}>{searchLabel}</Text><TextInput onFocus={onInputFocus} value={searchQuery} onChangeText={onSearchChange} placeholder="Topic or subject" placeholderTextColor={colors.muted} returnKeyType="done" accessibilityLabel={`Search ${searchPeriodLabel} revision topics by topic or subject`} style={[styles.topicSearchInput, { color: colors.foreground }]} /></View><View style={styles.progressFilterBlock}><Text style={[styles.eyebrow, { color: "#5DD6C0" }]}>FILTER PHASE</Text><FlatList horizontal data={MONTHLY_ARCHIVE_REVISION_PROGRESS_FILTERS} keyExtractor={(item) => item.id} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.revisionProgressSelector} renderItem={({ item }) => { const active = item.id === progressFilter; return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`Filter revision activity by ${item.label}`} onPress={() => onProgressFilterChange(item.id)} style={({ pressed }) => [styles.revisionProgressChip, { borderColor: active ? "#5DD6C0" : colors.border, backgroundColor: active ? "#5DD6C01F" : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.metricChipText, { color: active ? "#5DD6C0" : colors.foreground }]}>{item.label}</Text></Pressable>; }} /></View></> : null}<SectionHeader title="Revision activity" /></>}
   />;
 }
 

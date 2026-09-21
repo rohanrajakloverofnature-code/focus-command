@@ -172,7 +172,7 @@ function hasSameDashboardDependencies(left: DashboardDependencies, right: Dashbo
 export default function DashboardScreen() {
   const isFocused = useIsFocused();
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const { addLifelinePoint, removeLifelinePoint, updateProfile } = useFocusCommandActions();
   const subscribedState = useFocusCommandSelector(selectDashboardDependencies, hasSameDashboardDependencies) as FocusState;
@@ -383,7 +383,7 @@ export default function DashboardScreen() {
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background">
-      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={[styles.content, keyboardContentContainerStyle]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle
           eyebrow="Analytics suite"
           title="Command intelligence"

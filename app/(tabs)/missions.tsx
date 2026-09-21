@@ -27,7 +27,7 @@ function missionMatchesSearch(mission: Pick<Mission, "title" | "subject" | "cate
 
 export default function MissionsScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const { compose, filter: requestedFilter, bossId: requestedBossId, archiveMonth, archiveSubject } = useLocalSearchParams<{ compose?: string; filter?: MissionFilter; bossId?: string; archiveMonth?: string; archiveSubject?: string }>();
   const ready = useFocusCommandReady();
   const { bosses, missionCompletions, missions: allMissions, progression, reflections, timezone } = useFocusCommandSelector((state) => ({
@@ -167,7 +167,7 @@ export default function MissionsScreen() {
         data={boardItems}
         renderItem={renderBoardItem}
         keyExtractor={(item) => item.key}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, keyboardContentContainerStyle]}
         ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"

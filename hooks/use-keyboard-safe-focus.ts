@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { findNodeHandle, Keyboard, Platform, type NativeScrollEvent, type NativeSyntheticEvent, type TextInputProps } from "react-native";
 
 type KeyboardScrollResponder = {
@@ -23,6 +23,7 @@ export function useKeyboardSafeFocus<T>(additionalOffset = 88) {
   const focusedTargetRef = useRef<number | null>(null);
   const correctionFrameRef = useRef<number | null>(null);
   const keyboardVisibleRef = useRef(false);
+  const [keyboardInset, setKeyboardInset] = useState(0);
 
   const keepFocusedInputVisible = useCallback(() => {
     const target = focusedTargetRef.current;
@@ -57,19 +58,24 @@ export function useKeyboardSafeFocus<T>(additionalOffset = 88) {
 
   useEffect(() => {
     if (Platform.OS === "web") return;
-    const showSubscription = Keyboard.addListener("keyboardDidShow", () => {
+    const showSubscription = Keyboard.addListener("keyboardDidShow", (event) => {
       keyboardVisibleRef.current = true;
+      setKeyboardInset(Math.max(0, event.endCoordinates?.height ?? 0) + additionalOffset);
       keepFocusedInputVisible();
     });
     const hideSubscription = Keyboard.addListener("keyboardDidHide", () => {
       keyboardVisibleRef.current = false;
+      setKeyboardInset(0);
       if (correctionFrameRef.current !== null) {
         cancelAnimationFrame(correctionFrameRef.current);
         correctionFrameRef.current = null;
       }
     });
-    const frameSubscription = Keyboard.addListener("keyboardDidChangeFrame", () => {
-      if (keyboardVisibleRef.current) keepFocusedInputVisible();
+    const frameSubscription = Keyboard.addListener("keyboardDidChangeFrame", (event) => {
+      if (keyboardVisibleRef.current) {
+        setKeyboardInset(Math.max(0, event.endCoordinates?.height ?? 0) + additionalOffset);
+        keepFocusedInputVisible();
+      }
     });
     return () => {
       showSubscription.remove();
@@ -78,9 +84,14 @@ export function useKeyboardSafeFocus<T>(additionalOffset = 88) {
       keyboardVisibleRef.current = false;
       if (correctionFrameRef.current !== null) cancelAnimationFrame(correctionFrameRef.current);
     };
-  }, [keepFocusedInputVisible]);
+  }, [additionalOffset, keepFocusedInputVisible]);
+
+  const keyboardContentContainerStyle = useMemo(
+    () => ({ paddingBottom: keyboardInset }),
+    [keyboardInset],
+  );
 
   // The same helper is shared by ScrollView and FlatList screens. Keep the
   // public ref component-agnostic; the native responder is narrowed above.
-  return { scrollRef: scrollRef as unknown as RefObject<never>, onInputFocus, onInputBlur, onScroll };
+  return { scrollRef: scrollRef as unknown as RefObject<never>, onInputFocus, onInputBlur, onScroll, keyboardContentContainerStyle };
 }

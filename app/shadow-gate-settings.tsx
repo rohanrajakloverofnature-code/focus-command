@@ -33,7 +33,7 @@ function ActionTextButton({ label, color, onPress }: { label: string; color: str
 
 export default function ShadowGateSettingsScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const doorways = useFocusCommandSelector((state) => state.shadowGatePersonalDoorways);
   const { addShadowGatePersonalDoorway, updateShadowGatePersonalDoorway, removeShadowGatePersonalDoorway } = useFocusCommandActions();
@@ -82,7 +82,7 @@ export default function ShadowGateSettingsScreen() {
         updateCellsBatchingPeriod={16}
         windowSize={7}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, keyboardContentContainerStyle]}
         ListHeaderComponent={(
           <View style={styles.header}>
             <ScreenTitle eyebrow="Local-only tools" title="Personal Doorways" detail="Write one short action that helps you cross a Shadow Gate. These stay private, can be pinned for quick reuse, and are never sent anywhere." right={<IconAction icon="xmark" label="Close Shadow Gate settings" onPress={() => router.back()} />} />

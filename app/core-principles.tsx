@@ -32,7 +32,7 @@ const selectCorePrinciples = (state: FocusState) => ({
 
 export default function CorePrinciplesScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const actions = useFocusCommandActions();
   const { title, lists, items, checkIns, timezone } = useFocusCommandSelector(selectCorePrinciples, shallowEqual);
@@ -170,7 +170,7 @@ export default function CorePrinciplesScreen() {
     <FlatList ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none"
       data={rows}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, keyboardContentContainerStyle]}
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={header}
       ListEmptyComponent={<CommandCard accent="#8EA0B8"><Text style={[styles.emptyTitle, { color: colors.foreground }]}>Your principles begin here</Text><Text style={[styles.emptyCopy, { color: colors.muted }]}>Create a list, then write the positive rules you want to practise every day. This does not affect XP, rewards, missions, or revisions.</Text></CommandCard>}

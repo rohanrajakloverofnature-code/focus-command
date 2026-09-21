@@ -9,7 +9,7 @@ import { DISTRACTION_CATEGORIES, type DistractionCategory } from "@/lib/focus-co
 
 export function DistractionLogger({ count, onLog }: { count: number; onLog: (category: DistractionCategory, note?: string) => void }) {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const [visible, setVisible] = useState(false);
   const [showOtherNote, setShowOtherNote] = useState(false);
   const [otherNote, setOtherNote] = useState("");
@@ -26,7 +26,7 @@ export function DistractionLogger({ count, onLog }: { count: number; onLog: (cat
     <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
       <View style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close distraction choices" />
-        <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" keyboardShouldPersistTaps="handled" contentContainerStyle={styles.modalContent}>
+        <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.modalContent, keyboardContentContainerStyle]}>
         <CommandCard accent={colors.warning} style={styles.sheet}>
           <Text style={[styles.sheetEyebrow, { color: colors.warning }]}>FOCUS FRICTION</Text>
           <Text style={[styles.sheetTitle, { color: colors.foreground }]}>{showOtherNote ? "Add a brief note" : "What pulled you away?"}</Text>

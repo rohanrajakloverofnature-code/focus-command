@@ -29,7 +29,7 @@ function parseOptions(value: string) {
 
 export default function CustomizeScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const { updateProfile, addCustomQuestion, updateCustomQuestion, removeCustomQuestion, updateCustomGraph } = useFocusCommandActions();
   const { profile, customQuestions, customGraphs } = useFocusCommandSelector((state) => ({
@@ -135,7 +135,7 @@ export default function CustomizeScreen() {
 
   return (
     <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
-      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={[styles.content, keyboardContentContainerStyle]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle eyebrow="Customization" title="Tune the system" detail="Adjust the RPG rules, reflection prompts, and dashboard lenses to fit your real life." right={<IconAction icon="xmark" label="Close customization" onPress={() => router.back()} />} />
 
         <SectionHeader title="Level rules" />

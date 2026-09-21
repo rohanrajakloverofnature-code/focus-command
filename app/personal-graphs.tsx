@@ -21,7 +21,7 @@ const rangeOptions: { value: PersonalGraphRange; label: string }[] = [
 
 export default function PersonalGraphsScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const { graphId } = useLocalSearchParams<{ graphId?: string }>();
   const graphs = useFocusCommandSelector((state) => state.personalGraphs);
@@ -115,7 +115,7 @@ export default function PersonalGraphsScreen() {
     <FlatList ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none"
       data={pointRows}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, keyboardContentContainerStyle]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={<>

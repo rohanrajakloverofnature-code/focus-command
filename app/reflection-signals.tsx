@@ -61,7 +61,7 @@ function SignalCard({ signal }: { signal: PersonalReflectionSignal }) {
 
 export default function ReflectionSignalsScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const state = useFocusCommandSelector(selectSignalSnapshot, shallowEqual);
   const [window, setWindow] = useState<BehavioralReflectionWindow>("lifetime");
@@ -84,7 +84,7 @@ export default function ReflectionSignalsScreen() {
       updateCellsBatchingPeriod={16}
       windowSize={5}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, keyboardContentContainerStyle]}
       ListHeaderComponent={<View style={styles.header}><ScreenTitle eyebrow="Your added questions" title="Personal Reflection Signals" detail="Rating, choice, and written answers stay private. Only a Rating you explicitly enable can join the optional consistency scenario." right={<IconAction icon="xmark" label="Close Personal Reflection Signals" onPress={() => router.back()} />} /><CommandCard accent={colors.primary} style={styles.explainer}><Text style={[styles.explainerTitle, { color: colors.foreground }]}>Each answer type stays truthful</Text><Text style={[styles.explainerText, { color: colors.muted }]}>Ratings show a 1–5 trend. Choices show counts. Written answers remain written notes. None change the four built-in emotional lenses.</Text></CommandCard><CommandCard accent={colors.primary} style={styles.filterCard}><Text style={[styles.filterTitle, { color: colors.foreground }]}>REFLECTION WINDOW</Text><View style={styles.filterRow}>{SIGNAL_WINDOWS.map((option) => <Pressable key={option.value} onPress={() => setWindow(option.value)} style={[styles.filterChip, { borderColor: window === option.value ? colors.primary : colors.border, backgroundColor: window === option.value ? `${colors.primary}22` : colors.background }]}><Text style={[styles.filterChipText, { color: window === option.value ? colors.primary : colors.muted }]}>{option.label}</Text></Pressable>)}</View>{window === "custom" ? <TextInput onFocus={onInputFocus} value={customCountText} onChangeText={setCustomCountText} keyboardType="number-pad" inputMode="numeric" placeholder="Number of latest reflections" placeholderTextColor={colors.muted} style={[styles.customInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /> : null}<Text style={[styles.filterDetail, { color: colors.muted }]}>{getBehavioralReflectionWindowLabel(window, customCount)} · Lifetime uses every stored reflection; chart drawing remains downsampled only for display.</Text></CommandCard></View>}
       ListHeaderComponentStyle={styles.headerSpacing}
       ListEmptyComponent={<CommandCard accent={colors.border} style={styles.emptyCard}><Text style={[styles.title, { color: colors.foreground }]}>No custom questions yet</Text><Text style={[styles.detail, { color: colors.muted }]}>Create a custom reflection question in Customize, then answer it after a future long mission.</Text></CommandCard>}

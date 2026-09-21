@@ -97,7 +97,7 @@ function highlightedStyle(color: string) {
 
 export default function SuperDashboardScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const state = useFocusCommandSelector(selectSuperDashboardState, sameSuperDashboardState);
   const [rangeKind, setRangeKind] = useState<SuperDashboardRangeKind>("week");
@@ -131,7 +131,7 @@ export default function SuperDashboardScreen() {
 
   return (
     <ScreenContainer className="px-4" containerClassName="bg-background" edges={["top", "bottom", "left", "right"]}>
-      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={[styles.content, keyboardContentContainerStyle]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle
           eyebrow="Private · complete local view"
           title="Super Dashboard"

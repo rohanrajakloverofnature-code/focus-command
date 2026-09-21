@@ -24,7 +24,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 export default function WeeklyReviewScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const router = useRouter();
   const ready = useFocusCommandReady();
   const weeklyState = useFocusCommandSelector((state) => ({
@@ -53,7 +53,7 @@ export default function WeeklyReviewScreen() {
     : "No dated plans were scheduled this week.";
 
   return <ScreenContainer className="px-4" containerClassName="bg-background">
-    <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={[styles.content, keyboardContentContainerStyle]} showsVerticalScrollIndicator={false}>
       <ScreenTitle
         eyebrow="Command review"
         title="Weekly after-action"

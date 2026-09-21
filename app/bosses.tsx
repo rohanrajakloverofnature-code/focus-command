@@ -16,7 +16,7 @@ const blankForm = (): BossForm => ({ title: "", objective: "", deadline: "", rew
 
 export default function BossesScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll } = useKeyboardSafeFocus();
+  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const bosses = useFocusCommandSelector((state) => state.bosses);
   const missions = useFocusCommandSelector((state) => state.missions);
   const ready = useFocusCommandReady();
@@ -87,7 +87,7 @@ export default function BossesScreen() {
 
   return (
     <ScreenContainer className="px-4" edges={["top", "bottom", "left", "right"]}>
-      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={[styles.content, keyboardContentContainerStyle]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle
           eyebrow="Campaigns"
           title="Active bosses"
