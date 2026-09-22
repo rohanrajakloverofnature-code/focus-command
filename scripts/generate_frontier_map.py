@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a fictional, non-geographic battle-map silhouette and interior mask."""
+"""Generate the fictional Focus Command frontier traced from the user's sketch."""
 from __future__ import annotations
 from pathlib import Path
 
@@ -8,28 +8,37 @@ BOUNDARY_OUT = ROOT / "components/fictional-boundary.ts"
 MASK_OUT = ROOT / "lib/fictional-interior-mask.ts"
 WIDTH, HEIGHT, CELL = 320, 380, 6
 
-# Original fictional coastline: bays, peninsulas, and a southern island chain.
+# A hand-traced fictional landform: broad upper basin, carved western inlets,
+# a narrow waist, and a long southern peninsula. It is not geographic data.
 OUTER = [
-    (108, 20), (130, 27), (146, 23), (164, 34), (183, 30), (196, 43),
-    (218, 42), (230, 58), (250, 65), (246, 82), (268, 92), (260, 108),
-    (280, 119), (271, 134), (292, 148), (279, 161), (297, 178), (285, 190),
-    (303, 207), (290, 218), (299, 236), (281, 242), (285, 260), (267, 264),
-    (271, 284), (251, 281), (247, 301), (230, 294), (221, 318), (205, 310),
-    (194, 338), (180, 330), (169, 357), (153, 347), (140, 366), (126, 348),
-    (111, 356), (103, 335), (88, 342), (84, 319), (66, 323), (68, 301),
-    (48, 297), (57, 278), (38, 266), (51, 247), (31, 232), (47, 215),
-    (28, 197), (48, 184), (34, 164), (54, 154), (42, 136), (63, 129),
-    (55, 108), (77, 105), (68, 85), (91, 83), (84, 63), (105, 66),
-    (100, 45), (119, 48),
-]
-ISLANDS = [
-    [(236, 326), (248, 318), (257, 327), (251, 340), (239, 342), (232, 334)],
-    [(267, 354), (275, 348), (282, 356), (278, 366), (269, 365)],
-    [(46, 343), (53, 337), (60, 342), (57, 351), (49, 352)],
+    (72, 22), (95, 10), (122, 8), (145, 15), (163, 28), (183, 34),
+    (198, 46), (218, 48), (231, 60), (248, 58), (260, 72), (258, 91),
+    (270, 106), (266, 125), (276, 143), (270, 160), (278, 178), (272, 194),
+    (258, 207), (238, 216), (216, 225), (195, 232), (179, 240),
+    (197, 237), (220, 230), (245, 226), (270, 224), (291, 231), (300, 242),
+    (294, 253), (278, 257), (268, 269), (251, 275), (248, 291), (233, 300),
+    (226, 316), (211, 323), (201, 339), (186, 346), (174, 360), (158, 353),
+    (146, 365), (132, 357), (119, 360), (111, 346), (98, 338), (101, 322),
+    (89, 311), (96, 296), (86, 282), (94, 267), (81, 255), (88, 240),
+    (76, 229), (63, 224), (56, 211), (62, 198), (50, 190), (53, 176),
+    (42, 165), (52, 153), (43, 140), (54, 129), (45, 116), (58, 106),
+    (51, 93), (64, 84), (57, 70), (71, 64), (64, 50), (79, 45),
+    (70, 34),
 ]
 
-def path_for(ring):
-    return "M" + " ".join(f"{x:.2f} {y:.2f}" for x, y in ring) + " Z"
+
+def smooth_path(points):
+    """Create a soft, hand-drawn-looking SVG outline through polygon points."""
+    midpoints = [((a[0] + b[0]) / 2, (a[1] + b[1]) / 2) for a, b in zip(points, points[1:] + points[:1])]
+    path = f"M{midpoints[-1][0]:.2f} {midpoints[-1][1]:.2f}"
+    for point, midpoint in zip(points, midpoints):
+        path += f" Q{point[0]:.2f} {point[1]:.2f} {midpoint[0]:.2f} {midpoint[1]:.2f}"
+    return path + " Z"
+
+
+def polygon_path(points):
+    return "M" + " ".join(f"{x:.2f} {y:.2f}" for x, y in points) + " Z"
+
 
 def point_in_ring(point, ring):
     x, y = point
@@ -42,32 +51,32 @@ def point_in_ring(point, ring):
         previous = current
     return inside
 
+
 def main():
-    rings = [OUTER, *ISLANDS]
-    path = " ".join(path_for(ring) for ring in rings)
+    boundary_path = smooth_path(OUTER)
     BOUNDARY_OUT.write_text(
-        "// Original fictional battle-map silhouette created for Focus Command.\n"
+        "// Original fictional battle-map silhouette traced from a user sketch.\n"
         "// It is not based on a real country or an existing game map.\n\n"
         f'export const FICTIONAL_BOUNDARY_VIEWBOX = "0 0 {WIDTH} {HEIGHT}";\n'
-        f"export const FICTIONAL_BOUNDARY_PATH = `{path}`;\n"
-        f"export const FICTIONAL_BOUNDARY_RING_COUNT = {len(rings)};\n",
+        f"export const FICTIONAL_BOUNDARY_PATH = `{boundary_path}`;\n"
+        "export const FICTIONAL_BOUNDARY_RING_COUNT = 1;\n",
         encoding="utf-8",
     )
     cells = []
     for y in range(0, HEIGHT, CELL):
         for x in range(0, WIDTH, CELL):
-            center = (x + CELL / 2, y + CELL / 2)
-            if any(point_in_ring(center, ring) for ring in rings):
+            if point_in_ring((x + CELL / 2, y + CELL / 2), OUTER):
                 cells.extend((x, y))
     MASK_OUT.write_text(
-        "// Generated from the original fictional Focus Command battle-map silhouette.\n"
+        "// Generated from the fictional Focus Command frontier silhouette.\n"
         "// No real-world geographic boundary is used.\n\n"
         f"export const FICTIONAL_INTERIOR_CELL_SIZE = {CELL};\n"
         f"export const FICTIONAL_INTERIOR_CELLS = new Uint16Array([{', '.join(map(str, cells))}]);\n"
         f"export const FICTIONAL_INTERIOR_CELL_COUNT = {len(cells) // 2};\n",
         encoding="utf-8",
     )
-    print(f"Generated {len(rings)} rings and {len(cells) // 2} interior cells.")
+    print(f"Generated 1 ring and {len(cells) // 2} interior cells.")
+
 
 if __name__ == "__main__":
     main()
