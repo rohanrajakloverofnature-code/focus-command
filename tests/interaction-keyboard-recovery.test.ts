@@ -32,9 +32,11 @@ describe("first-touch, keyboard, and recovery-save contracts", () => {
     expect(interactiveCard).not.toContain("<TapFeedback onPress={onPress} accessibilityLabel={`Open ${title}`}>");
   });
 
-  it("uses enlarged territory hit geometry before the visible India-map paint", () => {
-    expect(mapSource).toContain('fill="#00000001" stroke="#00000001" strokeWidth={14}');
-    expect(mapSource).toContain("<G key={subject} onPress={interactive ? () => onSelect?.(subject) : undefined}>");
+  it("puts the territory press handler directly on the visible map path", () => {
+    expect(mapSource).toContain('strokeLinejoin="round" strokeLinecap="round" onPress={interactive ? () => onSelect?.(subject) : undefined}');
+    expect(mapSource).toContain("<G key={subject}>");
+    expect(mapSource).not.toContain('fill="#00000001" stroke="#00000001" strokeWidth={14}');
+    expect(mapSource).not.toContain("<G key={subject} onPress={interactive ? () => onSelect?.(subject) : undefined}>");
     expect(mapSource).toContain("A full subject label has no readable placement in this small territory.");
     expect(mapSource).toContain("compact-label-${subject}");
     expect(mapSource).toContain("const percentage = `${Math.round(capture * 100)}%`;");

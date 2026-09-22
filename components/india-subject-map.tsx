@@ -54,10 +54,9 @@ function TerritoryLayer({
         const selectedNow = selectedSubject === subject;
         const depth = Math.max(2, Math.round(capture * 5));
         return (
-          <G key={subject} onPress={interactive ? () => onSelect?.(subject) : undefined}>
-            {interactive ? <Path d={path} fill="#00000001" stroke="#00000001" strokeWidth={14} /> : null}
+          <G key={subject}>
             <Path d={path} fill="#060914" opacity={0.7} transform={`translate(1.5 ${depth + 2})`} />
-            <Path d={path} fill={`${color}${selectedNow ? "F2" : "C4"}`} stroke={selectedNow ? "#FFFFFF" : `${color}F2`} strokeWidth={selectedNow ? 1.9 : 1.2} strokeLinejoin="round" strokeLinecap="round" />
+            <Path d={path} fill={`${color}${selectedNow ? "F2" : "C4"}`} stroke={selectedNow ? "#FFFFFF" : `${color}F2`} strokeWidth={selectedNow ? 1.9 : 1.2} strokeLinejoin="round" strokeLinecap="round" onPress={interactive ? () => onSelect?.(subject) : undefined} />
             {selectedNow ? <Path d={path} fill="none" stroke="#FFFFFF88" strokeWidth={0.65} transform="translate(-0.8 -0.8)" /> : null}
           </G>
         );
