@@ -197,8 +197,8 @@ export function RankCharacter({ title, level, reduceMotion, compact = false, com
     <View accessibilityLabel={`${profile.name} character for ${title}, level ${level}`} style={[styles.wrap, compact && styles.compactWrap]}>
       {onPress ? <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Inspect ${title} development`} accessibilityHint="Shows a new development reveal only after you earn progression or equip new gear" style={({ pressed }) => [styles.characterPressable, { opacity: pressed ? 0.82 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>{characterVisual}</Pressable> : characterVisual}
       <View style={[styles.label, { borderColor: `${accentColor}99`, backgroundColor: colors.background }]}>
-        <Text style={[styles.labelText, { color: accentColor }]}>{profile.name.toUpperCase()} · L{level}</Text>
-        <Text numberOfLines={1} style={[styles.detailText, { color: colors.muted }]}>{title}</Text>
+        <Text style={[styles.labelText, { color: accentColor }]}>{title.toUpperCase()} · L{level}</Text>
+        <Text numberOfLines={1} style={[styles.detailText, { color: colors.muted }]}>{profile.name}</Text>
         {gearCount ? <View style={styles.gearPips}>{Array.from({ length: gearCount }, (_, index) => <View key={index} style={[styles.gearPip, { backgroundColor: index === 0 ? accentColor : supportColor }]} />)}</View> : null}
       </View>
     </View>
