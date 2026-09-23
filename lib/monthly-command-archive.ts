@@ -1,5 +1,6 @@
 import { getMissionCompletionRecords, toLocalDate, type FocusState, type Reflection } from "./focus-command";
 import { DISTRACTION_CATEGORY_LABELS } from "./distraction-log";
+import { getSrsPhaseLabel, type SrsPhase } from "./srs-schedule";
 export type MonthlyArchiveState = Pick<FocusState, "profile" | "missions" | "missionCompletions" | "reflections" | "progression" | "transactions" | "distractionLogs" | "srsTopics" | "srsActivityLog">;
 
 export const MONTHLY_ARCHIVE_METRICS = [
@@ -21,8 +22,10 @@ export type MonthlyArchiveMetric = typeof MONTHLY_ARCHIVE_METRICS[number];
 export const MONTHLY_ARCHIVE_REVISION_PROGRESS_FILTERS = [
   { id: "all", label: "All", percent: null },
   { id: "seed_sown", label: "Seed Sown", percent: 0 },
-  { id: "emerging", label: "Emerging", percent: 33 },
-  { id: "developing", label: "Developing", percent: 67 },
+  { id: "emerging", label: "Emerging", percent: 20 },
+  { id: "developing", label: "Developing", percent: 40 },
+  { id: "reinforcing", label: "Reinforcing", percent: 60 },
+  { id: "consolidating", label: "Consolidating", percent: 80 },
   { id: "matured", label: "Matured", percent: 100 },
 ] as const;
 
@@ -147,7 +150,7 @@ export interface MonthlyArchiveStudiedTopic {
   revisionTopicId: string | null;
   revisionCompletionPercent: number | null;
   revisionStatus: "not_enrolled" | "scheduled" | "due" | "completed";
-  revisionPhase: "seed_sown" | "emerging" | "developing" | "matured" | "not_enrolled";
+  revisionPhase: SrsPhase | "not_enrolled";
 }
 
 export interface ArchiveTopicPeriod {
@@ -732,11 +735,15 @@ export function getMonthlyArchiveMonthComparison(
 }
 
 export function getRevisionActivityPercent(phase: MonthlyArchiveStudiedTopic["revisionPhase"]) {
-  return phase === "matured" ? 100 : phase === "developing" ? 67 : phase === "emerging" ? 33 : 0;
+  return phase === "matured" ? 100 : phase === "consolidating" ? 80 : phase === "reinforcing" ? 60 : phase === "developing" ? 40 : phase === "emerging" ? 20 : 0;
 }
 
 export function getRevisionActivityLabel(phase: MonthlyArchiveStudiedTopic["revisionPhase"]) {
-  return phase === "matured" ? "Matured" : phase === "developing" ? "Developing" : phase === "emerging" ? "Emerging" : "Seed Sown";
+  return phase === "not_enrolled" ? "Not enrolled" : getSrsPhaseLabel(phase);
+}
+
+function getLegacyRevisionActivityPercent(phase: MonthlyArchiveStudiedTopic["revisionPhase"]) {
+  return phase === "matured" ? 100 : phase === "developing" ? 67 : phase === "emerging" ? 33 : 0;
 }
 
 function getAllArchiveStudiedTopics(state: MonthlyArchiveState) {
@@ -748,7 +755,7 @@ function getAllArchiveStudiedTopics(state: MonthlyArchiveState) {
       const revision = revisionsById.get(activity.topicId);
       const phase = activity.phase;
       const actionDate = activity.actionDate;
-      const percent = getRevisionActivityPercent(phase);
+      const percent = typeof activity.progressPercent === "number" ? activity.progressPercent : getLegacyRevisionActivityPercent(phase);
       return {
         key: activity.id,
         subject: activity.subject.trim() || "General",
@@ -774,7 +781,7 @@ function getAllArchiveStudiedTopics(state: MonthlyArchiveState) {
 
 /**
  * Lists immutable real revision actions. Period membership uses the exact saved local action
- * date, so Day 1, Day 7, and Day 30 work appear in the period when they were completed.
+ * date, so each difficulty-based review action appears in the period when it was completed.
  */
 export function getMonthlyArchiveStudiedTopics(state: MonthlyArchiveState, period: ArchiveTopicPeriod = {}) {
   return getAllArchiveStudiedTopics(state).filter((topic) => {
@@ -791,7 +798,7 @@ export function filterMonthlyArchiveStudiedTopics(topics: MonthlyArchiveStudiedT
   return topics.filter((topic) => topic.topic.toLocaleLowerCase().includes(normalizedQuery) || topic.subject.toLocaleLowerCase().includes(normalizedQuery));
 }
 
-/** Filters real revision topics by their existing Day 1/7/30/completed cadence progress. */
+/** Filters real revision topics by their existing saved cadence progress. */
 export function filterMonthlyArchiveStudiedTopicsByProgress(topics: MonthlyArchiveStudiedTopic[], progress: MonthlyArchiveRevisionProgressFilter) {
   if (progress === "all") return topics;
   return topics.filter((topic) => topic.revisionPhase === progress);

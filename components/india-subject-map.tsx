@@ -15,6 +15,8 @@ export interface SubjectTerritory {
   seedSown: number;
   emerging: number;
   developing: number;
+  reinforcing: number;
+  consolidating: number;
   matured: number;
 }
 
@@ -189,7 +191,7 @@ export const IndiaSubjectMap = memo(function IndiaSubjectMap({ subjects, playerN
       <View style={styles.detailCopy}>
         <View style={styles.selectedKicker}><View style={[styles.selectedDot, { backgroundColor: selectedTerritory.color }]} /><Text style={[styles.selectedKickerText, { color: selectedTerritory.color }]}>SELECTED TERRITORY</Text></View>
         <Text style={[styles.detailTitle, { color: foreground }]}>{selectedTerritory.subject}</Text>
-        <Text style={[styles.detailText, { color: muted }]}>{selectedSubject?.total ?? 0} revision topic{(selectedSubject?.total ?? 0) === 1 ? "" : "s"} · {selectedSubject?.matured ?? 0} matured · {selectedSubject?.developing ?? 0} developing · {selectedSubject?.emerging ?? 0} emerging · {selectedSubject?.seedSown ?? 0} seed</Text>
+        <Text style={[styles.detailText, { color: muted }]}>{selectedSubject?.total ?? 0} topic{(selectedSubject?.total ?? 0) === 1 ? "" : "s"} · {Math.round((selectedTerritory?.capture ?? 0) * 100)}% progress · {selectedSubject?.matured ?? 0} matured · {selectedSubject?.consolidating ?? 0} consolidating · {selectedSubject?.reinforcing ?? 0} reinforcing · {selectedSubject?.developing ?? 0} developing · {selectedSubject?.emerging ?? 0} emerging · {selectedSubject?.seedSown ?? 0} seed</Text>
       </View>
       <Text style={[styles.detailPercent, { color: accent }]}>{Math.round(selectedTerritory.capture * 100)}%</Text>
     </Pressable> : null}

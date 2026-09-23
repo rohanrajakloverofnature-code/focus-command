@@ -13,6 +13,7 @@ import { getActiveCustomCharacterForm, getCurrentTitle, getLevelInfo, CustomQues
 import { getSavedSkillSuggestions, normalizeSavedSkill } from "@/lib/invested-time-filters";
 import { scheduleAchievementRecap, scheduleRevisionReminder } from "@/lib/focus-reminders";
 import { getCharacterEvolutionProfile } from "@/lib/character-development";
+import { getSrsDifficultyLabel, getSrsIntervals, getSrsNextDueDate, getSrsProgress, missionDifficultyToSrsDifficulty, SRS_DIFFICULTY_OPTIONS, type SrsDifficulty } from "@/lib/srs-schedule";
 
 const feelings: { value: Feeling; label: string; color: string }[] = [
   { value: "charged", label: "Charged", color: "#49D17D" },
@@ -101,6 +102,7 @@ export default function MissionDetailScreen() {
   const { hydrated: ready, mission, missionDistractionCount, missionRevisionTopics, activeBosses, customQuestions, reflections, revisionReminderSound, timezone, notificationsEnabled, notificationRules, achievementRecapSound, shadowGatePersonalDoorways, shadowGateSealAccent } = detail;
   const [nowMs, setNowMs] = useState(Date.now());
   const [revisionTopic, setRevisionTopic] = useState("");
+  const [revisionDifficulty, setRevisionDifficulty] = useState<SrsDifficulty>("medium");
   const [showReflection, setShowReflection] = useState(false);
   const [reflection, setReflection] = useState<ReflectionDraft>({ miniAchievementRating: 3, skills: [] });
   const [skillsText, setSkillsText] = useState("");
@@ -129,6 +131,10 @@ export default function MissionDetailScreen() {
     const timer = setInterval(() => setNowMs(Date.now()), 1_000);
     return () => clearInterval(timer);
   }, [mission?.id, mission?.status]);
+
+  useEffect(() => {
+    if (mission) setRevisionDifficulty(missionDifficultyToSrsDifficulty(mission.difficulty));
+  }, [mission?.id, mission?.difficulty]);
 
   const duration = useMemo(() => mission ? getMissionInvestedMilliseconds(mission, nowMs) : 0, [mission, nowMs]);
   const isLongMission = mission ? isLongMissionReflectionEligible(mission, nowMs) : false;
@@ -208,19 +214,18 @@ export default function MissionDetailScreen() {
 
   const logTopic = () => {
     if (!revisionTopic.trim()) return;
-    logRevisionTopic(mission.id, revisionTopic, mission.subject);
+    logRevisionTopic(mission.id, revisionTopic, mission.subject, revisionDifficulty);
     setRevisionTopic("");
   };
 
   const completeLiveMissionRevision = (topic: SrsTopic) => {
     if (revisionCompletionLocks.current.has(topic.id)) return;
     revisionCompletionLocks.current.add(topic.id);
-    const nextDelayDays = topic.stage === 0 ? 7 : topic.stage === 1 ? 30 : null;
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
+    const nextDueDate = getSrsNextDueDate(topic, today);
     completeRevision(topic.id);
-    if (notificationsEnabled && nextDelayDays) {
-      const nextDue = new Date();
-      nextDue.setDate(nextDue.getDate() + nextDelayDays);
-      void scheduleRevisionReminder(topic.topic, nextDue.toISOString(), notificationRules, revisionReminderSound);
+    if (notificationsEnabled && nextDueDate) {
+      void scheduleRevisionReminder(topic.topic, `${nextDueDate}T00:00:00`, notificationRules, revisionReminderSound);
     }
   };
 
@@ -381,16 +386,24 @@ export default function MissionDetailScreen() {
               </View>
               <View style={styles.revisionCopy}>
                 <Text style={[styles.revisionTitle, { color: colors.foreground }]}>Log a revision topic</Text>
-                <Text style={[styles.revisionDetail, { color: colors.muted }]}>Every topic enters the Day 1 → Day 7 → Day 30 review loop.</Text>
+                <Text style={[styles.revisionDetail, { color: colors.muted }]}>Choose how difficult this topic feels. The choice controls its review gaps and can be edited later without losing progress.</Text>
               </View>
             </View>
+            <Text style={[styles.selectorLabel, { color: colors.muted }]}>TOPIC DIFFICULTY · {getSrsDifficultyLabel(revisionDifficulty).toUpperCase()}</Text>
+            <View style={styles.difficultyRow}>
+              {SRS_DIFFICULTY_OPTIONS.map((option) => {
+                const active = revisionDifficulty === option.value;
+                return <Pressable key={option.value} onPress={() => setRevisionDifficulty(option.value)} accessibilityRole="button" accessibilityState={{ selected: active }} style={({ pressed }) => [styles.difficultyChip, { borderColor: active ? colors.warning : colors.border, backgroundColor: active ? `${colors.warning}1D` : colors.background, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.difficultyChipText, { color: active ? colors.warning : colors.muted }]}>{option.label}</Text></Pressable>;
+              })}
+            </View>
+            <Text style={[styles.revisionDetail, { color: colors.muted }]}>Review gaps for {getSrsDifficultyLabel(revisionDifficulty)}: {getSrsIntervals(revisionDifficulty).join(" → ")} days. You can change this later without resetting the topic.</Text>
             {(mission.status === "active" || mission.status === "paused") && dueMissionRevisions.length ? (
               <View style={[styles.dueRevisionSection, { borderColor: `${colors.warning}45`, backgroundColor: `${colors.warning}0D` }]}>
                 <Text style={[styles.dueRevisionEyebrow, { color: colors.warning }]}>DUE FOR REVIEW</Text>
                 {dueMissionRevisions.map((topic) => (
                   <View key={topic.id} style={[styles.dueRevisionRow, { borderColor: `${colors.warning}38`, backgroundColor: colors.background }]}>
                     <View style={styles.dueRevisionCopy}>
-                      <StatusPill label={`DAY ${[1, 7, 30][Math.min(topic.stage, 2)] ?? 30}`} tone="warning" icon="arrow.clockwise" />
+                      <StatusPill label={`${getSrsDifficultyLabel(topic.scheduleTier ?? "legacy")} · ${getSrsProgress(topic).percent}%`} tone="warning" icon="arrow.clockwise" />
                       <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.dueRevisionTitle, { color: colors.foreground }]}>{topic.topic}</Text>
                       <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.dueRevisionDetail, { color: colors.muted }]}>{topic.subject} · Due {topic.dueDate}</Text>
                     </View>
@@ -563,6 +576,9 @@ const styles = StyleSheet.create({
   revisionCopy: { flex: 1 },
   revisionTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },
   revisionDetail: { fontSize: 11, lineHeight: 16, marginTop: 1, fontWeight: "500" },
+  difficultyRow: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  difficultyChip: { minHeight: 34, paddingHorizontal: 10, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center" },
+  difficultyChipText: { fontSize: 11, lineHeight: 15, fontWeight: "800" },
   revisionInputRow: { flexDirection: "row", gap: 8 },
   revisionInput: { flex: 1, minHeight: 44, borderWidth: StyleSheet.hairlineWidth, borderRadius: 13, paddingHorizontal: 11, fontSize: 13, lineHeight: 18, fontWeight: "600" },
   loggedTopicText: { fontSize: 11, lineHeight: 15, fontWeight: "700" },

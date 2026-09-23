@@ -150,7 +150,7 @@ function ArchiveYearView({ year, years, onSelectYear, onOpenMonth, onOpenTopics,
       </CommandCard> : null}
       <TapFeedback onPress={onOpenLifetimeTopics} accessibilityLabel="Open lifetime revision overview">
         <View style={[styles.reviewEntry, styles.lifetimeReviewEntry, { borderColor: "#F4C95D66", backgroundColor: "#F4C95D12" }]}> 
-          <View style={styles.reviewEntryCopy}><Text style={[styles.subjectTitle, { color: colors.foreground }]}>Lifetime revision overview</Text><Text style={[styles.detail, { color: colors.muted }]}>Open every real revision topic across all years, with its current Day 1, Day 7, Day 30, or completed status.</Text></View>
+          <View style={styles.reviewEntryCopy}><Text style={[styles.subjectTitle, { color: colors.foreground }]}>Lifetime revision overview</Text><Text style={[styles.detail, { color: colors.muted }]}>Open every real revision topic across all years, with its difficulty, current percentage, and due status.</Text></View>
           <Text style={[styles.reviewEntryAction, { color: "#F4C95D" }]}>OPEN</Text>
         </View>
       </TapFeedback>

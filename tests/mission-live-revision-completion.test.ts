@@ -46,23 +46,22 @@ describe("Live-mission revision completion contracts", () => {
     expect(missionSource).toContain("revisionCompletionLocks.current.has(topic.id)");
   });
 
-  it("preserves the existing Day 1 → Day 7 → Day 30 advancement engine and exact reminder timing", () => {
+  it("uses the centralized difficulty schedule for advancement and reminder timing", () => {
     const completionSource = focusCommandSource.slice(
       focusCommandSource.indexOf("const completeRevision = useCallback"),
       focusCommandSource.indexOf("const createBoss", focusCommandSource.indexOf("const completeRevision = useCallback")),
     );
 
-    expect(completionSource).toContain("const nextStage = topic.stage + 1");
-    expect(completionSource).toContain("if (nextStage >= 3)");
-    expect(completionSource).toContain("const intervals = [1, 7, 30]");
+    expect(completionSource).toContain("const nextStage = targetProgress ? targetProgress.stage + 1 : 0");
+    expect(completionSource).toContain("const intervals = getSrsIntervals(targetProgress?.scheduleTier ?? \"legacy\")");
     expect(completionSource).toContain("dueDate: addDays(today, intervals[nextStage])");
-    expect(missionSource).toContain("const nextDelayDays = topic.stage === 0 ? 7 : topic.stage === 1 ? 30 : null");
-    expect(missionSource).toContain("void scheduleRevisionReminder(topic.topic, nextDue.toISOString(), notificationRules, revisionReminderSound)");
+    expect(missionSource).toContain("const nextDueDate = getSrsNextDueDate(topic, today)");
+    expect(missionSource).toContain("void scheduleRevisionReminder(topic.topic, `${nextDueDate}T00:00:00`, notificationRules, revisionReminderSound)");
   });
 
   it("keeps manual logging intact and limits the added completion control to active or paused missions", () => {
     expect(missionSource).toContain("const logTopic = () => {");
-    expect(missionSource).toContain("logRevisionTopic(mission.id, revisionTopic, mission.subject)");
+    expect(missionSource).toContain("logRevisionTopic(mission.id, revisionTopic, mission.subject, revisionDifficulty)");
     expect(missionSource).toContain("placeholder=\"Topic name\"");
     expect(missionSource).toContain("label=\"Log\"");
     expect(missionSource).toContain('(mission.status === "active" || mission.status === "paused") && dueMissionRevisions.length');

@@ -151,7 +151,7 @@ export default function MissionResultScreen() {
             <View style={styles.srsIcon}><IconSymbol name="arrow.clockwise" size={19} color={colors.warning} /></View>
             <View style={styles.srsCopy}>
               <Text style={[styles.srsTitle, { color: colors.foreground }]}>Revision loop armed</Text>
-              <Text style={[styles.srsDetail, { color: colors.muted }]}>{mission.revisionTopicIds.length} topic{mission.revisionTopicIds.length === 1 ? "" : "s"} will surface for Day 1 review in the command queue.</Text>
+              <Text style={[styles.srsDetail, { color: colors.muted }]}>{mission.revisionTopicIds.length} topic{mission.revisionTopicIds.length === 1 ? "" : "s"} will surface for the first review in the command queue.</Text>
             </View>
           </CommandCard>
         ) : null}

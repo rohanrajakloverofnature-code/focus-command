@@ -20,6 +20,7 @@ function createPopulatedState(): FocusState {
   state.journals = [{ id: "journal_backup", title: "A complete command log", body: "Long-form local journal data remains in the archive." } as unknown as FocusState["journals"][number]];
   state.distractionLogs = [{ id: "friction_backup", missionId: "mission_backup", occurredAt: "2026-08-14T07:30:00.000Z", category: "phone" } as unknown as FocusState["distractionLogs"][number]];
   state.progression = [{ id: "xp_backup", sourceCompletionId: "completion_backup", amount: 80 } as unknown as FocusState["progression"][number]];
+  state.srsTopics = [{ id: "revision_backup", missionId: "mission_backup", subject: "Math", topic: "Vectors", stage: 3, difficulty: "tough", scheduleTier: "tough", totalStages: 7, dueDate: "2026-09-14", completedAt: "2026-08-14T08:00:00.000Z", createdAt: "2026-08-01T08:00:00.000Z", status: "scheduled" }];
   state.srsActivityLog = [{ id: "revision_activity_backup", topicId: "revision_backup", missionId: "mission_backup", subject: "Math", topic: "Vectors", phase: "emerging", actionDate: "2026-08-14", occurredAt: "2026-08-14T08:00:00.000Z" }];
   state.shadowGateEntries = [{ id: "gate_backup", missionId: "mission_backup", resistanceState: "too_big", doorwayId: "too_big_01", doorwayLabel: "Open the mission materials and leave them visible.", occurredAt: "2026-08-14T07:55:00.000Z" }];
   state.shadowGatePersonalDoorways = [{ id: "doorway_backup", label: "Open the marked Chemistry page", pinned: true, createdAt: "2026-08-14T07:50:00.000Z", updatedAt: "2026-08-14T07:50:00.000Z" }];
@@ -89,6 +90,7 @@ describe("offline Focus Command backup format", () => {
     expect(parsed.state.profile.behavioralReflectionCustomCount).toBe(500);
     expect(parsed.state.shadowGateEntries).toEqual(state.shadowGateEntries);
     expect(parsed.state.shadowGatePersonalDoorways).toEqual(state.shadowGatePersonalDoorways);
+    expect(parsed.state.srsTopics).toEqual(state.srsTopics);
     expect(parsed.state.mistakeLedgerEntries).toEqual(state.mistakeLedgerEntries);
     expect(parsed.state.mistakeLedgerActivityLog).toEqual(state.mistakeLedgerActivityLog);
     expect(parsed.state.corePrinciplesTitle).toBe("Daily Standards");

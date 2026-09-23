@@ -227,7 +227,7 @@ export default function MissionsScreen() {
               <IconSymbol name={revisionEnabled ? "checklist" : "xmark"} size={17} color={revisionEnabled ? colors.primary : colors.muted} />
               <View style={styles.revisionCopy}>
                 <Text style={[styles.revisionTitle, { color: colors.foreground }]}>Queue spaced repetition</Text>
-                <Text style={[styles.revisionDetail, { color: colors.muted }]}>Schedule a 1–7–30 day review when you complete this mission.</Text>
+                <Text style={[styles.revisionDetail, { color: colors.muted }]}>Each logged topic gets its own difficulty-based review schedule, which you can edit later.</Text>
               </View>
             </Pressable>
             <View style={styles.frequencySection}>

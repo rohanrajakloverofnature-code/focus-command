@@ -32,6 +32,16 @@ import {
   normalizeBehavioralReflectionWindow,
   type BehavioralReflectionWindow,
 } from "./behavioral-reflection-window";
+import {
+  getSrsIntervals,
+  getSrsProgress,
+  isSrsDifficulty,
+  missionDifficultyToSrsDifficulty,
+  normalizeSrsScheduleTier,
+  type SrsDifficulty,
+  type SrsPhase,
+  type SrsScheduleTier,
+} from "./srs-schedule";
 
 type AppStateSubscription = { remove: () => void };
 type AppStateModule = { addEventListener: (event: "change", listener: (nextState: string) => void) => AppStateSubscription };
@@ -366,6 +376,12 @@ export interface SrsTopic {
   subject: string;
   topic: string;
   stage: number;
+  /** Difficulty chosen for this topic. Legacy topics keep their legacy schedule until edited. */
+  difficulty?: SrsDifficulty;
+  /** Explicit schedule identity so old 1–7–30 topics remain stable after migration. */
+  scheduleTier?: SrsScheduleTier;
+  /** Number of successful reviews in the topic's schedule. */
+  totalStages?: number;
   dueDate: string;
   completedAt: string | null;
   createdAt: string;
@@ -381,7 +397,11 @@ export interface SrsActivityEntry {
   missionId: string | null;
   subject: string;
   topic: string;
-  phase: "seed_sown" | "emerging" | "developing" | "matured";
+  phase: SrsPhase;
+  /** Snapshot fields keep archive history stable after a topic is edited. */
+  stage?: number;
+  totalStages?: number;
+  progressPercent?: number;
   /** Local calendar date in the user's configured timezone (YYYY-MM-DD). */
   actionDate: string;
   /** Exact timestamp for stable ordering when actions share a calendar date. */
@@ -1436,7 +1456,7 @@ function defaultProfile(): PlayerProfile {
 export function createInitialState(): FocusState {
   const baseTierId = "combo_base";
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     hydrated: false,
     profile: defaultProfile(),
     combo: {
@@ -2148,7 +2168,7 @@ export function getActiveGoldMultiplier(state: FocusState, localDate = toLocalDa
     .reduce((maximum, multiplier) => Math.max(maximum, multiplier), 1);
 }
 
-export function getSubjectCapture(state: Pick<FocusState, "missions" | "srsTopics">): Array<{ subject: string; capture: number; completed: number; total: number; active: number; planned: number; seedSown: number; emerging: number; developing: number; matured: number }> {
+export function getSubjectCapture(state: Pick<FocusState, "missions" | "srsTopics">): Array<{ subject: string; capture: number; completed: number; total: number; active: number; planned: number; seedSown: number; emerging: number; developing: number; reinforcing: number; consolidating: number; matured: number }> {
   const bySubject = new Map<string, { missions: Mission[]; reviews: SrsTopic[] }>();
   const missionsById = new Map(state.missions.map((mission) => [mission.id, mission]));
   state.missions.forEach((mission) => {
@@ -2167,15 +2187,18 @@ export function getSubjectCapture(state: Pick<FocusState, "missions" | "srsTopic
     bySubject.set(subject, current);
   });
   return Array.from(bySubject.entries()).map(([subject, data]) => {
-    const seedSown = data.reviews.filter((topic) => Math.max(0, Math.min(3, Math.round(topic.stage))) === 0).length;
-    const emerging = data.reviews.filter((topic) => Math.max(0, Math.min(3, Math.round(topic.stage))) === 1).length;
-    const developing = data.reviews.filter((topic) => Math.max(0, Math.min(3, Math.round(topic.stage))) === 2).length;
-    const matured = data.reviews.filter((topic) => Math.max(0, Math.min(3, Math.round(topic.stage))) === 3).length;
+    const phases = data.reviews.map((topic) => getSrsProgress(topic).phase);
+    const seedSown = phases.filter((phase) => phase === "seed_sown").length;
+    const emerging = phases.filter((phase) => phase === "emerging").length;
+    const developing = phases.filter((phase) => phase === "developing").length;
+    const reinforcing = phases.filter((phase) => phase === "reinforcing").length;
+    const consolidating = phases.filter((phase) => phase === "consolidating").length;
+    const matured = phases.filter((phase) => phase === "matured").length;
     const total = data.reviews.length;
-    const revisionProgress = emerging / 3 + (developing * 2) / 3 + matured;
+    const revisionProgress = data.reviews.reduce((sum, topic) => sum + getSrsProgress(topic).progress, 0);
     const active = data.missions.filter((mission) => mission.status === "active" || mission.status === "paused").length;
     const planned = data.missions.filter((mission) => mission.status === "planned").length;
-    return { subject, completed: matured, total, active, planned, seedSown, emerging, developing, matured, capture: total ? revisionProgress / total : 0 };
+    return { subject, completed: matured, total, active, planned, seedSown, emerging, developing, reinforcing, consolidating, matured, capture: total ? revisionProgress / total : 0 };
   }).sort((left, right) => right.capture - left.capture || right.total - left.total);
 }
 
@@ -2492,7 +2515,8 @@ interface FocusCommandContextValue {
   toggleMissionPause: (missionId: string) => void;
   finishMission: (missionId: string, reflection: ReflectionDraft) => { completionId: string; durationMs: number; lootReward: Reward | null } | null;
   logDistraction: (missionId: string, category: DistractionCategory, note?: string) => void;
-  logRevisionTopic: (missionId: string, topic: string, subject?: string) => void;
+  logRevisionTopic: (missionId: string, topic: string, subject?: string, difficulty?: SrsDifficulty) => void;
+  updateRevisionTopicDifficulty: (topicId: string, difficulty: SrsDifficulty) => void;
   completeRevision: (topicId: string) => void;
   addMistakeLedgerEntry: (draft: MistakeLedgerDraft) => string | null;
   updateMistakeLedgerEntry: (entryId: string, patch: Partial<Pick<MistakeLedgerEntry, "mistake" | "subject" | "correction" | "missionId">>) => void;
@@ -2733,9 +2757,34 @@ export function normalizeHydratedState(input: FocusState): FocusState {
     };
   });
   const currentMissionIds = new Set(missions.map((mission) => mission.id));
+  const normalizedSrsTopics = (Array.isArray(input.srsTopics) ? input.srsTopics : [])
+    .filter((topic): topic is SrsTopic => Boolean(
+      topic
+      && typeof topic.id === "string" && topic.id
+      && (typeof topic.missionId === "string" || topic.missionId === null)
+      && typeof topic.subject === "string"
+      && typeof topic.topic === "string" && topic.topic.trim()
+      && Number.isFinite(Number(topic.stage))
+      && typeof topic.dueDate === "string"
+      && typeof topic.createdAt === "string"
+      && (topic.status === "due" || topic.status === "scheduled" || topic.status === "completed"),
+    ))
+    .map((topic) => {
+      const linkedMission = topic.missionId ? missions.find((mission) => mission.id === topic.missionId) : undefined;
+      const migratedDifficulty = isSrsDifficulty(topic.difficulty)
+        ? topic.difficulty
+        : linkedMission ? missionDifficultyToSrsDifficulty(linkedMission.difficulty) : "medium";
+      const scheduleTier = topic.scheduleTier
+        ? normalizeSrsScheduleTier(topic.scheduleTier, "legacy")
+        : isSrsDifficulty(topic.difficulty) ? topic.difficulty : "legacy";
+      const totalStages = getSrsIntervals(scheduleTier).length;
+      const stage = Math.max(0, Math.min(totalStages, Math.round(Number(topic.stage) || 0)));
+      return { ...topic, difficulty: migratedDifficulty, scheduleTier, totalStages, stage };
+    });
   return {
     ...defaults,
     ...inputWithoutLegacyGoogleSheet,
+    schemaVersion: Math.max(2, Number(input.schemaVersion) || 1),
     hydrated: true,
     profile: {
       ...defaults.profile,
@@ -2809,6 +2858,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
     missions,
     missionCompletions: [...existingCompletions, ...migratedLegacyCompletions],
     characterMilestones,
+    srsTopics: normalizedSrsTopics,
     srsActivityLog: Array.isArray(input.srsActivityLog)
       ? input.srsActivityLog.filter((entry): entry is SrsActivityEntry =>
           Boolean(
@@ -2818,7 +2868,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
             && (typeof entry.missionId === "string" || entry.missionId === null)
             && typeof entry.subject === "string"
             && typeof entry.topic === "string"
-            && ["seed_sown", "emerging", "developing", "matured"].includes(entry.phase)
+            && ["seed_sown", "emerging", "developing", "reinforcing", "consolidating", "matured"].includes(entry.phase)
             && typeof entry.actionDate === "string"
             && typeof entry.occurredAt === "string",
           ),
@@ -3325,7 +3375,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     }));
   }, [commit]);
 
-  const logRevisionTopic = useCallback((missionId: string, topic: string, subject?: string) => {
+  const logRevisionTopic = useCallback((missionId: string, topic: string, subject?: string, difficulty?: SrsDifficulty) => {
     const trimmed = topic.trim();
     if (!trimmed) return;
     commit((current) => {
@@ -3334,6 +3384,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       const occurredAt = nowIso();
       const today = toLocalDate(occurredAt, current.profile.timezone);
       const resolvedSubject = subject?.trim() || mission?.subject || "General";
+      const resolvedDifficulty = difficulty ?? missionDifficultyToSrsDifficulty(mission?.difficulty);
+      const totalStages = getSrsIntervals(resolvedDifficulty).length;
       return withQueuedOperation({
         ...current,
         missions: current.missions.map((candidate) => candidate.id === missionId ? { ...candidate, revisionTopicIds: [...candidate.revisionTopicIds, id] } : candidate),
@@ -3345,6 +3397,9 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
             subject: resolvedSubject,
             topic: trimmed,
             stage: 0,
+            difficulty: resolvedDifficulty,
+            scheduleTier: resolvedDifficulty,
+            totalStages,
             dueDate: addDays(today, 1),
             completedAt: null,
             createdAt: occurredAt,
@@ -3357,6 +3412,9 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
           subject: resolvedSubject,
           topic: trimmed,
           phase: "seed_sown",
+          stage: 0,
+          totalStages,
+          progressPercent: 0,
           actionDate: today,
           occurredAt,
         }),
@@ -3494,12 +3552,17 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       if (completedMission.revisionEnabled && completedMission.specificTopic.trim() && !completedMission.revisionTopicIds.length) {
         const topicId = createId("srs");
         const topic = completedMission.specificTopic.trim();
+        const difficulty = missionDifficultyToSrsDifficulty(completedMission.difficulty);
+        const totalStages = getSrsIntervals(difficulty).length;
         srsTopics.push({
           id: topicId,
           missionId,
           subject: completedMission.subject,
           topic,
           stage: 0,
+          difficulty,
+          scheduleTier: difficulty,
+          totalStages,
           dueDate: addDays(completionDate, 1),
           completedAt: null,
           createdAt: endedAt,
@@ -3512,6 +3575,9 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
           subject: completedMission.subject,
           topic,
           phase: "seed_sown",
+          stage: 0,
+          totalStages,
+          progressPercent: 0,
           actionDate: completionDate,
           occurredAt: endedAt,
         });
@@ -3623,38 +3689,68 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     return { completionId, durationMs, lootReward };
   }, [commit, state.missions]);
 
+  const updateRevisionTopicDifficulty = useCallback((topicId: string, difficulty: SrsDifficulty) => {
+    commit((current) => {
+      const target = current.srsTopics.find((topic) => topic.id === topicId);
+      if (!target) return current;
+      const occurredAt = nowIso();
+      const today = toLocalDate(occurredAt, current.profile.timezone);
+      const intervals = getSrsIntervals(difficulty);
+      const stage = Math.max(0, Math.round(Number(target.stage) || 0));
+      const completedBySchedule = target.status === "completed" || stage >= intervals.length;
+      return withQueuedOperation({
+        ...current,
+        srsTopics: current.srsTopics.map((topic) => topic.id !== topicId ? topic : {
+          ...topic,
+          difficulty,
+          scheduleTier: difficulty,
+          totalStages: intervals.length,
+          stage,
+          status: completedBySchedule ? "completed" : "scheduled",
+          dueDate: completedBySchedule ? topic.dueDate : addDays(today, intervals[stage]),
+          completedAt: completedBySchedule ? (topic.completedAt ?? occurredAt) : topic.completedAt,
+        }),
+      });
+    });
+  }, [commit]);
+
   const completeRevision = useCallback((topicId: string) => {
     commit((current) => {
       const occurredAt = nowIso();
       const today = toLocalDate(occurredAt, current.profile.timezone);
       const target = current.srsTopics.find((topic) => topic.id === topicId && topic.status !== "completed");
-      const phase: SrsActivityEntry["phase"] | null = target
-        ? target.stage === 0 ? "emerging" : target.stage === 1 ? "developing" : "matured"
-        : null;
+      const targetProgress = target ? getSrsProgress(target) : null;
+      const nextStage = targetProgress ? targetProgress.stage + 1 : 0;
+      const totalStages = targetProgress?.totalStages ?? 0;
+      const nextStatus = target && nextStage >= totalStages ? "completed" : "scheduled";
+      const nextProgress = target ? getSrsProgress({ ...target, stage: nextStage, status: nextStatus }) : null;
       return withQueuedOperation({
         ...current,
         srsTopics: current.srsTopics.map((topic) => {
           if (topic.id !== topicId || topic.status === "completed") return topic;
-          const nextStage = topic.stage + 1;
-          if (nextStage >= 3) {
+          if (nextStage >= totalStages) {
             return { ...topic, stage: nextStage, status: "completed", completedAt: occurredAt };
           }
-          const intervals = [1, 7, 30];
+          const intervals = getSrsIntervals(targetProgress?.scheduleTier ?? "legacy");
           return {
             ...topic,
             stage: nextStage,
             dueDate: addDays(today, intervals[nextStage]),
+            totalStages,
             status: "scheduled",
             completedAt: occurredAt,
           };
         }),
-        srsActivityLog: target && phase
+        srsActivityLog: target && nextProgress
           ? appendSrsActivity(current.srsActivityLog, {
               topicId: target.id,
               missionId: target.missionId,
               subject: target.subject,
               topic: target.topic,
-              phase,
+              phase: nextProgress.phase,
+              stage: nextProgress.stage,
+              totalStages: nextProgress.totalStages,
+              progressPercent: nextProgress.percent,
               actionDate: today,
               occurredAt,
             })
@@ -4667,6 +4763,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     finishMission,
     logDistraction,
     logRevisionTopic,
+    updateRevisionTopicDifficulty,
     completeRevision,
     createBoss,
     updateBoss,
@@ -4712,6 +4809,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     finishMission,
     logDistraction,
     logRevisionTopic,
+    updateRevisionTopicDifficulty,
     completeRevision,
     createBoss,
     updateBoss,

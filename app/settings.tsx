@@ -412,7 +412,7 @@ export default function SettingsScreen() {
             <TextInput onFocus={onInputFocus} value={state.profile.notificationRules.dailyMissionTime} onChangeText={(dailyMissionTime) => { void patchNotificationRules({ dailyMissionTime }); }} placeholder="09:00" placeholderTextColor={colors.muted} style={[styles.timeInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
           </View> : null}
           <Divider />
-          <SwitchRow label="Revision reminders" detail="Alert when a Day 1, Day 7, or Day 30 review is due." value={state.profile.notificationRules.revisionEnabled} onValueChange={(revisionEnabled) => { void patchNotificationRules({ revisionEnabled }); }} />
+          <SwitchRow label="Revision reminders" detail="Alert when a difficulty-based review is due." value={state.profile.notificationRules.revisionEnabled} onValueChange={(revisionEnabled) => { void patchNotificationRules({ revisionEnabled }); }} />
           {state.profile.notificationRules.revisionEnabled ? <View style={styles.notificationTimeRow}>
             <View style={styles.settingCopy}><Text style={[styles.settingTitle, { color: colors.foreground }]}>Revision alert time</Text><Text style={[styles.settingDetail, { color: colors.muted }]}>Used on the scheduled review day.</Text></View>
             <TextInput onFocus={onInputFocus} value={state.profile.notificationRules.revisionTime} onChangeText={(revisionTime) => { void patchNotificationRules({ revisionTime }); }} placeholder="09:00" placeholderTextColor={colors.muted} style={[styles.timeInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />

@@ -490,7 +490,7 @@ export default function HomeScreen() {
                   </View>
                   <View style={styles.listCopy}>
                     <Text style={[styles.listTitle, { color: colors.foreground }]} numberOfLines={1}>{topic.topic}</Text>
-                    <Text style={[styles.listDetail, { color: colors.muted }]}>{topic.subject} · Day {[1, 7, 30][Math.min(topic.stage, 2)] ?? 30}</Text>
+                    <Text style={[styles.listDetail, { color: colors.muted }]}>{topic.subject} · {topic.scheduleTier === "legacy" ? `Legacy review ${topic.stage + 1} of 3` : `Review ${topic.stage + 1} of ${topic.totalStages ?? 0}`}</Text>
                   </View>
                 </View>
                 <CommandButton label="Review" variant="ghost" onPress={() => router.push(`/revisions?topic=${topic.id}`)} />
@@ -499,7 +499,7 @@ export default function HomeScreen() {
             ))}
           </View>
         ) : (
-          <EmptyCommandState icon="arrow.clockwise" title="Your revision queue is clear" detail="Log a topic in a mission to start the 1–7–30 day review cycle." action="Create mission" onAction={() => router.push("/missions?compose=1")} />
+          <EmptyCommandState icon="arrow.clockwise" title="Your revision queue is clear" detail="Log a topic in a mission to start a difficulty-based review cycle." action="Create mission" onAction={() => router.push("/missions?compose=1")} />
         )}
 
         <SectionHeader title="Active bosses" action={activeBosses.length ? "View all" : undefined} onAction={activeBosses.length ? () => router.push("/bosses") : undefined} />
