@@ -7,13 +7,13 @@ import { CommandCard, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, Sta
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
-import { getCorePrinciplesCheckInsInRange, getCorePrinciplesDailyTrend, getCorePrinciplesListInsights, getCorePrinciplesSummary, getMostUncheckedCorePrinciples, type CorePrinciplesRange } from "@/lib/core-principles";
+import { filterCorePrinciplesCheckInsToCurrent, getCorePrinciplesCheckInsInRange, getCorePrinciplesDailyTrend, getCorePrinciplesListInsights, getCorePrinciplesSummary, getMostUncheckedCorePrinciples, type CorePrinciplesRange } from "@/lib/core-principles";
 import { shallowEqual, type CorePrincipleDailyCheckIn, type FocusState, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 
 const RANGE_OPTIONS: Array<{ kind: CorePrinciplesRange["kind"]; label: string }> = [
   { kind: "week", label: "Week" }, { kind: "month", label: "Month" }, { kind: "lifetime", label: "Lifetime" }, { kind: "custom", label: "Custom" },
 ];
-const selectCorePrinciplesHistory = (state: FocusState) => ({ title: state.corePrinciplesTitle, checkIns: state.corePrincipleDailyCheckIns, timezone: state.profile.timezone });
+const selectCorePrinciplesHistory = (state: FocusState) => ({ title: state.corePrinciplesTitle, checkIns: state.corePrincipleDailyCheckIns, items: state.corePrincipleItems, lists: state.corePrincipleLists, timezone: state.profile.timezone });
 
 function downsample(points: ChartPoint[], maxPoints = 240) {
   if (points.length <= maxPoints) return points;
@@ -24,17 +24,20 @@ export default function CorePrinciplesHistoryScreen() {
   const colors = useColors();
   const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
-  const { title, checkIns, timezone } = useFocusCommandSelector(selectCorePrinciplesHistory, shallowEqual);
+  const { title, checkIns, items, lists, timezone } = useFocusCommandSelector(selectCorePrinciplesHistory, shallowEqual);
   const [rangeKind, setRangeKind] = useState<CorePrinciplesRange["kind"]>("week");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const range = useMemo<CorePrinciplesRange>(() => rangeKind === "custom" ? { kind: "custom", startDate: customStart.trim(), endDate: customEnd.trim() } : { kind: rangeKind }, [customEnd, customStart, rangeKind]);
   const selectedCheckIns = useMemo(() => getCorePrinciplesCheckInsInRange(checkIns, range, timezone), [checkIns, range, timezone]);
+  const currentItemIds = useMemo(() => new Set(items.map((item) => item.id)), [items]);
+  const currentListIds = useMemo(() => new Set(lists.map((list) => list.id)), [lists]);
+  const liveInsightCheckIns = useMemo(() => filterCorePrinciplesCheckInsToCurrent(selectedCheckIns, currentItemIds, currentListIds), [currentItemIds, currentListIds, selectedCheckIns]);
   const summary = useMemo(() => getCorePrinciplesSummary(selectedCheckIns), [selectedCheckIns]);
   const trend = useMemo(() => getCorePrinciplesDailyTrend(selectedCheckIns), [selectedCheckIns]);
   const chartPoints = useMemo(() => downsample(trend.map((point, index) => ({ label: index === 0 || index === trend.length - 1 || index === Math.floor(trend.length / 2) ? point.localDate.slice(5) : "", value: point.ratio }))), [trend]);
-  const mostUnchecked = useMemo(() => getMostUncheckedCorePrinciples(selectedCheckIns), [selectedCheckIns]);
-  const listInsights = useMemo(() => getCorePrinciplesListInsights(selectedCheckIns).slice(0, 6), [selectedCheckIns]);
+  const mostUnchecked = useMemo(() => getMostUncheckedCorePrinciples(liveInsightCheckIns), [liveInsightCheckIns]);
+  const listInsights = useMemo(() => getCorePrinciplesListInsights(liveInsightCheckIns).slice(0, 6), [liveInsightCheckIns]);
   const rows = useMemo(() => selectedCheckIns.slice().reverse(), [selectedCheckIns]);
 
   if (!ready) return <LoadingScreen label="Opening Success Ratio history…" />;

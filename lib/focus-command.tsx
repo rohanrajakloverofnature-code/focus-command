@@ -13,6 +13,7 @@ import React, {
 import { calculateEquippedXpModifier, calculateEquippedEnergyModifier } from "./equipment-modifiers";
 import { getCharacterEvolutionProfile, type CharacterCinematicVariant } from "./character-development";
 import { deriveCinematicTokensFromPalette } from "./character-cinematic-tokens";
+import { syncCorePrincipleDailyCheckIn } from "./core-principles-sync";
 import {
   createDefaultPersonalGraphs,
   normalizePersonalGraphs,
@@ -3764,9 +3765,18 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     const timestamp = nowIso();
     commit((current) => {
       if (!current.corePrincipleLists.some((list) => list.id === listId)) return current;
+      const localDate = toLocalDate(timestamp, current.profile.timezone);
+      const todayCheckIn = current.corePrincipleDailyCheckIns.find((checkIn) => checkIn.localDate === localDate);
+      const sourceList = current.corePrincipleLists.find((list) => list.id === listId);
+      const nextCheckIns = todayCheckIn && sourceList
+        ? current.corePrincipleDailyCheckIns.map((checkIn) => checkIn.localDate === localDate
+          ? { ...checkIn, items: [...checkIn.items, { itemId: id, listId, listTitle: sourceList.title, itemText: safeText, checked: false }], updatedAt: timestamp }
+          : checkIn)
+        : current.corePrincipleDailyCheckIns;
       return withQueuedOperation({
         ...current,
         corePrincipleItems: [...current.corePrincipleItems, { id, listId, text: safeText, active: true, createdAt: timestamp, updatedAt: timestamp }],
+        corePrincipleDailyCheckIns: nextCheckIns,
       });
     });
     return id;
@@ -3810,15 +3820,8 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         });
       if (!activeSnapshotItems.length) return current;
       const existing = current.corePrincipleDailyCheckIns.find((checkIn) => checkIn.localDate === localDate);
-      const nextCheckIn: CorePrincipleDailyCheckIn = existing
-        ? {
-            ...existing,
-            items: existing.items.some((item) => item.itemId === itemId)
-              ? existing.items.map((item) => item.itemId === itemId ? { ...item, checked } : item)
-              : [...existing.items, { itemId: target.id, listId: list.id, listTitle: list.title, itemText: target.text, checked }],
-            updatedAt: timestamp,
-          }
-        : { localDate, items: activeSnapshotItems, createdAt: timestamp, updatedAt: timestamp };
+      const nextCheckIn: CorePrincipleDailyCheckIn = syncCorePrincipleDailyCheckIn(existing ?? null, localDate, activeSnapshotItems, timestamp);
+      nextCheckIn.items = nextCheckIn.items.map((item) => item.itemId === itemId ? { ...item, checked } : item);
       return withQueuedOperation({
         ...current,
         corePrincipleDailyCheckIns: existing

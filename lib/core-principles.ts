@@ -60,6 +60,25 @@ export function getCorePrinciplesSummary(checkIns: readonly CorePrincipleDailyCh
   };
 }
 
+export function filterCorePrinciplesCheckInToCurrent(
+  checkIn: CorePrincipleDailyCheckIn,
+  currentItemIds: ReadonlySet<string>,
+  currentListIds: ReadonlySet<string>,
+): CorePrincipleDailyCheckIn {
+  return {
+    ...checkIn,
+    items: checkIn.items.filter((item) => currentItemIds.has(item.itemId) && currentListIds.has(item.listId)),
+  };
+}
+
+export function filterCorePrinciplesCheckInsToCurrent(
+  checkIns: readonly CorePrincipleDailyCheckIn[],
+  currentItemIds: ReadonlySet<string>,
+  currentListIds: ReadonlySet<string>,
+): CorePrincipleDailyCheckIn[] {
+  return checkIns.map((checkIn) => filterCorePrinciplesCheckInToCurrent(checkIn, currentItemIds, currentListIds));
+}
+
 export function getCorePrinciplesDailyTrend(checkIns: readonly CorePrincipleDailyCheckIn[]) {
   return checkIns.map((checkIn) => {
     const summary = getCorePrinciplesSummary([checkIn]);

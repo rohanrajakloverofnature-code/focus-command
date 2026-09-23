@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  filterCorePrinciplesCheckInsToCurrent,
   getCorePrinciplesCheckInsInRange,
   getCorePrinciplesDailyTrend,
   getCorePrinciplesListInsights,
@@ -8,6 +9,7 @@ import {
   getMostUncheckedCorePrinciples,
   isCorePrinciplesDateInRange,
 } from "../lib/core-principles";
+import { syncCorePrincipleDailyCheckIn } from "../lib/core-principles-sync";
 import type { CorePrincipleDailyCheckIn } from "../lib/focus-command";
 
 const checkIns: CorePrincipleDailyCheckIn[] = [
@@ -55,6 +57,26 @@ describe("Core Principles", () => {
     expect(getCorePrinciplesListInsights(checkIns)).toEqual([
       expect.objectContaining({ listTitle: "Health", checked: 3, applicable: 4, successRatio: 0.75 }),
       expect.objectContaining({ listTitle: "Study", checked: 0, applicable: 2, successRatio: 0 }),
+    ]);
+  });
+
+  it("adds newly active principles to today without resetting existing checks", () => {
+    const existing = checkIns[0]!;
+    const activeItems = [
+      ...existing.items,
+      { itemId: "new", listId: "study", listTitle: "Study", itemText: "New rule", checked: false },
+    ];
+    const synced = syncCorePrincipleDailyCheckIn(existing, existing.localDate, activeItems, "2026-09-01T18:00:00.000Z");
+    expect(synced.items.map((item) => [item.itemId, item.checked])).toEqual([
+      ["sleep", true], ["plan", false], ["new", false],
+    ]);
+  });
+
+  it("filters deleted historical snapshots from live insight calculations", () => {
+    const currentOnly = filterCorePrinciplesCheckInsToCurrent(checkIns, new Set(["sleep", "walk"]), new Set(["health"]));
+    expect(getMostUncheckedCorePrinciples(currentOnly).map((item) => item.itemText)).toEqual(["Sleep before 11 PM"]);
+    expect(getCorePrinciplesListInsights(currentOnly)).toEqual([
+      expect.objectContaining({ listTitle: "Health", checked: 3, applicable: 4, successRatio: 0.75 }),
     ]);
   });
 
