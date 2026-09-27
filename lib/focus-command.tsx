@@ -1646,6 +1646,18 @@ export function getLifetimeGold(state: Pick<FocusState, "transactions">): number
   return state.transactions.filter((entry) => entry.goldDelta > 0).reduce((total, entry) => total + entry.goldDelta, 0);
 }
 
+export type RewardPurchaseValidation =
+  | { ok: true; reward: Reward; message: "" }
+  | { ok: false; reward: null; message: string };
+
+export function validateRewardPurchase(state: Pick<FocusState, "rewards" | "transactions">, rewardId: string): RewardPurchaseValidation {
+  const reward = state.rewards.find((candidate) => candidate.id === rewardId && candidate.active);
+  if (!reward) return { ok: false, reward: null, message: "That reward is no longer available." };
+  const balance = getGoldBalance(state);
+  if (balance < reward.goldCost) return { ok: false, reward: null, message: `You need ${reward.goldCost - balance} more gold.` };
+  return { ok: true, reward, message: "" };
+}
+
 export function getLevelInfo(state: FocusState) {
   const totalPower = getTotalPower(state);
   const maxLevel = Math.max(1, state.profile.maxLevel);
@@ -4300,10 +4312,9 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   }, [commit]);
 
   const purchaseReward = useCallback((rewardId: string) => {
-    const reward = state.rewards.find((candidate) => candidate.id === rewardId);
-    if (!reward) return { ok: false, message: "That reward is no longer available." };
-    const balance = getGoldBalance(state);
-    if (balance < reward.goldCost) return { ok: false, message: `You need ${reward.goldCost - balance} more gold.` };
+    const validation = validateRewardPurchase(stateRef.current, rewardId);
+    if (!validation.ok) return validation;
+    const { reward } = validation;
     commit((current) => {
       const localDate = toLocalDate(nowIso(), current.profile.timezone);
       const effectiveOn = reward.goldMultiplier ? addDays(localDate, 1) : null;

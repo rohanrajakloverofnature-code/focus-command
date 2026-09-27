@@ -18,6 +18,7 @@ import {
   getSubjectCapture,
   getTotalPower,
   toLocalDate,
+  validateRewardPurchase,
   type FocusState,
   type Mission,
 } from "../lib/focus-command";
@@ -110,6 +111,15 @@ describe("Focus Command deterministic gameplay rules", () => {
     expect(getGoldBalance(state)).toBe(50);
     expect(getActiveGoldMultiplier(state, today)).toBe(2);
     expect(getActiveGoldMultiplier(state, "2001-01-01")).toBe(1);
+  });
+
+  it("validates a newly created reward against the live reward list and current gold balance", () => {
+    const state = stateWithToday();
+    state.transactions.push({ id: "gold", type: "power_gold", goldDelta: 248, sourceId: null, occurredAt: new Date().toISOString(), effectiveOn: null, note: "earned" });
+    state.rewards.push({ id: "youtube_45", title: "45 Minutes youtube", description: "", category: "life", goldCost: 2, lootEnabled: true, lootWeight: 1, goldMultiplier: null, createdAt: new Date().toISOString(), active: true });
+
+    expect(validateRewardPurchase(state, "youtube_45")).toMatchObject({ ok: true, reward: { title: "45 Minutes youtube", goldCost: 2 } });
+    expect(validateRewardPurchase(state, "missing_reward")).toMatchObject({ ok: false, message: "That reward is no longer available." });
   });
 
   it("subtracts pauses from task timing and derives energy use from completed daily missions", () => {
