@@ -4,6 +4,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { BarsChart, ChartPoint, DonutChart, LineTrendChart, MultiLineTrendChart, PersonalGraphTrendChart, RadarChart } from "@/components/focus-charts";
+import { CalendarDateRangeField } from "@/components/calendar-date-picker";
 import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, StatusPill, TapFeedback } from "@/components/focus-ui";
 import { CrossedGatesCard } from "@/components/crossed-gates-card";
 import { CorePrinciplesCard } from "@/components/core-principles-card";
@@ -466,7 +467,7 @@ export default function DashboardScreen() {
         <CommandCard accent="#F4C95D" style={styles.distributionRangeCard}>
           <Text style={[styles.distributionRangeLabel, { color: "#F4C95D" }]}>VIEW POWER & TIME RANGE</Text>
           <View style={styles.distributionRangeChips}>{DASHBOARD_RANGE_OPTIONS.map((kind) => { const active = historyRangeKind === kind; return <Pressable key={kind} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`View power and time for ${dashboardRangeLabel(kind)}`} onPress={() => setHistoryRangeKind(kind)} style={({ pressed }) => [styles.distributionRangeChip, { borderColor: active ? "#F4C95D" : colors.border, backgroundColor: active ? "#F4C95D18" : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.distributionRangeChipText, { color: active ? "#F4C95D" : colors.foreground }]}>{dashboardRangeLabel(kind)}</Text></Pressable>; })}</View>
-          {historyRangeKind === "custom" ? <View style={styles.distributionCustomInputs}><TextInput onFocus={onInputFocus} value={historyCustomStart} onChangeText={setHistoryCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /><TextInput onFocus={onInputFocus} value={historyCustomEnd} onChangeText={setHistoryCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
+          {historyRangeKind === "custom" ? <CalendarDateRangeField label="Choose history period" startDate={historyCustomStart} endDate={historyCustomEnd} onChange={(start, end) => { setHistoryCustomStart(start); setHistoryCustomEnd(end); }} /> : null}
           <Text style={[styles.distributionRangeDetail, { color: colors.muted }]}>Both charts use the same selected inclusive local-date range. Current default remains 14 days.</Text>
         </CommandCard>
         <InteractiveChartCard title="Total Power by day" detail={`Awarded power in ${dashboardRangeLabel(historyRangeKind)}`} tag="POWER" onPress={() => router.push("/analytics?metric=power" as never)}>
@@ -486,7 +487,7 @@ export default function DashboardScreen() {
               return <Pressable key={kind} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`View distribution for ${label}`} onPress={() => setDistributionRangeKind(kind)} style={({ pressed }) => [styles.distributionRangeChip, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? `${colors.primary}18` : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.distributionRangeChipText, { color: active ? colors.primary : colors.foreground }]}>{label}</Text></Pressable>;
             })}
           </View>
-          {distributionRangeKind === "custom" ? <View style={styles.distributionCustomInputs}><TextInput onFocus={onInputFocus} value={distributionCustomStart} onChangeText={setDistributionCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /><TextInput onFocus={onInputFocus} value={distributionCustomEnd} onChangeText={setDistributionCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
+          {distributionRangeKind === "custom" ? <CalendarDateRangeField label="Choose distribution period" startDate={distributionCustomStart} endDate={distributionCustomEnd} onChange={(start, end) => { setDistributionCustomStart(start); setDistributionCustomEnd(end); }} /> : null}
         </CommandCard>
         <View style={styles.distributionGrid}>
           <CommandCard accent={colors.primary} style={styles.distributionCard}>
@@ -597,10 +598,7 @@ export default function DashboardScreen() {
             {(["week", "month", "last14Days", "custom"] as const).map((kind) => <TapFeedback key={kind} onPress={() => selectFocusFrictionRange(kind)} accessibilityLabel={`Show Focus Friction for ${kind === "last14Days" ? "the last 14 days" : kind}`} style={[styles.frictionFilter, { borderColor: focusFrictionRangeKind === kind ? `${colors.warning}99` : colors.border, backgroundColor: focusFrictionRangeKind === kind ? `${colors.warning}18` : colors.background }]}><Text style={[styles.frictionFilterLabel, { color: focusFrictionRangeKind === kind ? colors.warning : colors.muted }]}>{kind === "week" ? "WEEK" : kind === "month" ? "MONTH" : kind === "last14Days" ? "14 DAYS" : "CUSTOM"}</Text></TapFeedback>)}
           </View>
           {focusFrictionRangeKind === "custom" ? <View style={styles.frictionCustomRange}>
-            <View style={styles.frictionCustomInputs}>
-              <TextInput onFocus={onInputFocus} value={customFrictionStart} onChangeText={setCustomFrictionStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.frictionDateInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-              <TextInput onFocus={onInputFocus} value={customFrictionEnd} onChangeText={setCustomFrictionEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.frictionDateInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-            </View>
+            <CalendarDateRangeField label="Choose Focus Friction period" startDate={customFrictionStart} endDate={customFrictionEnd} onChange={(start, end) => { setCustomFrictionStart(start); setCustomFrictionEnd(end); }} />
             <CommandButton label="Apply" variant="secondary" onPress={applyCustomFocusFrictionRange} />
             {focusFrictionRangeError ? <Text style={[styles.frictionRangeError, { color: colors.error }]}>{focusFrictionRangeError}</Text> : null}
           </View> : null}
@@ -621,7 +619,7 @@ export default function DashboardScreen() {
         <CommandCard accent={colors.warning} style={styles.distributionRangeCard}>
           <Text style={[styles.distributionRangeLabel, { color: colors.warning }]}>VIEW RADAR RANGE</Text>
           <View style={styles.distributionRangeChips}>{DASHBOARD_RANGE_OPTIONS.map((kind) => { const active = radarRangeKind === kind; return <Pressable key={kind} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`View radars for ${dashboardRangeLabel(kind)}`} onPress={() => setRadarRangeKind(kind)} style={({ pressed }) => [styles.distributionRangeChip, { borderColor: active ? colors.warning : colors.border, backgroundColor: active ? `${colors.warning}18` : colors.background, opacity: pressed ? 0.7 : 1 }]}><Text style={[styles.distributionRangeChipText, { color: active ? colors.warning : colors.foreground }]}>{dashboardRangeLabel(kind)}</Text></Pressable>; })}</View>
-          {radarRangeKind === "custom" ? <View style={styles.distributionCustomInputs}><TextInput onFocus={onInputFocus} value={radarCustomStart} onChangeText={setRadarCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /><TextInput onFocus={onInputFocus} value={radarCustomEnd} onChangeText={setRadarCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.distributionDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
+          {radarRangeKind === "custom" ? <CalendarDateRangeField label="Choose radar period" startDate={radarCustomStart} endDate={radarCustomEnd} onChange={(start, end) => { setRadarCustomStart(start); setRadarCustomEnd(end); }} /> : null}
           <Text style={[styles.distributionRangeDetail, { color: colors.muted }]}>Both radars use reflections created inside the same selected local-date range. Default remains Lifetime.</Text>
         </CommandCard>
         <InteractiveChartCard title="Emotional radar" detail={`How you tend to feel after finishing work · ${dashboardRangeLabel(radarRangeKind)}`} tag="INSIGHT" onPress={() => router.push("/analytics?metric=emotion" as never)}>
@@ -684,6 +682,15 @@ export default function DashboardScreen() {
             <CommandButton label="Delete" variant="danger" onPress={() => Alert.alert("Delete Lifeline baseline?", "This removes only this manual record. Your journal contributions remain unchanged.", [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => removeLifelinePoint(point.id) }])} />
           </CommandCard>) : <NoData label="No manual baselines yet. Use Add baseline above to create one." icon="chart.xyaxis.line" />}
         </CommandCard> : null}
+
+        <SectionHeader title="Calendar planning" />
+        <CommandCard accent={colors.success} style={styles.customAnalyticsCard}>
+          <View style={styles.customAnalyticsCopy}>
+            <Text style={[styles.customAnalyticsTitle, { color: colors.foreground }]}>Plan by calendar day</Text>
+            <Text style={[styles.customAnalyticsDetail, { color: colors.muted }]}>Add dated activities and track day-by-day completion without changing your existing Planned mission board.</Text>
+          </View>
+          <CommandButton label="Open Activity Calendar" icon="checklist" onPress={() => router.push("/activity-calendar" as never)} />
+        </CommandCard>
 
         <SectionHeader title="Custom analytics workspace" />
         <CommandCard accent={colors.primary} style={styles.customAnalyticsCard}>

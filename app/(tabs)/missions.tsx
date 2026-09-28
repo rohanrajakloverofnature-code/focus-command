@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
+import { CalendarDateField } from "@/components/calendar-date-picker";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -269,8 +270,8 @@ export default function MissionsScreen() {
               {showBossDraft ? <View style={[styles.bossDraft, { borderColor: `${colors.warning}70`, backgroundColor: `${colors.warning}0E` }]}>
                 <TextInput onFocus={onInputFocus} value={bossTitle} onChangeText={setBossTitle} placeholder="Boss campaign name" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
                 <TextInput onFocus={onInputFocus} value={bossObjective} onChangeText={setBossObjective} placeholder="What will victory look like?" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.bossObjectiveInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-                <Text style={[styles.inputLabel, { color: colors.muted }]}>REQUIRED DEADLINE · YYYY-MM-DD</Text>
-                <TextInput onFocus={onInputFocus} value={bossDeadline} onChangeText={setBossDeadline} placeholder="2026-12-31" autoCapitalize="none" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+                <Text style={[styles.inputLabel, { color: colors.muted }]}>REQUIRED DEADLINE</Text>
+                <CalendarDateField label="Boss deadline" value={bossDeadline} onChange={setBossDeadline} />
                 <CommandButton label="Activate & link boss" icon="trophy.fill" onPress={createBossFromMission} />
               </View> : null}
             </View>

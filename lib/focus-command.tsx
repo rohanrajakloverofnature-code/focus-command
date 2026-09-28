@@ -419,6 +419,15 @@ export interface Boss {
   status: "active" | "completed" | "archived";
 }
 
+export interface CalendarActivity {
+  id: string;
+  title: string;
+  localDate: string;
+  missionId: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
 export interface JournalEntry {
   id: string;
   localDate: string;
@@ -921,6 +930,7 @@ export interface FocusState {
   corePrincipleLists: CorePrincipleList[];
   corePrincipleItems: CorePrincipleItem[];
   corePrincipleDailyCheckIns: CorePrincipleDailyCheckIn[];
+  calendarActivities: CalendarActivity[];
   recoveryStressors?: RecoveryStressor[];
   recoveryActions?: RecoveryActionRecord[];
   sleepLogs?: SleepLog[];
@@ -1476,6 +1486,7 @@ export function createInitialState(): FocusState {
     corePrincipleLists: [],
     corePrincipleItems: [],
     corePrincipleDailyCheckIns: [],
+    calendarActivities: [],
     recoveryStressors: [],
     recoveryActions: [],
     sleepLogs: [],
@@ -2521,6 +2532,9 @@ interface FocusCommandContextValue {
   updateMission: (missionId: string, patch: Partial<Mission>) => void;
   removeMission: (missionId: string) => void;
   removeMissionCompletion: (completionId: string) => void;
+  scheduleCalendarActivity: (input: { title: string; localDate: string; missionId?: string | null }) => string | null;
+  removeCalendarActivity: (activityId: string) => void;
+  toggleCalendarActivityCompleted: (activityId: string) => void;
   startMission: (missionId: string) => void;
   /** Starts a planned eligible mission and records its Gate entry together as one local update. */
   startMissionThroughShadowGate: (missionId: string, selection: ShadowGateDoorwaySelection) => boolean;
@@ -3033,6 +3047,16 @@ export function normalizeHydratedState(input: FocusState): FocusState {
           && typeof entry.updatedAt === "string" && Number.isFinite(Date.parse(entry.updatedAt)),
         )).map((entry) => ({ ...entry, totalMinutes: clampWholeNumber(entry.totalMinutes, 0, 1_440, 0), primaryLabel: normalizeRecoveryText(entry.primaryLabel, 80), note: normalizeRecoveryText(entry.note, 240) }))
       : [],
+    calendarActivities: Array.isArray(input.calendarActivities)
+      ? input.calendarActivities.filter((activity): activity is CalendarActivity => Boolean(
+          activity
+          && typeof activity.id === "string" && activity.id
+          && typeof activity.title === "string" && activity.title.trim()
+          && typeof activity.localDate === "string" && LOCAL_DATE_PATTERN.test(activity.localDate)
+          && (typeof activity.missionId === "string" || activity.missionId === null || activity.missionId === undefined)
+          && typeof activity.createdAt === "string" && Number.isFinite(Date.parse(activity.createdAt)),
+        )).map((activity) => ({ ...activity, title: activity.title.trim().slice(0, 180), missionId: activity.missionId ?? null, completedAt: typeof activity.completedAt === "string" ? activity.completedAt : null }))
+      : [],
     illnessContextRecords: Array.isArray(input.illnessContextRecords)
       ? input.illnessContextRecords.filter((entry): entry is IllnessContextRecord => Boolean(
           entry
@@ -3314,6 +3338,31 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       const next = removeCompletedMissionRun(current, completionId);
       return next === current ? current : withQueuedOperation(next, 4);
     });
+  }, [commit]);
+
+  const scheduleCalendarActivity = useCallback((input: { title: string; localDate: string; missionId?: string | null }) => {
+    const title = input.title.trim();
+    if (!title || !LOCAL_DATE_PATTERN.test(input.localDate)) return null;
+    const id = createId("calendar_activity");
+    commit((current) => withQueuedOperation({
+      ...current,
+      calendarActivities: [{ id, title: title.slice(0, 180), localDate: input.localDate, missionId: input.missionId ?? null, completedAt: null, createdAt: nowIso() }, ...current.calendarActivities],
+    }));
+    return id;
+  }, [commit]);
+
+  const removeCalendarActivity = useCallback((activityId: string) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      calendarActivities: current.calendarActivities.filter((activity) => activity.id !== activityId),
+    }));
+  }, [commit]);
+
+  const toggleCalendarActivityCompleted = useCallback((activityId: string) => {
+    commit((current) => withQueuedOperation({
+      ...current,
+      calendarActivities: current.calendarActivities.map((activity) => activity.id === activityId ? { ...activity, completedAt: activity.completedAt ? null : nowIso() } : activity),
+    }));
   }, [commit]);
 
   const startMission = useCallback((missionId: string) => {
@@ -4768,6 +4817,9 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     updateMission,
     removeMission,
     removeMissionCompletion,
+    scheduleCalendarActivity,
+    removeCalendarActivity,
+    toggleCalendarActivityCompleted,
     startMission,
     startMissionThroughShadowGate,
     toggleMissionPause,
@@ -4814,6 +4866,9 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     updateMission,
     removeMission,
     removeMissionCompletion,
+    scheduleCalendarActivity,
+    removeCalendarActivity,
+    toggleCalendarActivityCompleted,
     startMission,
     startMissionThroughShadowGate,
     toggleMissionPause,

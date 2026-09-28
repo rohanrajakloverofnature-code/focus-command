@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 
 import { LineTrendChart, type ChartPoint } from "@/components/focus-charts";
+import { CalendarDateRangeField } from "@/components/calendar-date-picker";
 import { CommandCard, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -22,7 +23,7 @@ function downsample(points: ChartPoint[], maxPoints = 240) {
 
 export default function CorePrinciplesHistoryScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
+  const { scrollRef, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const { title, checkIns, items, lists, timezone } = useFocusCommandSelector(selectCorePrinciplesHistory, shallowEqual);
   const [rangeKind, setRangeKind] = useState<CorePrinciplesRange["kind"]>("week");
@@ -45,7 +46,7 @@ export default function CorePrinciplesHistoryScreen() {
   const header = <>
     <ScreenTitle eyebrow="PRIVATE DAILY RECORD" title={`${title} history`} detail="Success Ratio uses only days you actually checked in. No check-in is never treated as a failed day." right={<Pressable onPress={() => router.back()}><Text style={[styles.close, { color: colors.primary }]}>Close</Text></Pressable>} />
     <View style={styles.metrics}><MetricTile label="Success ratio" value={ratio === null ? "—" : `${ratio}%`} detail={summary.applicable ? `${summary.checked}/${summary.applicable} checked` : "No recorded days"} icon="checklist" accent={colors.success} /><MetricTile label="Recorded days" value={`${summary.recordedDays}`} detail="Days with a real check-in" icon="chart.xyaxis.line" accent="#A78BFA" /></View>
-    <CommandCard accent={colors.success} style={styles.filters}><Text style={[styles.filterLabel, { color: colors.success }]}>VIEW SUCCESS RATIO</Text><View style={styles.chips}>{RANGE_OPTIONS.map((option) => { const active = rangeKind === option.kind; return <Pressable key={option.kind} onPress={() => setRangeKind(option.kind)} accessibilityRole="button" accessibilityState={{ selected: active }} style={({ pressed }) => [styles.chip, { borderColor: active ? colors.success : colors.border, backgroundColor: active ? `${colors.success}1A` : colors.background, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.chipText, { color: active ? colors.success : colors.foreground }]}>{option.label}</Text></Pressable>; })}</View>{rangeKind === "custom" ? <View style={styles.dateRow}><TextInput onFocus={onInputFocus} value={customStart} onChangeText={setCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /><TextInput onFocus={onInputFocus} value={customEnd} onChangeText={setCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}</CommandCard>
+    <CommandCard accent={colors.success} style={styles.filters}><Text style={[styles.filterLabel, { color: colors.success }]}>VIEW SUCCESS RATIO</Text><View style={styles.chips}>{RANGE_OPTIONS.map((option) => { const active = rangeKind === option.kind; return <Pressable key={option.kind} onPress={() => setRangeKind(option.kind)} accessibilityRole="button" accessibilityState={{ selected: active }} style={({ pressed }) => [styles.chip, { borderColor: active ? colors.success : colors.border, backgroundColor: active ? `${colors.success}1A` : colors.background, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.chipText, { color: active ? colors.success : colors.foreground }]}>{option.label}</Text></Pressable>; })}</View>{rangeKind === "custom" ? <CalendarDateRangeField label="Choose history period" startDate={customStart} endDate={customEnd} onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} /> : null}</CommandCard>
     <SectionHeader title="Daily success ratio" />
     <CommandCard accent={colors.success}>{trend.length ? <LineTrendChart points={chartPoints} color={colors.success} accessibilityLabel="Core Principles daily Success Ratio graph" /> : <Text style={[styles.emptyChart, { color: colors.muted }]}>No check-ins in this view yet.</Text>}</CommandCard>
     <SectionHeader title="Needs attention" />

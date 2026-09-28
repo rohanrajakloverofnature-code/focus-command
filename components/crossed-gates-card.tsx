@@ -1,8 +1,9 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
+import { Pressable, StyleSheet, Text, View, type TextInputProps } from "react-native";
 
 import { CommandButton, CommandCard } from "@/components/focus-ui";
+import { CalendarDateRangeField } from "@/components/calendar-date-picker";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useFocusCommandSelector, type FocusState } from "@/lib/focus-command";
@@ -79,11 +80,7 @@ export function CrossedGatesCard({ onInputFocus }: { onInputFocus?: TextInputPro
 
       {rangeKind === "custom" ? (
         <View style={styles.customRange}>
-          <View style={styles.dateInputs}>
-            <TextInput value={customStart} onFocus={onInputFocus} onChangeText={setCustomStart} placeholder="YYYY-MM-DD" autoCapitalize="none" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
-            <Text style={[styles.dateArrow, { color: colors.muted }]}>→</Text>
-            <TextInput value={customEnd} onFocus={onInputFocus} onChangeText={setCustomEnd} placeholder="YYYY-MM-DD" autoCapitalize="none" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} />
-          </View>
+<CalendarDateRangeField label="Choose gate period" startDate={customStart} endDate={customEnd} onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} />
           {rangeError ? <Text style={[styles.rangeError, { color: colors.error }]}>{rangeError}</Text> : null}
           <CommandButton label="Apply date range" variant="secondary" onPress={applyCustomRange} />
         </View>

@@ -3,6 +3,7 @@ import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "r
 import { router } from "expo-router";
 
 import { CommandCard, LoadingScreen, ScreenTitle, SectionHeader } from "@/components/focus-ui";
+import { CalendarDateRangeField } from "@/components/calendar-date-picker";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
@@ -81,7 +82,7 @@ export default function MistakeLedgerScreen() {
     <SectionHeader title="Review activity" />
     <Text style={[styles.summary, { color: colors.muted }]}>{summary.noted} noted · {summary.improved} marked improved in this view</Text>
     <FlatList ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" horizontal data={PERIODS} keyExtractor={(item) => item.id} renderItem={({ item }) => chip(item.label, rangeKind === item.id, () => setRangeKind(item.id))} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow} />
-    {rangeKind === "custom" ? <View style={styles.customDates}><TextInput onFocus={onInputFocus} value={customStart} onChangeText={setCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /><TextInput onFocus={onInputFocus} value={customEnd} onChangeText={setCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]} /></View> : null}
+    {rangeKind === "custom" ? <CalendarDateRangeField label="Choose ledger period" startDate={customStart} endDate={customEnd} onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} /> : null}
     <Text style={[styles.filterLabel, { color: colors.muted }]}>SUBJECT</Text>
     <FlatList horizontal data={["all", ...subjects]} keyExtractor={(item) => item} renderItem={({ item }) => chip(item === "all" ? "All Subjects" : item, subject === item, () => setSubject(item), "#F4C95D")} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow} />
     <Text style={[styles.filterLabel, { color: colors.muted }]}>STATUS</Text>

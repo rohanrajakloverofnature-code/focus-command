@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 
 import { BarsChart, DonutChart, LineTrendChart, RadarChart } from "@/components/focus-charts";
+import { CalendarDateRangeField } from "@/components/calendar-date-picker";
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ScreenTitle, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -204,11 +205,8 @@ function DashboardWidgetCard({
         <OptionGroup label="Metric" items={DASHBOARD_METRICS.map((item) => ({ id: item.id, label: item.shortLabel }))} selected={widget.metric} accent={accent} onChange={(value) => onUpdate({ metric: value as DashboardMetricId })} />
         <OptionGroup label="Chart style" items={DASHBOARD_CHART_TYPES.map((item) => ({ id: item.id, label: item.label }))} selected={widget.chartType} accent={accent} onChange={(value) => onUpdate({ chartType: value as DashboardChartType })} />
         <OptionGroup label="Date range" items={DASHBOARD_DATE_RANGES} selected={widget.dateRange} accent={accent} onChange={(value) => onUpdate({ dateRange: value as DashboardDateRange })} />
-        {widget.dateRange === "custom" ? <View style={styles.customDateRow}>
-          <TextInput onFocus={onInputFocus} value={widget.customStartDate} onChangeText={(customStartDate) => onUpdate({ customStartDate })} autoCapitalize="none" placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
-          <TextInput onFocus={onInputFocus} value={widget.customEndDate} onChangeText={(customEndDate) => onUpdate({ customEndDate })} autoCapitalize="none" placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
-        </View> : null}
-        <Text style={[styles.dateHint, { color: colors.muted }]}>{widget.dateRange === "custom" ? "Use YYYY-MM-DD. Leaving either date blank falls back to a recent 30-day view or today." : "Choose Custom dates for an exact start and end date."}</Text>
+        {widget.dateRange === "custom" ? <CalendarDateRangeField label="Choose custom dates" startDate={widget.customStartDate} endDate={widget.customEndDate} onChange={(customStartDate, customEndDate) => onUpdate({ customStartDate, customEndDate })} /> : null}
+        <Text style={[styles.dateHint, { color: colors.muted }]}>{widget.dateRange === "custom" ? "Choose both dates from the calendar. Leaving either date blank falls back to a recent 30-day view or today." : "Choose Custom dates for an exact start and end date."}</Text>
 
         <OptionGroup label="Feature source" items={DASHBOARD_FEATURE_FILTERS} selected={widget.feature} accent={accent} onChange={(value) => onUpdate({ feature: value as DashboardFeatureFilter })} />
         <OptionGroup label="Subject" items={[{ id: "all", label: "All subjects" }, ...subjects.map((subject) => ({ id: subject, label: subject }))]} selected={widget.subject} accent={accent} onChange={(subject) => onUpdate({ subject })} />

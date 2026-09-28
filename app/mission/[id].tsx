@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 
 import { CommandButton, CommandCard, IconAction, LoadingScreen, ProgressBar, ScreenTitle, StatusPill } from "@/components/focus-ui";
+import { CalendarDateField } from "@/components/calendar-date-picker";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { DistractionLogger } from "@/components/distraction-logger";
@@ -333,7 +334,7 @@ export default function MissionDetailScreen() {
           <TextInput value={editTopic} onFocus={onInputFocus} onChangeText={setEditTopic} placeholder="Specific topic" placeholderTextColor={colors.muted} style={[styles.editorInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
           <View style={styles.editorRow}>
             <TextInput value={editXp} onFocus={onInputFocus} onChangeText={setEditXp} keyboardType="number-pad" placeholder="Base XP" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-            <TextInput value={editDueAt} onFocus={onInputFocus} onChangeText={setEditDueAt} autoCapitalize="none" placeholder="Deadline YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.editorInput, styles.editorHalf, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            <CalendarDateField label="Mission deadline" value={editDueAt} onChange={setEditDueAt} />
           </View>
           {mission.frequency === "daily" ? <Pressable onPress={() => setEditAllowMultipleDailyCompletions((value) => !value)} style={({ pressed }) => [styles.repeatabilityToggle, { borderColor: editAllowMultipleDailyCompletions ? colors.primary : colors.border, backgroundColor: editAllowMultipleDailyCompletions ? `${colors.primary}16` : colors.background, opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
             <IconSymbol name={editAllowMultipleDailyCompletions ? "checklist" : "xmark"} size={17} color={editAllowMultipleDailyCompletions ? colors.primary : colors.muted} />

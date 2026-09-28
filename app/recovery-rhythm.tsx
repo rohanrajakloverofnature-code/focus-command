@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 
 import { CommandCard, IconAction, LoadingScreen, ScreenTitle } from "@/components/focus-ui";
+import { CalendarDateField, CalendarDateRangeField } from "@/components/calendar-date-picker";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
@@ -275,7 +276,7 @@ function StressComposer(props: {
       <View style={styles.flexField}><Field label="Intensity 0–10" value={props.intensity} onChangeText={props.onIntensity} onInputFocus={props.onInputFocus} placeholder="5" keyboardType="numeric" /></View>
       <View style={styles.flexField}><Field label="Category" value={props.category} onChangeText={props.onCategory} onInputFocus={props.onInputFocus} placeholder="Study, family…" /></View>
     </View>
-    <Field label="Date" value={props.date} onChangeText={props.onDate} onInputFocus={props.onInputFocus} placeholder="YYYY-MM-DD" />
+    <CalendarDateField label="Date" value={props.date} onChange={props.onDate} />
     <Text style={[styles.fieldLabel, { color: colors.muted }]}>CURRENT STATUS</Text>
     <View style={styles.statusRow}>{STRESS_STATUSES.map((status) => <Pressable key={status} onPress={() => props.onStatus(status)} style={({ pressed }) => [styles.statusChip, { borderColor: props.status === status ? colors.primary : colors.border, backgroundColor: props.status === status ? `${colors.primary}18` : colors.background, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.statusText, { color: props.status === status ? colors.primary : colors.muted }]}>{getRecoveryStressorLabel(status)}</Text></Pressable>)}</View>
     <Field label="What worries you? Optional" value={props.concern} onChangeText={props.onConcern} onInputFocus={props.onInputFocus} placeholder="Write a short private note" multiline />
@@ -309,7 +310,7 @@ function SleepComposer(props: { colors: ReturnType<typeof useColors>; mode: "dur
       <Text style={[styles.calculated, { color: colors.success }]}>Calculated: {formatMinutes(calculated)}</Text>
     </>}
     <View style={styles.twoFields}>
-      <View style={styles.flexField}><Field label="Wake date" value={props.date} onChangeText={props.onDate} onInputFocus={props.onInputFocus} placeholder="YYYY-MM-DD" /></View>
+      <View style={styles.flexField}><CalendarDateField label="Wake date" value={props.date} onChange={props.onDate} /></View>
       <View style={styles.flexField}><Field label="Quality 1–5" value={props.quality} onChangeText={props.onQuality} onInputFocus={props.onInputFocus} placeholder="3" keyboardType="numeric" /></View>
     </View>
     <Text style={[styles.fieldLabel, { color: colors.muted }]}>DREAM EXPERIENCE · CONTEXT ONLY</Text>
@@ -339,7 +340,7 @@ function ScreenComposer(props: { colors: ReturnType<typeof useColors>; hours: st
       <View style={styles.flexField}><Field label="Minutes" value={props.minutes} onChangeText={props.onMinutes} onInputFocus={props.onInputFocus} placeholder="15" keyboardType="numeric" /></View>
     </View>
     <Field label="Primary app, site, or category" value={props.label} onChangeText={props.onLabel} onInputFocus={props.onInputFocus} placeholder="Example: YouTube, study, social" />
-    <Field label="Date" value={props.date} onChangeText={props.onDate} onInputFocus={props.onInputFocus} placeholder="YYYY-MM-DD" />
+    <CalendarDateField label="Date" value={props.date} onChange={props.onDate} />
     <Pressable onPress={props.onAdd} accessibilityRole="button" accessibilityLabel="Save screen time" style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.primary, opacity: pressed ? 0.82 : 1 }]}><Text style={[styles.primaryButtonText, { color: colors.background }]}>{props.saved ? "Screen time saved ✓" : "Save screen time"}</Text></Pressable>
     <SaveStatus visible={props.saved} label="Screen time" color={colors.success} />
   </CommandCard>;
@@ -355,8 +356,8 @@ function IllnessContextComposer(props: {
     <Text style={[styles.composerTitle, { color: colors.foreground }]}>Illness Context</Text>
     <Text style={[styles.composerDetail, { color: colors.muted }]}>A private, optional note for days you felt unwell. It is not a diagnosis and never changes your forecast, wellbeing score, missions, or rewards.</Text>
     <View style={styles.twoFields}>
-      <View style={styles.flexField}><Field label="Start date" value={props.startDate} onChangeText={props.onStartDate} onInputFocus={props.onInputFocus} placeholder="YYYY-MM-DD" /></View>
-      <View style={styles.flexField}><Field label="End date · optional" value={props.endDate} onChangeText={props.onEndDate} onInputFocus={props.onInputFocus} placeholder="Leave blank if ongoing" /></View>
+      <View style={styles.flexField}><CalendarDateRangeField label="Illness period" startDate={props.startDate} endDate={props.endDate} optionalEndDate onChange={(start, end) => { props.onStartDate(start); props.onEndDate(end); }} /></View>
+      <View style={styles.flexField}></View>
     </View>
     <Text style={[styles.fieldLabel, { color: colors.muted }]}>OPTIONAL SELF-REPORTED CONTEXT</Text>
     <View style={styles.statusRow}><Toggle active={props.symptomsReported} label="Symptoms reported" onPress={() => props.onSymptomsReported(!props.symptomsReported)} /><Toggle active={props.fatigueReported} label="Fatigue" onPress={() => props.onFatigueReported(!props.fatigueReported)} /><Toggle active={props.sleepDisrupted} label="Sleep disrupted" onPress={() => props.onSleepDisrupted(!props.sleepDisrupted)} /><Toggle active={props.stressElevated} label="Higher stress" onPress={() => props.onStressElevated(!props.stressElevated)} /></View>

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScreen, ProgressBar, ScreenTitle, StatusPill } from "@/components/focus-ui";
+import { CalendarDateField } from "@/components/calendar-date-picker";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -16,7 +17,7 @@ const blankForm = (): BossForm => ({ title: "", objective: "", deadline: "", rew
 
 export default function BossesScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
+  const { scrollRef, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const bosses = useFocusCommandSelector((state) => state.bosses);
   const missions = useFocusCommandSelector((state) => state.missions);
   const ready = useFocusCommandReady();
@@ -149,8 +150,8 @@ function BossEditor({ title, form, onChange, onSave, saveLabel, compact = false 
     <Text style={[styles.formTitle, { color: colors.foreground }]}>{title}</Text>
     <TextInput value={form.title} onChangeText={(value) => onChange("title", value)} placeholder="Boss campaign name" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} returnKeyType="next" />
     <TextInput value={form.objective} onChangeText={(value) => onChange("objective", value)} placeholder="What will victory look like?" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.objectiveInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
-    <Text style={[styles.fieldLabel, { color: colors.muted }]}>REQUIRED DEADLINE · YYYY-MM-DD</Text>
-    <TextInput value={form.deadline} onChangeText={(value) => onChange("deadline", value)} placeholder="2026-12-31" autoCapitalize="none" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+    <Text style={[styles.fieldLabel, { color: colors.muted }]}>REQUIRED DEADLINE</Text>
+    <CalendarDateField label="Boss deadline" value={form.deadline} onChange={(value) => onChange("deadline", value)} />
     <View style={styles.rewardRow}>
       <TextInput value={form.rewardXp} onChangeText={(value) => onChange("rewardXp", value)} keyboardType="number-pad" placeholder="Boss XP" placeholderTextColor={colors.muted} style={[styles.input, styles.rewardInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
       <TextInput value={form.rewardGold} onChangeText={(value) => onChange("rewardGold", value)} keyboardType="number-pad" placeholder="Gold" placeholderTextColor={colors.muted} style={[styles.input, styles.rewardInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />

@@ -1,13 +1,16 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { BarsChart, DonutChart, type ChartPoint } from "@/components/focus-charts";
-import { CommandCard, IconAction, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
+import { CalendarDateRangeField } from "@/components/calendar-date-picker";
+import { LineTrendChart } from "@/components/focus-charts";
+import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { shallowEqual, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
+import { getCalendarCompletionSummary } from "@/lib/calendar-activity";
 import {
   formatSuperDashboardMinutes,
   getSuperDashboardSummary,
@@ -97,9 +100,10 @@ function highlightedStyle(color: string) {
 
 export default function SuperDashboardScreen() {
   const colors = useColors();
-  const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
+  const { scrollRef, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
   const ready = useFocusCommandReady();
   const state = useFocusCommandSelector(selectSuperDashboardState, sameSuperDashboardState);
+  const calendarActivities = useFocusCommandSelector((current) => current.calendarActivities);
   const [rangeKind, setRangeKind] = useState<SuperDashboardRangeKind>("week");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -113,6 +117,7 @@ export default function SuperDashboardScreen() {
     () => summary.activity.categories.map((category, index) => ({ label: category.label, value: category.minutes / 60, color: CATEGORY_COLORS[index % CATEGORY_COLORS.length] })),
     [summary.activity.categories],
   );
+  const calendarCompletion = useMemo(() => getCalendarCompletionSummary(calendarActivities, summary.range.startDate, summary.range.endDate), [calendarActivities, summary.range.endDate, summary.range.startDate]);
   const activeSignal = SIGNAL_MODES.find((item) => item.id === signalMode) ?? SIGNAL_MODES[0];
   const selectedSignalPoints = useMemo(
     () => signalPoints(signalMode, summary, colors),
@@ -147,14 +152,11 @@ export default function SuperDashboardScreen() {
             })}
           </View>)}
         </View>
-        {rangeKind === "custom" ? <View style={styles.customRow}>
-          <TextInput onFocus={onInputFocus} value={customStart} onChangeText={setCustomStart} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.dateInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
-          <TextInput onFocus={onInputFocus} value={customEnd} onChangeText={setCustomEnd} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.dateInput, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} />
-        </View> : null}
+        {rangeKind === "custom" ? <CalendarDateRangeField label="Choose Super Dashboard period" startDate={customStart} endDate={customEnd} onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} /> : null}
 
         {rangeIsCustomInvalid ? <CommandCard accent={colors.warning} style={styles.messageCard}>
           <Text style={[styles.messageTitle, { color: colors.foreground }]}>Choose a valid custom period</Text>
-          <Text style={[styles.messageDetail, { color: colors.muted }]}>Use inclusive dates in YYYY-MM-DD order. No calculation is made until both dates are valid.</Text>
+          <Text style={[styles.messageDetail, { color: colors.muted }]}>Choose an inclusive start and end date from the calendar. No calculation is made until both dates are selected.</Text>
         </CommandCard> : <>
           <CommandCard accent={colors.primary} style={styles.overviewCard}>
             <View style={styles.overviewHeader}>
@@ -177,6 +179,14 @@ export default function SuperDashboardScreen() {
             <View style={styles.chartLayout}><DonutChart points={categoryChartPoints} centerValue={formatSuperDashboardMinutes(summary.activity.reportedMinutes)} centerLabel="RECORDED" accessibilityLabel="Recorded activity time by category" /><View style={styles.legend}>{summary.activity.categories.map((category, index) => <View key={category.id} style={styles.legendRow}><View style={[styles.legendDot, { backgroundColor: CATEGORY_COLORS[index % CATEGORY_COLORS.length] }]} /><View style={styles.legendCopy}><Text numberOfLines={1} style={[styles.legendLabel, { color: colors.foreground }]}>{category.label}</Text><Text style={[styles.legendDetail, { color: colors.muted }]}>{formatSuperDashboardMinutes(category.minutes)} · {Math.round(category.shareOfReportedActivity * 100)}% of recorded activity</Text></View></View>)}</View></View>
             <BarsChart points={activityBars} color={colors.success} accessibilityLabel="Recorded activity hours by category" />
           </CommandCard> : <EmptyCard accent={colors.success} title="No activity totals yet" detail="Complete a mission or add private sleep, nap, or screen-time records to see this section." />}
+
+          <SectionHeader title="Calendar activity completion" />
+          <CommandCard accent={colors.success} style={styles.detailCard}>
+            <View style={styles.chartHeading}><View style={styles.chartCopy}><Text style={[styles.cardTitle, { color: colors.foreground }]}>Dated activity progress</Text><Text style={[styles.cardDetail, { color: colors.muted }]}>Completed assigned activities divided by all assigned activities in this selected period. Empty days are not failures.</Text></View><StatusPill label={calendarCompletion.percentage === null ? "NO PLANS" : `${calendarCompletion.percentage}% COMPLETE`} tone={calendarCompletion.percentage === null ? "neutral" : "success"} /></View>
+            <View style={styles.metricGrid}><MetricTile style={styles.metricTile} label="Planned" value={String(calendarCompletion.planned)} detail={`${calendarCompletion.daysWithPlans} day${calendarCompletion.daysWithPlans === 1 ? "" : "s"} with plans`} icon="checklist" accent={colors.primary} /><MetricTile style={styles.metricTile} label="Completed" value={String(calendarCompletion.completed)} detail={`${calendarCompletion.pending} pending`} icon="checklist" accent={colors.success} /></View>
+            {calendarCompletion.series.length ? <LineTrendChart points={calendarCompletion.series.map((point) => ({ label: point.localDate.slice(5), value: point.percentage ?? 0 }))} color={colors.success} accessibilityLabel="Calendar activity completion percentage in Super Dashboard" /> : null}
+            <CommandButton label="Open Activity Calendar" icon="checklist" variant="secondary" onPress={() => router.push("/activity-calendar" as never)} />
+          </CommandCard>
 
           <SectionHeader title="Mission progress" />
           <View style={styles.metricGrid}>
