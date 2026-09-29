@@ -92,6 +92,7 @@ export type SuperDashboardSummary = {
   };
   recovery: {
     averageLoggedStress: SuperDashboardMetric;
+    averageLoggedStressBefore: SuperDashboardMetric;
     averageReflectionStress: SuperDashboardMetric;
     peakLoggedStress: number | null;
     stressorCount: number;
@@ -209,6 +210,20 @@ function average(values: Array<number | null | undefined>): SuperDashboardMetric
     value: observed.length ? Number((observed.reduce((sum, value) => sum + value, 0) / observed.length).toFixed(1)) : null,
     observations: observed.length,
   };
+}
+
+function getStressorIntensityTransition(
+  stressor: NonNullable<SuperDashboardState["recoveryStressors"]>[number],
+  actions: SuperDashboardState["recoveryActions"],
+) {
+  const linkedActions = (actions ?? [])
+    .filter((action) => action.stressorId === stressor.id)
+    .sort((left, right) => Date.parse(left.occurredAt) - Date.parse(right.occurredAt));
+  const firstRecordedBefore = linkedActions.find((action) => action.beforeIntensity !== null && action.beforeIntensity !== undefined)?.beforeIntensity;
+  const latestAfter = [...linkedActions].reverse().find((action) => action.afterIntensity !== null && action.afterIntensity !== undefined)?.afterIntensity;
+  const before = firstRecordedBefore ?? stressor.intensity;
+  const current = latestAfter ?? (stressor.status === "resolved" ? 0 : stressor.intensity);
+  return { before, current };
 }
 
 function median(values: number[]): number | null {
@@ -413,7 +428,7 @@ export function getSuperDashboardSummary(
       range,
       activity: { categories: [], reportedMinutes: 0, minimumUntrackedMinutes: 0, recordCount: 0, note: "Enter valid inclusive YYYY-MM-DD dates to calculate this private dashboard." },
       missions: { completed: 0, activeDays: 0, focusedMinutes: 0, averageSessionMinutes: null, medianSessionMinutes: null, totalPower: 0, baseXp: 0, goldEarned: 0, powerPerFocusedHour: null, topSubject: null, topCategory: null, mostActiveCompletionWindow: null },
-      recovery: { averageLoggedStress: emptyMetric, averageReflectionStress: emptyMetric, peakLoggedStress: null, stressorCount: 0, recoveryActions: 0, averageSleepMinutes: emptyMetric, averageSleepScore: emptyMetric, sleepQuality: emptyMetric, restedFeeling: emptyMetric, totalNapMinutes: 0, averageScreenMinutes: emptyMetric, screenRecordDays: 0, commonScreenLabel: null, typicalRecentSleep: { medianMinutes: null, loggedNights: 0, requiredNights: 5, windowDays: 7 }, illnessContext: { recordCount: 0, contextDays: 0, debriefDays: 0, ongoingRecords: 0, fatigueRecords: 0, sleepDisruptedRecords: 0 } },
+      recovery: { averageLoggedStress: emptyMetric, averageLoggedStressBefore: emptyMetric, averageReflectionStress: emptyMetric, peakLoggedStress: null, stressorCount: 0, recoveryActions: 0, averageSleepMinutes: emptyMetric, averageSleepScore: emptyMetric, sleepQuality: emptyMetric, restedFeeling: emptyMetric, totalNapMinutes: 0, averageScreenMinutes: emptyMetric, screenRecordDays: 0, commonScreenLabel: null, typicalRecentSleep: { medianMinutes: null, loggedNights: 0, requiredNights: 5, windowDays: 7 }, illnessContext: { recordCount: 0, contextDays: 0, debriefDays: 0, ongoingRecords: 0, fatigueRecords: 0, sleepDisruptedRecords: 0 } },
       focus: { disruptions: 0, disruptionsPerFocusedHour: null, topDistraction: null, mostInterruptedWindow: null, loggedInterruptionRate: { value: null, matchedLogs: 0, focusedMinutes: 0, completedMissions: 0, activeDays: 0, sufficientData: false } },
       emotions: { focus: emptyMetric, motivation: emptyMetric, clarity: emptyMetric, energy: emptyMetric, distraction: emptyMetric, friction: emptyMetric },
       supportingProgress: { revisionActions: 0, maturedRevisionActions: 0, journalPoints: 0, journalEntries: 0, successRatio: null, principleChecked: 0, principleApplicable: 0, principleRecordedDays: 0, characterFormsEarned: 0 },
@@ -432,6 +447,7 @@ export function getSuperDashboardSummary(
   });
   const selectedStressors = (state.recoveryStressors ?? []).filter((record) => dateInRange(record.localDate, range));
   const selectedActions = (state.recoveryActions ?? []).filter((record) => dateInRange(record.localDate, range));
+  const selectedStressorTransitions = selectedStressors.map((stressor) => getStressorIntensityTransition(stressor, state.recoveryActions));
   const selectedSleep = latestDailyRecords((state.sleepLogs ?? []).filter((record) => dateInRange(record.localDate, range)));
   const selectedNaps = (state.napLogs ?? []).filter((record) => dateInRange(record.localDate, range));
   const selectedScreen = latestDailyRecords((state.screenTimeLogs ?? []).filter((record) => dateInRange(record.localDate, range)));
@@ -543,7 +559,8 @@ export function getSuperDashboardSummary(
       mostActiveCompletionWindow: (() => { const hour = bestLabel(completionHours); return hour === null ? null : hourWindow(Number(hour)); })(),
     },
     recovery: {
-      averageLoggedStress: average(selectedStressors.map((record) => record.intensity)),
+      averageLoggedStress: average(selectedStressorTransitions.map((transition) => transition.current)),
+      averageLoggedStressBefore: average(selectedStressorTransitions.map((transition) => transition.before)),
       averageReflectionStress: average(selectedReflections.map((record) => record.stressLevel)),
       peakLoggedStress: selectedStressors.length ? Math.max(...selectedStressors.map((record) => record.intensity)) : null,
       stressorCount: selectedStressors.length,

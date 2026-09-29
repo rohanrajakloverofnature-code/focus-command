@@ -190,6 +190,24 @@ describe("Super Dashboard calculation layer", () => {
     expect(summary.recovery.illnessContext).toMatchObject({ recordCount: 1, contextDays: 1, debriefDays: 1, fatigueRecords: 1 });
   });
 
+
+  it("reflects resolved stressor intensity transitions and averages multiple stressors", () => {
+    const state = stateWithRecords();
+    state.recoveryStressors = [
+      { ...state.recoveryStressors![0], status: "resolved", intensity: 7 },
+      { ...state.recoveryStressors![0], id: "super_dashboard_stress_2", title: "Second stressor", status: "resolved", intensity: 3 },
+    ];
+    state.recoveryActions = [
+      { id: "stress_action_1", stressorId: "super_dashboard_stress", type: "grounding", beforeIntensity: 7, afterIntensity: 0, note: "Resolved", localDate: "2026-09-18", occurredAt: "2026-09-18T11:00:00.000Z" },
+      { id: "stress_action_2", stressorId: "super_dashboard_stress_2", type: "relaxation", beforeIntensity: 3, afterIntensity: 0, note: "Resolved", localDate: "2026-09-18", occurredAt: "2026-09-18T11:30:00.000Z" },
+    ];
+
+    const summary = getSuperDashboardSummary(state, "today", "", "", NOW);
+
+    expect(summary.recovery.averageLoggedStressBefore).toEqual({ value: 5, observations: 2 });
+    expect(summary.recovery.averageLoggedStress).toEqual({ value: 0, observations: 2 });
+  });
+
   it("calculates mission totals, rates, category shares, and evidence from only selected records", () => {
     const summary = getSuperDashboardSummary(stateWithRecords(), "today", "", "", NOW);
 

@@ -70,6 +70,12 @@ function displayAverage(value: number | null, suffix = ""): string {
   return value === null ? "—" : `${value}${suffix}`;
 }
 
+function displayStressTransition(before: number | null, current: number | null): string {
+  if (current === null) return "—";
+  if (before === null || before === current) return `${current}/10`;
+  return `${before}/10 → ${current}/10`;
+}
+
 function metricEvidence(observations: number, singular: string): string {
   return `${observations} ${singular}${observations === 1 ? "" : "s"} logged`;
 }
@@ -222,7 +228,7 @@ export default function SuperDashboardScreen() {
 
           <SectionHeader title="Recovery & rhythm" />
           <View style={styles.metricGrid}>
-            <MetricTile style={styles.metricTile} label="Logged stress" value={displayAverage(summary.recovery.averageLoggedStress.value, "/10")} detail={metricEvidence(summary.recovery.averageLoggedStress.observations, "stressor")} icon="cloud.fill" accent={colors.warning} />
+            <MetricTile style={styles.metricTile} label="Logged stress" value={displayStressTransition(summary.recovery.averageLoggedStressBefore.value, summary.recovery.averageLoggedStress.value)} detail={metricEvidence(summary.recovery.averageLoggedStress.observations, "stressor")} icon="cloud.fill" accent={colors.warning} />
             <MetricTile style={styles.metricTile} label="Mission stress" value={displayAverage(summary.recovery.averageReflectionStress.value, "/5")} detail={metricEvidence(summary.recovery.averageReflectionStress.observations, "debrief")} icon="chart.xyaxis.line" accent="#FF7A59" />
             <MetricTile style={styles.metricTile} label="Sleep average" value={formatSuperDashboardMinutes(summary.recovery.averageSleepMinutes.value)} detail={metricEvidence(summary.recovery.averageSleepMinutes.observations, "night")} icon="timer" accent={colors.success} />
             <MetricTile style={styles.metricTile} label="Sleep summary" value={displayAverage(summary.recovery.averageSleepScore.value, "/100")} detail={summary.recovery.averageSleepScore.observations ? `${summary.recovery.averageSleepScore.observations} personal summar${summary.recovery.averageSleepScore.observations === 1 ? "y" : "ies"}` : "Awaiting sleep logs"} icon="star.fill" accent="#A78BFA" />
@@ -233,7 +239,7 @@ export default function SuperDashboardScreen() {
           </View>
           <CommandCard accent={colors.warning} style={styles.detailCard}>
             <Text style={[styles.detailCardTitle, { color: colors.foreground }]}>Clear separation of stress records</Text>
-            <Text style={[styles.detailCardText, { color: colors.muted }]}><Text style={highlightedStyle(colors.warning)}>Logged Stress: {displayAverage(summary.recovery.averageLoggedStress.value, "/10")}</Text> comes from <Text style={highlightedStyle(colors.foreground)}>{summary.recovery.stressorCount} Recovery & Rhythm entry{summary.recovery.stressorCount === 1 ? "" : "ies"}</Text>. <Text style={highlightedStyle("#FF7A59")}>Mission Stress: {displayAverage(summary.recovery.averageReflectionStress.value, "/5")}</Text> comes from <Text style={highlightedStyle(colors.foreground)}>{summary.recovery.averageReflectionStress.observations} optional mission debrief{summary.recovery.averageReflectionStress.observations === 1 ? "" : "s"}</Text>. They remain separate because their scales and questions are different. Highest logged stress: <Text style={highlightedStyle(colors.warning)}>{summary.recovery.peakLoggedStress === null ? "—" : `${summary.recovery.peakLoggedStress}/10`}</Text>.</Text>
+            <Text style={[styles.detailCardText, { color: colors.muted }]}><Text style={highlightedStyle(colors.warning)}>Logged Stress: {displayStressTransition(summary.recovery.averageLoggedStressBefore.value, summary.recovery.averageLoggedStress.value)}</Text> shows the average before-to-current intensity across <Text style={highlightedStyle(colors.foreground)}>{summary.recovery.stressorCount} Recovery & Rhythm entry{summary.recovery.stressorCount === 1 ? "" : "ies"}</Text>. <Text style={highlightedStyle("#FF7A59")}>Mission Stress: {displayAverage(summary.recovery.averageReflectionStress.value, "/5")}</Text> comes from <Text style={highlightedStyle(colors.foreground)}>{summary.recovery.averageReflectionStress.observations} optional mission debrief{summary.recovery.averageReflectionStress.observations === 1 ? "" : "s"}</Text>. They remain separate because their scales and questions are different. Highest initial logged stress: <Text style={highlightedStyle(colors.warning)}>{summary.recovery.peakLoggedStress === null ? "—" : `${summary.recovery.peakLoggedStress}/10`}</Text>.</Text>
           </CommandCard>
           {summary.recovery.illnessContext.recordCount ? <CommandCard accent={colors.warning} style={styles.detailCard}>
             <Text style={[styles.detailCardTitle, { color: colors.foreground }]}>Private illness context</Text>
