@@ -48,3 +48,20 @@ export function compareCalendarPeriods(current: CalendarCompletionPoint[], previ
   const previousAverage = average(previousValues);
   return { currentAverage, previousAverage, delta: currentAverage !== null && previousAverage !== null ? currentAverage - previousAverage : null };
 }
+
+export type CalendarComparisonKind = "yesterday" | "week" | "month" | "year";
+
+export function getCalendarComparison(kind: CalendarComparisonKind, endDate: string, activities: CalendarActivity[]) {
+  if (!isIsoLocalDate(endDate)) return compareCalendarPeriods([], []);
+  let startDate = endDate;
+  let currentEnd = endDate;
+  if (kind === "week") startDate = addLocalDays(endDate, -6);
+  if (kind === "month") startDate = `${endDate.slice(0, 8)}01`;
+  if (kind === "year") startDate = `${endDate.slice(0, 4)}-01-01`;
+  const previousEnd = addLocalDays(startDate, -1);
+  let previousStart = previousEnd;
+  if (kind === "week") previousStart = addLocalDays(previousEnd, -6);
+  if (kind === "month") previousStart = `${previousEnd.slice(0, 8)}01`;
+  if (kind === "year") previousStart = `${previousEnd.slice(0, 4)}-01-01`;
+  return compareCalendarPeriods(getCalendarCompletionSeries(activities, startDate, currentEnd), getCalendarCompletionSeries(activities, previousStart, previousEnd));
+}

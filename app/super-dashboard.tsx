@@ -11,8 +11,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { MISTAKE_LEDGER_STATUSES, shallowEqual, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { MISTAKE_LEDGER_STATUS_LABELS } from "@/lib/mistake-ledger";
-import { addLocalDays } from "@/lib/calendar-date";
-import { compareCalendarPeriods, getCalendarCompletionSeries, getCalendarCompletionSummary } from "@/lib/calendar-activity";
+import { getCalendarComparison, getCalendarCompletionSummary, type CalendarComparisonKind } from "@/lib/calendar-activity";
 import {
   formatSuperDashboardMinutes,
   getSuperDashboardSummary,
@@ -108,21 +107,6 @@ function signalPoints(mode: SignalMode, summary: ReturnType<typeof getSuperDashb
 
 function highlightedStyle(color: string) {
   return [styles.inlineStrong, { color }];
-}
-
-type CalendarComparisonKind = "yesterday" | "week" | "month" | "year";
-function getCalendarComparison(kind: CalendarComparisonKind, endDate: string, activities: Parameters<typeof getCalendarCompletionSeries>[0]) {
-  let startDate = endDate;
-  let currentEnd = endDate;
-  if (kind === "week") startDate = addLocalDays(endDate, -6);
-  if (kind === "month") startDate = `${endDate.slice(0, 8)}01`;
-  if (kind === "year") startDate = `${endDate.slice(0, 4)}-01-01`;
-  const previousEnd = addLocalDays(startDate, -1);
-  let previousStart = previousEnd;
-  if (kind === "week") previousStart = addLocalDays(previousEnd, -6);
-  if (kind === "month") previousStart = `${previousEnd.slice(0, 8)}01`;
-  if (kind === "year") previousStart = `${previousEnd.slice(0, 4)}-01-01`;
-  return compareCalendarPeriods(getCalendarCompletionSeries(activities, startDate, currentEnd), getCalendarCompletionSeries(activities, previousStart, previousEnd));
 }
 
 export default function SuperDashboardScreen() {

@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import { createInitialState, type FocusState, type Mission } from "../lib/focus-command";
+import { getCalendarComparison } from "../lib/calendar-activity";
 import { getSuperDashboardRange, getSuperDashboardSummary } from "../lib/super-dashboard";
 
 const NOW = new Date("2026-09-18T12:00:00.000Z");
+
+describe("Super Dashboard custom range safety", () => {
+  it("does not throw while Custom has no end date yet", () => {
+    expect(getCalendarComparison("week", "", [])).toEqual({ currentAverage: null, previousAverage: null, delta: null });
+  });
+});
 
 function mission(overrides: Partial<Mission> = {}): Mission {
   return {
