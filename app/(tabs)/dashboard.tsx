@@ -392,6 +392,19 @@ export default function DashboardScreen() {
           right={<IconAction icon="line.3.horizontal" label="Open settings" onPress={() => router.push("/settings")} />}
         />
 
+        <TapFeedback onPress={() => router.push("/activity-calendar" as never)} accessibilityLabel="Open calendar activity planner">
+          <CommandCard accent={colors.success} style={styles.commandArchiveCard}>
+            <View style={styles.commandArchiveHeading}>
+              <View style={styles.commandArchiveCopy}>
+                <Text style={[styles.commandArchiveEyebrow, { color: colors.success }]}>NEW · OFFLINE PLANNER</Text>
+                <Text style={[styles.commandArchiveTitle, { color: colors.foreground }]}>Calendar Activity Planner</Text>
+                <Text style={[styles.commandArchiveDetail, { color: colors.muted }]}>Choose any date, add activities, check them off, and compare daily, monthly, or yearly completion.</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={22} color={colors.success} />
+            </View>
+          </CommandCard>
+        </TapFeedback>
+
         <View style={styles.metrics}>
           <MetricTile label="Total power" value={formatCompactNumber(totalPower)} detail="Tap for power ledger" icon="shield.fill" accent="#F4C95D" onPress={() => router.push("/analytics?metric=power" as never)} />
           <MetricTile label="Daily average" value={`${dashboard.averageDailyHours.toFixed(1)} h`} detail="Tap for daily detail" icon="timer" accent={colors.primary} onPress={() => router.push("/analytics?metric=daily" as never)} />
@@ -682,15 +695,6 @@ export default function DashboardScreen() {
             <CommandButton label="Delete" variant="danger" onPress={() => Alert.alert("Delete Lifeline baseline?", "This removes only this manual record. Your journal contributions remain unchanged.", [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => removeLifelinePoint(point.id) }])} />
           </CommandCard>) : <NoData label="No manual baselines yet. Use Add baseline above to create one." icon="chart.xyaxis.line" />}
         </CommandCard> : null}
-
-        <SectionHeader title="Calendar planning" />
-        <CommandCard accent={colors.success} style={styles.customAnalyticsCard}>
-          <View style={styles.customAnalyticsCopy}>
-            <Text style={[styles.customAnalyticsTitle, { color: colors.foreground }]}>Plan by calendar day</Text>
-            <Text style={[styles.customAnalyticsDetail, { color: colors.muted }]}>Add dated activities and track day-by-day completion without changing your existing Planned mission board.</Text>
-          </View>
-          <CommandButton label="Open Activity Calendar" icon="checklist" onPress={() => router.push("/activity-calendar" as never)} />
-        </CommandCard>
 
         <SectionHeader title="Custom analytics workspace" />
         <CommandCard accent={colors.primary} style={styles.customAnalyticsCard}>

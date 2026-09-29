@@ -32,12 +32,12 @@ export function CalendarDatePicker({ mode, startDate, endDate, onChange, optiona
     }
     if (!rangeStart || (endDate && rangeStart === startDate)) {
       setRangeStart(date);
-      onChange(date, optionalEndDate ? "" : date);
+      onChange(date);
       return;
     }
     if (compareLocalDates(date, rangeStart) < 0) {
       setRangeStart(date);
-      onChange(date, optionalEndDate ? "" : date);
+      onChange(date);
       return;
     }
     onChange(rangeStart, date);
@@ -78,7 +78,7 @@ export function CalendarDateRangeField({ label, startDate, endDate, onChange, op
   return <View style={styles.fieldWrap}>
     <Text style={[styles.fieldLabel, { color: colors.muted }]}>{label}</Text>
     <Pressable accessibilityRole="button" accessibilityLabel={`Choose ${label} start and end dates`} onPress={() => setOpen((current) => !current)} style={[styles.fieldButton, { borderColor: open ? colors.primary : colors.border, backgroundColor: colors.background }]}><Text style={[styles.fieldValue, { color: startDate ? colors.foreground : colors.muted }]}>{startDate ? formatReadableLocalDate(startDate) : "Choose start"}{endDate ? ` → ${formatReadableLocalDate(endDate)}` : optionalEndDate ? " → ongoing" : " → choose end"}</Text><Text style={[styles.fieldAction, { color: colors.primary }]}>{open ? "CLOSE" : "CALENDAR"}</Text></Pressable>
-    {open ? <CalendarDatePicker mode="range" startDate={startDate} endDate={endDate} optionalEndDate={optionalEndDate} onChange={(start, end) => { onChange(start, end ?? ""); if (end || optionalEndDate) setOpen(false); }} /> : null}
+    {open ? <CalendarDatePicker mode="range" startDate={startDate} endDate={endDate} optionalEndDate={optionalEndDate} onChange={(start, end) => { onChange(start, end ?? ""); if (end) setOpen(false); }} /> : null}
   </View>;
 }
 
