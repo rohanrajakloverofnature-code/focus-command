@@ -570,6 +570,8 @@ export function RankCharacterAchievement({
 
     return () => {
       timers.forEach(clearTimeout);
+      cancelAnimation(spin);
+      cancelAnimation(counterSpin);
       stopVideo();
       releasePlayers();
     };

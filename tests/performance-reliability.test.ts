@@ -6,6 +6,9 @@ import { createInitialState, getDashboardStats, getMillisecondsUntilNextLocalDay
 import { getMonthlyCommandArchive } from "../lib/monthly-command-archive";
 
 const focusCommandSource = readFileSync(resolve(process.cwd(), "lib/focus-command.tsx"), "utf8");
+const focusStatePersistenceSource = readFileSync(resolve(process.cwd(), "lib/focus-state-persistence.ts"), "utf8");
+const offlineBackupSource = readFileSync(resolve(process.cwd(), "lib/offline-backup.ts"), "utf8");
+const offlineBackupFormatSource = readFileSync(resolve(process.cwd(), "lib/offline-backup-format.ts"), "utf8");
 const launchSource = readFileSync(resolve(process.cwd(), "components/launch-animation.tsx"), "utf8");
 const cinematicSource = readFileSync(resolve(process.cwd(), "components/rank-character.tsx"), "utf8");
 const missionBoardSource = readFileSync(resolve(process.cwd(), "app/(tabs)/missions.tsx"), "utf8");
@@ -83,8 +86,12 @@ describe("Performance and reliability contracts", () => {
     expect(focusCommandSource).toContain("PERSISTENCE_DEBOUNCE_MS = 250");
     expect(focusCommandSource).toContain("appState.addEventListener");
     expect(focusCommandSource).toContain("flushPendingPersistence");
-    expect(focusCommandSource).toContain("lastPersistedSerialized");
-    expect(focusCommandSource).toContain("if (serialized === lastPersistedSerialized.current) return persistenceQueue.current;");
+    expect(focusCommandSource).toContain("queuedPersistence.current = snapshot");
+    expect(focusCommandSource).toContain("while (queuedPersistence.current)");
+    expect(focusCommandSource).toContain("persistFocusStateIncrementally");
+    expect(focusStatePersistenceSource).toContain("AsyncStorage.multiSet(writes)");
+    expect(focusStatePersistenceSource).toContain("Object.is(cache.references[field], value)");
+    expect(focusStatePersistenceSource).toContain("LEGACY_FOCUS_STATE_STORAGE_KEY");
     expect(focusCommandSource).toContain("useFocusCommandSelector");
     expect(focusCommandSource).toContain("useFocusCommandActions");
   });
@@ -97,6 +104,17 @@ describe("Performance and reliability contracts", () => {
     expect(shallowEqual({ missions, transactions, profile }, { missions: [], transactions, profile })).toBe(false);
     expect(focusCommandSource).toContain("if (selection.current && isEqual(selection.current.value, next)) return selection.current.value;");
     expect(focusCommandSource).toContain("export function shallowEqual");
+  });
+
+  it("streams backup media without loading complete videos into JavaScript memory and migrates seed-era state", () => {
+    expect(offlineBackupSource).toContain("const BACKUP_WRITE_CHUNK_BYTES = 512 * 1024");
+    expect(offlineBackupSource).toContain("new ZipPassThrough(source.path)");
+    expect(offlineBackupSource).toContain("const input = new File(source.uri).open()");
+    expect(offlineBackupSource).toContain("await yieldToRuntime()");
+    expect(offlineBackupSource).not.toContain("await file.bytes()");
+    expect(offlineBackupFormatSource).toContain("export function migrateOfflineBackupState");
+    expect(offlineBackupFormatSource).toContain("schemaVersion > CURRENT_APP_SCHEMA_VERSION");
+    expect(offlineBackupFormatSource).toContain("MAX_BACKUP_UNCOMPRESSED_BYTES");
   });
 
   it("keeps the remaining mounted bridge and tab screens on exact selectors without changing wallet or completion calculations", () => {
@@ -120,6 +138,8 @@ describe("Performance and reliability contracts", () => {
     expect(cinematicSource).toContain("if (reduceMotion || !isFocused || !motionActive)");
     expect(cinematicSource).toContain("cancelAnimation(float);");
     expect(cinematicSource).toContain("cancelAnimation(glow);");
+    expect(cinematicSource).toContain("cancelAnimation(spin);");
+    expect(cinematicSource).toContain("cancelAnimation(counterSpin);");
     expect(homeSource).toContain("motionActive={isFocused && !showRankAchievement}");
   });
 

@@ -1,11 +1,15 @@
 import * as DocumentPicker from "expo-document-picker";
 import { Directory, File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
+import { strToU8, Zip, ZipDeflate, ZipPassThrough } from "fflate";
 
 import {
-  createOfflineBackupArchive,
+  createOfflineBackupManifest,
   FOCUS_COMMAND_BACKUP_EXTENSION,
-  OfflineBackupMediaFile,
+  MAX_BACKUP_BYTES,
+  MAX_BACKUP_MEDIA_FILES,
   OfflineBackupMediaManifest,
   OfflineBackupValidationError,
   ParsedOfflineBackupPreview,
@@ -25,6 +29,7 @@ const SOUND_PREFIX = "media/sounds/";
 const CINEMATIC_MUSIC_PREFIX = "media/cinematic-music/";
 const FORM_PREFIX = "media/forms/";
 const LAUNCH_PREFIX = "media/launch/";
+const BACKUP_WRITE_CHUNK_BYTES = 512 * 1024;
 
 export interface OfflineBackupPreview {
   archiveUri: string;
@@ -51,65 +56,168 @@ function timestampFileStem() {
   return new Date().toISOString().replace(/[:.]/g, "-").replace("T", "-").replace("Z", "");
 }
 
-async function readLocalMedia(uri: string, archivePath: string): Promise<OfflineBackupMediaFile> {
+interface OfflineBackupMediaSource {
+  uri: string;
+  path: string;
+  bytes: number;
+  sha256: string;
+}
+
+async function yieldToRuntime(): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
+async function inspectLocalMedia(uri: string, archivePath: string): Promise<OfflineBackupMediaSource> {
   const file = new File(uri);
   if (!file.exists || !file.size) {
     throw new OfflineBackupValidationError(`The local media file for ${archivePath} is unavailable. Reassign it before creating a backup.`);
   }
-  return { path: archivePath, bytes: await file.bytes() };
+  const size = file.size;
+  const hasher = sha256.create();
+  const handle = file.open();
+  try {
+    let bytesRead = 0;
+    while (bytesRead < size) {
+      const chunk = handle.readBytes(Math.min(BACKUP_WRITE_CHUNK_BYTES, size - bytesRead));
+      if (!chunk.length) throw new OfflineBackupValidationError(`The local media file for ${archivePath} could not be read completely.`);
+      hasher.update(chunk);
+      bytesRead += chunk.length;
+      await yieldToRuntime();
+    }
+  } finally {
+    handle.close();
+  }
+  return { uri, path: archivePath, bytes: size, sha256: bytesToHex(hasher.digest()) };
 }
 
-export async function collectOfflineBackupMedia(state: FocusState): Promise<OfflineBackupMediaFile[]> {
-  const media: OfflineBackupMediaFile[] = [];
+export async function collectOfflineBackupMediaSources(state: FocusState): Promise<OfflineBackupMediaSource[]> {
+  const media: OfflineBackupMediaSource[] = [];
   for (const [variant, override] of Object.entries(state.profile.localCinematicOverrides)) {
     if (!override?.uri) continue;
     const extension = fileExtension(override.name, "mp4");
-    media.push(await readLocalMedia(override.uri, `${CINEMATIC_PREFIX}${variant}.${extension}`));
+    media.push(await inspectLocalMedia(override.uri, `${CINEMATIC_PREFIX}${variant}.${extension}`));
   }
   for (const role of SOUND_ROLE_IDS) {
     const setting = state.profile.soundRoles[role];
     if (!setting?.customUri) continue;
     const extension = fileExtension(setting.customName ?? "", "mp3");
-    media.push(await readLocalMedia(setting.customUri, `${SOUND_PREFIX}${role}.${extension}`));
+    media.push(await inspectLocalMedia(setting.customUri, `${SOUND_PREFIX}${role}.${extension}`));
   }
   for (const [variant, pair] of Object.entries(state.profile.localCinematicMusicOverrides)) {
     for (const slot of ["duringVideo", "postVideo"] as const) {
       const override = pair?.[slot];
       if (!override?.uri) continue;
       const extension = fileExtension(override.name, "mp3");
-      media.push(await readLocalMedia(override.uri, `${CINEMATIC_MUSIC_PREFIX}${variant}-${slot}.${extension}`));
+      media.push(await inspectLocalMedia(override.uri, `${CINEMATIC_MUSIC_PREFIX}${variant}-${slot}.${extension}`));
     }
   }
   for (const form of state.profile.customCharacterForms) {
     const formPrefix = `${FORM_PREFIX}${safeFileName(form.id, "form")}/`;
-    if (form.portrait?.uri) media.push(await readLocalMedia(form.portrait.uri, `${formPrefix}portrait.${fileExtension(form.portrait.name, "png")}`));
-    if (form.video?.uri) media.push(await readLocalMedia(form.video.uri, `${formPrefix}video.${fileExtension(form.video.name, "mp4")}`));
+    if (form.portrait?.uri) media.push(await inspectLocalMedia(form.portrait.uri, `${formPrefix}portrait.${fileExtension(form.portrait.name, "png")}`));
+    if (form.video?.uri) media.push(await inspectLocalMedia(form.video.uri, `${formPrefix}video.${fileExtension(form.video.name, "mp4")}`));
     for (const slot of ["duringVideo", "postVideo"] as const) {
       const override = form.music[slot];
-      if (override?.uri) media.push(await readLocalMedia(override.uri, `${formPrefix}${slot}.${fileExtension(override.name, "mp3")}`));
+      if (override?.uri) media.push(await inspectLocalMedia(override.uri, `${formPrefix}${slot}.${fileExtension(override.name, "mp3")}`));
     }
   }
   if (state.profile.launchAnimation.visual?.uri) {
     const visual = state.profile.launchAnimation.visual;
-    media.push(await readLocalMedia(visual.uri, `${LAUNCH_PREFIX}visual.${fileExtension(visual.name, "gif")}`));
+    media.push(await inspectLocalMedia(visual.uri, `${LAUNCH_PREFIX}visual.${fileExtension(visual.name, "gif")}`));
   }
   if (state.profile.launchAnimation.audio?.uri) {
     const audio = state.profile.launchAnimation.audio;
-    media.push(await readLocalMedia(audio.uri, `${LAUNCH_PREFIX}audio.${fileExtension(audio.name, "mp3")}`));
+    media.push(await inspectLocalMedia(audio.uri, `${LAUNCH_PREFIX}audio.${fileExtension(audio.name, "mp3")}`));
+  }
+  if (media.length > MAX_BACKUP_MEDIA_FILES || new Set(media.map((item) => item.path)).size !== media.length) {
+    throw new OfflineBackupValidationError("The custom media list is too large or contains conflicting file names.");
   }
   return media;
 }
 
 export async function createAndShareOfflineBackup(state: FocusState): Promise<{ uri: string; fileName: string }> {
-  const media = await collectOfflineBackupMedia(state);
-  const { archive } = createOfflineBackupArchive(state, media);
+  const media = await collectOfflineBackupMediaSources(state);
+  const { hydrated: _hydrated, ...persistable } = state;
+  const stateBytes = strToU8(JSON.stringify(persistable));
+  const estimatedBytes = stateBytes.length + media.reduce((total, item) => total + item.bytes, 0) + 1024 * 1024;
+  if (estimatedBytes > MAX_BACKUP_BYTES) {
+    throw new OfflineBackupValidationError("This backup is too large to create safely on this device.");
+  }
+  if (Paths.availableDiskSpace > 0 && estimatedBytes * 1.15 > Paths.availableDiskSpace) {
+    throw new OfflineBackupValidationError("This device does not have enough free space to create the complete backup.");
+  }
+  const manifest = createOfflineBackupManifest(
+    state,
+    stateBytes,
+    media.map(({ path, bytes, sha256: checksum }) => ({ path, bytes, sha256: checksum })),
+  );
   BACKUP_CACHE_DIRECTORY.create({ idempotent: true, intermediates: true });
   const fileName = `FocusCommand-backup-${timestampFileStem()}.${FOCUS_COMMAND_BACKUP_EXTENSION}`;
   const destination = new File(BACKUP_CACHE_DIRECTORY, fileName);
   if (destination.exists) destination.delete();
   destination.create({ intermediates: true });
-  destination.write(archive);
-  if (!destination.exists || destination.size !== archive.length) {
+  const output = destination.open();
+  let archiveError: Error | null = null;
+  let resolveArchiveFinished!: () => void;
+  let rejectArchiveFinished!: (error: Error) => void;
+  const archiveFinished = new Promise<void>((resolve, reject) => {
+    resolveArchiveFinished = resolve;
+    rejectArchiveFinished = reject;
+  });
+  const archive = new Zip((error, chunk, final) => {
+    if (error) {
+      archiveError = error;
+      rejectArchiveFinished(error);
+      return;
+    }
+    if (chunk.length) output.writeBytes(chunk);
+    if (final) resolveArchiveFinished();
+  });
+  let creationFailure: unknown = null;
+  try {
+    const manifestEntry = new ZipDeflate("manifest.json", { level: 1 });
+    archive.add(manifestEntry);
+    manifestEntry.push(strToU8(JSON.stringify(manifest)), true);
+
+    const stateEntry = new ZipDeflate("state/focus-command.json", { level: 1 });
+    archive.add(stateEntry);
+    stateEntry.push(stateBytes, true);
+
+    for (const source of media) {
+      const entry = new ZipPassThrough(source.path);
+      archive.add(entry);
+      const input = new File(source.uri).open();
+      try {
+        let bytesRead = 0;
+        const hasher = sha256.create();
+        while (bytesRead < source.bytes) {
+          const chunk = input.readBytes(Math.min(BACKUP_WRITE_CHUNK_BYTES, source.bytes - bytesRead));
+          if (!chunk.length) throw new OfflineBackupValidationError(`The local media file for ${source.path} changed during backup creation.`);
+          bytesRead += chunk.length;
+          hasher.update(chunk);
+          entry.push(chunk, bytesRead === source.bytes);
+          await yieldToRuntime();
+        }
+        if (bytesToHex(hasher.digest()) !== source.sha256) {
+          throw new OfflineBackupValidationError(`The local media file for ${source.path} changed during backup creation. Please try again.`);
+        }
+      } finally {
+        input.close();
+      }
+    }
+    archive.end();
+    await archiveFinished;
+  } catch (error) {
+    creationFailure = error;
+    archive.terminate();
+  } finally {
+    output.close();
+  }
+  if (creationFailure || archiveError) {
+    if (destination.exists) destination.delete();
+    if (creationFailure instanceof OfflineBackupValidationError) throw creationFailure;
+    throw new OfflineBackupValidationError("Focus Command could not finish the backup archive.");
+  }
+  if (!destination.exists || !destination.size || destination.size > MAX_BACKUP_BYTES) {
     if (destination.exists) destination.delete();
     throw new OfflineBackupValidationError("Focus Command could not write a complete backup file on this device.");
   }
@@ -160,7 +268,9 @@ async function readFileChunks(file: File, onChunk: (chunk: Uint8Array, isFinal: 
 }
 
 function mediaEntryForPrefix(backup: ParsedOfflineBackupPreview, prefix: string, key: string) {
-  return backup.manifest.media.find((file) => file.path.startsWith(`${prefix}${key}.`)) ?? null;
+  const matches = backup.manifest.media.filter((file) => file.path.startsWith(`${prefix}${key}.`));
+  if (matches.length > 1) throw new OfflineBackupValidationError("The backup contains conflicting media files.");
+  return matches[0] ?? null;
 }
 
 function createRestoredMediaFile(directory: Directory, name: string): File {
@@ -196,8 +306,10 @@ export async function materializeOfflineBackupMedia(backup: ParsedOfflineBackupP
   try {
     for (const [variant, override] of Object.entries(state.profile.localCinematicOverrides)) {
       const entry = mediaEntryForPrefix(backup, CINEMATIC_PREFIX, variant);
+      const historicUri = override?.uri;
       if (!override || !registerTarget(entry, CINEMATIC_DIRECTORY, `backup-${restoreStamp}-${safeFileName(variant, "cinematic")}.${fileExtension(entry?.path ?? "", "mp4")}`, (uri) => {
         state.profile.localCinematicOverrides[variant as CharacterCinematicVariant] = { uri, name: override.name };
+        if (historicUri) restoredPortraitUris.set(historicUri, uri);
       })) {
         delete state.profile.localCinematicOverrides[variant as CharacterCinematicVariant];
       }
@@ -251,6 +363,10 @@ export async function materializeOfflineBackupMedia(backup: ParsedOfflineBackupP
     if (launchAudio && !registerTarget(mediaEntryForPrefix(backup, LAUNCH_PREFIX, "audio"), SOUND_DIRECTORY, `backup-${restoreStamp}-launch.${fileExtension(mediaEntryForPrefix(backup, LAUNCH_PREFIX, "audio")?.path ?? "", "mp3")}`, (uri) => {
       state.profile.launchAnimation.audio = { ...launchAudio, uri };
     })) state.profile.launchAnimation.audio = null;
+
+    if (targets.size !== backup.manifest.media.length) {
+      throw new OfflineBackupValidationError("The backup contains media that is not linked to its saved app data.");
+    }
 
     const archive = new File(archiveUri);
     await streamOfflineBackupArchive(archive.size ?? 0, (onChunk) => readFileChunks(archive, onChunk), (media, chunk, final) => {

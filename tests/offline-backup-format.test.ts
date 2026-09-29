@@ -163,7 +163,7 @@ describe("offline Focus Command backup format", () => {
   it("restores older valid backup files without later append-only collections as empty collections", () => {
     const { archive } = createOfflineBackupArchive(createPopulatedState());
     const legacy = mutateArchive(archive, (entries) => {
-      const state = JSON.parse(strFromU8(entries["state.json"])) as Record<string, unknown>;
+      const state = JSON.parse(strFromU8(entries["state/focus-command.json"])) as Record<string, unknown>;
       delete state.srsActivityLog;
       delete state.shadowGateEntries;
       delete state.shadowGatePersonalDoorways;
@@ -175,7 +175,7 @@ describe("offline Focus Command backup format", () => {
       delete state.corePrincipleDailyCheckIns;
       delete state.illnessContextRecords;
       const stateBytes = strToU8(JSON.stringify(state));
-      entries["state.json"] = stateBytes;
+      entries["state/focus-command.json"] = stateBytes;
       const manifest = readManifest(entries);
       manifest.stateSha256 = hashBackupBytes(stateBytes);
       writeManifest(entries, manifest);
@@ -193,16 +193,61 @@ describe("offline Focus Command backup format", () => {
     expect(parseOfflineBackupArchive(legacy).state.illnessContextRecords).toEqual([]);
   });
 
+  it("restores the original seed schema into the current advanced state without inventing history", () => {
+    const current = createInitialState();
+    const seedState = {
+      schemaVersion: 1,
+      hydrated: true,
+      profile: current.profile,
+      combo: current.combo,
+      missions: [],
+      reflections: [],
+      srsTopics: [],
+      bosses: [],
+      journals: [],
+      rewards: current.rewards,
+      transactions: [],
+      inventory: [],
+      progression: [],
+      lifeline: [],
+      customQuestions: [],
+      customGraphs: current.customGraphs,
+      goldPowerCarry: 0,
+    } as unknown as FocusState;
+
+    const currentArchive = createOfflineBackupArchive(current).archive;
+    const seedArchive = mutateArchive(currentArchive, (entries) => {
+      const stateBytes = strToU8(JSON.stringify({ ...seedState, hydrated: undefined }));
+      entries["state/focus-command.json"] = stateBytes;
+      const manifest = readManifest(entries);
+      manifest.appSchemaVersion = 1;
+      manifest.stateSha256 = hashBackupBytes(stateBytes);
+      manifest.summary = { missions: 0, completions: 0, reflections: 0, journals: 0, mediaFiles: 0 };
+      writeManifest(entries, manifest);
+    });
+    const restored = parseOfflineBackupArchive(seedArchive).state;
+
+    expect(restored.schemaVersion).toBe(2);
+    expect(restored.missions).toEqual([]);
+    expect(restored.missionCompletions).toEqual([]);
+    expect(restored.calendarActivities).toEqual([]);
+    expect(restored.mistakeLedgerEntries).toEqual([]);
+    expect(restored.recoveryStressors).toEqual([]);
+    expect(restored.personalGraphs).toHaveLength(20);
+    expect(restored.profile.firstName).toBe(current.profile.firstName);
+    expect(restored.profile.timezone).toBe(current.profile.timezone);
+  });
+
   it("hydrates older stress records without the optional private control note", () => {
     const state = createInitialState();
     state.hydrated = true;
     state.recoveryStressors = [{ id: "stress_legacy", title: "Exam week", category: "Study", status: "action", intensity: 7, emotions: [], bodySensations: [], concern: "", controllability: "influence", controlNote: "Ask the teacher what to prioritise", frequency: "", urgency: "", localDate: "2026-08-14", createdAt: "2026-08-14T07:00:00.000Z", updatedAt: "2026-08-14T07:00:00.000Z" }];
     const { archive } = createOfflineBackupArchive(state);
     const legacy = mutateArchive(archive, (entries) => {
-      const state = JSON.parse(strFromU8(entries["state.json"])) as { recoveryStressors?: Array<Record<string, unknown>> };
+      const state = JSON.parse(strFromU8(entries["state/focus-command.json"])) as { recoveryStressors?: Array<Record<string, unknown>> };
       delete state.recoveryStressors?.[0]?.controlNote;
       const stateBytes = strToU8(JSON.stringify(state));
-      entries["state.json"] = stateBytes;
+      entries["state/focus-command.json"] = stateBytes;
       const manifest = readManifest(entries);
       manifest.stateSha256 = hashBackupBytes(stateBytes);
       writeManifest(entries, manifest);
@@ -253,7 +298,7 @@ describe("offline Focus Command backup format", () => {
   it("rejects a damaged state payload before any restore can begin", () => {
     const { archive } = createOfflineBackupArchive(createPopulatedState());
     const damaged = mutateArchive(archive, (entries) => {
-      entries["state.json"][0] ^= 0xff;
+      entries["state/focus-command.json"][0] ^= 0xff;
     });
 
     expect(() => parseOfflineBackupArchive(damaged)).toThrow(/integrity check/i);
@@ -280,11 +325,11 @@ describe("offline Focus Command backup format", () => {
   it("rejects a future-state backup rather than partially importing it", () => {
     const { archive } = createOfflineBackupArchive(createPopulatedState());
     const future = mutateArchive(archive, (entries) => {
-      const state = JSON.parse(strFromU8(entries["state.json"])) as Record<string, unknown>;
+      const state = JSON.parse(strFromU8(entries["state/focus-command.json"])) as Record<string, unknown>;
       state.schemaVersion = 99_999;
-      entries["state.json"] = strToU8(JSON.stringify(state));
+      entries["state/focus-command.json"] = strToU8(JSON.stringify(state));
       const manifest = readManifest(entries);
-      manifest.stateSha256 = hashBackupBytes(entries["state.json"]);
+      manifest.stateSha256 = hashBackupBytes(entries["state/focus-command.json"]);
       writeManifest(entries, manifest);
     });
 

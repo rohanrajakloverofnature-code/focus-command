@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
   createContext,
   useCallback,
@@ -42,6 +41,12 @@ import {
   type SrsPhase,
   type SrsScheduleTier,
 } from "./srs-schedule";
+import {
+  clearPersistedFocusState,
+  createFocusStatePersistenceCache,
+  loadPersistedFocusState,
+  persistFocusStateIncrementally,
+} from "./focus-state-persistence";
 
 type AppStateSubscription = { remove: () => void };
 type AppStateModule = { addEventListener: (event: "change", listener: (nextState: string) => void) => AppStateSubscription };
@@ -67,6 +72,7 @@ function getRuntimeInteractionManager(): InteractionManagerModule | null {
 }
 
 export type Difficulty = "easy" | "medium" | "hard";
+export const CURRENT_APP_SCHEMA_VERSION = 2;
 export type MissionStatus = "planned" | "active" | "paused" | "completed";
 export type MissionFrequency = "once" | "daily";
 /** Persisted mission timing accepted from current and pre-migration app builds. */
@@ -1110,7 +1116,6 @@ export function getMinimumProfileMaxLevel(profile: Pick<PlayerProfile, "titles" 
   return Math.max(10, highestTitle, highestForm);
 }
 
-const STORAGE_KEY = "focus-command-state-v1";
 const DAY_MS = 86_400_000;
 
 function createId(prefix: string): string {
@@ -1463,7 +1468,7 @@ function defaultProfile(): PlayerProfile {
 export function createInitialState(): FocusState {
   const baseTierId = "combo_base";
   return {
-    schemaVersion: 2,
+    schemaVersion: CURRENT_APP_SCHEMA_VERSION,
     hydrated: false,
     profile: defaultProfile(),
     combo: {
@@ -2833,7 +2838,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
   return {
     ...defaults,
     ...inputWithoutLegacyGoogleSheet,
-    schemaVersion: Math.max(2, Number(input.schemaVersion) || 1),
+    schemaVersion: CURRENT_APP_SCHEMA_VERSION,
     hydrated: true,
     profile: {
       ...defaults.profile,
@@ -3159,21 +3164,33 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   const deferredNotificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persistenceQueue = useRef<Promise<void>>(Promise.resolve());
   const pendingPersistence = useRef<FocusState | null>(null);
-  const lastPersistedSerialized = useRef<string | null>(null);
+  const queuedPersistence = useRef<FocusState | null>(null);
+  const persistenceWorkerRunning = useRef(false);
+  const persistenceCache = useRef(createFocusStatePersistenceCache());
   const persistenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const interactionPersistenceTask = useRef<InteractionTask | null>(null);
 
   const enqueuePersistence = useCallback((snapshot: FocusState) => {
-    const { hydrated, ...persistable } = snapshot;
-    const serialized = JSON.stringify(persistable);
-    if (serialized === lastPersistedSerialized.current) return persistenceQueue.current;
-    persistenceQueue.current = persistenceQueue.current
-      .catch(() => undefined)
-      .then(async () => {
-        await AsyncStorage.setItem(STORAGE_KEY, serialized);
-        lastPersistedSerialized.current = serialized;
-      })
-      .catch(() => undefined);
+    queuedPersistence.current = snapshot;
+    if (persistenceWorkerRunning.current) return persistenceQueue.current;
+    persistenceWorkerRunning.current = true;
+    persistenceQueue.current = (async () => {
+      try {
+        while (queuedPersistence.current) {
+          const newestSnapshot = queuedPersistence.current;
+          queuedPersistence.current = null;
+          try {
+            await persistFocusStateIncrementally(newestSnapshot, persistenceCache.current);
+          } catch {
+            // Keep the failed snapshot for a later commit or app-background flush;
+            // do not spin on a permanently unavailable storage provider.
+            if (!queuedPersistence.current) pendingPersistence.current = newestSnapshot;
+          }
+        }
+      } finally {
+        persistenceWorkerRunning.current = false;
+      }
+    })();
     return persistenceQueue.current;
   }, []);
 
@@ -3203,6 +3220,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
       interactionPersistenceTask.current = null;
     }
     pendingPersistence.current = null;
+    queuedPersistence.current = null;
   }, []);
 
   const stateStore = useMemo<FocusCommandStateStore>(() => ({
@@ -3236,15 +3254,15 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     let active = true;
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((raw) => {
+    loadPersistedFocusState()
+      .then((persisted) => {
         if (!active) return;
-        if (!raw) {
+        if (!persisted) {
           dispatch({ type: "hydrate", state: { ...createInitialState(), hydrated: true } });
           return;
         }
         try {
-          dispatch({ type: "hydrate", state: normalizeHydratedState(JSON.parse(raw) as FocusState) });
+          dispatch({ type: "hydrate", state: normalizeHydratedState(persisted as FocusState) });
         } catch {
           dispatch({ type: "hydrate", state: { ...createInitialState(), hydrated: true } });
         }
@@ -4715,17 +4733,18 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
 
   const restoreOfflineBackup = useCallback(async (backup: FocusState) => {
     const restored = normalizeHydratedState(backup);
-    const { hydrated, ...persistable } = restored;
     discardPendingPersistence();
     await persistenceQueue.current.catch(() => undefined);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(persistable));
+    persistenceCache.current = createFocusStatePersistenceCache();
+    await persistFocusStateIncrementally(restored, persistenceCache.current, true);
     dispatch({ type: "replace", state: { ...restored, hydrated: true } });
   }, [discardPendingPersistence]);
 
   const resetLocalData = useCallback(async () => {
     discardPendingPersistence();
     await persistenceQueue.current.catch(() => undefined);
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    await clearPersistedFocusState();
+    persistenceCache.current = createFocusStatePersistenceCache();
     dispatch({ type: "replace", state: { ...createInitialState(), hydrated: true } });
   }, [discardPendingPersistence]);
 

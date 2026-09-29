@@ -453,16 +453,27 @@ const MissionCard = memo(function MissionCard({ mission, startDisabled = false, 
   const colors = useColors();
   const { startMission } = useFocusCommandActions();
   const startInFlight = useRef(false);
+  const startResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const active = mission.status === "active" || mission.status === "paused";
   const color = getDifficultyColor(mission.difficulty);
   const duration = getMissionInvestedMilliseconds(mission);
+  useEffect(() => () => {
+    if (startResetTimer.current) clearTimeout(startResetTimer.current);
+  }, []);
   const startOnce = useCallback(() => {
     if (startInFlight.current) return;
     startInFlight.current = true;
-    if (startDisabled) return;
+    if (startDisabled) {
+      startInFlight.current = false;
+      return;
+    }
     if (onStartRequested) onStartRequested();
     startMission(mission.id);
-    setTimeout(() => { startInFlight.current = false; }, 500);
+    if (startResetTimer.current) clearTimeout(startResetTimer.current);
+    startResetTimer.current = setTimeout(() => {
+      startResetTimer.current = null;
+      startInFlight.current = false;
+    }, 500);
   }, [mission.id, onStartRequested, startDisabled, startMission]);
   return (
     <Pressable onPress={() => router.push({ pathname: "/mission/[id]" as never, params: { id: mission.id } })} style={({ pressed }) => ({ opacity: pressed ? 0.82 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}>

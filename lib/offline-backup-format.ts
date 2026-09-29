@@ -2,18 +2,20 @@ import { bytesToHex } from "@noble/hashes/utils.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { strFromU8, strToU8, Unzip, UnzipInflate, UnzipPassThrough, unzipSync, zipSync } from "fflate";
 
-import type { FocusState } from "@/lib/focus-command";
+import { CURRENT_APP_SCHEMA_VERSION, createInitialState, normalizeHydratedState, type FocusState } from "./focus-command";
 
 export const FOCUS_COMMAND_BACKUP_EXTENSION = "fcbak";
 export const FOCUS_COMMAND_BACKUP_FORMAT = "focus-command-offline-backup";
 export const FOCUS_COMMAND_BACKUP_VERSION = 1;
 export const MAX_BACKUP_BYTES = 250 * 1024 * 1024;
+export const MAX_BACKUP_UNCOMPRESSED_BYTES = 512 * 1024 * 1024;
 // Existing cinematic/video and sound overrides can now be accompanied by two
 // tracks for eight forms plus four files for each custom form.
 export const MAX_BACKUP_MEDIA_FILES = 256;
 
 const MANIFEST_PATH = "manifest.json";
-const STATE_PATH = "state.json";
+const STATE_PATH = "state/focus-command.json";
+const LEGACY_STATE_PATH = "state.json";
 const SAFE_ARCHIVE_PATH = /^[a-zA-Z0-9][a-zA-Z0-9_./-]{0,180}$/;
 
 export interface OfflineBackupMediaFile {
@@ -39,7 +41,7 @@ export interface OfflineBackupManifest {
   format: typeof FOCUS_COMMAND_BACKUP_FORMAT;
   backupVersion: typeof FOCUS_COMMAND_BACKUP_VERSION;
   createdAt: string;
-  statePath: typeof STATE_PATH;
+  statePath: typeof STATE_PATH | typeof LEGACY_STATE_PATH;
   stateSha256: string;
   appSchemaVersion: number;
   summary: OfflineBackupSummary;
@@ -115,7 +117,7 @@ function buildSummary(state: FocusState, mediaFiles: number): OfflineBackupSumma
 }
 
 function requireSafePath(path: string): void {
-  if (!SAFE_ARCHIVE_PATH.test(path) || path.includes("..") || path === MANIFEST_PATH || path === STATE_PATH) {
+  if (!SAFE_ARCHIVE_PATH.test(path) || path.includes("..") || path === MANIFEST_PATH || path === STATE_PATH || path === LEGACY_STATE_PATH) {
     throw new OfflineBackupValidationError("The backup contains an unsafe file path.");
   }
 }
@@ -145,15 +147,78 @@ function assertStateShape(value: unknown): asserts value is FocusState {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+const STATE_COLLECTION_KEYS = Object.entries(createInitialState())
+  .filter(([, value]) => Array.isArray(value))
+  .map(([key]) => key) as Array<keyof FocusState>;
+
+/**
+ * Migrates the original schema-1 state and every later supported snapshot to
+ * the current shape. Missing collections receive safe empty defaults, while a
+ * collection that is present with the wrong type is rejected rather than lost.
+ */
+export function migrateOfflineBackupState(value: unknown): FocusState {
+  if (!isRecord(value)) throw new OfflineBackupValidationError("The backup does not contain valid Focus Command data.");
+  const schemaVersion = Number(value.schemaVersion ?? 1);
+  if (!Number.isInteger(schemaVersion) || schemaVersion < 1) {
+    throw new OfflineBackupValidationError("The backup schema version is invalid.");
+  }
+  if (schemaVersion > CURRENT_APP_SCHEMA_VERSION) {
+    throw new OfflineBackupValidationError("This backup requires a newer version of Focus Command.");
+  }
+  if (!isRecord(value.profile) || !isRecord(value.combo)) {
+    throw new OfflineBackupValidationError("The backup profile or combo configuration is missing.");
+  }
+  for (const key of STATE_COLLECTION_KEYS) {
+    if (key in value && !Array.isArray(value[String(key)])) {
+      throw new OfflineBackupValidationError(`The backup ${String(key)} collection is invalid.`);
+    }
+  }
+  if (schemaVersion === CURRENT_APP_SCHEMA_VERSION) {
+    const current = { ...value, hydrated: false } as unknown as FocusState;
+    for (const key of STATE_COLLECTION_KEYS) {
+      if (!(key in value)) (current as unknown as Record<string, unknown>)[String(key)] = [];
+    }
+    assertStateShape(current);
+    return current;
+  }
+
+  const defaults = createInitialState();
+  const candidate = {
+    ...defaults,
+    ...value,
+    schemaVersion,
+    hydrated: false,
+    profile: { ...defaults.profile, ...value.profile },
+    combo: { ...defaults.combo, ...value.combo },
+  } as FocusState;
+  for (const key of STATE_COLLECTION_KEYS) {
+    if (!(key in value)) (candidate as unknown as Record<string, unknown>)[String(key)] = [];
+  }
+  const migrated = normalizeHydratedState(candidate);
+  migrated.hydrated = false;
+  assertStateShape(migrated);
+  return migrated;
+}
+
 function parseManifest(bytes: Uint8Array): OfflineBackupManifest {
   try {
     const manifest = JSON.parse(strFromU8(bytes)) as OfflineBackupManifest;
     if (
       manifest.format !== FOCUS_COMMAND_BACKUP_FORMAT ||
       manifest.backupVersion !== FOCUS_COMMAND_BACKUP_VERSION ||
-      manifest.statePath !== STATE_PATH ||
+      manifest.statePath !== STATE_PATH && manifest.statePath !== LEGACY_STATE_PATH ||
       !Array.isArray(manifest.media) ||
       !manifest.summary ||
+      !Number.isInteger(manifest.appSchemaVersion) ||
+      manifest.appSchemaVersion < 1 ||
+      manifest.appSchemaVersion > CURRENT_APP_SCHEMA_VERSION ||
+      !/^[a-f0-9]{64}$/.test(manifest.stateSha256) ||
+      !Object.values(manifest.summary).every((value) => Number.isInteger(value) && value >= 0) ||
+      !manifest.media.every((file) => file && typeof file.path === "string" && Number.isInteger(file.bytes) && file.bytes > 0 && /^[a-f0-9]{64}$/.test(file.sha256)) ||
       !Number.isFinite(Date.parse(manifest.createdAt))
     ) {
       throw new Error("shape");
@@ -166,43 +231,7 @@ function parseManifest(bytes: Uint8Array): OfflineBackupManifest {
 
 function parseBackupState(bytes: Uint8Array): FocusState {
   try {
-    const parsedState = JSON.parse(strFromU8(bytes)) as Partial<FocusState>;
-    // Revision activity history was introduced after the initial offline-backup format.
-    // Preserve all valid older backups by treating the missing append-only ledger as empty;
-    // no past activity is reconstructed or invented during restore.
-    if (!Array.isArray(parsedState.srsActivityLog)) parsedState.srsActivityLog = [];
-    // Character milestones were introduced after the initial offline-backup format.
-    // A missing collection is hydrated as empty and then safely reconstructed from
-    // immutable progression data by the central compatibility layer.
-    if (!Array.isArray(parsedState.characterMilestones)) parsedState.characterMilestones = [];
-    // Shadow Gate was introduced after the initial offline-backup format. Older
-    // valid files receive no invented Gate history or personal doorway text.
-    if (!Array.isArray(parsedState.shadowGateEntries)) parsedState.shadowGateEntries = [];
-    if (!Array.isArray(parsedState.shadowGatePersonalDoorways)) parsedState.shadowGatePersonalDoorways = [];
-    // Mistake Ledger and Personal Graphs are independent optional local records.
-    // Older valid archives receive empty collections; no personal history or
-    // graph point is inferred during restore.
-    if (!Array.isArray(parsedState.mistakeLedgerEntries)) parsedState.mistakeLedgerEntries = [];
-    if (!Array.isArray(parsedState.mistakeLedgerActivityLog)) parsedState.mistakeLedgerActivityLog = [];
-    if (!Array.isArray(parsedState.personalGraphs)) parsedState.personalGraphs = [];
-    // Core Principles was introduced as an independent private daily checklist.
-    // Older valid archives begin empty; no past daily ratio is inferred.
-    if (!Array.isArray(parsedState.corePrincipleLists)) parsedState.corePrincipleLists = [];
-    if (!Array.isArray(parsedState.corePrincipleItems)) parsedState.corePrincipleItems = [];
-    if (!Array.isArray(parsedState.corePrincipleDailyCheckIns)) parsedState.corePrincipleDailyCheckIns = [];
-    // Recovery & Rhythm is optional manual history. Missing older fields begin
-    // empty; no stress, sleep, nap, or screen-time detail is inferred.
-    if (!Array.isArray(parsedState.recoveryStressors)) parsedState.recoveryStressors = [];
-    if (!Array.isArray(parsedState.recoveryActions)) parsedState.recoveryActions = [];
-    if (!Array.isArray(parsedState.sleepLogs)) parsedState.sleepLogs = [];
-    if (!Array.isArray(parsedState.napLogs)) parsedState.napLogs = [];
-    if (!Array.isArray(parsedState.screenTimeLogs)) parsedState.screenTimeLogs = [];
-    // Illness Context is an optional private annotation. Older archives receive
-    // an empty collection; no health history is inferred during restore.
-    if (!Array.isArray(parsedState.illnessContextRecords)) parsedState.illnessContextRecords = [];
-    const state = parsedState as FocusState;
-    assertStateShape(state);
-    return state;
+    return migrateOfflineBackupState(JSON.parse(strFromU8(bytes)) as unknown);
   } catch (error) {
     if (error instanceof OfflineBackupValidationError) throw error;
     throw new OfflineBackupValidationError("The backup command data cannot be read.");
@@ -210,11 +239,19 @@ function parseBackupState(bytes: Uint8Array): FocusState {
 }
 
 function validateManifestAgainstState(manifest: OfflineBackupManifest, state: FocusState, mediaFiles: number): void {
-  if (state.schemaVersion > manifest.appSchemaVersion) {
-    throw new OfflineBackupValidationError("This backup requires a newer version of Focus Command.");
-  }
   if (manifest.media.length > MAX_BACKUP_MEDIA_FILES) {
     throw new OfflineBackupValidationError("The backup contains too many media files.");
+  }
+  const paths = new Set<string>();
+  let declaredBytes = 0;
+  for (const file of manifest.media) {
+    requireSafePath(file.path);
+    if (paths.has(file.path)) throw new OfflineBackupValidationError("The backup contains duplicate media paths.");
+    paths.add(file.path);
+    declaredBytes += file.bytes;
+    if (declaredBytes > MAX_BACKUP_UNCOMPRESSED_BYTES) {
+      throw new OfflineBackupValidationError("The backup expands beyond the supported safety limit.");
+    }
   }
   const expectedSummary = buildSummary(state, mediaFiles);
   if (JSON.stringify(expectedSummary) !== JSON.stringify(manifest.summary)) {
@@ -243,11 +280,18 @@ export async function streamOfflineBackupArchive(
   const completedMedia = new Set<string>();
   const stateChunks: Uint8Array[] = [];
   let stateLength = 0;
+  let uncompressedBytes = 0;
   let expectedMediaByPath: Map<string, OfflineBackupMediaManifest> | null = null;
 
   const reject = (message: string) => {
     failure ??= new OfflineBackupValidationError(message);
     return failure;
+  };
+  const accountUncompressedBytes = (bytes: number) => {
+    uncompressedBytes += bytes;
+    if (uncompressedBytes > MAX_BACKUP_UNCOMPRESSED_BYTES) {
+      throw reject("The backup expands beyond the supported safety limit.");
+    }
   };
   const appendStateChunk = (chunk: Uint8Array) => {
     stateLength += chunk.length;
@@ -276,7 +320,8 @@ export async function streamOfflineBackupArchive(
       return;
     }
     seenPaths.add(path);
-    if (path !== MANIFEST_PATH && path !== STATE_PATH) {
+    const isStatePath = path === STATE_PATH || path === LEGACY_STATE_PATH;
+    if (path !== MANIFEST_PATH && !isStatePath) {
       try {
         requireSafePath(path);
       } catch (error) {
@@ -290,12 +335,18 @@ export async function streamOfflineBackupArchive(
         return;
       }
     }
-    if (path === MANIFEST_PATH || path === STATE_PATH) {
+    if (path === MANIFEST_PATH || isStatePath) {
+      if (isStatePath && manifest && manifest.statePath !== path) {
+        reject("The backup state path does not match its manifest.");
+        file.terminate();
+        return;
+      }
       const chunks: Uint8Array[] = [];
       let length = 0;
       file.ondata = (error, chunk, final) => {
         if (error) throw reject("The backup file is damaged or incomplete.");
         if (chunk.length) {
+          accountUncompressedBytes(chunk.length);
           length += chunk.length;
           if (length > MAX_BACKUP_BYTES) throw reject("The backup metadata is too large to restore safely.");
           chunks.push(chunk);
@@ -330,6 +381,7 @@ export async function streamOfflineBackupArchive(
     file.ondata = (error, chunk, final) => {
       if (error) throw reject("The backup file is damaged or incomplete.");
       if (chunk.length) {
+        accountUncompressedBytes(chunk.length);
         bytesRead += chunk.length;
         if (bytesRead > media.bytes) throw reject(`The backup media file ${media.path} did not pass its integrity check.`);
         hasher.update(chunk);
@@ -393,16 +445,7 @@ export function createOfflineBackupArchive(
     fileMap[file.path] = file.bytes;
     return { path: file.path, bytes: file.bytes.length, sha256: hashBackupBytes(file.bytes) };
   });
-  const manifest: OfflineBackupManifest = {
-    format: FOCUS_COMMAND_BACKUP_FORMAT,
-    backupVersion: FOCUS_COMMAND_BACKUP_VERSION,
-    createdAt,
-    statePath: STATE_PATH,
-    stateSha256: hashBackupBytes(stateBytes),
-    appSchemaVersion: state.schemaVersion,
-    summary: buildSummary(state, mediaManifest.length),
-    media: mediaManifest,
-  };
+  const manifest = createOfflineBackupManifest(state, stateBytes, mediaManifest, createdAt);
   const archive = zipSync({
     [MANIFEST_PATH]: strToU8(JSON.stringify(manifest)),
     [STATE_PATH]: stateBytes,
@@ -412,6 +455,24 @@ export function createOfflineBackupArchive(
     throw new OfflineBackupValidationError("This backup is too large to create safely on this device.");
   }
   return { archive, manifest };
+}
+
+export function createOfflineBackupManifest(
+  state: FocusState,
+  stateBytes: Uint8Array,
+  media: OfflineBackupMediaManifest[],
+  createdAt = new Date().toISOString(),
+): OfflineBackupManifest {
+  return {
+    format: FOCUS_COMMAND_BACKUP_FORMAT,
+    backupVersion: FOCUS_COMMAND_BACKUP_VERSION,
+    createdAt,
+    statePath: STATE_PATH,
+    stateSha256: hashBackupBytes(stateBytes),
+    appSchemaVersion: state.schemaVersion,
+    summary: buildSummary(state, media.length),
+    media,
+  };
 }
 
 export function parseOfflineBackupArchive(archive: Uint8Array): ParsedOfflineBackup {
@@ -425,56 +486,20 @@ export function parseOfflineBackupArchive(archive: Uint8Array): ParsedOfflineBac
     throw new OfflineBackupValidationError("The backup file is damaged or incomplete.");
   }
   const manifestBytes = entries[MANIFEST_PATH];
-  const stateBytes = entries[STATE_PATH];
-  if (!manifestBytes || !stateBytes) {
+  if (!manifestBytes) {
     throw new OfflineBackupValidationError("The backup is missing its manifest or command data.");
   }
   const manifest = parseManifest(manifestBytes);
+  const stateBytes = entries[manifest.statePath];
+  if (!stateBytes) {
+    throw new OfflineBackupValidationError("The backup is missing its manifest or command data.");
+  }
   if (hashBackupBytes(stateBytes) !== manifest.stateSha256) {
     throw new OfflineBackupValidationError("The backup command data did not pass its integrity check.");
   }
-  let state: FocusState;
-  try {
-    const parsedState = JSON.parse(strFromU8(stateBytes)) as Partial<FocusState>;
-    // Revision activity history was introduced after the initial offline-backup format.
-    // Preserve all valid older backups by treating the missing append-only ledger as empty;
-    // no past activity is reconstructed or invented during restore.
-    if (!Array.isArray(parsedState.srsActivityLog)) parsedState.srsActivityLog = [];
-    // Character milestones were introduced after the initial offline-backup format.
-    // A missing collection is hydrated as empty and then safely reconstructed from
-    // immutable progression data by the central compatibility layer.
-    if (!Array.isArray(parsedState.characterMilestones)) parsedState.characterMilestones = [];
-    // Shadow Gate records and locally-written doorways are optional in older
-    // backup files. Treat an absent collection as empty rather than rejecting
-    // a valid backup or creating any historical data.
-    if (!Array.isArray(parsedState.shadowGateEntries)) parsedState.shadowGateEntries = [];
-    if (!Array.isArray(parsedState.shadowGatePersonalDoorways)) parsedState.shadowGatePersonalDoorways = [];
-    // Mistake Ledger records are optional in older valid backups. Missing
-    // collections begin empty; historic mistakes and status events are never inferred.
-    if (!Array.isArray(parsedState.mistakeLedgerEntries)) parsedState.mistakeLedgerEntries = [];
-    if (!Array.isArray(parsedState.mistakeLedgerActivityLog)) parsedState.mistakeLedgerActivityLog = [];
-    if (!Array.isArray(parsedState.personalGraphs)) parsedState.personalGraphs = [];
-    if (!Array.isArray(parsedState.corePrincipleLists)) parsedState.corePrincipleLists = [];
-    if (!Array.isArray(parsedState.corePrincipleItems)) parsedState.corePrincipleItems = [];
-    if (!Array.isArray(parsedState.corePrincipleDailyCheckIns)) parsedState.corePrincipleDailyCheckIns = [];
-    if (!Array.isArray(parsedState.recoveryStressors)) parsedState.recoveryStressors = [];
-    if (!Array.isArray(parsedState.recoveryActions)) parsedState.recoveryActions = [];
-    if (!Array.isArray(parsedState.sleepLogs)) parsedState.sleepLogs = [];
-    if (!Array.isArray(parsedState.napLogs)) parsedState.napLogs = [];
-    if (!Array.isArray(parsedState.screenTimeLogs)) parsedState.screenTimeLogs = [];
-    if (!Array.isArray(parsedState.illnessContextRecords)) parsedState.illnessContextRecords = [];
-    state = parsedState as FocusState;
-  } catch {
-    throw new OfflineBackupValidationError("The backup command data cannot be read.");
-  }
-  assertStateShape(state);
-  if (state.schemaVersion > manifest.appSchemaVersion) {
-    throw new OfflineBackupValidationError("This backup requires a newer version of Focus Command.");
-  }
-  if (manifest.media.length > MAX_BACKUP_MEDIA_FILES) {
-    throw new OfflineBackupValidationError("The backup contains too many media files.");
-  }
-  const allowedPaths = new Set([MANIFEST_PATH, STATE_PATH, ...manifest.media.map((file) => file.path)]);
+  const state = parseBackupState(stateBytes);
+  validateManifestAgainstState(manifest, state, manifest.media.length);
+  const allowedPaths = new Set([MANIFEST_PATH, manifest.statePath, ...manifest.media.map((file) => file.path)]);
   if (Object.keys(entries).some((path) => !allowedPaths.has(path))) {
     throw new OfflineBackupValidationError("The backup contains unexpected files.");
   }
