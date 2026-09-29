@@ -7,8 +7,9 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
-import { formatCompactNumber, getGoldBalance, getLifetimeGold, RewardCategory, shallowEqual, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
+import { formatCompactNumber, getGoldBalance, getLifetimeGold, RewardCategory, shallowEqual, toLocalDate, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { scheduleMultiplierReminder } from "@/lib/focus-reminders";
+import { getLifeRewardInventoryView } from "@/lib/reward-inventory-view";
 import { playFocusRole } from "@/lib/focus-audio";
 
 const categories: { value: RewardCategory | "all"; label: string; icon: "gift.fill" | "shield.fill" | "bolt.fill" | "star.fill" }[] = [
@@ -31,6 +32,7 @@ export default function RewardsScreen() {
     rewards: allRewards,
     soundEnabled,
     transactions,
+    timezone,
     multiplierReminderSoundRole,
   } = useFocusCommandSelector((state) => ({
     inventory: state.inventory,
@@ -40,6 +42,7 @@ export default function RewardsScreen() {
     rewards: state.rewards,
     soundEnabled: state.profile.soundEnabled,
     transactions: state.transactions,
+    timezone: state.profile.timezone,
     multiplierReminderSoundRole: state.profile.soundRoles.multiplierReminder,
   }), shallowEqual);
   const { createReward, updateReward, removeReward, purchaseReward } = useFocusCommandActions();
@@ -59,7 +62,8 @@ export default function RewardsScreen() {
   const balance = getGoldBalance({ transactions });
   const lifetimeGold = getLifetimeGold({ transactions });
   const rewards = allRewards.filter((reward) => reward.active && (category === "all" || reward.category === category));
-  const inventory = allInventory.filter((item) => item.active && !item.consumedAt).map((item) => ({ item, reward: allRewards.find((reward) => reward.id === item.rewardId) })).filter((row) => row.reward);
+  const today = toLocalDate(new Date().toISOString(), timezone);
+  const { activeToday: activeLifeInventory, history: lifeInventoryHistory } = getLifeRewardInventoryView(allInventory, allRewards, today, timezone);
 
   const submit = () => {
     if (!title.trim()) {
@@ -141,7 +145,7 @@ export default function RewardsScreen() {
           <Text style={[styles.walletDetail, { color: colors.muted }]}>Available gold. Purchases cannot exceed this balance.</Text>
         </CommandCard>
 
-        {inventory.length ? (
+        {activeLifeInventory.length || lifeInventoryHistory.length ? (
           <CommandCard accent={colors.primary} style={styles.inventoryCard}>
             <View style={styles.inventoryHeading}>
               <TapFeedback onPress={() => router.push("/inventory" as never)} accessibilityLabel="Open active inventory and armory" style={styles.inventoryArmoryLink}>
@@ -150,17 +154,33 @@ export default function RewardsScreen() {
                   <Text numberOfLines={1} style={[styles.inventoryArmoryText, { color: colors.primary }]}>Open armory ›</Text>
                 </View>
               </TapFeedback>
-              <StatusPill label={`${inventory.length} ACTIVE`} tone="primary" icon="shield.fill" />
+              <StatusPill label={`${activeLifeInventory.length} ACTIVE TODAY`} tone="primary" icon="shield.fill" />
             </View>
-            {inventory.map(({ item, reward }) => reward ? (
+            {activeLifeInventory.map(({ item, reward }) => (
               <View key={item.id} style={styles.inventoryItem}>
-                <IconSymbol name={reward.category === "multiplier" ? "bolt.fill" : "shield.fill"} size={18} color={reward.category === "multiplier" ? "#F4C95D" : colors.primary} />
+                <IconSymbol name="shield.fill" size={18} color={colors.primary} />
                 <View style={styles.inventoryCopy}>
                   <Text style={[styles.inventoryName, { color: colors.foreground }]}>{reward.title}</Text>
-                  <Text style={[styles.inventoryDetail, { color: colors.muted }]}>{reward.goldMultiplier ? `${reward.goldMultiplier}× gold conversion activates ${item.effectiveOn}.` : "Armory item preserved in your inventory."}</Text>
+                  <Text style={[styles.inventoryDetail, { color: colors.muted }]}>Redeemed today · life reward remains active.</Text>
                 </View>
               </View>
-            ) : null)}
+            ))}
+            {lifeInventoryHistory.length ? (
+              <View style={[styles.inventoryHistory, { borderTopColor: colors.border }]}>
+                <View style={styles.inventoryHistoryHeading}>
+                  <Text style={[styles.inventoryHistoryTitle, { color: colors.foreground }]}>Redemption history</Text>
+                  <Text style={[styles.inventoryHistoryCount, { color: colors.muted }]}>{lifeInventoryHistory.length} PAST</Text>
+                </View>
+                {lifeInventoryHistory.map(({ item, reward, acquiredDate }) => (
+                  <View key={item.id} style={styles.inventoryHistoryItem}>
+                    <View style={styles.inventoryCopy}>
+                      <Text style={[styles.inventoryName, { color: colors.foreground }]}>{reward.title}</Text>
+                      <Text style={[styles.inventoryDetail, { color: colors.muted }]}>Redeemed {acquiredDate}{item.consumedAt ? " · used" : " · preserved"}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </CommandCard>
         ) : null}
 
@@ -262,6 +282,11 @@ const styles = StyleSheet.create({
   inventoryArmoryText: { fontSize: 11, lineHeight: 15, fontWeight: "900" },
   inventoryItem: { flexDirection: "row", gap: 10, alignItems: "center" },
   inventoryCopy: { flex: 1 },
+  inventoryHistory: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 11, gap: 9 },
+  inventoryHistoryHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  inventoryHistoryTitle: { fontSize: 12, lineHeight: 16, fontWeight: "900" },
+  inventoryHistoryCount: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.7 },
+  inventoryHistoryItem: { flexDirection: "row", gap: 10, alignItems: "center" },
   inventoryName: { fontSize: 13, lineHeight: 18, fontWeight: "800" },
   inventoryDetail: { fontSize: 11, lineHeight: 16, fontWeight: "500", marginTop: 1 },
   composer: { gap: 12 },
