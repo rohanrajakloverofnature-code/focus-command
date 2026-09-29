@@ -3,14 +3,15 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
-import { CalendarDateField } from "@/components/calendar-date-picker";
+import { CalendarDateField, CalendarDatePicker } from "@/components/calendar-date-picker";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
-import { Difficulty, Mission, MissionCompletionRecord, MissionFrequency, getDifficultyColor, getDifficultyLabel, getMissionCompletionRecords, getMissionInvestedMilliseconds, shallowEqual, toLocalDate, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
+import { CalendarActivity, Difficulty, Mission, MissionCompletionRecord, MissionFrequency, getDifficultyColor, getDifficultyLabel, getMissionCompletionRecords, getMissionInvestedMilliseconds, shallowEqual, toLocalDate, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 
 type MissionFilter = "open" | "active" | "completed";
+type MissionBoardMode = "normal" | "calendar";
 type MissionBoardListItem =
   | { key: string; kind: "completion"; completion: MissionCompletionRecord }
   | { key: string; kind: "mission"; mission: Mission };
@@ -29,17 +30,21 @@ function missionMatchesSearch(mission: Pick<Mission, "title" | "subject" | "cate
 export default function MissionsScreen() {
   const colors = useColors();
   const { scrollRef, onInputFocus, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
-  const { compose, filter: requestedFilter, bossId: requestedBossId, archiveMonth, archiveSubject } = useLocalSearchParams<{ compose?: string; filter?: MissionFilter; bossId?: string; archiveMonth?: string; archiveSubject?: string }>();
+  const { compose, mode: requestedMode, filter: requestedFilter, bossId: requestedBossId, archiveMonth, archiveSubject } = useLocalSearchParams<{ compose?: string; mode?: MissionBoardMode; filter?: MissionFilter; bossId?: string; archiveMonth?: string; archiveSubject?: string }>();
   const ready = useFocusCommandReady();
-  const { bosses, missionCompletions, missions: allMissions, progression, reflections, timezone } = useFocusCommandSelector((state) => ({
+  const { bosses, calendarActivities, missionCompletions, missions: allMissions, progression, reflections, timezone } = useFocusCommandSelector((state) => ({
     bosses: state.bosses,
+    calendarActivities: state.calendarActivities,
     missionCompletions: state.missionCompletions,
     missions: state.missions,
     progression: state.progression,
     reflections: state.reflections,
     timezone: state.profile.timezone,
   }), shallowEqual);
-  const { createMission, createBoss } = useFocusCommandActions();
+  const { createMission, createBoss, scheduleCalendarActivity, removeCalendarActivity } = useFocusCommandActions();
+  const [boardMode, setBoardMode] = useState<MissionBoardMode>(requestedMode === "calendar" ? "calendar" : "normal");
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
+  const [calendarMissionId, setCalendarMissionId] = useState<string | null>(null);
   const [showComposer, setShowComposer] = useState(compose === "1");
   const [filter, setFilter] = useState<MissionFilter>(requestedFilter === "active" || requestedFilter === "completed" ? requestedFilter : "open");
   const [title, setTitle] = useState("");
@@ -68,10 +73,15 @@ export default function MissionsScreen() {
   }, [bosses, requestedBossId]);
 
   const activeBosses = useMemo(() => bosses.filter((boss) => boss.status === "active"), [bosses]);
+  const selectedCalendarActivities = useMemo(() => calendarActivities.filter((activity) => activity.localDate === selectedCalendarDate), [calendarActivities, selectedCalendarDate]);
+  const selectedCalendarMissionIds = useMemo(() => new Set(selectedCalendarActivities.map((activity) => activity.missionId).filter((missionId): missionId is string => Boolean(missionId))), [selectedCalendarActivities]);
   const missions = useMemo(() => {
-    if (filter === "active") return allMissions.filter((mission) => mission.status === "active" || mission.status === "paused");
-    return allMissions.filter((mission) => mission.status === "planned");
-  }, [allMissions, filter]);
+    const source = boardMode === "calendar" ? allMissions.filter((mission) => selectedCalendarMissionIds.has(mission.id)) : allMissions;
+    if (filter === "active") return source.filter((mission) => mission.status === "active" || mission.status === "paused");
+    if (filter === "completed") return [];
+    return source.filter((mission) => mission.status === "planned");
+  }, [allMissions, boardMode, filter, selectedCalendarMissionIds]);
+  const standaloneCalendarActivities = useMemo(() => selectedCalendarActivities.filter((activity) => !activity.missionId || !allMissions.some((mission) => mission.id === activity.missionId)), [allMissions, selectedCalendarActivities]);
   const archiveMonthKey = typeof archiveMonth === "string" && /^\d{4}-\d{2}$/.test(archiveMonth) ? archiveMonth : null;
   const archiveSubjectValue = typeof archiveSubject === "string" && archiveSubject.trim() ? archiveSubject.trim() : null;
   const completionState = useMemo(() => ({ missionCompletions, missions: allMissions, progression, reflections }), [allMissions, missionCompletions, progression, reflections]);
@@ -91,9 +101,13 @@ export default function MissionsScreen() {
     () => filter === "active" ? missions : missions.filter((mission) => missionMatchesSearch(mission, searchTerm)),
     [filter, missions, searchTerm],
   );
+  const scopedCompletionRecords = useMemo(() => {
+    if (boardMode !== "calendar") return completionRecords;
+    return completionRecords.filter((completion) => selectedCalendarMissionIds.has(completion.missionId) && toLocalDate(completion.completedAt, timezone) === selectedCalendarDate);
+  }, [boardMode, completionRecords, selectedCalendarDate, selectedCalendarMissionIds, timezone]);
   const searchedCompletionRecords = useMemo(
-    () => completionRecords.filter((completion) => missionMatchesSearch({ title: completion.title, subject: completion.subject, category: completion.category, specificTopic: missionTopicById.get(completion.missionId) ?? "" }, searchTerm)),
-    [completionRecords, missionTopicById, searchTerm],
+    () => scopedCompletionRecords.filter((completion) => missionMatchesSearch({ title: completion.title, subject: completion.subject, category: completion.category, specificTopic: missionTopicById.get(completion.missionId) ?? "" }, searchTerm)),
+    [missionTopicById, searchTerm, scopedCompletionRecords],
   );
   const boardItems = useMemo<MissionBoardListItem[]>(() => {
     if (filter === "completed") return searchedCompletionRecords.map((completion) => ({ key: `completion:${completion.id}`, kind: "completion", completion }));
@@ -134,7 +148,7 @@ export default function MissionsScreen() {
       Alert.alert("Name the mission", "Give this mission a clear action title before deploying it.");
       return;
     }
-    createMission({
+    const createdMissionId = createMission({
       title,
       subject,
       includeInSubjectMap,
@@ -148,6 +162,7 @@ export default function MissionsScreen() {
       frequency,
       allowMultipleDailyCompletions,
     });
+    if (boardMode === "calendar") scheduleCalendarActivity({ title, localDate: selectedCalendarDate, missionId: createdMissionId });
     setTitle("");
     setSubject("");
     setIncludeInSubjectMap(true);
@@ -174,11 +189,39 @@ export default function MissionsScreen() {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={<View style={styles.listHeader}>
         <ScreenTitle
-          eyebrow="Mission board"
+          eyebrow={boardMode === "calendar" ? "CALENDAR MISSION BOARD" : "Mission board"}
           title="Deploy work"
-          detail="Define a task, start the clock, then turn focused time into power."
+          detail={boardMode === "calendar" ? "The same Planned, Live, and History board—organized by the date you choose." : "Define a task, start the clock, then turn focused time into power."}
           right={<IconAction icon={showComposer ? "xmark" : "plus"} label={showComposer ? "Close mission composer" : "Create mission"} onPress={() => setShowComposer((value) => !value)} />}
         />
+
+        <View style={styles.modeRow}>
+          {([ ["normal", "Normal"], ["calendar", "Calendar Planned"] ] as [MissionBoardMode, string][]).map(([value, label]) => (
+            <Pressable key={value} onPress={() => setBoardMode(value)} style={({ pressed }) => [styles.modeChoice, { backgroundColor: boardMode === value ? `${colors.primary}18` : colors.surface, borderColor: boardMode === value ? colors.primary : colors.border, opacity: pressed ? 0.75 : 1 }]}>
+              <Text style={[styles.modeLabel, { color: boardMode === value ? colors.primary : colors.muted }]}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {boardMode === "calendar" ? <CommandCard accent={colors.primary} style={styles.calendarCard}>
+          <Text style={[styles.calendarTitle, { color: colors.foreground }]}>Choose a planned date</Text>
+          <CalendarDatePicker mode="single" startDate={selectedCalendarDate} onChange={setSelectedCalendarDate} />
+          <Text style={[styles.calendarHint, { color: colors.muted }]}>Planned, Live, and History below show the same mission-board records for this date.</Text>
+          <View style={styles.calendarAssignmentRow}>
+            <View style={styles.calendarAssignmentChoices}>
+              {allMissions.filter((mission) => mission.status !== "completed").map((mission) => {
+                const assigned = selectedCalendarMissionIds.has(mission.id);
+                return <Pressable key={mission.id} onPress={() => setCalendarMissionId(mission.id)} style={[styles.calendarChoice, { backgroundColor: calendarMissionId === mission.id ? `${colors.primary}18` : colors.background, borderColor: calendarMissionId === mission.id ? colors.primary : colors.border }]}><Text numberOfLines={1} style={[styles.calendarChoiceText, { color: calendarMissionId === mission.id ? colors.primary : colors.foreground }]}>{assigned ? "✓ " : ""}{mission.title}</Text></Pressable>;
+              })}
+            </View>
+            <CommandButton label="Assign selected mission" icon="checklist" variant="secondary" onPress={() => {
+              const mission = allMissions.find((candidate) => candidate.id === calendarMissionId);
+              if (!mission) { Alert.alert("Choose a mission", "Select an existing mission before assigning it to this date."); return; }
+              if (!scheduleCalendarActivity({ title: mission.title, localDate: selectedCalendarDate, missionId: mission.id })) Alert.alert("Already assigned", "That mission is already assigned to this date.");
+              setCalendarMissionId(null);
+            }} />
+          </View>
+        </CommandCard> : null}
 
         {showComposer ? (
           <CommandCard accent={colors.primary} style={styles.composer}>
@@ -291,6 +334,11 @@ export default function MissionsScreen() {
           ))}
         </View>
 
+        {boardMode === "calendar" && standaloneCalendarActivities.length ? <View style={styles.calendarTasks}>
+          <SectionHeader title={`Standalone tasks · ${selectedCalendarDate}`} />
+          {standaloneCalendarActivities.map((activity) => <CalendarTaskCard key={activity.id} activity={activity} onRemove={() => removeCalendarActivity(activity.id)} />)}
+        </View> : null}
+
         {filter !== "active" ? <View style={styles.searchArea}>
           <Pressable onPress={() => setShowSearch((value) => !value)} style={({ pressed }) => [styles.searchToggle, { borderColor: showSearch ? colors.primary : colors.border, backgroundColor: showSearch ? `${colors.primary}18` : colors.surface, opacity: pressed ? 0.72 : 1 }]}>
             <Text style={[styles.searchToggleText, { color: showSearch ? colors.primary : colors.muted }]}>{showSearch ? "CLOSE SEARCH" : filter === "completed" ? "SEARCH HISTORY" : "SEARCH PLANNED"}</Text>
@@ -298,7 +346,7 @@ export default function MissionsScreen() {
           {showSearch ? <TextInput onFocus={onInputFocus} value={searchQuery} onChangeText={setSearchQuery} placeholder={filter === "completed" ? "Search title, subject, category, or topic" : "Search title, subject, category, or topic"} placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={[styles.searchInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /> : null}
         </View> : null}
 
-        <SectionHeader title={filter === "open" ? "Planned missions" : filter === "active" ? "Live missions" : archiveHistoryLabel ? `History · ${archiveHistoryLabel}` : "Completed history"} action={filter === "open" ? "New mission" : undefined} onAction={filter === "open" ? () => setShowComposer(true) : undefined} />
+        <SectionHeader title={boardMode === "calendar" ? (filter === "open" ? `Planned · ${selectedCalendarDate}` : filter === "active" ? `Live · ${selectedCalendarDate}` : `History · ${selectedCalendarDate}`) : (filter === "open" ? "Planned missions" : filter === "active" ? "Live missions" : archiveHistoryLabel ? `History · ${archiveHistoryLabel}` : "Completed history")} action={filter === "open" ? "New mission" : undefined} onAction={filter === "open" ? () => setShowComposer(true) : undefined} />
         {filter === "completed" && archiveHistoryLabel ? <Text style={[styles.archiveHistoryHint, { color: colors.muted }]}>Archive context only — showing the related saved completed runs. Normal History is unchanged when opened from the Mission Board.</Text> : null}
         </View>}
         ListEmptyComponent={(
@@ -408,6 +456,24 @@ const MissionCard = memo(function MissionCard({ mission }: { mission: Mission })
   );
 });
 
+const CalendarTaskCard = memo(function CalendarTaskCard({ activity, onRemove }: { activity: CalendarActivity; onRemove: () => void }) {
+  const colors = useColors();
+  const { toggleCalendarActivityCompleted } = useFocusCommandActions();
+  const completed = Boolean(activity.completedAt);
+  return <CommandCard accent={completed ? colors.success : colors.primary} style={styles.calendarTaskCard}>
+    <View style={styles.calendarTaskRow}>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: completed }} onPress={() => toggleCalendarActivityCompleted(activity.id)} style={[styles.calendarTaskCheck, { borderColor: completed ? colors.success : colors.border, backgroundColor: completed ? colors.success : colors.background }]}>
+        <Text style={[styles.calendarTaskCheckText, { color: completed ? colors.background : colors.muted }]}>{completed ? "✓" : ""}</Text>
+      </Pressable>
+      <View style={styles.calendarTaskCopy}>
+        <Text style={[styles.calendarTaskTitle, { color: colors.foreground, textDecorationLine: completed ? "line-through" : "none" }]}>{activity.title}</Text>
+        <Text style={[styles.calendarTaskDetail, { color: colors.muted }]}>Standalone calendar task</Text>
+      </View>
+      <Pressable onPress={onRemove}><Text style={[styles.calendarTaskRemove, { color: colors.error }]}>REMOVE</Text></Pressable>
+    </View>
+  </CommandCard>;
+});
+
 const styles = StyleSheet.create({
   content: { paddingTop: 12, paddingBottom: 28 },
   listHeader: { gap: 16, paddingBottom: 16 },
@@ -462,6 +528,25 @@ const styles = StyleSheet.create({
   missionMeta: { fontSize: 12, lineHeight: 17, fontWeight: "600" },
   historyReflection: { fontSize: 11, lineHeight: 16, fontWeight: "600", marginTop: -2 },
   historyAward: { fontSize: 11, lineHeight: 16, fontWeight: "900" },
+  modeRow: { flexDirection: "row", gap: 8 },
+  modeChoice: { flex: 1, minHeight: 40, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center" },
+  modeLabel: { fontSize: 12, lineHeight: 16, fontWeight: "900" },
+  calendarCard: { gap: 9 },
+  calendarTitle: { fontSize: 16, lineHeight: 21, fontWeight: "900" },
+  calendarHint: { fontSize: 10, lineHeight: 15, fontWeight: "600" },
+  calendarAssignmentRow: { gap: 9 },
+  calendarAssignmentChoices: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  calendarChoice: { maxWidth: "100%", minHeight: 34, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, justifyContent: "center", paddingHorizontal: 9 },
+  calendarChoiceText: { fontSize: 10, lineHeight: 14, fontWeight: "800" },
+  calendarTasks: { gap: 8 },
+  calendarTaskCard: { gap: 7 },
+  calendarTaskRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  calendarTaskCheck: { width: 28, height: 28, borderRadius: 9, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  calendarTaskCheckText: { fontSize: 17, fontWeight: "900" },
+  calendarTaskCopy: { flex: 1, gap: 2 },
+  calendarTaskTitle: { fontSize: 15, lineHeight: 19, fontWeight: "900" },
+  calendarTaskDetail: { fontSize: 10, lineHeight: 14, fontWeight: "700" },
+  calendarTaskRemove: { fontSize: 9, fontWeight: "900" },
   missionFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10, marginTop: 2 },
   missionFooterCopy: { flex: 1 },
   historyActions: { flexDirection: "row", alignItems: "center", gap: 2 },

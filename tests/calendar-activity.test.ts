@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { addLocalDays, isValidLocalDateRange, monthGrid } from "../lib/calendar-date";
 import { compareCalendarPeriods, getCalendarCompletionSummary } from "../lib/calendar-activity";
-import { createInitialState, normalizeHydratedState } from "../lib/focus-command";
+import { createInitialState, normalizeHydratedState, removeMissionAndLinkedState } from "../lib/focus-command";
+import { readFileSync } from "node:fs";
 
 describe("calendar activity completion", () => {
   it("calculates task completion from planned tasks, not empty days", () => {
@@ -35,5 +36,25 @@ describe("calendar activity completion", () => {
     delete legacy.calendarActivities;
     const restored = normalizeHydratedState(legacy as never);
     expect(restored.calendarActivities).toEqual([]);
+  });
+
+  it("unlinks dated assignments instead of deleting them when their mission is removed", () => {
+    const state = createInitialState();
+    state.missions = [{ id: "m1", title: "Read", subject: "Study", category: "Focus", difficulty: "medium", baseXp: 25, bossId: null, specificTopic: "", revisionEnabled: false, status: "planned", frequency: "once", createdAt: "2026-09-29T00:00:00.000Z", dueAt: null, startedAt: null, pausedAt: null, pausedMilliseconds: 0, endedAt: null, completedAt: null, revisionTopicIds: [], progressionEventId: null, allowMultipleDailyCompletions: false, completionHistory: [] }];
+    state.calendarActivities = [
+      { id: "linked", title: "Read", localDate: "2026-09-29", missionId: "m1", completedAt: null, createdAt: "2026-09-29T00:00:00.000Z" },
+      { id: "standalone", title: "Walk", localDate: "2026-09-29", missionId: null, completedAt: null, createdAt: "2026-09-29T00:00:00.000Z" },
+    ];
+    const restored = removeMissionAndLinkedState(state, "m1");
+    expect(restored.calendarActivities).toEqual([
+      { id: "linked", title: "Read", localDate: "2026-09-29", missionId: null, completedAt: null, createdAt: "2026-09-29T00:00:00.000Z" },
+      { id: "standalone", title: "Walk", localDate: "2026-09-29", missionId: null, completedAt: null, createdAt: "2026-09-29T00:00:00.000Z" },
+    ]);
+  });
+
+  it("keeps mission completion as the canonical calendar completion path", () => {
+    const source = readFileSync("lib/focus-command.tsx", "utf8");
+    expect(source).toContain("activity.missionId === missionId && activity.localDate === completionDate");
+    expect(source).toContain("completedAt: activity.completedAt ?? endedAt");
   });
 });

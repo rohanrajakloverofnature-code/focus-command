@@ -392,7 +392,7 @@ export default function DashboardScreen() {
           right={<IconAction icon="line.3.horizontal" label="Open settings" onPress={() => router.push("/settings")} />}
         />
 
-        <TapFeedback onPress={() => router.push("/activity-calendar" as never)} accessibilityLabel="Open calendar activity planner">
+        <TapFeedback onPress={() => router.push("/missions?mode=calendar" as never)} accessibilityLabel="Open calendar activity planner">
           <CommandCard accent={colors.success} style={styles.commandArchiveCard}>
             <View style={styles.commandArchiveHeading}>
               <View style={styles.commandArchiveCopy}>

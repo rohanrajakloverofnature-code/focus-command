@@ -2074,6 +2074,8 @@ export function removeMissionAndLinkedState(state: FocusState, missionId: string
   return {
     ...state,
     missions: state.missions.filter((candidate) => candidate.id !== missionId),
+    // Keep dated planner work safe when its mission is deleted: it becomes a standalone task.
+    calendarActivities: state.calendarActivities.map((activity) => activity.missionId === missionId ? { ...activity, missionId: null } : activity),
     missionCompletions: state.missionCompletions.filter((completion) => completion.missionId !== missionId),
     reflections: state.reflections.filter((reflection) => reflection.missionId !== missionId),
     distractionLogs: state.distractionLogs.filter((entry) => entry.missionId !== missionId),
@@ -3342,13 +3344,21 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
 
   const scheduleCalendarActivity = useCallback((input: { title: string; localDate: string; missionId?: string | null }) => {
     const title = input.title.trim();
+    const missionId = input.missionId ?? null;
     if (!title || !LOCAL_DATE_PATTERN.test(input.localDate)) return null;
     const id = createId("calendar_activity");
-    commit((current) => withQueuedOperation({
-      ...current,
-      calendarActivities: [{ id, title: title.slice(0, 180), localDate: input.localDate, missionId: input.missionId ?? null, completedAt: null, createdAt: nowIso() }, ...current.calendarActivities],
-    }));
-    return id;
+    let created = true;
+    commit((current) => {
+      if (missionId && current.calendarActivities.some((activity) => activity.missionId === missionId && activity.localDate === input.localDate)) {
+        created = false;
+        return current;
+      }
+      return withQueuedOperation({
+        ...current,
+        calendarActivities: [{ id, title: title.slice(0, 180), localDate: input.localDate, missionId, completedAt: null, createdAt: nowIso() }, ...current.calendarActivities],
+      });
+    });
+    return created ? id : null;
   }, [commit]);
 
   const removeCalendarActivity = useCallback((activityId: string) => {
@@ -3730,6 +3740,10 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
           ...(nextDailyMission ? [nextDailyMission] : []),
           ...current.missions.map((mission) => mission.id === missionId ? updatedMission : mission),
         ],
+        // A mission completion is the canonical completion event for its dated assignment.
+        calendarActivities: current.calendarActivities.map((activity) => activity.missionId === missionId && activity.localDate === completionDate
+          ? { ...activity, completedAt: activity.completedAt ?? endedAt }
+          : activity),
         missionCompletions: [...current.missionCompletions, completion],
         reflections: [...current.reflections, reflection],
         srsTopics,
