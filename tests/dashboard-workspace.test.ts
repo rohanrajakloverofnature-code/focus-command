@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createInitialState, normalizeHydratedState, type Mission } from "../lib/focus-command";
-import { getDashboardWorkspaceResult } from "../lib/dashboard-workspace";
+import { DASHBOARD_COMPARISON_RANGES, DASHBOARD_METRICS, getDashboardWorkspaceResult } from "../lib/dashboard-workspace";
 
 function mission(overrides: Partial<Mission> = {}): Mission {
   const now = new Date().toISOString();
@@ -53,6 +53,40 @@ describe("Custom Analytics workspace", () => {
     expect(result.total).toBe(120);
     expect(result.sampleCount).toBe(1);
     expect(result.breakdown).toEqual([{ label: "Math", value: 120, color: expect.any(String) }]);
+  });
+
+
+
+  it("exposes newer app systems as dashboard metrics and compares calendar completion across custom periods", () => {
+    expect(DASHBOARD_METRICS.length).toBeGreaterThanOrEqual(20);
+    expect(DASHBOARD_METRICS.map((metric) => metric.id)).toEqual(expect.arrayContaining([
+      "revisions", "calendarCompletion", "sleep", "screenTime", "recoveryActions", "stressorIntensity", "principles", "mistakes", "shadowGates", "rewardPurchases",
+    ]));
+    expect(DASHBOARD_COMPARISON_RANGES.map((range) => range.id)).toEqual(["off", "week", "month", "lifetime", "custom"]);
+
+    const state = createInitialState();
+    state.hydrated = true;
+    state.calendarActivities.push(
+      { id: "calendar_current_done", title: "Done", localDate: "2026-09-01", missionId: null, completedAt: "2026-09-01T10:00:00.000Z", createdAt: "2026-09-01T08:00:00.000Z" },
+      { id: "calendar_current_pending", title: "Pending", localDate: "2026-09-02", missionId: null, completedAt: null, createdAt: "2026-09-02T08:00:00.000Z" },
+      { id: "calendar_previous_done", title: "Previous", localDate: "2026-08-01", missionId: null, completedAt: "2026-08-01T10:00:00.000Z", createdAt: "2026-08-01T08:00:00.000Z" },
+    );
+    const widget = {
+      ...state.profile.dashboardWidgets[0],
+      metric: "calendarCompletion" as const,
+      dateRange: "custom" as const,
+      customStartDate: "2026-09-01",
+      customEndDate: "2026-09-02",
+      feature: "calendar" as const,
+      comparisonRange: "custom" as const,
+      comparisonStartDate: "2026-08-01",
+      comparisonEndDate: "2026-08-02",
+    };
+    const result = getDashboardWorkspaceResult(state, widget);
+    expect(result.total).toBe(50);
+    expect(result.sampleCount).toBe(2);
+    expect(result.comparison?.total).toBe(100);
+    expect(result.comparison?.rangeLabel).toBe("Custom comparison");
   });
 
   it("averages selected reflection signals without leaking records from another subject", () => {

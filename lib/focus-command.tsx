@@ -138,25 +138,15 @@ export interface WellbeingInsight {
 }
 
 export type DashboardMetricId =
-  | "power"
-  | "xp"
-  | "time"
-  | "gold"
-  | "missions"
-  | "focus"
-  | "stress"
-  | "clarity"
-  | "motivation"
-  | "distraction"
-  | "energy"
-  | "friction"
-  | "achievement"
-  | "skills"
-  | "feeling"
-  | "journal";
+  | "power" | "xp" | "time" | "gold" | "missions"
+  | "focus" | "stress" | "clarity" | "motivation" | "distraction" | "energy" | "friction" | "achievement" | "skills" | "feeling"
+  | "journal" | "revisions" | "calendarCompletion" | "sleep" | "sleepQuality" | "screenTime" | "naps" | "recoveryActions"
+  | "stressorIntensity" | "principles" | "mistakes" | "distractions" | "shadowGates" | "rewardPurchases" | "activeDays" | "bosses";
 export type DashboardChartType = "line" | "bar" | "donut" | "radar" | "number";
-export type DashboardDateRange = "7d" | "30d" | "90d" | "custom" | "all";
-export type DashboardFeatureFilter = "all" | "missions" | "reflections" | "journal" | "revisions" | "rewards";
+/** Legacy 7d/30d/all values remain accepted when restoring older backups. */
+export type DashboardDateRange = "7d" | "30d" | "90d" | "week" | "month" | "custom" | "all" | "lifetime";
+export type DashboardComparisonRange = "off" | "week" | "month" | "lifetime" | "custom";
+export type DashboardFeatureFilter = "all" | "missions" | "reflections" | "journal" | "revisions" | "rewards" | "calendar" | "recovery" | "principles" | "ledger";
 export type DashboardMissionFrequencyFilter = "all" | MissionFrequency;
 
 /** A user-owned widget in the separate Custom Analytics workspace. */
@@ -172,6 +162,10 @@ export interface DashboardWidgetConfig {
   missionFrequency: DashboardMissionFrequencyFilter;
   customStartDate: string;
   customEndDate: string;
+  /** Optional fields keep older saved widgets and backups valid. */
+  comparisonRange?: DashboardComparisonRange;
+  comparisonStartDate?: string;
+  comparisonEndDate?: string;
 }
 
 export interface NotificationRules {
