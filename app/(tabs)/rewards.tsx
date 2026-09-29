@@ -9,7 +9,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { formatCompactNumber, getGoldBalance, getLifetimeGold, RewardCategory, shallowEqual, toLocalDate, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { scheduleMultiplierReminder } from "@/lib/focus-reminders";
-import { getLifeRewardInventoryView } from "@/lib/reward-inventory-view";
+import { getRewardInventoryView } from "@/lib/reward-inventory-view";
 import { playFocusRole } from "@/lib/focus-audio";
 
 const categories: { value: RewardCategory | "all"; label: string; icon: "gift.fill" | "shield.fill" | "bolt.fill" | "star.fill" }[] = [
@@ -63,7 +63,7 @@ export default function RewardsScreen() {
   const lifetimeGold = getLifetimeGold({ transactions });
   const rewards = allRewards.filter((reward) => reward.active && (category === "all" || reward.category === category));
   const today = toLocalDate(new Date().toISOString(), timezone);
-  const { activeToday: activeLifeInventory, history: lifeInventoryHistory } = getLifeRewardInventoryView(allInventory, allRewards, today, timezone);
+  const { activeInventory, lifeHistory: lifeInventoryHistory } = getRewardInventoryView(allInventory, allRewards, today, timezone);
 
   const submit = () => {
     if (!title.trim()) {
@@ -145,7 +145,7 @@ export default function RewardsScreen() {
           <Text style={[styles.walletDetail, { color: colors.muted }]}>Available gold. Purchases cannot exceed this balance.</Text>
         </CommandCard>
 
-        {activeLifeInventory.length || lifeInventoryHistory.length ? (
+        {activeInventory.length || lifeInventoryHistory.length ? (
           <CommandCard accent={colors.primary} style={styles.inventoryCard}>
             <View style={styles.inventoryHeading}>
               <TapFeedback onPress={() => router.push("/inventory" as never)} accessibilityLabel="Open active inventory and armory" style={styles.inventoryArmoryLink}>
@@ -154,21 +154,21 @@ export default function RewardsScreen() {
                   <Text numberOfLines={1} style={[styles.inventoryArmoryText, { color: colors.primary }]}>Open armory ›</Text>
                 </View>
               </TapFeedback>
-              <StatusPill label={`${activeLifeInventory.length} ACTIVE TODAY`} tone="primary" icon="shield.fill" />
+              <StatusPill label={`${activeInventory.length} ACTIVE`} tone="primary" icon="shield.fill" />
             </View>
-            {activeLifeInventory.map(({ item, reward }) => (
+            {activeInventory.map(({ item, reward, acquiredDate }) => (
               <View key={item.id} style={styles.inventoryItem}>
                 <IconSymbol name="shield.fill" size={18} color={colors.primary} />
                 <View style={styles.inventoryCopy}>
                   <Text style={[styles.inventoryName, { color: colors.foreground }]}>{reward.title}</Text>
-                  <Text style={[styles.inventoryDetail, { color: colors.muted }]}>Redeemed today · life reward remains active.</Text>
+                  <Text style={[styles.inventoryDetail, { color: colors.muted }]}>{reward.category === "life" ? `Redeemed ${acquiredDate} · life reward remains active.` : reward.goldMultiplier ? `${reward.goldMultiplier}× gold conversion activates ${item.effectiveOn}.` : `Redeemed ${acquiredDate} · ${reward.category} item preserved in inventory.`}</Text>
                 </View>
               </View>
             ))}
             {lifeInventoryHistory.length ? (
               <View style={[styles.inventoryHistory, { borderTopColor: colors.border }]}>
                 <View style={styles.inventoryHistoryHeading}>
-                  <Text style={[styles.inventoryHistoryTitle, { color: colors.foreground }]}>Redemption history</Text>
+                  <Text style={[styles.inventoryHistoryTitle, { color: colors.foreground }]}>Life redemption history</Text>
                   <Text style={[styles.inventoryHistoryCount, { color: colors.muted }]}>{lifeInventoryHistory.length} PAST</Text>
                 </View>
                 {lifeInventoryHistory.map(({ item, reward, acquiredDate }) => (

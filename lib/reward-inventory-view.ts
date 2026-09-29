@@ -1,45 +1,44 @@
 import type { InventoryItem, Reward } from "./focus-command";
 import { toLocalDate } from "./focus-command";
 
-export interface LifeRewardInventoryRow {
+export interface RewardInventoryRow {
   item: InventoryItem;
   reward: Reward;
   acquiredDate: string;
 }
 
-export interface LifeRewardInventoryView {
-  activeToday: LifeRewardInventoryRow[];
-  history: LifeRewardInventoryRow[];
+export interface RewardInventoryView {
+  activeInventory: RewardInventoryRow[];
+  lifeHistory: RewardInventoryRow[];
 }
 
 /**
- * Life rewards are real-life resets, so the Rewards tab's compact active list
- * represents only still-active life redemptions acquired today. Older life
- * redemptions remain visible in a dated history, even if they were consumed or
- * the reward was later disabled.
+ * Non-life rewards remain in active inventory for all dates while they are still
+ * active and unused. Life rewards are date-scoped: they appear in active
+ * inventory only on their redemption date, then move to dated life history.
  */
-export function getLifeRewardInventoryView(
+export function getRewardInventoryView(
   inventory: readonly InventoryItem[],
   rewards: readonly Reward[],
   today: string,
   timezone: string,
-): LifeRewardInventoryView {
+): RewardInventoryView {
   const rewardById = new Map(rewards.map((reward) => [reward.id, reward]));
   const rows = inventory
     .map((item) => {
       const reward = rewardById.get(item.rewardId);
-      if (!reward || reward.category !== "life") return null;
+      if (!reward) return null;
       return {
         item,
         reward,
         acquiredDate: toLocalDate(item.acquiredAt, timezone),
-      } satisfies LifeRewardInventoryRow;
+      } satisfies RewardInventoryRow;
     })
-    .filter((row): row is LifeRewardInventoryRow => Boolean(row))
+    .filter((row): row is RewardInventoryRow => Boolean(row))
     .sort((a, b) => b.item.acquiredAt.localeCompare(a.item.acquiredAt));
 
   return {
-    activeToday: rows.filter((row) => row.acquiredDate === today && row.item.active && !row.item.consumedAt),
-    history: rows.filter((row) => row.acquiredDate < today),
+    activeInventory: rows.filter((row) => row.item.active && !row.item.consumedAt && (row.reward.category !== "life" || row.acquiredDate === today)),
+    lifeHistory: rows.filter((row) => row.reward.category === "life" && row.acquiredDate < today),
   };
 }
