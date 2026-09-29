@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   PERSONAL_GRAPH_CHART_POINT_LIMIT,
+  PERSONAL_GRAPH_MAX_SLOTS,
   createDefaultPersonalGraphs,
   downsamplePersonalGraphPoints,
   getPersonalGraphPointsForRange,
@@ -43,7 +44,7 @@ describe("Personal Graphs", () => {
     expect(parsePersonalGraphDate("2026-13", "month")).toBeNull();
   });
 
-  it("keeps five independent editable graph slots, preserves the original three, and retains the four-line limit", () => {
+  it("keeps twenty independent editable graph slots, preserves the original three, and retains the four-line limit", () => {
     const defaults = createDefaultPersonalGraphs(CREATED);
     const graph = graphWithPoints();
     const normalized = normalizePersonalGraphs([{
@@ -51,12 +52,15 @@ describe("Personal Graphs", () => {
       lines: [...graph.lines, { id: "confidence", name: "Confidence", color: "#F4C95D" }, { id: "hours", name: "Revision hours", color: "#FFAA4C" }, { id: "extra", name: "Ignored", color: "#A78BFA" }],
     }], defaults);
 
-    expect(normalized).toHaveLength(5);
+    expect(PERSONAL_GRAPH_MAX_SLOTS).toBe(20);
+    expect(defaults).toHaveLength(PERSONAL_GRAPH_MAX_SLOTS);
+    expect(normalized).toHaveLength(PERSONAL_GRAPH_MAX_SLOTS);
     expect(normalized[0]).toMatchObject({ title: "Exam preparation", xAxisLabel: "Practice month", yAxisLabel: "Score", datePrecision: "month" });
     expect(normalized[0].lines.map((line) => line.name)).toEqual(["Mock score", "Silly mistakes", "Confidence", "Revision hours"]);
     expect(normalized[0].points.filter((point) => point.xValue === "2026-08")).toHaveLength(2);
     expect(normalized[1].points).toEqual([]);
-    expect(normalized.slice(3).map((slot) => slot.id)).toEqual(["personal_graph_4", "personal_graph_5"]);
+    expect(normalized.slice(3, 6).map((slot) => slot.id)).toEqual(["personal_graph_4", "personal_graph_5", "personal_graph_6"]);
+    expect(normalized[19].id).toBe("personal_graph_20");
   });
 
   it("keeps every saved five-year point while only filtering the displayed time range", () => {

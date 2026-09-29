@@ -138,6 +138,12 @@ export default function CustomizeScreen() {
       <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={32} keyboardDismissMode="none" contentContainerStyle={[styles.content, keyboardContentContainerStyle]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <ScreenTitle eyebrow="Customization" title="Tune the system" detail="Adjust the RPG rules, reflection prompts, and dashboard lenses to fit your real life." right={<IconAction icon="xmark" label="Close customization" onPress={() => router.back()} />} />
 
+        <SectionHeader title="Personal Graph Studio" action="Open" onAction={() => router.push("/personal-graphs" as never)} />
+        <CommandCard accent={colors.primary} style={styles.cardStack}>
+          <Text style={[styles.helpText, { color: colors.muted }]}>Create and manage up to 20 independent personal graphs with your own lines, dates, and values. Your saved graph data remains local and offline.</Text>
+          <CommandButton label="Open Graph Studio" icon="chart.xyaxis.line" onPress={() => router.push("/personal-graphs" as never)} />
+        </CommandCard>
+
         <SectionHeader title="Level rules" />
         <CommandCard accent={colors.primary} style={styles.cardStack}>
           <RuleStepper label="Maximum level" value={profile.maxLevel} minimum={10} step={10} onChange={changeMaximumLevel} />

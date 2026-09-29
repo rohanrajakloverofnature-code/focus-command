@@ -1,3 +1,4 @@
+export const PERSONAL_GRAPH_MAX_SLOTS = 20;
 export const PERSONAL_GRAPH_MAX_LINES = 4;
 export const PERSONAL_GRAPH_MAX_POINTS_PER_LINE = 2_400;
 export const PERSONAL_GRAPH_CHART_POINT_LIMIT = 240;
@@ -45,7 +46,9 @@ export interface PersonalGraphPointDraft {
 }
 
 export function createDefaultPersonalGraphs(createdAt: string): PersonalGraph[] {
-  return ["Growth Signals", "Focus Signals", "Custom Signals", "New Graph 4", "New Graph 5"].map((title, index) => ({
+  return Array.from({ length: PERSONAL_GRAPH_MAX_SLOTS }, (_, index) => {
+    const title = index === 0 ? "Growth Signals" : index === 1 ? "Focus Signals" : index === 2 ? "Custom Signals" : `New Graph ${index + 1}`;
+    return ({
     id: `personal_graph_${index + 1}`,
     title,
     xAxisLabel: "Date",
@@ -56,7 +59,8 @@ export function createDefaultPersonalGraphs(createdAt: string): PersonalGraph[] 
     points: [],
     createdAt,
     updatedAt: createdAt,
-  }));
+    });
+  });
 }
 
 export function parsePersonalGraphDate(value: string, precision: PersonalGraphDatePrecision): { xValue: string; xLabel: string } | null {
@@ -82,7 +86,7 @@ export function parsePersonalGraphDate(value: string, precision: PersonalGraphDa
 
 export function normalizePersonalGraphs(input: unknown, defaults: PersonalGraph[]): PersonalGraph[] {
   if (!Array.isArray(input)) return defaults;
-  const normalized = input.slice(0, 5).flatMap((value, index) => {
+  const normalized = input.slice(0, PERSONAL_GRAPH_MAX_SLOTS).flatMap((value, index) => {
     if (!value || typeof value !== "object") return [];
     const graph = value as Partial<PersonalGraph>;
     if (typeof graph.id !== "string" || !graph.id) return [];

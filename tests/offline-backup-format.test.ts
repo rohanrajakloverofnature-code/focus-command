@@ -98,7 +98,7 @@ describe("offline Focus Command backup format", () => {
     expect(parsed.state.corePrincipleItems).toEqual(state.corePrincipleItems);
     expect(parsed.state.corePrincipleDailyCheckIns).toEqual(state.corePrincipleDailyCheckIns);
     expect(parsed.state.personalGraphs).toEqual(state.personalGraphs);
-    expect(parsed.state.personalGraphs).toHaveLength(5);
+    expect(parsed.state.personalGraphs).toHaveLength(20);
     expect(parsed.state.customQuestions[0].personalSignal).toEqual({ enabled: true, role: "supportive", includeInProjection: true });
     expect(parsed.state.characterMilestones).toEqual(state.characterMilestones);
     expect(parsed.state.recoveryStressors).toEqual(state.recoveryStressors);

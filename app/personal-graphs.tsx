@@ -68,7 +68,7 @@ export default function PersonalGraphsScreen() {
   const changePrecision = (precision: PersonalGraphDatePrecision) => {
     if (precision === graph.datePrecision) return;
     if (graph.points.length) {
-      Alert.alert("Time format locked", "This graph already has saved points. Its time format stays locked so no dates are changed or lost. Use one of the other two Personal Graph slots for a different time format.");
+      Alert.alert("Time format locked", "This graph already has saved points. Its time format stays locked so no dates are changed or lost. Use another Personal Graph slot for a different time format.");
       return;
     }
     updatePersonalGraph(graph.id, { datePrecision: precision });
@@ -119,7 +119,7 @@ export default function PersonalGraphsScreen() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={<>
-        <ScreenTitle eyebrow="Independent data" title="Personal Graph Studio" detail="Create five private graphs from numbers you enter yourself. Lines cross only when your own values cross." right={<IconAction icon="xmark" label="Close Personal Graph Studio" onPress={() => router.back()} />} />
+        <ScreenTitle eyebrow="Independent data" title="Personal Graph Studio" detail="Create up to 20 private graphs from numbers you enter yourself. Lines cross only when your own values cross." right={<IconAction icon="xmark" label="Close Personal Graph Studio" onPress={() => router.back()} />} />
         <View style={styles.slotRow}>{graphs.map((slot, index) => <Pressable key={slot.id} onPress={() => setSelectedGraphId(slot.id)} style={({ pressed }) => [styles.slotButton, { borderColor: slot.id === graph.id ? colors.primary : colors.border, backgroundColor: slot.id === graph.id ? `${colors.primary}18` : colors.surface, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.slotEyebrow, { color: slot.id === graph.id ? colors.primary : colors.muted }]}>GRAPH {index + 1}</Text><Text numberOfLines={1} style={[styles.slotText, { color: colors.foreground }]}>{slot.title}</Text></Pressable>)}</View>
 
         <SectionHeader title="Graph identity" />
