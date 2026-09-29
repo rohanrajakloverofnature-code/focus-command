@@ -9,6 +9,7 @@ import { getCorePrinciplesCheckInsInRange, getCorePrinciplesSummary } from "./co
 import { getFocusFrictionInsight } from "./distraction-log";
 import { getIllnessContextSummary } from "./illness-context";
 import { getPersonalSleepScore } from "./recovery-rhythm";
+import { getMistakeLedgerAnalytics, type MistakeLedgerAnalytics } from "./mistake-ledger-analytics";
 
 export type SuperDashboardRangeKind = "today" | "week" | "month" | "lifetime" | "custom";
 
@@ -40,6 +41,8 @@ export type SuperDashboardState = Pick<FocusState,
   | "distractionLogs"
   | "progression"
   | "characterMilestones"
+  | "mistakeLedgerEntries"
+  | "mistakeLedgerActivityLog"
 >;
 
 export type SuperDashboardMetric = {
@@ -142,6 +145,7 @@ export type SuperDashboardSummary = {
     distraction: SuperDashboardMetric;
     friction: SuperDashboardMetric;
   };
+  mistakes: MistakeLedgerAnalytics;
   supportingProgress: {
     revisionActions: number;
     maturedRevisionActions: number;
@@ -364,6 +368,8 @@ function earliestRecordedDay(state: SuperDashboardState, completionRecords: read
   state.journals.forEach((record) => includeLocal(record.localDate));
   state.srsActivityLog.forEach((record) => includeLocal(record.actionDate));
   state.corePrincipleDailyCheckIns.forEach((record) => includeLocal(record.localDate));
+  state.mistakeLedgerEntries.forEach((record) => includeLocal(record.createdAt));
+  state.mistakeLedgerActivityLog.forEach((record) => candidates.push(record.actionDate));
   (state.recoveryStressors ?? []).forEach((record) => includeLocal(record.localDate));
   (state.recoveryActions ?? []).forEach((record) => includeLocal(record.localDate));
   (state.sleepLogs ?? []).forEach((record) => includeLocal(record.localDate));
@@ -431,12 +437,14 @@ export function getSuperDashboardSummary(
       recovery: { averageLoggedStress: emptyMetric, averageLoggedStressBefore: emptyMetric, averageReflectionStress: emptyMetric, peakLoggedStress: null, stressorCount: 0, recoveryActions: 0, averageSleepMinutes: emptyMetric, averageSleepScore: emptyMetric, sleepQuality: emptyMetric, restedFeeling: emptyMetric, totalNapMinutes: 0, averageScreenMinutes: emptyMetric, screenRecordDays: 0, commonScreenLabel: null, typicalRecentSleep: { medianMinutes: null, loggedNights: 0, requiredNights: 5, windowDays: 7 }, illnessContext: { recordCount: 0, contextDays: 0, debriefDays: 0, ongoingRecords: 0, fatigueRecords: 0, sleepDisruptedRecords: 0 } },
       focus: { disruptions: 0, disruptionsPerFocusedHour: null, topDistraction: null, mostInterruptedWindow: null, loggedInterruptionRate: { value: null, matchedLogs: 0, focusedMinutes: 0, completedMissions: 0, activeDays: 0, sufficientData: false } },
       emotions: { focus: emptyMetric, motivation: emptyMetric, clarity: emptyMetric, energy: emptyMetric, distraction: emptyMetric, friction: emptyMetric },
+      mistakes: { totalAtEnd: 0, createdInRange: 0, statusUpdatesInRange: 0, counts: { noted: 0, working_on: 0, improving: 0, improved: 0, needs_review: 0 }, latestChanges: [] },
       supportingProgress: { revisionActions: 0, maturedRevisionActions: 0, journalPoints: 0, journalEntries: 0, successRatio: null, principleChecked: 0, principleApplicable: 0, principleRecordedDays: 0, characterFormsEarned: 0 },
       patterns: [],
       evidence: { recordedDays: 0, completionRecords: 0, recoveryRecords: 0, reflectionRecords: 0, note: "No calculation is run until the date range is valid." },
     };
   }
 
+  const mistakes = getMistakeLedgerAnalytics(state.mistakeLedgerEntries, state.mistakeLedgerActivityLog, range.startDate, range.endDate, timezone);
   const selectedCompletions = completionRecords.filter((record) => {
     const localDate = safeLocalDate(record.completedAt, timezone);
     return localDate ? dateInRange(localDate, range) : false;
@@ -598,6 +606,7 @@ export function getSuperDashboardSummary(
       distraction: emotionMetric("distractionLevel"),
       friction: emotionMetric("frictionRating"),
     },
+    mistakes,
     supportingProgress: {
       revisionActions: revisionActions.length,
       maturedRevisionActions: revisionActions.filter((record) => record.phase === "matured").length,

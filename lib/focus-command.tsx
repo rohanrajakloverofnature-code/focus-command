@@ -141,13 +141,14 @@ export type DashboardMetricId =
   | "power" | "xp" | "time" | "gold" | "missions"
   | "focus" | "stress" | "clarity" | "motivation" | "distraction" | "energy" | "friction" | "achievement" | "skills" | "feeling"
   | "journal" | "revisions" | "calendarCompletion" | "sleep" | "sleepQuality" | "screenTime" | "naps" | "recoveryActions"
-  | "stressorIntensity" | "principles" | "mistakes" | "distractions" | "shadowGates" | "rewardPurchases" | "activeDays" | "bosses";
+  | "stressorIntensity" | "principles" | "mistakes" | "mistakeStatuses" | "mistakeUpdates" | "distractions" | "shadowGates" | "rewardPurchases" | "activeDays" | "bosses";
 export type DashboardChartType = "line" | "bar" | "donut" | "radar" | "number";
 /** Legacy 7d/30d/all values remain accepted when restoring older backups. */
 export type DashboardDateRange = "7d" | "30d" | "90d" | "week" | "month" | "custom" | "all" | "lifetime";
 export type DashboardComparisonRange = "off" | "week" | "month" | "lifetime" | "custom";
 export type DashboardFeatureFilter = "all" | "missions" | "reflections" | "journal" | "revisions" | "rewards" | "calendar" | "recovery" | "principles" | "ledger";
 export type DashboardMissionFrequencyFilter = "all" | MissionFrequency;
+export type DashboardMistakeStatusFilter = "all" | MistakeLedgerStatus;
 
 /** A user-owned widget in the separate Custom Analytics workspace. */
 export interface DashboardWidgetConfig {
@@ -160,6 +161,8 @@ export interface DashboardWidgetConfig {
   subject: string;
   category: string;
   missionFrequency: DashboardMissionFrequencyFilter;
+  /** Optional status filter used by Mistakes Ledger analytics widgets. */
+  mistakeStatus?: DashboardMistakeStatusFilter;
   customStartDate: string;
   customEndDate: string;
   /** Optional fields keep older saved widgets and backups valid. */

@@ -9,7 +9,8 @@ import { CommandButton, CommandCard, IconAction, LoadingScreen, MetricTile, Scre
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
-import { shallowEqual, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
+import { MISTAKE_LEDGER_STATUSES, shallowEqual, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
+import { MISTAKE_LEDGER_STATUS_LABELS } from "@/lib/mistake-ledger";
 import { addLocalDays } from "@/lib/calendar-date";
 import { compareCalendarPeriods, getCalendarCompletionSeries, getCalendarCompletionSummary } from "@/lib/calendar-activity";
 import {
@@ -59,6 +60,8 @@ function selectSuperDashboardState(state: SuperDashboardState): SuperDashboardSt
     distractionLogs: state.distractionLogs,
     progression: state.progression,
     characterMilestones: state.characterMilestones,
+    mistakeLedgerEntries: state.mistakeLedgerEntries,
+    mistakeLedgerActivityLog: state.mistakeLedgerActivityLog,
   };
 }
 
@@ -245,6 +248,15 @@ export default function SuperDashboardScreen() {
             <Text style={[styles.detailCardTitle, { color: colors.foreground }]}>Private illness context</Text>
             <Text style={[styles.detailCardText, { color: colors.muted }]}><Text style={highlightedStyle(colors.warning)}>{summary.recovery.illnessContext.contextDays} self-reported context day{summary.recovery.illnessContext.contextDays === 1 ? "" : "s"}</Text> from <Text style={highlightedStyle(colors.foreground)}>{summary.recovery.illnessContext.recordCount} private record{summary.recovery.illnessContext.recordCount === 1 ? "" : "s"}</Text> in this view{summary.recovery.illnessContext.ongoingRecords ? ` · ${summary.recovery.illnessContext.ongoingRecords} ongoing` : ""}. {summary.recovery.illnessContext.debriefDays ? <><Text style={highlightedStyle(colors.primary)}>{summary.recovery.illnessContext.debriefDays} mission-debrief day{summary.recovery.illnessContext.debriefDays === 1 ? "" : "s"}</Text> carry this annotation.</> : "No mission debrief date overlaps this context yet."} It does not change or explain any forecast, wellbeing score, mission, reward, or Sleep Score.</Text>
           </CommandCard> : null}
+
+          <SectionHeader title="Mistakes Ledger" />
+          <CommandCard accent={colors.primary} style={styles.detailCard}>
+            <View style={styles.chartHeading}><View style={styles.chartCopy}><Text style={[styles.cardTitle, { color: colors.foreground }]}>Mistake status snapshot</Text><Text style={[styles.cardDetail, { color: colors.muted }]}>Status counts reconstructed at the end of the selected local-date period. A mistake created earlier remains included until its recorded history ends before the selected date.</Text></View><StatusPill label={`${summary.mistakes.totalAtEnd} TRACKED`} tone="primary" /></View>
+            <View style={styles.metricGrid}>{MISTAKE_LEDGER_STATUSES.map((status) => <MetricTile key={status} style={styles.metricTile} label={MISTAKE_LEDGER_STATUS_LABELS[status]} value={String(summary.mistakes.counts[status])} detail="At period end" icon="checklist" accent={status === "improved" ? colors.success : status === "needs_review" ? colors.warning : colors.primary} />)}</View>
+            <Text style={[styles.detailCardText, { color: colors.muted }]}><Text style={highlightedStyle(colors.foreground)}>{summary.mistakes.createdInRange} created</Text> in this period · <Text style={highlightedStyle(colors.primary)}>{summary.mistakes.statusUpdatesInRange} status update{summary.mistakes.statusUpdatesInRange === 1 ? "" : "s"}</Text> recorded in this period.</Text>
+            {summary.mistakes.latestChanges.length ? <View style={styles.patternStack}>{summary.mistakes.latestChanges.slice(0, 4).map((change, index) => <View key={`${change.localDate}-${change.subject}-${index}`}><Text style={[styles.detailCardText, { color: colors.foreground }]}>{change.localDate} · {MISTAKE_LEDGER_STATUS_LABELS[change.status]} · {change.subject}</Text><Text numberOfLines={1} style={[styles.cardDetail, { color: colors.muted }]}>{change.mistake}</Text></View>)}</View> : <Text style={[styles.detailCardText, { color: colors.muted }]}>No status changes were recorded in this selected period.</Text>}
+            <CommandButton label="Open Mistakes Ledger" icon="checklist" variant="secondary" onPress={() => router.push("/mistake-ledger" as never)} />
+          </CommandCard>
 
           <SectionHeader title="Focus, friction & emotional data" />
           <View style={styles.metricGrid}>

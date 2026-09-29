@@ -10,9 +10,12 @@ import {
   Reflection,
   getMissionCompletionRecords,
   toLocalDate,
+  MISTAKE_LEDGER_STATUSES,
 } from "./focus-command";
+import { MISTAKE_LEDGER_STATUS_LABELS } from "./mistake-ledger";
+import { getMistakeLedgerAnalytics } from "./mistake-ledger-analytics";
 
-type DashboardWorkspaceState = Pick<FocusState, "profile" | "missions" | "missionCompletions" | "progression" | "reflections" | "journals" | "transactions" | "srsTopics" | "calendarActivities" | "recoveryStressors" | "recoveryActions" | "sleepLogs" | "napLogs" | "screenTimeLogs" | "corePrincipleDailyCheckIns" | "mistakeLedgerEntries" | "distractionLogs" | "shadowGateEntries" | "bosses">;
+type DashboardWorkspaceState = Pick<FocusState, "profile" | "missions" | "missionCompletions" | "progression" | "reflections" | "journals" | "transactions" | "srsTopics" | "calendarActivities" | "recoveryStressors" | "recoveryActions" | "sleepLogs" | "napLogs" | "screenTimeLogs" | "corePrincipleDailyCheckIns" | "mistakeLedgerEntries" | "mistakeLedgerActivityLog" | "distractionLogs" | "shadowGateEntries" | "bosses">;
 
 export interface DashboardWorkspacePoint {
   label: string;
@@ -69,6 +72,8 @@ export const DASHBOARD_METRICS: Array<{ id: DashboardMetricId; label: string; sh
   { id: "stressorIntensity", label: "Stressor intensity", shortLabel: "Stressor", unit: "/ 10", source: "recovery" },
   { id: "principles", label: "Core-principle completion", shortLabel: "Principles", unit: "%", source: "principles" },
   { id: "mistakes", label: "Mistakes logged", shortLabel: "Mistakes", unit: "entries", source: "ledger" },
+  { id: "mistakeStatuses", label: "Mistakes by status", shortLabel: "Mistake status", unit: "entries", source: "ledger" },
+  { id: "mistakeUpdates", label: "Mistake status updates", shortLabel: "Status updates", unit: "updates", source: "ledger" },
   { id: "distractions", label: "Distractions logged", shortLabel: "Distractions", unit: "entries", source: "missions" },
   { id: "shadowGates", label: "Shadow Gates crossed", shortLabel: "Gates", unit: "crossings", source: "missions" },
   { id: "rewardPurchases", label: "Rewards redeemed", shortLabel: "Redemptions", unit: "purchases", source: "rewards" },
@@ -139,7 +144,9 @@ function valueSourceHint(metric: DashboardMetricId) {
   if (["sleep", "sleepQuality", "screenTime", "naps", "recoveryActions", "stressorIntensity"].includes(metric)) return "private recovery records";
   if (metric === "calendarCompletion") return "dated calendar-planner assignments";
   if (metric === "principles") return "daily core-principle check-ins";
-  if (metric === "mistakes") return "Mistakes Ledger entries";
+  if (metric === "mistakes") return "Mistakes Ledger entries created in the range";
+  if (metric === "mistakeStatuses") return "Mistakes Ledger status at the end of the selected range";
+  if (metric === "mistakeUpdates") return "Mistakes Ledger status changes in the selected range";
   if (metric === "revisions") return "completed spaced-repetition topics";
   if (metric === "journal") return "journal entries";
   if (metric === "rewardPurchases") return "reward redemption transactions";
@@ -180,6 +187,7 @@ function allActivityDays(state: DashboardWorkspaceState): string[] {
     ...(state.recoveryStressors ?? []).map((item) => item.localDate),
     ...state.corePrincipleDailyCheckIns.map((item) => item.localDate),
     ...state.mistakeLedgerEntries.map((item) => toLocalDate(item.createdAt, timezone)),
+    ...state.mistakeLedgerActivityLog.map((item) => item.actionDate),
     ...state.distractionLogs.map((item) => toLocalDate(item.occurredAt, timezone)),
     ...state.shadowGateEntries.map((item) => toLocalDate(item.occurredAt, timezone)),
     ...state.bosses.map((item) => toLocalDate(item.createdAt, timezone)),
@@ -282,6 +290,30 @@ function buildWorkspaceResult(state: DashboardWorkspaceState, widget: DashboardW
   if (widget.metric === "stressorIntensity" && featureAllows(widget, "recovery")) { const actionsByStressor = new Map<string, typeof state.recoveryActions>(); (state.recoveryActions ?? []).forEach((action) => actionsByStressor.set(action.stressorId, [...(actionsByStressor.get(action.stressorId) ?? []), action])); (state.recoveryStressors ?? []).forEach((stressor) => { const latest = actionsByStressor.get(stressor.id)?.at(-1); const value = latest?.afterIntensity ?? stressor.intensity; add(stressor.localDate, value, stressor.category || "Stressor", true); }); }
   if (widget.metric === "principles" && featureAllows(widget, "principles")) state.corePrincipleDailyCheckIns.forEach((checkIn) => { const total = checkIn.items.length; if (!total || checkIn.localDate < start || checkIn.localDate > end) return; const bucket = bucketFor(checkIn.localDate, granularity); if (!valuesByBucket.has(bucket)) return; denominatorsByBucket.set(bucket, (denominatorsByBucket.get(bucket) ?? 0) + total); valuesByBucket.set(bucket, (valuesByBucket.get(bucket) ?? 0) + checkIn.items.filter((item) => item.checked).length); });
   if (widget.metric === "mistakes" && featureAllows(widget, "ledger")) state.mistakeLedgerEntries.forEach((entry) => add(toLocalDate(entry.createdAt, state.profile.timezone), 1, entry.subject || "Ledger"));
+  if (widget.metric === "mistakeStatuses" && featureAllows(widget, "ledger")) {
+    const analytics = getMistakeLedgerAnalytics(state.mistakeLedgerEntries, state.mistakeLedgerActivityLog, start, end, state.profile.timezone);
+    const selectedStatus = widget.mistakeStatus ?? "all";
+    const endBucket = bucketFor(end, granularity);
+    MISTAKE_LEDGER_STATUSES.forEach((status) => {
+      if (selectedStatus !== "all" && selectedStatus !== status) return;
+      const value = analytics.counts[status];
+      if (!value || !valuesByBucket.has(endBucket)) return;
+      valuesByBucket.set(endBucket, (valuesByBucket.get(endBucket) ?? 0) + value);
+      recordSampleCount += value;
+      breakdownBySubject.set(MISTAKE_LEDGER_STATUS_LABELS[status], value);
+    });
+  }
+  if (widget.metric === "mistakeUpdates" && featureAllows(widget, "ledger")) {
+    const analytics = getMistakeLedgerAnalytics(state.mistakeLedgerEntries, state.mistakeLedgerActivityLog, start, end, state.profile.timezone);
+    const selectedStatus = widget.mistakeStatus ?? "all";
+    state.mistakeLedgerActivityLog
+      .filter((record) => record.kind === "status" && record.actionDate >= start && record.actionDate <= end)
+      .filter((record) => selectedStatus === "all" || record.status === selectedStatus)
+      .filter((record) => state.mistakeLedgerEntries.some((entry) => entry.id === record.entryId))
+      .forEach((record) => add(record.actionDate, 1, MISTAKE_LEDGER_STATUS_LABELS[record.status]));
+    // Keep the helper call intentional: it also validates the same end-date snapshot used by status widgets.
+    void analytics;
+  }
   if (widget.metric === "distractions" && featureAllows(widget, "missions")) state.distractionLogs.forEach((entry) => add(toLocalDate(entry.occurredAt, state.profile.timezone), 1, entry.category));
   if (widget.metric === "shadowGates" && featureAllows(widget, "missions")) state.shadowGateEntries.forEach((entry) => add(toLocalDate(entry.occurredAt, state.profile.timezone), 1, entry.doorwayLabel));
   if (widget.metric === "rewardPurchases" && featureAllows(widget, "rewards")) state.transactions.filter((transaction) => transaction.type === "purchase").forEach((transaction) => add(toLocalDate(transaction.occurredAt, state.profile.timezone), 1, "Rewards"));

@@ -14,6 +14,8 @@ import {
   DashboardDateRange,
   DashboardFeatureFilter,
   DashboardMetricId,
+  DashboardMistakeStatusFilter,
+  MISTAKE_LEDGER_STATUSES,
   DashboardWidgetConfig,
   type FocusState,
   shallowEqual,
@@ -21,6 +23,7 @@ import {
   useFocusCommandReady,
   useFocusCommandSelector,
 } from "@/lib/focus-command";
+import { MISTAKE_LEDGER_STATUS_LABELS } from "@/lib/mistake-ledger";
 import {
   DASHBOARD_CHART_TYPES,
   DASHBOARD_COMPARISON_RANGES,
@@ -44,7 +47,7 @@ function formatMetric(value: number, metric: DashboardMetricId, unit: string) {
 
 function normaliseWidget(widget: DashboardWidgetConfig): DashboardWidgetConfig {
   const legacyDateRange = widget.dateRange === "7d" ? "week" : widget.dateRange === "30d" ? "month" : widget.dateRange === "all" ? "lifetime" : widget.dateRange;
-  return { ...widget, dateRange: legacyDateRange, customStartDate: widget.customStartDate ?? "", customEndDate: widget.customEndDate ?? "", comparisonRange: widget.comparisonRange ?? "off", comparisonStartDate: widget.comparisonStartDate ?? "", comparisonEndDate: widget.comparisonEndDate ?? "" };
+  return { ...widget, dateRange: legacyDateRange, customStartDate: widget.customStartDate ?? "", customEndDate: widget.customEndDate ?? "", mistakeStatus: widget.mistakeStatus ?? "all", comparisonRange: widget.comparisonRange ?? "off", comparisonStartDate: widget.comparisonStartDate ?? "", comparisonEndDate: widget.comparisonEndDate ?? "" };
 }
 
 export default function CustomDashboardScreen() {
@@ -69,10 +72,11 @@ export default function CustomDashboardScreen() {
     screenTimeLogs: state.screenTimeLogs,
     corePrincipleDailyCheckIns: state.corePrincipleDailyCheckIns,
     mistakeLedgerEntries: state.mistakeLedgerEntries,
+    mistakeLedgerActivityLog: state.mistakeLedgerActivityLog,
     distractionLogs: state.distractionLogs,
     shadowGateEntries: state.shadowGateEntries,
     bosses: state.bosses,
-  }), shallowEqual) as Pick<FocusState, "profile" | "missions" | "missionCompletions" | "progression" | "reflections" | "journals" | "transactions" | "srsTopics" | "calendarActivities" | "recoveryStressors" | "recoveryActions" | "sleepLogs" | "napLogs" | "screenTimeLogs" | "corePrincipleDailyCheckIns" | "mistakeLedgerEntries" | "distractionLogs" | "shadowGateEntries" | "bosses">;
+  }), shallowEqual) as Pick<FocusState, "profile" | "missions" | "missionCompletions" | "progression" | "reflections" | "journals" | "transactions" | "srsTopics" | "calendarActivities" | "recoveryStressors" | "recoveryActions" | "sleepLogs" | "napLogs" | "screenTimeLogs" | "corePrincipleDailyCheckIns" | "mistakeLedgerEntries" | "mistakeLedgerActivityLog" | "distractionLogs" | "shadowGateEntries" | "bosses">;
   const [expandedWidgetId, setExpandedWidgetId] = useState<string | null>(null);
   const widgets = useMemo(() => workspaceState.profile.dashboardWidgets.map(normaliseWidget), [workspaceState.profile.dashboardWidgets]);
   const subjects = useMemo(() => workspaceSubjects(workspaceState), [workspaceState]);
@@ -181,7 +185,7 @@ function DashboardWidgetCard({
   expanded: boolean;
   subjects: string[];
   categories: string[];
-  workspaceState: Pick<FocusState, "profile" | "missions" | "missionCompletions" | "progression" | "reflections" | "journals" | "transactions" | "srsTopics" | "calendarActivities" | "recoveryStressors" | "recoveryActions" | "sleepLogs" | "napLogs" | "screenTimeLogs" | "corePrincipleDailyCheckIns" | "mistakeLedgerEntries" | "distractionLogs" | "shadowGateEntries" | "bosses">;
+  workspaceState: Pick<FocusState, "profile" | "missions" | "missionCompletions" | "progression" | "reflections" | "journals" | "transactions" | "srsTopics" | "calendarActivities" | "recoveryStressors" | "recoveryActions" | "sleepLogs" | "napLogs" | "screenTimeLogs" | "corePrincipleDailyCheckIns" | "mistakeLedgerEntries" | "mistakeLedgerActivityLog" | "distractionLogs" | "shadowGateEntries" | "bosses">;
   onToggle: () => void;
   onUpdate: (patch: Partial<DashboardWidgetConfig>) => void;
   onInputFocus: TextInputProps["onFocus"];
@@ -226,6 +230,7 @@ function DashboardWidgetCard({
         {widget.comparisonRange === "custom" ? <CalendarDateRangeField label="Choose comparison dates" startDate={widget.comparisonStartDate ?? ""} endDate={widget.comparisonEndDate ?? ""} onChange={(comparisonStartDate, comparisonEndDate) => onUpdate({ comparisonStartDate, comparisonEndDate })} /> : null}
         <Text style={[styles.dateHint, { color: colors.muted }]}>{widget.comparisonRange === "off" || !widget.comparisonRange ? "Comparison is optional. When enabled, every chart keeps the primary data and shows the comparison result beside it." : "The comparison uses the same metric, chart filters, and selected chart style against the chosen period."}</Text>
 
+        {(widget.metric === "mistakeStatuses" || widget.metric === "mistakeUpdates") ? <OptionGroup label="Mistake status" items={[{ id: "all", label: "All statuses" }, ...MISTAKE_LEDGER_STATUSES.map((status) => ({ id: status, label: MISTAKE_LEDGER_STATUS_LABELS[status] }))]} selected={widget.mistakeStatus ?? "all"} accent={accent} onChange={(mistakeStatus) => onUpdate({ mistakeStatus: mistakeStatus as DashboardMistakeStatusFilter })} /> : null}
         <OptionGroup label="Feature source" items={DASHBOARD_FEATURE_FILTERS} selected={widget.feature} accent={accent} onChange={(value) => onUpdate({ feature: value as DashboardFeatureFilter })} />
         <OptionGroup label="Subject" items={[{ id: "all", label: "All subjects" }, ...subjects.map((subject) => ({ id: subject, label: subject }))]} selected={widget.subject} accent={accent} onChange={(subject) => onUpdate({ subject })} />
         <OptionGroup label="Category" items={[{ id: "all", label: "All categories" }, ...categories.map((category) => ({ id: category, label: category }))]} selected={widget.category} accent={accent} onChange={(category) => onUpdate({ category })} />
