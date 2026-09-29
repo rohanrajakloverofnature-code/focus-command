@@ -1,4 +1,5 @@
 export const PERSONAL_GRAPH_MAX_SLOTS = 20;
+export const PERSONAL_GRAPH_INITIAL_SLOTS = 5;
 export const PERSONAL_GRAPH_MAX_LINES = 4;
 export const PERSONAL_GRAPH_MAX_POINTS_PER_LINE = 2_400;
 export const PERSONAL_GRAPH_CHART_POINT_LIMIT = 240;
@@ -45,8 +46,9 @@ export interface PersonalGraphPointDraft {
   yValue: number;
 }
 
-export function createDefaultPersonalGraphs(createdAt: string): PersonalGraph[] {
-  return Array.from({ length: PERSONAL_GRAPH_MAX_SLOTS }, (_, index) => {
+export function createDefaultPersonalGraphs(createdAt: string, count = PERSONAL_GRAPH_INITIAL_SLOTS): PersonalGraph[] {
+  const safeCount = Math.max(0, Math.min(PERSONAL_GRAPH_MAX_SLOTS, Math.floor(count)));
+  return Array.from({ length: safeCount }, (_, index) => {
     const title = index === 0 ? "Growth Signals" : index === 1 ? "Focus Signals" : index === 2 ? "Custom Signals" : `New Graph ${index + 1}`;
     return ({
     id: `personal_graph_${index + 1}`,
@@ -140,7 +142,25 @@ export function normalizePersonalGraphs(input: unknown, defaults: PersonalGraph[
     }];
   });
   const byId = new Map(normalized.map((graph) => [graph.id, graph]));
-  return defaults.map((fallback) => byId.get(fallback.id) ?? fallback);
+  const targetCount = Math.max(defaults.length, normalized.length);
+  const fallbackSlots = targetCount > defaults.length
+    ? createDefaultPersonalGraphs(defaults[0]?.createdAt ?? new Date(0).toISOString(), targetCount)
+    : defaults;
+  const complete = fallbackSlots.slice(0, targetCount).map((fallback) => byId.get(fallback.id) ?? fallback);
+  let lastVisibleIndex = Math.min(PERSONAL_GRAPH_INITIAL_SLOTS, complete.length) - 1;
+  complete.forEach((graph, index) => {
+    const fallback = fallbackSlots[index];
+    const isUntouchedBlankSlot = index >= PERSONAL_GRAPH_INITIAL_SLOTS
+      && graph.lines.length === 0
+      && graph.points.length === 0
+      && graph.title === fallback.title
+      && graph.xAxisLabel === "Date"
+      && graph.yAxisLabel === "Value"
+      && graph.datePrecision === "date"
+      && graph.enabled;
+    if (!isUntouchedBlankSlot) lastVisibleIndex = index;
+  });
+  return complete.slice(0, lastVisibleIndex + 1);
 }
 
 function rangeStart(range: PersonalGraphRange, end: Date) {

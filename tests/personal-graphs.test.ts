@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   PERSONAL_GRAPH_CHART_POINT_LIMIT,
+  PERSONAL_GRAPH_INITIAL_SLOTS,
   PERSONAL_GRAPH_MAX_SLOTS,
   createDefaultPersonalGraphs,
   downsamplePersonalGraphPoints,
@@ -44,23 +45,29 @@ describe("Personal Graphs", () => {
     expect(parsePersonalGraphDate("2026-13", "month")).toBeNull();
   });
 
-  it("keeps twenty independent editable graph slots, preserves the original three, and retains the four-line limit", () => {
+  it("starts with five slots, expands to twenty for existing saved graphs, and retains the four-line limit", () => {
     const defaults = createDefaultPersonalGraphs(CREATED);
+    expect(defaults).toHaveLength(PERSONAL_GRAPH_INITIAL_SLOTS);
+    const twentySlotDefaults = createDefaultPersonalGraphs(CREATED, PERSONAL_GRAPH_MAX_SLOTS);
     const graph = graphWithPoints();
     const normalized = normalizePersonalGraphs([{
       ...graph,
       lines: [...graph.lines, { id: "confidence", name: "Confidence", color: "#F4C95D" }, { id: "hours", name: "Revision hours", color: "#FFAA4C" }, { id: "extra", name: "Ignored", color: "#A78BFA" }],
-    }], defaults);
+    }], twentySlotDefaults);
 
     expect(PERSONAL_GRAPH_MAX_SLOTS).toBe(20);
-    expect(defaults).toHaveLength(PERSONAL_GRAPH_MAX_SLOTS);
-    expect(normalized).toHaveLength(PERSONAL_GRAPH_MAX_SLOTS);
+    expect(twentySlotDefaults).toHaveLength(PERSONAL_GRAPH_MAX_SLOTS);
+    expect(normalized).toHaveLength(PERSONAL_GRAPH_INITIAL_SLOTS);
     expect(normalized[0]).toMatchObject({ title: "Exam preparation", xAxisLabel: "Practice month", yAxisLabel: "Score", datePrecision: "month" });
     expect(normalized[0].lines.map((line) => line.name)).toEqual(["Mock score", "Silly mistakes", "Confidence", "Revision hours"]);
     expect(normalized[0].points.filter((point) => point.xValue === "2026-08")).toHaveLength(2);
     expect(normalized[1].points).toEqual([]);
-    expect(normalized.slice(3, 6).map((slot) => slot.id)).toEqual(["personal_graph_4", "personal_graph_5", "personal_graph_6"]);
-    expect(normalized[19].id).toBe("personal_graph_20");
+    expect(normalized.slice(3, 6).map((slot) => slot.id)).toEqual(["personal_graph_4", "personal_graph_5"]);
+    expect(normalized.at(-1)?.id).toBe("personal_graph_5");
+
+    const expanded = normalizePersonalGraphs([...twentySlotDefaults.slice(0, 19), { ...twentySlotDefaults[19], title: "Long-term signals" }], defaults);
+    expect(expanded).toHaveLength(PERSONAL_GRAPH_MAX_SLOTS);
+    expect(expanded[19].title).toBe("Long-term signals");
   });
 
   it("keeps every saved five-year point while only filtering the displayed time range", () => {

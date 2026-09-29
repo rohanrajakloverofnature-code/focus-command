@@ -19,6 +19,7 @@ import {
   type SuperDashboardRangeKind,
   type SuperDashboardState,
 } from "@/lib/super-dashboard";
+import { formatComparisonCell, formatComparisonDelta, getSuperDashboardComparison, type SuperDashboardComparisonPreset } from "@/lib/super-dashboard-comparison";
 
 const RANGE_ROWS: { id: SuperDashboardRangeKind; label: string }[][] = [
   [
@@ -47,6 +48,7 @@ function selectSuperDashboardState(state: SuperDashboardState): SuperDashboardSt
     profile: state.profile,
     missions: state.missions,
     missionCompletions: state.missionCompletions,
+    calendarActivities: state.calendarActivities,
     reflections: state.reflections,
     srsActivityLog: state.srsActivityLog,
     corePrincipleDailyCheckIns: state.corePrincipleDailyCheckIns,
@@ -134,6 +136,11 @@ export default function SuperDashboardScreen() {
   const [customEnd, setCustomEnd] = useState("");
   const [signalMode, setSignalMode] = useState<SignalMode>("attention");
   const [calendarComparisonKind, setCalendarComparisonKind] = useState<CalendarComparisonKind>("week");
+  const [comparisonPreset, setComparisonPreset] = useState<SuperDashboardComparisonPreset>("yesterday");
+  const [comparisonCurrentStart, setComparisonCurrentStart] = useState("");
+  const [comparisonCurrentEnd, setComparisonCurrentEnd] = useState("");
+  const [comparisonPreviousStart, setComparisonPreviousStart] = useState("");
+  const [comparisonPreviousEnd, setComparisonPreviousEnd] = useState("");
 
   const summary = useMemo(
     () => getSuperDashboardSummary(state, rangeKind, customStart, customEnd),
@@ -154,6 +161,11 @@ export default function SuperDashboardScreen() {
     () => summary.activity.categories.slice(0, 8).map((category, index) => ({ label: category.label.replace("Focus · ", ""), value: category.minutes / 60, color: CATEGORY_COLORS[index % CATEGORY_COLORS.length] })),
     [summary.activity.categories],
   );
+  const comparison = useMemo(
+    () => getSuperDashboardComparison(state, comparisonPreset, comparisonCurrentStart, comparisonCurrentEnd, comparisonPreviousStart, comparisonPreviousEnd),
+    [comparisonCurrentEnd, comparisonCurrentStart, comparisonPreset, comparisonPreviousEnd, comparisonPreviousStart, state],
+  );
+  const comparisonSections = useMemo(() => Array.from(new Set(comparison.rows.map((row) => row.section))), [comparison.rows]);
 
   if (!ready) return <LoadingScreen label="Building your local Super Dashboard…" />;
 
@@ -180,6 +192,21 @@ export default function SuperDashboardScreen() {
           </View>)}
         </View>
         {rangeKind === "custom" ? <CalendarDateRangeField label="Choose Super Dashboard period" startDate={customStart} endDate={customEnd} onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} /> : null}
+
+        <SectionHeader title="Compare periods" />
+        <CommandCard accent={colors.primary} style={styles.comparisonCard}>
+          <Text style={[styles.cardTitle, { color: colors.foreground }]}>Everything side by side</Text>
+          <Text style={[styles.cardDetail, { color: colors.muted }]}>Compare every Super Dashboard parameter without changing the selected dashboard view. Missing evidence stays as — and is never converted into zero.</Text>
+          <View style={styles.comparisonPresetRow}>{(["yesterday", "week", "month", "custom"] as SuperDashboardComparisonPreset[]).map((preset) => <Pressable key={preset} onPress={() => setComparisonPreset(preset)} style={({ pressed }) => [styles.comparisonPreset, { borderColor: comparisonPreset === preset ? colors.primary : colors.border, backgroundColor: comparisonPreset === preset ? `${colors.primary}18` : colors.background, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.comparisonPresetText, { color: comparisonPreset === preset ? colors.primary : colors.muted }]}>{preset === "yesterday" ? "YESTERDAY" : preset.toUpperCase()}</Text></Pressable>)}</View>
+          {comparisonPreset === "custom" ? <View style={styles.comparisonCustomStack}>
+            <CalendarDateRangeField label="Period A · current" startDate={comparisonCurrentStart} endDate={comparisonCurrentEnd} onChange={(start, end) => { setComparisonCurrentStart(start); setComparisonCurrentEnd(end); }} />
+            <CalendarDateRangeField label="Period B · previous" startDate={comparisonPreviousStart} endDate={comparisonPreviousEnd} onChange={(start, end) => { setComparisonPreviousStart(start); setComparisonPreviousEnd(end); }} />
+          </View> : null}
+          {!comparison.valid ? <Text style={[styles.comparisonMessage, { color: colors.warning }]}>Choose both complete custom date ranges to see the comparison.</Text> : <>
+            <View style={styles.comparisonPeriodHeading}><Text style={[styles.comparisonPeriodLabel, { color: colors.primary }]}>A · {comparison.currentRange.startDate} → {comparison.currentRange.endDate}</Text><Text style={[styles.comparisonPeriodLabel, { color: colors.success }]}>B · {comparison.previousRange.startDate} → {comparison.previousRange.endDate}</Text></View>
+            {comparisonSections.map((section) => <View key={section} style={styles.comparisonSection}><Text style={[styles.comparisonSectionTitle, { color: colors.foreground }]}>{section}</Text>{comparison.rows.filter((row) => row.section === section).map((row) => <View key={row.id} style={[styles.comparisonRow, { borderBottomColor: colors.border }]}><Text style={[styles.comparisonMetricLabel, { color: colors.muted }]}>{row.label}</Text><Text style={[styles.comparisonValue, { color: colors.primary }]}>{formatComparisonCell(row.current, row.format)}</Text><Text style={[styles.comparisonValue, { color: colors.success }]}>{formatComparisonCell(row.previous, row.format)}</Text><Text style={[styles.comparisonDelta, { color: row.delta === null ? colors.muted : row.delta >= 0 ? colors.success : colors.warning }]}>{formatComparisonDelta(row.delta, row.format)}</Text></View>)}</View>)}
+          </>}
+        </CommandCard>
 
         {rangeIsCustomInvalid ? <CommandCard accent={colors.warning} style={styles.messageCard}>
           <Text style={[styles.messageTitle, { color: colors.foreground }]}>Choose a valid custom period</Text>
@@ -311,6 +338,20 @@ const styles = StyleSheet.create({
   rangeRow: { flexDirection: "row", gap: 7 },
   rangeChip: { flex: 1, minWidth: 0, minHeight: 39, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
   rangeChipText: { alignSelf: "stretch", textAlign: "center", fontSize: 10, lineHeight: 13, fontWeight: "900", letterSpacing: 0.18 },
+  comparisonCard: { gap: 9 },
+  comparisonPresetRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  comparisonPreset: { minHeight: 32, borderRadius: 9, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 9, justifyContent: "center" },
+  comparisonPresetText: { fontSize: 8, lineHeight: 11, fontWeight: "900", letterSpacing: 0.45 },
+  comparisonCustomStack: { gap: 8 },
+  comparisonMessage: { fontSize: 11, lineHeight: 16, fontWeight: "800" },
+  comparisonPeriodHeading: { gap: 3, paddingVertical: 4 },
+  comparisonPeriodLabel: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.4 },
+  comparisonSection: { gap: 2, marginTop: 5 },
+  comparisonSectionTitle: { fontSize: 12, lineHeight: 16, fontWeight: "900", marginTop: 5 },
+  comparisonRow: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 7, borderBottomWidth: StyleSheet.hairlineWidth },
+  comparisonMetricLabel: { flex: 1.5, minWidth: 0, fontSize: 9, lineHeight: 12, fontWeight: "700" },
+  comparisonValue: { flex: 0.8, minWidth: 0, textAlign: "right", fontSize: 9, lineHeight: 12, fontWeight: "900" },
+  comparisonDelta: { flex: 0.65, minWidth: 0, textAlign: "right", fontSize: 8, lineHeight: 11, fontWeight: "900" },
   customRow: { flexDirection: "row", gap: 8 },
   dateInput: { flex: 1, minHeight: 43, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 10, fontSize: 11, lineHeight: 14, fontWeight: "700" },
   messageCard: { gap: 5 },

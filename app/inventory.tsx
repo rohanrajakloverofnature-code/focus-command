@@ -32,20 +32,20 @@ export default function InventoryScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <ScreenTitle
           eyebrow="Command armory"
-          title="Active inventory"
-          detail="Rewards you earn or redeem remain here until their effect is consumed."
+          title="Command armory"
+          detail="All available, equipped, and queued rewards remain here until their effect is consumed."
           right={<IconAction icon="xmark" label="Back to rewards" onPress={() => router.back()} />}
         />
 
         <CommandCard accent={colors.primary} style={styles.summaryCard}>
           <View style={styles.summaryIcon}><IconSymbol name="shield.fill" size={24} color={colors.primary} /></View>
           <View style={styles.summaryCopy}>
-            <Text style={[styles.summaryTitle, { color: colors.foreground }]}>{active.length} active item{active.length === 1 ? "" : "s"}</Text>
-            <Text style={[styles.summaryDetail, { color: colors.muted }]}>Open this armory from Rewards whenever you want to see equipped gear and scheduled gold boosts.</Text>
+            <Text style={[styles.summaryTitle, { color: colors.foreground }]}>{active.length} available item{active.length === 1 ? "" : "s"}</Text>
+            <Text style={[styles.summaryDetail, { color: colors.muted }]}>This is the complete armory count. Rewards Vault separately shows only today&apos;s active Life rewards.</Text>
           </View>
         </CommandCard>
 
-        <SectionHeader title="Equipped & queued" action="Rewards" onAction={() => router.push("/rewards")} />
+        <SectionHeader title="Available, equipped & queued" action="Rewards" onAction={() => router.push("/rewards")} />
         {active.length ? <View style={styles.stack}>
           {active.map(({ item, reward }) => <CommandCard key={item.id} accent={reward.category === "multiplier" ? "#F4C95D" : colors.primary} style={styles.itemCard}>
             <View style={[styles.itemIcon, { backgroundColor: reward.category === "multiplier" ? "#F4C95D1A" : `${colors.primary}18` }]}>

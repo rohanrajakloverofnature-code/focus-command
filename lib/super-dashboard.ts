@@ -28,6 +28,7 @@ export type SuperDashboardState = Pick<FocusState,
   | "profile"
   | "missions"
   | "missionCompletions"
+  | "calendarActivities"
   | "reflections"
   | "srsActivityLog"
   | "corePrincipleDailyCheckIns"

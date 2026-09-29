@@ -133,7 +133,7 @@ function personalGraphTimestamp(xValue: string, precision: PersonalGraph["datePr
 export const PersonalGraphTrendChart = memo(function PersonalGraphTrendChart({ graph, range, height = 174, accessibilityLabel }: { graph: PersonalGraph; range: PersonalGraphRange; height?: number; accessibilityLabel: string }) {
   const colors = useColors();
   const { width: windowWidth } = useWindowDimensions();
-  const width = Math.max(240, windowWidth - 66);
+  const width = Math.max(220, windowWidth - 94);
   const padding = { top: 15, right: 10, bottom: 22, left: 8 };
   const chartHeight = height - padding.top - padding.bottom;
   const chartWidth = width - padding.left - padding.right;
@@ -143,7 +143,9 @@ export const PersonalGraphTrendChart = memo(function PersonalGraphTrendChart({ g
   const values = series.flatMap((line) => line.points.map((point) => point.yValue));
   const minimum = values.length ? Math.min(...values) : 0;
   const maximum = values.length ? Math.max(...values) : 1;
-  const rangeY = Math.max(1, maximum - minimum);
+  const paddedMinimum = minimum === maximum ? minimum - Math.max(1, Math.abs(minimum) * 0.1) : minimum;
+  const paddedMaximum = minimum === maximum ? maximum + Math.max(1, Math.abs(maximum) * 0.1) : maximum;
+  const paddedRangeY = Math.max(1, paddedMaximum - paddedMinimum);
   const xValues = Array.from(new Set(series.flatMap((line) => line.points.map((point) => point.xValue)))).sort();
   const xTimestamps = xValues.map((value) => personalGraphTimestamp(value, graph.datePrecision)).filter(Number.isFinite);
   const minimumX = xTimestamps.length ? Math.min(...xTimestamps) : 0;
@@ -152,29 +154,34 @@ export const PersonalGraphTrendChart = memo(function PersonalGraphTrendChart({ g
   const selected = series[Math.min(selectedLineIndex, Math.max(0, series.length - 1))];
   const latest = selected?.points.at(-1);
   const pointX = (xValue: string) => padding.left + ((personalGraphTimestamp(xValue, graph.datePrecision) - minimumX) / rangeX) * chartWidth;
-  const pointY = (value: number) => padding.top + chartHeight - ((value - minimum) / rangeY) * chartHeight;
+  const pointY = (value: number) => padding.top + chartHeight - ((value - paddedMinimum) / paddedRangeY) * chartHeight;
   const makePath = (points: typeof rangePoints) => points.map((point, index) => `${index === 0 ? "M" : "L"}${pointX(point.xValue).toFixed(2)} ${pointY(point.yValue).toFixed(2)}`).join(" ");
   const selectNearestLine = useCallback((locationX: number, locationY: number) => {
     let nearestLine = 0;
     let nearestDistance = Number.POSITIVE_INFINITY;
     series.forEach((line, lineIndex) => line.points.forEach((point) => {
       const x = padding.left + ((personalGraphTimestamp(point.xValue, graph.datePrecision) - minimumX) / rangeX) * chartWidth;
-      const y = padding.top + chartHeight - ((point.yValue - minimum) / rangeY) * chartHeight;
+      const y = padding.top + chartHeight - ((point.yValue - paddedMinimum) / paddedRangeY) * chartHeight;
       const distance = ((locationX - x) ** 2) + ((locationY - y) ** 2);
       if (distance < nearestDistance) { nearestDistance = distance; nearestLine = lineIndex; }
     }));
     setSelectedLineIndex(nearestLine);
-  }, [series, minimumX, rangeX, minimum, rangeY, chartHeight, chartWidth, graph.datePrecision, padding.left, padding.top]);
+  }, [series, minimumX, rangeX, paddedMinimum, paddedRangeY, chartHeight, chartWidth, graph.datePrecision, padding.left, padding.top]);
   const labelIndexes = xValues.length <= 4 ? xValues.map((_, index) => index) : [0, Math.floor((xValues.length - 1) / 2), xValues.length - 1];
 
+  const yLabels = [paddedMaximum, (paddedMaximum + paddedMinimum) / 2, paddedMinimum];
   return <View accessibilityRole="image" accessibilityLabel={accessibilityLabel}>
-    <Pressable accessibilityRole="button" accessibilityLabel={`Select line in ${accessibilityLabel}`} hitSlop={8} onPress={(event) => selectNearestLine(event.nativeEvent.locationX, event.nativeEvent.locationY)} style={styles.plotTap}>
-      <Svg width={width} height={height} pointerEvents="none">
-        {[0, 0.5, 1].map((fraction) => { const y = padding.top + chartHeight * fraction; return <Line key={fraction} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={colors.border} strokeWidth={1} opacity={0.65} />; })}
-        {series.map((line, index) => line.points.length > 1 ? <Path key={line.id} d={makePath(line.points)} fill="none" stroke={line.color} strokeWidth={index === selectedLineIndex ? 3.5 : 2.2} strokeLinecap="round" strokeLinejoin="round" opacity={index === selectedLineIndex ? 1 : 0.55} /> : null)}
-        {selected?.points.map((point) => <Circle key={point.id} cx={pointX(point.xValue)} cy={pointY(point.yValue)} r={3.8} fill={selected.color} stroke={colors.surface} strokeWidth={2} />)}
-      </Svg>
-    </Pressable>
+    <View style={styles.personalPlotRow}>
+      <View style={[styles.personalYAxis, { height }]}>{yLabels.map((value, index) => <Text key={index} numberOfLines={1} style={[styles.axisLabel, styles.personalYAxisLabel, { color: colors.muted }]}>{displayValue(value)}</Text>)}</View>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Select line in ${accessibilityLabel}`} hitSlop={8} onPress={(event) => selectNearestLine(event.nativeEvent.locationX, event.nativeEvent.locationY)} style={styles.plotTap}>
+        <Svg width={width} height={height} pointerEvents="none">
+          {[0, 0.5, 1].map((fraction) => { const y = padding.top + chartHeight * fraction; return <Line key={fraction} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={colors.border} strokeWidth={1} opacity={0.65} />; })}
+          {paddedMinimum < 0 && paddedMaximum > 0 ? <Line x1={padding.left} y1={pointY(0)} x2={width - padding.right} y2={pointY(0)} stroke={colors.warning} strokeWidth={1.2} strokeDasharray="4 4" opacity={0.8} /> : null}
+          {series.map((line, index) => line.points.length > 1 ? <Path key={line.id} d={makePath(line.points)} fill="none" stroke={line.color} strokeWidth={index === selectedLineIndex ? 3.5 : 2.2} strokeLinecap="round" strokeLinejoin="round" opacity={index === selectedLineIndex ? 1 : 0.55} /> : null)}
+          {selected?.points.map((point) => <Circle key={point.id} cx={pointX(point.xValue)} cy={pointY(point.yValue)} r={4.5} fill={selected.color} stroke={colors.surface} strokeWidth={2} />)}
+        </Svg>
+      </Pressable>
+    </View>
     <View style={styles.multiLegend}>{series.map((line, index) => <Pressable key={line.id} accessibilityRole="button" hitSlop={6} onPress={() => setSelectedLineIndex(index)} style={({ pressed }) => [styles.multiLegendItem, { opacity: pressed ? 0.65 : index === selectedLineIndex ? 1 : 0.58 }]}><View style={[styles.legendDot, { backgroundColor: line.color }]} /><Text style={[styles.axisLabel, { color: colors.muted }]}>{line.name}</Text></Pressable>)}</View>
     <ChartFocus label={`${selected?.name ?? graph.yAxisLabel} · ${latest?.xLabel ?? "No data"}`} value={latest?.yValue ?? 0} color={selected?.color ?? colors.primary} />
     <View style={styles.lineLabels}>{labelIndexes.map((index) => <Text key={`${xValues[index]}-${index}`} style={[styles.axisLabel, { color: colors.muted }]}>{xValues[index]}</Text>)}</View>
@@ -274,6 +281,9 @@ export const RadarChart = memo(function RadarChart({ points, color, size = 176, 
 
 const styles = StyleSheet.create({
   plotTap: { alignSelf: "flex-start" },
+  personalPlotRow: { flexDirection: "row", alignItems: "stretch", gap: 5 },
+  personalYAxis: { width: 30, justifyContent: "space-between", alignItems: "flex-end", paddingVertical: 8 },
+  personalYAxisLabel: { fontSize: 8, lineHeight: 11, textAlign: "right" },
   lineLabels: { flexDirection: "row", justifyContent: "space-between", marginTop: -3 },
   axisLabel: { fontSize: 9, lineHeight: 12, fontWeight: "700" },
   focusRow: { minHeight: 28, marginTop: 3, borderWidth: StyleSheet.hairlineWidth, borderRadius: 9, paddingHorizontal: 8, flexDirection: "row", alignItems: "center", gap: 6 },

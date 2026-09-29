@@ -98,7 +98,7 @@ describe("offline Focus Command backup format", () => {
     expect(parsed.state.corePrincipleItems).toEqual(state.corePrincipleItems);
     expect(parsed.state.corePrincipleDailyCheckIns).toEqual(state.corePrincipleDailyCheckIns);
     expect(parsed.state.personalGraphs).toEqual(state.personalGraphs);
-    expect(parsed.state.personalGraphs).toHaveLength(20);
+    expect(parsed.state.personalGraphs).toHaveLength(state.personalGraphs.length);
     expect(parsed.state.customQuestions[0].personalSignal).toEqual({ enabled: true, role: "supportive", includeInProjection: true });
     expect(parsed.state.characterMilestones).toEqual(state.characterMilestones);
     expect(parsed.state.recoveryStressors).toEqual(state.recoveryStressors);
@@ -233,7 +233,7 @@ describe("offline Focus Command backup format", () => {
     expect(restored.calendarActivities).toEqual([]);
     expect(restored.mistakeLedgerEntries).toEqual([]);
     expect(restored.recoveryStressors).toEqual([]);
-    expect(restored.personalGraphs).toHaveLength(20);
+    expect(restored.personalGraphs).toHaveLength(current.personalGraphs.length);
     expect(restored.profile.firstName).toBe(current.profile.firstName);
     expect(restored.profile.timezone).toBe(current.profile.timezone);
   });

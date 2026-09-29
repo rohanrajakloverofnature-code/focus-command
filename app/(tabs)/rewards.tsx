@@ -150,11 +150,11 @@ export default function RewardsScreen() {
             <View style={styles.inventoryHeading}>
               <TapFeedback onPress={() => router.push("/inventory" as never)} accessibilityLabel="Open active inventory and armory" style={styles.inventoryArmoryLink}>
                 <View>
-                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78} style={[styles.inventoryTitle, { color: colors.foreground }]}>Active inventory</Text>
+                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78} style={[styles.inventoryTitle, { color: colors.foreground }]}>Today&apos;s Life rewards</Text>
                   <Text numberOfLines={1} style={[styles.inventoryArmoryText, { color: colors.primary }]}>Open armory ›</Text>
                 </View>
               </TapFeedback>
-              <StatusPill label={`${activeInventory.length} ACTIVE`} tone="primary" icon="shield.fill" />
+              <StatusPill label={`${activeInventory.length} TODAY ACTIVE`} tone="primary" icon="shield.fill" />
             </View>
             {activeInventory.map(({ item, reward, acquiredDate }) => (
               <View key={item.id} style={styles.inventoryItem}>

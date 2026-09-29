@@ -18,6 +18,7 @@ import {
   normalizePersonalGraphs,
   parsePersonalGraphDate,
   PERSONAL_GRAPH_COLORS,
+  PERSONAL_GRAPH_MAX_SLOTS,
   PERSONAL_GRAPH_MAX_LINES,
   PERSONAL_GRAPH_MAX_POINTS_PER_LINE,
   type PersonalGraph,
@@ -2626,6 +2627,7 @@ interface FocusCommandContextValue {
   updateCustomQuestion: (questionId: string, patch: Partial<Omit<CustomQuestion, "id">>) => void;
   removeCustomQuestion: (questionId: string) => void;
   updateCustomGraph: (graphId: string, patch: Partial<CustomGraph>) => void;
+  addPersonalGraph: () => boolean;
   updatePersonalGraph: (graphId: string, patch: Partial<Pick<PersonalGraph, "title" | "xAxisLabel" | "yAxisLabel" | "datePrecision" | "enabled">>) => void;
   addPersonalGraphLine: (graphId: string, name: string, color?: PersonalGraphLine["color"]) => string | null;
   updatePersonalGraphLine: (graphId: string, lineId: string, patch: Partial<Pick<PersonalGraphLine, "name" | "color">>) => void;
@@ -4640,6 +4642,18 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     }));
   }, [commit]);
 
+  const addPersonalGraph = useCallback(() => {
+    let created = false;
+    commit((current) => {
+      if (current.personalGraphs.length >= PERSONAL_GRAPH_MAX_SLOTS) return current;
+      const nextGraph = createDefaultPersonalGraphs(nowIso(), current.personalGraphs.length + 1).at(-1);
+      if (!nextGraph) return current;
+      created = true;
+      return withQueuedOperation({ ...current, personalGraphs: [...current.personalGraphs, nextGraph] });
+    });
+    return created;
+  }, [commit]);
+
   const addPersonalGraphLine = useCallback((graphId: string, name: string, color?: PersonalGraphLine["color"]) => {
     const cleanName = name.trim().slice(0, 56);
     if (!cleanName) return null;
@@ -4832,6 +4846,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const actions = useMemo<FocusCommandActions>(() => ({
+    addPersonalGraph,
     updatePersonalGraph,
     addPersonalGraphLine,
     updatePersonalGraphLine,
@@ -4920,6 +4935,7 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     getEquippedItems,
     restoreOfflineBackup,
   }), [
+    addPersonalGraph,
     getCurrentState,
     createMission,
     updateMission,
