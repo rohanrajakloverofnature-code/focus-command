@@ -141,6 +141,7 @@ export default function SuperDashboardScreen() {
   const [comparisonCurrentEnd, setComparisonCurrentEnd] = useState("");
   const [comparisonPreviousStart, setComparisonPreviousStart] = useState("");
   const [comparisonPreviousEnd, setComparisonPreviousEnd] = useState("");
+  const [comparisonExpanded, setComparisonExpanded] = useState(false);
 
   const summary = useMemo(
     () => getSuperDashboardSummary(state, rangeKind, customStart, customEnd),
@@ -192,21 +193,6 @@ export default function SuperDashboardScreen() {
           </View>)}
         </View>
         {rangeKind === "custom" ? <CalendarDateRangeField label="Choose Super Dashboard period" startDate={customStart} endDate={customEnd} onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} /> : null}
-
-        <SectionHeader title="Compare periods" />
-        <CommandCard accent={colors.primary} style={styles.comparisonCard}>
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>Everything side by side</Text>
-          <Text style={[styles.cardDetail, { color: colors.muted }]}>Compare every Super Dashboard parameter without changing the selected dashboard view. Missing evidence stays as — and is never converted into zero.</Text>
-          <View style={styles.comparisonPresetRow}>{(["yesterday", "week", "month", "custom"] as SuperDashboardComparisonPreset[]).map((preset) => <Pressable key={preset} onPress={() => setComparisonPreset(preset)} style={({ pressed }) => [styles.comparisonPreset, { borderColor: comparisonPreset === preset ? colors.primary : colors.border, backgroundColor: comparisonPreset === preset ? `${colors.primary}18` : colors.background, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.comparisonPresetText, { color: comparisonPreset === preset ? colors.primary : colors.muted }]}>{preset === "yesterday" ? "YESTERDAY" : preset.toUpperCase()}</Text></Pressable>)}</View>
-          {comparisonPreset === "custom" ? <View style={styles.comparisonCustomStack}>
-            <CalendarDateRangeField label="Period A · current" startDate={comparisonCurrentStart} endDate={comparisonCurrentEnd} onChange={(start, end) => { setComparisonCurrentStart(start); setComparisonCurrentEnd(end); }} />
-            <CalendarDateRangeField label="Period B · previous" startDate={comparisonPreviousStart} endDate={comparisonPreviousEnd} onChange={(start, end) => { setComparisonPreviousStart(start); setComparisonPreviousEnd(end); }} />
-          </View> : null}
-          {!comparison.valid ? <Text style={[styles.comparisonMessage, { color: colors.warning }]}>Choose both complete custom date ranges to see the comparison.</Text> : <>
-            <View style={styles.comparisonPeriodHeading}><Text style={[styles.comparisonPeriodLabel, { color: colors.primary }]}>A · {comparison.currentRange.startDate} → {comparison.currentRange.endDate}</Text><Text style={[styles.comparisonPeriodLabel, { color: colors.success }]}>B · {comparison.previousRange.startDate} → {comparison.previousRange.endDate}</Text></View>
-            {comparisonSections.map((section) => <View key={section} style={styles.comparisonSection}><Text style={[styles.comparisonSectionTitle, { color: colors.foreground }]}>{section}</Text>{comparison.rows.filter((row) => row.section === section).map((row) => <View key={row.id} style={[styles.comparisonRow, { borderBottomColor: colors.border }]}><Text style={[styles.comparisonMetricLabel, { color: colors.muted }]}>{row.label}</Text><Text style={[styles.comparisonValue, { color: colors.primary }]}>{formatComparisonCell(row.current, row.format)}</Text><Text style={[styles.comparisonValue, { color: colors.success }]}>{formatComparisonCell(row.previous, row.format)}</Text><Text style={[styles.comparisonDelta, { color: row.delta === null ? colors.muted : row.delta >= 0 ? colors.success : colors.warning }]}>{formatComparisonDelta(row.delta, row.format)}</Text></View>)}</View>)}
-          </>}
-        </CommandCard>
 
         {rangeIsCustomInvalid ? <CommandCard accent={colors.warning} style={styles.messageCard}>
           <Text style={[styles.messageTitle, { color: colors.foreground }]}>Choose a valid custom period</Text>
@@ -322,6 +308,28 @@ export default function SuperDashboardScreen() {
             <Text style={[styles.evidenceText, { color: colors.muted }]}>{summary.evidence.note}</Text>
           </CommandCard>
         </>}
+        <SectionHeader title="Compare periods" />
+        <CommandCard accent={colors.primary} style={styles.comparisonCard}>
+          <Pressable accessibilityRole="button" accessibilityState={{ expanded: comparisonExpanded }} accessibilityLabel={`${comparisonExpanded ? "Collapse" : "Expand"} Super Dashboard period comparison`} onPress={() => setComparisonExpanded((expanded) => !expanded)} style={({ pressed }) => [styles.comparisonToggle, { opacity: pressed ? 0.72 : 1 }]}>
+            <View style={styles.comparisonToggleCopy}>
+              <Text style={[styles.cardTitle, { color: colors.foreground }]}>Everything side by side</Text>
+              <Text style={[styles.cardDetail, { color: colors.muted }]}>{comparisonExpanded ? "Compare every Super Dashboard parameter." : "Tap to expand the complete comparison."}</Text>
+            </View>
+            <Text style={[styles.comparisonToggleIcon, { color: colors.primary }]}>{comparisonExpanded ? "⌃" : "⌄"}</Text>
+          </Pressable>
+          {comparisonExpanded ? <View style={styles.comparisonExpandedBody}>
+            <Text style={[styles.cardDetail, { color: colors.muted }]}>Missing evidence stays as — and is never converted into zero.</Text>
+            <View style={styles.comparisonPresetRow}>{(["yesterday", "week", "month", "custom"] as SuperDashboardComparisonPreset[]).map((preset) => <Pressable key={preset} onPress={() => setComparisonPreset(preset)} style={({ pressed }) => [styles.comparisonPreset, { borderColor: comparisonPreset === preset ? colors.primary : colors.border, backgroundColor: comparisonPreset === preset ? `${colors.primary}18` : colors.background, opacity: pressed ? 0.72 : 1 }]}><Text style={[styles.comparisonPresetText, { color: comparisonPreset === preset ? colors.primary : colors.muted }]}>{preset === "yesterday" ? "YESTERDAY" : preset.toUpperCase()}</Text></Pressable>)}</View>
+            {comparisonPreset === "custom" ? <View style={styles.comparisonCustomStack}>
+              <CalendarDateRangeField label="Period A · current" startDate={comparisonCurrentStart} endDate={comparisonCurrentEnd} onChange={(start, end) => { setComparisonCurrentStart(start); setComparisonCurrentEnd(end); }} />
+              <CalendarDateRangeField label="Period B · previous" startDate={comparisonPreviousStart} endDate={comparisonPreviousEnd} onChange={(start, end) => { setComparisonPreviousStart(start); setComparisonPreviousEnd(end); }} />
+            </View> : null}
+            {!comparison.valid ? <Text style={[styles.comparisonMessage, { color: colors.warning }]}>Choose both complete custom date ranges to see the comparison.</Text> : <>
+              <View style={styles.comparisonPeriodHeading}><Text style={[styles.comparisonPeriodLabel, { color: colors.primary }]}>A · {comparison.currentRange.startDate} → {comparison.currentRange.endDate}</Text><Text style={[styles.comparisonPeriodLabel, { color: colors.success }]}>B · {comparison.previousRange.startDate} → {comparison.previousRange.endDate}</Text></View>
+              {comparisonSections.map((section) => <View key={section} style={styles.comparisonSection}><Text style={[styles.comparisonSectionTitle, { color: colors.foreground }]}>{section}</Text>{comparison.rows.filter((row) => row.section === section).map((row) => <View key={row.id} style={[styles.comparisonRow, { borderBottomColor: colors.border }]}><Text style={[styles.comparisonMetricLabel, { color: colors.muted }]}>{row.label}</Text><Text style={[styles.comparisonValue, { color: colors.primary }]}>{formatComparisonCell(row.current, row.format)}</Text><Text style={[styles.comparisonValue, { color: colors.success }]}>{formatComparisonCell(row.previous, row.format)}</Text><Text style={[styles.comparisonDelta, { color: row.delta === null ? colors.muted : row.delta >= 0 ? colors.success : colors.warning }]}>{formatComparisonDelta(row.delta, row.format)}</Text></View>)}</View>)}
+            </>}
+          </View> : null}
+        </CommandCard>
       </ScrollView>
     </ScreenContainer>
   );
@@ -339,6 +347,10 @@ const styles = StyleSheet.create({
   rangeChip: { flex: 1, minWidth: 0, minHeight: 39, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
   rangeChipText: { alignSelf: "stretch", textAlign: "center", fontSize: 10, lineHeight: 13, fontWeight: "900", letterSpacing: 0.18 },
   comparisonCard: { gap: 9 },
+  comparisonToggle: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 48 },
+  comparisonToggleCopy: { flex: 1, minWidth: 0, gap: 2 },
+  comparisonToggleIcon: { width: 28, textAlign: "center", fontSize: 25, lineHeight: 28, fontWeight: "700" },
+  comparisonExpandedBody: { gap: 9 },
   comparisonPresetRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   comparisonPreset: { minHeight: 32, borderRadius: 9, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 9, justifyContent: "center" },
   comparisonPresetText: { fontSize: 8, lineHeight: 11, fontWeight: "900", letterSpacing: 0.45 },

@@ -36,4 +36,11 @@ describe("Super Dashboard mobile layout and signal controls", () => {
     expect(source).toContain("Clear separation of stress records");
     expect(source).toContain("Where progress was recorded");
   });
+
+  it("keeps the comprehensive comparison collapsed at the bottom of the dashboard", () => {
+    expect(source).toContain("const [comparisonExpanded, setComparisonExpanded] = useState(false);");
+    expect(source).toContain("Tap to expand the complete comparison.");
+    expect(source).toContain("comparisonExpanded ? <View style={styles.comparisonExpandedBody}");
+    expect(source.lastIndexOf('<SectionHeader title="Compare periods" />')).toBeGreaterThan(source.lastIndexOf('title="CALCULATION EVIDENCE"'));
+  });
 });
