@@ -3,10 +3,12 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { MultiLineTrendChart, type MultiLineSeries } from "@/components/focus-charts";
+import { CalendarDateRangeField } from "@/components/calendar-date-picker";
 import { CommandCard, IconAction, LoadingScreen, ScreenTitle, StatusPill } from "@/components/focus-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { getWellbeingInsight, shallowEqual, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
+import { getWellbeingInsight, shallowEqual, useFocusCommandReady, useFocusCommandSelector, type ReflectionInsightDateRange } from "@/lib/focus-command";
+import { addLocalDays } from "@/lib/calendar-date";
 import { formatMinutes, getRecoveryContextForDates } from "@/lib/recovery-rhythm";
 
 function mean(values: (number | null | undefined)[]) {
@@ -19,6 +21,15 @@ function trendLabel(direction: "rising" | "easing" | "steady", role?: "supportiv
   return direction === "rising" ? "Rising" : direction === "easing" ? "Easing" : "Steady";
 }
 
+type InsightRangeKind = "week" | "month" | "year" | "lifetime" | "custom";
+function today(timezone: string) { return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
+function rangeFor(kind: InsightRangeKind, date: string, start: string, end: string): ReflectionInsightDateRange | null {
+  if (kind === "lifetime") return null;
+  if (kind === "week") return { startDate: addLocalDays(date, -6), endDate: date };
+  if (kind === "month") return { startDate: `${date.slice(0, 8)}01`, endDate: date };
+  if (kind === "year") return { startDate: `${date.slice(0, 4)}-01-01`, endDate: date };
+  return { startDate: start.trim(), endDate: end.trim() };
+}
 function rating(value: number | null) {
   return value === null ? "Not rated" : `${value}/5`;
 }
@@ -36,7 +47,12 @@ export default function WellbeingInsightScreen() {
     screenTimeLogs: state.screenTimeLogs ?? [],
   }), shallowEqual);
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
-  const insight = useMemo(() => getWellbeingInsight(wellbeingState), [wellbeingState]);
+  const [rangeKind, setRangeKind] = useState<InsightRangeKind>("week");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const todayDate = today(wellbeingState.profile.timezone);
+  const range = useMemo(() => rangeFor(rangeKind, todayDate, customStart, customEnd), [customEnd, customStart, rangeKind, todayDate]);
+  const insight = useMemo(() => getWellbeingInsight(wellbeingState, range ? { ...range, timezone: wellbeingState.profile.timezone } : undefined), [range, wellbeingState]);
   const recoveryContext = useMemo(() => getRecoveryContextForDates(wellbeingState, insight.records.map((record) => record.localDate)), [insight.records, wellbeingState]);
 
   const trendSeries = useMemo<MultiLineSeries[]>(() => {
@@ -73,6 +89,13 @@ export default function WellbeingInsightScreen() {
           detail="A transparent, non-clinical view of the emotional and behavioral ratings you chose to log after missions."
           right={<IconAction icon="chevron.right" label="Return to Dashboard" onPress={() => router.back()} />}
         />
+
+        <CommandCard accent={colors.primary} style={styles.rangeCard}>
+          <Text style={[styles.rangeTitle, { color: colors.foreground }]}>View wellbeing period</Text>
+          <View style={styles.rangeRow}>{(["week", "month", "year", "lifetime", "custom"] as InsightRangeKind[]).map((kind) => <Pressable key={kind} onPress={() => setRangeKind(kind)} style={[styles.rangeChip, { borderColor: rangeKind === kind ? colors.primary : colors.border, backgroundColor: rangeKind === kind ? `${colors.primary}18` : colors.background }]}><Text style={[styles.rangeChipText, { color: rangeKind === kind ? colors.primary : colors.muted }]}>{kind === "week" ? "1 WEEK" : kind === "month" ? "1 MONTH" : kind === "year" ? "1 YEAR" : kind === "lifetime" ? "LIFETIME" : "CUSTOM"}</Text></Pressable>)}</View>
+          {rangeKind === "custom" ? <CalendarDateRangeField label="Choose wellbeing period" startDate={customStart} endDate={customEnd} onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} /> : null}
+          <Text style={[styles.rangeDetail, { color: colors.muted }]}>{rangeKind === "lifetime" ? "All saved reflection dates" : range ? `${range.startDate} → ${range.endDate}` : "Choose both dates"}</Text>
+        </CommandCard>
 
         <CommandCard accent={colors.warning} style={styles.safetyCard}>
           <View style={styles.safetyTopline}>
@@ -188,6 +211,12 @@ function RecordMetric({ label, value, accent }: { label: string; value: string; 
 
 const styles = StyleSheet.create({
   content: { gap: 14, paddingTop: 12, paddingBottom: 32 },
+  rangeCard: { gap: 9 },
+  rangeTitle: { fontSize: 15, lineHeight: 20, fontWeight: "900" },
+  rangeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  rangeChip: { minHeight: 34, borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, paddingHorizontal: 9, justifyContent: "center" },
+  rangeChipText: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.55 },
+  rangeDetail: { fontSize: 10, lineHeight: 14, fontWeight: "700" },
   safetyCard: { gap: 7 },
   safetyTopline: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   privateLabel: { fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 0.8 },

@@ -13,7 +13,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
-import { formatCompactNumber, getCalendarTimeAverages, getDashboardDistributionStats, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getMissionCompletionRecordsInLocalDateRange, getTotalPower, getWellbeingInsight, toLocalDate, type DashboardDistributionRange, type FocusState, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
+import { formatCompactNumber, getCalendarTimeAverages, getDashboardDistributionStats, getDashboardStats, getEmotionalPatternForecast, getMissionCompletionRecords, getMissionCompletionRecordsInLocalDateRange, getTotalPower, getWellbeingInsight, toLocalDate, type DashboardDistributionRange, type FocusState, type ReflectionInsightDateRange, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 import { RECOGNITION_WINDOW_LAYOUT } from "@/lib/focus-layout";
 import { getFocusFrictionInsight, getFocusFrictionRangePresentation, type FocusFrictionRange } from "@/lib/distraction-log";
 import { getConsistencyScenario, type ConsistencyProjectionHorizon } from "@/lib/personal-reflection-signals";
@@ -28,6 +28,15 @@ import {
 
 type DashboardVisualRangeKind = "last14Days" | "week" | "month" | "lifetime" | "custom";
 type DashboardVisualDateRange = { startDate: string; endDate: string };
+type InsightRangeKind = "week" | "month" | "year" | "lifetime" | "custom";
+
+function getInsightRange(kind: InsightRangeKind, today: string, customStart: string, customEnd: string): ReflectionInsightDateRange | null {
+  if (kind === "lifetime") return null;
+  if (kind === "week") return { startDate: new Date(Date.parse(`${today}T12:00:00Z`) - 6 * 86_400_000).toISOString().slice(0, 10), endDate: today };
+  if (kind === "month") return { startDate: `${today.slice(0, 8)}01`, endDate: today };
+  if (kind === "year") return { startDate: `${today.slice(0, 4)}-01-01`, endDate: today };
+  return { startDate: customStart.trim(), endDate: customEnd.trim() };
+}
 
 function createDaySeries(days: number, profileTimezone: string) {
   return Array.from({ length: days }, (_, index) => {
@@ -202,6 +211,9 @@ export default function DashboardScreen() {
   const [radarRangeKind, setRadarRangeKind] = useState<DashboardVisualRangeKind>("lifetime");
   const [radarCustomStart, setRadarCustomStart] = useState("");
   const [radarCustomEnd, setRadarCustomEnd] = useState("");
+  const [insightRangeKind, setInsightRangeKind] = useState<InsightRangeKind>("week");
+  const [insightCustomStart, setInsightCustomStart] = useState("");
+  const [insightCustomEnd, setInsightCustomEnd] = useState("");
 
   /* eslint-disable react-hooks/exhaustive-deps -- These pure helpers require a FocusState shape, while each memo intentionally tracks only the source references it actually reads. Adding the full state would reinstate unrelated interaction-path work. */
   const dashboard = useMemo(() => getDashboardStats(state), [state.missionCompletions, state.missions, state.profile, state.progression, state.reflections]);
@@ -222,6 +234,7 @@ export default function DashboardScreen() {
   );
   const historyRange = useMemo(() => getDashboardVisualRange(historyRangeKind, todayLocalDate, historyCustomStart, historyCustomEnd, earliestVisualDate), [earliestVisualDate, historyCustomEnd, historyCustomStart, historyRangeKind, todayLocalDate]);
   const radarRange = useMemo(() => getDashboardVisualRange(radarRangeKind, todayLocalDate, radarCustomStart, radarCustomEnd, earliestVisualDate), [earliestVisualDate, radarCustomEnd, radarCustomStart, radarRangeKind, todayLocalDate]);
+  const insightRange = useMemo(() => getInsightRange(insightRangeKind, todayLocalDate, insightCustomStart, insightCustomEnd), [insightCustomEnd, insightCustomStart, insightRangeKind, todayLocalDate]);
   const historyDays = useMemo(() => historyRangeKind === "last14Days" ? createDaySeries(14, state.profile.timezone) : historyRange ? createDateSeries(historyRange) : [], [historyRange, historyRangeKind, state.profile.timezone]);
   const historyCompletionRecords = useMemo(() => {
     if (!historyRange) return [];
@@ -230,9 +243,10 @@ export default function DashboardScreen() {
   }, [completionRecords, historyRange, historyRangeKind, state]);
   const historyProgression = useMemo(() => state.progression.filter((event) => isReflectionInRange(event.occurredAt, historyRange, state.profile.timezone)), [historyRange, state.profile.timezone, state.progression]);
   const radarReflections = useMemo(() => state.reflections.filter((reflection) => reflection.createdAt && isReflectionInRange(reflection.createdAt, radarRange, state.profile.timezone)), [radarRange, state.profile.timezone, state.reflections]);
-  const forecast = useMemo(() => getEmotionalPatternForecast(state), [state.profile, state.reflections]);
-  const wellbeing = useMemo(() => getWellbeingInsight(state), [state.profile, state.reflections]);
-  const forecastRecoveryContext = useMemo(() => getRecoveryContextForDates(state, state.reflections.slice(-14).map((reflection) => toLocalDate(reflection.createdAt, state.profile.timezone))), [state.napLogs, state.profile.timezone, state.recoveryStressors, state.screenTimeLogs, state.sleepLogs, state.reflections]);
+  const forecast = useMemo(() => getEmotionalPatternForecast(state, insightRange ? { ...insightRange, timezone: state.profile.timezone } : undefined), [insightRange, state.profile, state.reflections]);
+  const wellbeing = useMemo(() => getWellbeingInsight(state, insightRange ? { ...insightRange, timezone: state.profile.timezone } : undefined), [insightRange, state.profile, state.reflections]);
+  const insightReflections = useMemo(() => insightRange ? state.reflections.filter((reflection) => isReflectionInRange(reflection.createdAt, insightRange, state.profile.timezone)) : state.reflections, [insightRange, state.profile.timezone, state.reflections]);
+  const forecastRecoveryContext = useMemo(() => getRecoveryContextForDates(state, insightReflections.slice(-14).map((reflection) => toLocalDate(reflection.createdAt, state.profile.timezone))), [insightReflections, state.napLogs, state.profile.timezone, state.recoveryStressors, state.screenTimeLogs, state.sleepLogs]);
   const recoveryWeek = useMemo(() => getRecoverySummary(state, "week"), [state.napLogs, state.profile, state.recoveryActions, state.recoveryStressors, state.screenTimeLogs, state.sleepLogs]);
   const consistencyScenario = useMemo(() => getConsistencyScenario(state, consistencyHorizon), [consistencyHorizon, state.customQuestions, state.profile, state.reflections]);
   const focusFrictionRange = useMemo<FocusFrictionRange>(() => focusFrictionRangeKind === "custom" ? appliedCustomFrictionRange ?? { kind: "custom", startDate: "", endDate: "" } : { kind: focusFrictionRangeKind }, [appliedCustomFrictionRange, focusFrictionRangeKind]);
@@ -392,7 +406,7 @@ export default function DashboardScreen() {
           right={<IconAction icon="line.3.horizontal" label="Open settings" onPress={() => router.push("/settings")} />}
         />
 
-        <TapFeedback onPress={() => router.push("/missions?mode=calendar" as never)} accessibilityLabel="Open calendar activity planner">
+        <TapFeedback onPress={() => router.push("/activity-calendar" as never)} accessibilityLabel="Open calendar activity planner">
           <CommandCard accent={colors.success} style={styles.commandArchiveCard}>
             <View style={styles.commandArchiveHeading}>
               <View style={styles.commandArchiveCopy}>
@@ -520,6 +534,12 @@ export default function DashboardScreen() {
         </View>
 
         {state.profile.forecastEnabled ? <>
+        <CommandCard accent={colors.primary} style={styles.insightRangeCard}>
+          <Text style={[styles.behavioralIntro, { color: colors.muted }]}>Use the same date range for Pattern Forecast and Wellbeing Insight. These are summaries of your own saved debrief ratings.</Text>
+          <View style={styles.behavioralWindowRow}>{(["week", "month", "year", "lifetime", "custom"] as InsightRangeKind[]).map((kind) => <TapFeedback key={kind} onPress={() => setInsightRangeKind(kind)} accessibilityLabel={`Show insights for ${kind}`} style={[styles.behavioralWindowOption, { borderColor: insightRangeKind === kind ? `${colors.primary}99` : colors.border, backgroundColor: insightRangeKind === kind ? `${colors.primary}18` : colors.background }]}><Text style={[styles.behavioralWindowOptionLabel, { color: insightRangeKind === kind ? colors.primary : colors.muted }]}>{kind === "week" ? "1 WEEK" : kind === "month" ? "1 MONTH" : kind === "year" ? "1 YEAR" : kind === "lifetime" ? "LIFE" : "CUSTOM"}</Text></TapFeedback>)}</View>
+          {insightRangeKind === "custom" ? <CalendarDateRangeField label="Choose insight period" startDate={insightCustomStart} endDate={insightCustomEnd} onChange={(start, end) => { setInsightCustomStart(start); setInsightCustomEnd(end); }} /> : null}
+          <Text style={[styles.behavioralWindowDetail, { color: colors.muted }]}>{insightRangeKind === "lifetime" ? "All saved reflection dates" : insightRange ? `${insightRange.startDate} → ${insightRange.endDate}` : "Choose both dates"}</Text>
+        </CommandCard>
         <SectionHeader title="Pattern forecast" />
         <CommandCard accent={forecast.outlook === "momentum" ? colors.success : forecast.outlook === "fragile" ? colors.warning : colors.primary} style={styles.forecastCard}>
           <View style={styles.forecastHeading}>
@@ -837,6 +857,7 @@ const styles = StyleSheet.create({
   frictionBarValue: { minWidth: 14, textAlign: "right", fontSize: 11, lineHeight: 14, fontWeight: "900" },
   frictionEmpty: { minHeight: 78, justifyContent: "center", gap: 4 },
   behavioralStack: { gap: 12 },
+  insightRangeCard: { gap: 9 },
   forecastCard: { gap: 12 },
   consistencyCard: { gap: 10 },
   consistencyHeading: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },

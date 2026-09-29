@@ -10,7 +10,8 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
 import { shallowEqual, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
-import { getCalendarCompletionSummary } from "@/lib/calendar-activity";
+import { addLocalDays } from "@/lib/calendar-date";
+import { compareCalendarPeriods, getCalendarCompletionSeries, getCalendarCompletionSummary } from "@/lib/calendar-activity";
 import {
   formatSuperDashboardMinutes,
   getSuperDashboardSummary,
@@ -98,6 +99,21 @@ function highlightedStyle(color: string) {
   return [styles.inlineStrong, { color }];
 }
 
+type CalendarComparisonKind = "yesterday" | "week" | "month" | "year";
+function getCalendarComparison(kind: CalendarComparisonKind, endDate: string, activities: Parameters<typeof getCalendarCompletionSeries>[0]) {
+  let startDate = endDate;
+  let currentEnd = endDate;
+  if (kind === "week") startDate = addLocalDays(endDate, -6);
+  if (kind === "month") startDate = `${endDate.slice(0, 8)}01`;
+  if (kind === "year") startDate = `${endDate.slice(0, 4)}-01-01`;
+  const previousEnd = addLocalDays(startDate, -1);
+  let previousStart = previousEnd;
+  if (kind === "week") previousStart = addLocalDays(previousEnd, -6);
+  if (kind === "month") previousStart = `${previousEnd.slice(0, 8)}01`;
+  if (kind === "year") previousStart = `${previousEnd.slice(0, 4)}-01-01`;
+  return compareCalendarPeriods(getCalendarCompletionSeries(activities, startDate, currentEnd), getCalendarCompletionSeries(activities, previousStart, previousEnd));
+}
+
 export default function SuperDashboardScreen() {
   const colors = useColors();
   const { scrollRef, onScroll, keyboardContentContainerStyle } = useKeyboardSafeFocus();
@@ -108,6 +124,7 @@ export default function SuperDashboardScreen() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [signalMode, setSignalMode] = useState<SignalMode>("attention");
+  const [calendarComparisonKind, setCalendarComparisonKind] = useState<CalendarComparisonKind>("week");
 
   const summary = useMemo(
     () => getSuperDashboardSummary(state, rangeKind, customStart, customEnd),
@@ -118,6 +135,7 @@ export default function SuperDashboardScreen() {
     [summary.activity.categories],
   );
   const calendarCompletion = useMemo(() => getCalendarCompletionSummary(calendarActivities, summary.range.startDate, summary.range.endDate), [calendarActivities, summary.range.endDate, summary.range.startDate]);
+  const calendarComparison = useMemo(() => getCalendarComparison(calendarComparisonKind, summary.range.endDate, calendarActivities), [calendarActivities, calendarComparisonKind, summary.range.endDate]);
   const activeSignal = SIGNAL_MODES.find((item) => item.id === signalMode) ?? SIGNAL_MODES[0];
   const selectedSignalPoints = useMemo(
     () => signalPoints(signalMode, summary, colors),
@@ -185,6 +203,8 @@ export default function SuperDashboardScreen() {
             <View style={styles.chartHeading}><View style={styles.chartCopy}><Text style={[styles.cardTitle, { color: colors.foreground }]}>Dated activity progress</Text><Text style={[styles.cardDetail, { color: colors.muted }]}>Completed assigned activities divided by all assigned activities in this selected period. Empty days are not failures.</Text></View><StatusPill label={calendarCompletion.percentage === null ? "NO PLANS" : `${calendarCompletion.percentage}% COMPLETE`} tone={calendarCompletion.percentage === null ? "neutral" : "success"} /></View>
             <View style={styles.metricGrid}><MetricTile style={styles.metricTile} label="Planned" value={String(calendarCompletion.planned)} detail={`${calendarCompletion.daysWithPlans} day${calendarCompletion.daysWithPlans === 1 ? "" : "s"} with plans`} icon="checklist" accent={colors.primary} /><MetricTile style={styles.metricTile} label="Completed" value={String(calendarCompletion.completed)} detail={`${calendarCompletion.pending} pending`} icon="checklist" accent={colors.success} /></View>
             {calendarCompletion.series.length ? <LineTrendChart points={calendarCompletion.series.map((point) => ({ label: point.localDate.slice(5), value: point.percentage ?? 0 }))} color={colors.success} accessibilityLabel="Calendar activity completion percentage in Super Dashboard" /> : null}
+            <View style={styles.calendarCompareRow}>{(["yesterday", "week", "month", "year"] as CalendarComparisonKind[]).map((kind) => <Pressable key={kind} onPress={() => setCalendarComparisonKind(kind)} style={[styles.calendarCompareChip, { borderColor: calendarComparisonKind === kind ? colors.success : colors.border, backgroundColor: calendarComparisonKind === kind ? `${colors.success}18` : colors.background }]}><Text style={[styles.calendarCompareChipText, { color: calendarComparisonKind === kind ? colors.success : colors.muted }]}>{kind.toUpperCase()}</Text></Pressable>)}</View>
+            <Text style={[styles.calendarCompareText, { color: colors.muted }]}>{calendarComparison.currentAverage === null ? "No planned activity in the comparison period." : `Current ${calendarComparison.currentAverage}% · Previous ${calendarComparison.previousAverage ?? "—"}%${calendarComparison.delta === null ? "" : ` · ${calendarComparison.delta >= 0 ? "+" : ""}${calendarComparison.delta} points`}`}</Text>
             <CommandButton label="Open Activity Calendar" icon="checklist" variant="secondary" onPress={() => router.push("/activity-calendar" as never)} />
           </CommandCard>
 
@@ -303,6 +323,10 @@ const styles = StyleSheet.create({
   metricGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 8 },
   metricTile: { flexGrow: 0, flexBasis: "48.5%", width: "48.5%" },
   detailCard: { gap: 5 },
+  calendarCompareRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  calendarCompareChip: { minHeight: 30, borderWidth: StyleSheet.hairlineWidth, borderRadius: 9, paddingHorizontal: 8, justifyContent: "center" },
+  calendarCompareChipText: { fontSize: 8, lineHeight: 11, fontWeight: "900", letterSpacing: 0.5 },
+  calendarCompareText: { fontSize: 11, lineHeight: 16, fontWeight: "800" },
   detailCardTitle: { fontSize: 13, lineHeight: 17, fontWeight: "900" },
   detailCardText: { fontSize: 11, lineHeight: 17, fontWeight: "600" },
   inlineStrong: { fontWeight: "900" },

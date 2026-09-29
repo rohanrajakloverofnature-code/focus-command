@@ -2062,6 +2062,14 @@ export function removeCompletedMissionRun(state: FocusState, completionId: strin
       entry.missionId !== completion.missionId || entry.occurredAt < completion.startedAt || entry.occurredAt > completion.completedAt,
     ),
     goldPowerCarry: getReconciledGoldPowerCarry(nextProgression),
+    calendarActivities: state.calendarActivities.map((activity) => {
+      if (activity.missionId !== completion.missionId || activity.localDate !== removedCompletionDate) return activity;
+      const remainingSameDay = remainingCompletions.some((candidate) =>
+        candidate.missionId === completion.missionId &&
+        toLocalDate(candidate.completedAt, state.profile.timezone) === removedCompletionDate,
+      );
+      return remainingSameDay ? activity : { ...activity, completedAt: null };
+    }),
   };
   return { ...nextState, combo: rebuildComboFromCompletions(nextState) };
 }
@@ -2227,8 +2235,19 @@ export function getSubjectCapture(state: Pick<FocusState, "missions" | "srsTopic
   }).sort((left, right) => right.capture - left.capture || right.total - left.total);
 }
 
-export function getEmotionalPatternForecast(state: Pick<FocusState, "reflections">): EmotionalPatternForecast {
-  const recent = state.reflections.slice(-14);
+export type ReflectionInsightDateRange = { startDate: string; endDate: string; timezone?: string };
+
+function filterReflectionsByInsightRange(reflections: readonly Reflection[], range?: ReflectionInsightDateRange): Reflection[] {
+  if (!range || !range.startDate || !range.endDate) return [...reflections];
+  const timezone = range.timezone ?? "UTC";
+  return reflections.filter((reflection) => {
+    const localDate = toLocalDate(reflection.createdAt, timezone);
+    return localDate >= range.startDate && localDate <= range.endDate;
+  });
+}
+
+export function getEmotionalPatternForecast(state: Pick<FocusState, "reflections">, range?: ReflectionInsightDateRange): EmotionalPatternForecast {
+  const recent = filterReflectionsByInsightRange(state.reflections, range).slice(-14);
   if (!recent.length) {
     return {
       available: false,
@@ -2282,8 +2301,8 @@ export function getEmotionalPatternForecast(state: Pick<FocusState, "reflections
   };
 }
 
-export function getWellbeingInsight(state: Pick<FocusState, "profile" | "missions" | "reflections">): WellbeingInsight {
-  const recent = state.reflections.slice(-12);
+export function getWellbeingInsight(state: Pick<FocusState, "profile" | "missions" | "reflections">, range?: ReflectionInsightDateRange): WellbeingInsight {
+  const recent = filterReflectionsByInsightRange(state.reflections, range ?? { startDate: "", endDate: "", timezone: state.profile.timezone }).slice(-12);
   const missionById = new Map(state.missions.map((mission) => [mission.id, mission]));
   const metricDefinitions: Array<{ id: string; label: string; role: WellbeingSignalRole; key: keyof Pick<Reflection, "energyAfter" | "focusQuality" | "stressLevel" | "clarityLevel" | "motivationLevel" | "distractionLevel" | "frictionRating">; detail: string }> = [
     { id: "focus", label: "Focus quality", role: "supportive", key: "focusQuality", detail: "How well you reported staying with the task." },
@@ -3369,10 +3388,15 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   }, [commit]);
 
   const toggleCalendarActivityCompleted = useCallback((activityId: string) => {
-    commit((current) => withQueuedOperation({
-      ...current,
-      calendarActivities: current.calendarActivities.map((activity) => activity.id === activityId ? { ...activity, completedAt: activity.completedAt ? null : nowIso() } : activity),
-    }));
+    commit((current) => {
+      const today = toLocalDate(nowIso(), current.profile.timezone);
+      const target = current.calendarActivities.find((activity) => activity.id === activityId);
+      if (!target || target.localDate !== today) return current;
+      return withQueuedOperation({
+        ...current,
+        calendarActivities: current.calendarActivities.map((activity) => activity.id === activityId ? { ...activity, completedAt: activity.completedAt ? null : nowIso() } : activity),
+      });
+    });
   }, [commit]);
 
   const startMission = useCallback((missionId: string) => {

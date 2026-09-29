@@ -3,11 +3,12 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { CommandButton, CommandCard, EmptyCommandState, IconAction, LoadingScreen, ScreenTitle, SectionHeader, StatusPill } from "@/components/focus-ui";
-import { CalendarDateField, CalendarDatePicker } from "@/components/calendar-date-picker";
+import { CalendarDateField, CalendarDatePicker, CalendarDateRangeField } from "@/components/calendar-date-picker";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useKeyboardSafeFocus } from "@/hooks/use-keyboard-safe-focus";
+import { addLocalDays } from "@/lib/calendar-date";
 import { CalendarActivity, Difficulty, Mission, MissionCompletionRecord, MissionFrequency, getDifficultyColor, getDifficultyLabel, getMissionCompletionRecords, getMissionInvestedMilliseconds, shallowEqual, toLocalDate, useFocusCommandActions, useFocusCommandReady, useFocusCommandSelector } from "@/lib/focus-command";
 
 type MissionFilter = "open" | "active" | "completed";
@@ -45,6 +46,12 @@ export default function MissionsScreen() {
   const [boardMode, setBoardMode] = useState<MissionBoardMode>(requestedMode === "calendar" ? "calendar" : "normal");
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
   const [calendarMissionId, setCalendarMissionId] = useState<string | null>(null);
+  const [calendarTaskTitle, setCalendarTaskTitle] = useState("");
+  const [calendarPlannerExpanded, setCalendarPlannerExpanded] = useState(false);
+  const [calendarScheduleKind, setCalendarScheduleKind] = useState<"single" | "range" | "repeat">("single");
+  const [calendarEndDate, setCalendarEndDate] = useState("");
+  const [calendarRepeatDays, setCalendarRepeatDays] = useState("2");
+  const [pendingStartMissionId, setPendingStartMissionId] = useState<string | null>(null);
   const [showComposer, setShowComposer] = useState(compose === "1");
   const [filter, setFilter] = useState<MissionFilter>(requestedFilter === "active" || requestedFilter === "completed" ? requestedFilter : "open");
   const [title, setTitle] = useState("");
@@ -64,6 +71,8 @@ export default function MissionsScreen() {
   const [bossDeadline, setBossDeadline] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const todayLocalDate = useMemo(() => toLocalDate(new Date().toISOString(), timezone), [timezone]);
+  const calendarDateIsToday = selectedCalendarDate === todayLocalDate;
 
   useEffect(() => {
     if (requestedBossId && bosses.some((boss) => boss.id === requestedBossId && boss.status === "active")) {
@@ -71,6 +80,15 @@ export default function MissionsScreen() {
       setShowComposer(true);
     }
   }, [bosses, requestedBossId]);
+
+  useEffect(() => {
+    if (!pendingStartMissionId) return;
+    const started = allMissions.some((mission) => mission.id === pendingStartMissionId && (mission.status === "active" || mission.status === "paused"));
+    if (!started) return;
+    setFilter("active");
+    if (boardMode === "calendar") setSelectedCalendarDate(todayLocalDate);
+    setPendingStartMissionId(null);
+  }, [allMissions, boardMode, pendingStartMissionId, todayLocalDate]);
 
   const activeBosses = useMemo(() => bosses.filter((boss) => boss.status === "active"), [bosses]);
   const selectedCalendarActivities = useMemo(() => calendarActivities.filter((activity) => activity.localDate === selectedCalendarDate), [calendarActivities, selectedCalendarDate]);
@@ -114,8 +132,8 @@ export default function MissionsScreen() {
     return searchedMissions.map((mission) => ({ key: `mission:${mission.id}`, kind: "mission", mission }));
   }, [filter, searchedCompletionRecords, searchedMissions]);
   const renderBoardItem = useCallback(({ item }: { item: MissionBoardListItem }) => (
-    item.kind === "completion" ? <CompletionHistoryCard completion={item.completion} /> : <MissionCard mission={item.mission} />
-  ), []);
+    item.kind === "completion" ? <CompletionHistoryCard completion={item.completion} /> : <MissionCard mission={item.mission} startDisabled={boardMode === "calendar" && !calendarDateIsToday} onStartRequested={() => setPendingStartMissionId(item.mission.id)} />
+  ), [boardMode, calendarDateIsToday]);
 
   if (!ready) return <LoadingScreen label="Loading mission board…" />;
 
@@ -204,23 +222,34 @@ export default function MissionsScreen() {
         </View>
 
         {boardMode === "calendar" ? <CommandCard accent={colors.primary} style={styles.calendarCard}>
-          <Text style={[styles.calendarTitle, { color: colors.foreground }]}>Choose a planned date</Text>
+          <View style={styles.calendarHeadingRow}><View style={styles.calendarHeadingCopy}><Text style={[styles.calendarTitle, { color: colors.foreground }]}>Calendar Planned · {selectedCalendarDate}</Text><Text style={[styles.calendarHint, { color: colors.muted }]}>{calendarDateIsToday ? "Today · tasks can be completed" : "View only · only today’s tasks can be completed"}</Text></View><Pressable onPress={() => setCalendarPlannerExpanded((value) => !value)} style={[styles.calendarMinimize, { borderColor: colors.border, backgroundColor: colors.background }]}><Text style={[styles.calendarMinimizeText, { color: colors.primary }]}>{calendarPlannerExpanded ? "MINIMIZE" : "ADD / EDIT"}</Text></Pressable></View>
           <CalendarDatePicker mode="single" startDate={selectedCalendarDate} onChange={setSelectedCalendarDate} />
-          <Text style={[styles.calendarHint, { color: colors.muted }]}>Planned, Live, and History below show the same mission-board records for this date.</Text>
-          <View style={styles.calendarAssignmentRow}>
+          <Text style={[styles.calendarHint, { color: colors.muted }]}>Assigned missions appear first below. Planned, Live, and History use this same date.</Text>
+          {calendarPlannerExpanded ? <View style={styles.calendarAssignmentRow}>
+            <TextInput onFocus={onInputFocus} value={calendarTaskTitle} onChangeText={setCalendarTaskTitle} placeholder="Standalone task title (optional)" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} />
+            <Text style={[styles.inputLabel, { color: colors.muted }]}>OPTIONAL MISSION LINK</Text>
             <View style={styles.calendarAssignmentChoices}>
-              {allMissions.filter((mission) => mission.status !== "completed").map((mission) => {
-                const assigned = selectedCalendarMissionIds.has(mission.id);
-                return <Pressable key={mission.id} onPress={() => setCalendarMissionId(mission.id)} style={[styles.calendarChoice, { backgroundColor: calendarMissionId === mission.id ? `${colors.primary}18` : colors.background, borderColor: calendarMissionId === mission.id ? colors.primary : colors.border }]}><Text numberOfLines={1} style={[styles.calendarChoiceText, { color: calendarMissionId === mission.id ? colors.primary : colors.foreground }]}>{assigned ? "✓ " : ""}{mission.title}</Text></Pressable>;
-              })}
+              <Pressable onPress={() => setCalendarMissionId(null)} style={[styles.calendarChoice, { backgroundColor: calendarMissionId === null ? `${colors.primary}18` : colors.background, borderColor: calendarMissionId === null ? colors.primary : colors.border }]}><Text style={[styles.calendarChoiceText, { color: calendarMissionId === null ? colors.primary : colors.muted }]}>Standalone task</Text></Pressable>
+              {allMissions.filter((mission) => mission.status !== "completed").map((mission) => <Pressable key={mission.id} onPress={() => { setCalendarMissionId(mission.id); setCalendarTaskTitle(mission.title); }} style={[styles.calendarChoice, { backgroundColor: calendarMissionId === mission.id ? `${colors.primary}18` : colors.background, borderColor: calendarMissionId === mission.id ? colors.primary : colors.border }]}><Text numberOfLines={1} style={[styles.calendarChoiceText, { color: calendarMissionId === mission.id ? colors.primary : colors.foreground }]}>{selectedCalendarMissionIds.has(mission.id) ? "✓ " : ""}{mission.title}</Text></Pressable>)}
             </View>
-            <CommandButton label="Assign selected mission" icon="checklist" variant="secondary" onPress={() => {
-              const mission = allMissions.find((candidate) => candidate.id === calendarMissionId);
-              if (!mission) { Alert.alert("Choose a mission", "Select an existing mission before assigning it to this date."); return; }
-              if (!scheduleCalendarActivity({ title: mission.title, localDate: selectedCalendarDate, missionId: mission.id })) Alert.alert("Already assigned", "That mission is already assigned to this date.");
-              setCalendarMissionId(null);
+            <Text style={[styles.inputLabel, { color: colors.muted }]}>SCHEDULE TYPE</Text>
+            <View style={styles.calendarAssignmentChoices}>{(["single", "range", "repeat"] as const).map((kind) => <Pressable key={kind} onPress={() => setCalendarScheduleKind(kind)} style={[styles.calendarChoice, { backgroundColor: calendarScheduleKind === kind ? `${colors.primary}18` : colors.background, borderColor: calendarScheduleKind === kind ? colors.primary : colors.border }]}><Text style={[styles.calendarChoiceText, { color: calendarScheduleKind === kind ? colors.primary : colors.muted }]}>{kind === "single" ? "ONE DATE" : kind === "range" ? "DATE RANGE" : "EVERY N DAYS"}</Text></Pressable>)}</View>
+            {calendarScheduleKind === "range" ? <CalendarDateRangeField label="Choose assignment range" startDate={selectedCalendarDate} endDate={calendarEndDate} onChange={(start, end) => { if (start) setSelectedCalendarDate(start); setCalendarEndDate(end); }} /> : null}
+            {calendarScheduleKind === "repeat" ? <View style={styles.repeatRow}><TextInput onFocus={onInputFocus} value={calendarRepeatDays} onChangeText={setCalendarRepeatDays} keyboardType="number-pad" placeholder="Gap days" placeholderTextColor={colors.muted} style={[styles.input, styles.repeatInput, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} /><CalendarDateField label="Repeat until" value={calendarEndDate} onChange={setCalendarEndDate} /></View> : null}
+            <CommandButton label={calendarMissionId ? "Assign mission" : "Add task"} icon="checklist" variant="secondary" onPress={() => {
+              const title = (calendarTaskTitle.trim() || allMissions.find((mission) => mission.id === calendarMissionId)?.title || "").trim();
+              if (!title) { Alert.alert("Name the task", "Enter a standalone task title or choose an existing mission."); return; }
+              const end = calendarScheduleKind === "single" ? selectedCalendarDate : calendarEndDate.trim();
+              if (!/^\d{4}-\d{2}-\d{2}$/.test(end) || end < selectedCalendarDate) { Alert.alert("Choose a valid schedule", "Select an end date on or after the selected start date."); return; }
+              const dates: string[] = [];
+              const step = calendarScheduleKind === "repeat" ? Math.max(1, Math.round(Number(calendarRepeatDays) || 0)) : 1;
+              for (let date = selectedCalendarDate; date <= end; date = addLocalDays(date, step)) { dates.push(date); if (date === end || calendarScheduleKind === "single") break; }
+              let created = 0;
+              dates.forEach((date) => { if (scheduleCalendarActivity({ title, localDate: date, missionId: calendarMissionId })) created += 1; });
+              if (!created) Alert.alert("Already assigned", "That task or mission is already assigned to every selected date.");
+              setCalendarTaskTitle(""); setCalendarMissionId(null); setCalendarEndDate("");
             }} />
-          </View>
+          </View> : null}
         </CommandCard> : null}
 
         {showComposer ? (
@@ -336,7 +365,7 @@ export default function MissionsScreen() {
 
         {boardMode === "calendar" && standaloneCalendarActivities.length ? <View style={styles.calendarTasks}>
           <SectionHeader title={`Standalone tasks · ${selectedCalendarDate}`} />
-          {standaloneCalendarActivities.map((activity) => <CalendarTaskCard key={activity.id} activity={activity} onRemove={() => removeCalendarActivity(activity.id)} />)}
+          {standaloneCalendarActivities.map((activity) => <CalendarTaskCard key={activity.id} activity={activity} canComplete={calendarDateIsToday} onRemove={() => removeCalendarActivity(activity.id)} />)}
         </View> : null}
 
         {filter !== "active" ? <View style={styles.searchArea}>
@@ -420,7 +449,7 @@ const CompletionHistoryCard = memo(function CompletionHistoryCard({ completion }
   );
 });
 
-const MissionCard = memo(function MissionCard({ mission }: { mission: Mission }) {
+const MissionCard = memo(function MissionCard({ mission, startDisabled = false, onStartRequested }: { mission: Mission; startDisabled?: boolean; onStartRequested?: () => void }) {
   const colors = useColors();
   const { startMission } = useFocusCommandActions();
   const startInFlight = useRef(false);
@@ -430,8 +459,11 @@ const MissionCard = memo(function MissionCard({ mission }: { mission: Mission })
   const startOnce = useCallback(() => {
     if (startInFlight.current) return;
     startInFlight.current = true;
+    if (startDisabled) return;
+    if (onStartRequested) onStartRequested();
     startMission(mission.id);
-  }, [mission.id, startMission]);
+    setTimeout(() => { startInFlight.current = false; }, 500);
+  }, [mission.id, onStartRequested, startDisabled, startMission]);
   return (
     <Pressable onPress={() => router.push({ pathname: "/mission/[id]" as never, params: { id: mission.id } })} style={({ pressed }) => ({ opacity: pressed ? 0.82 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}>
       <CommandCard accent={color} style={styles.missionCard}>
@@ -449,25 +481,25 @@ const MissionCard = memo(function MissionCard({ mission }: { mission: Mission })
               {mission.revisionEnabled ? <StatusPill label="SRS READY" tone="primary" icon="arrow.clockwise" /> : <StatusPill label="STANDARD" tone="neutral" />}
             </View>
           </View>
-          {mission.status === "planned" ? <CommandButton label="Start" icon="play.fill" onPress={startOnce} /> : <CommandButton label="Open" icon="chevron.right" variant="ghost" onPress={() => router.push({ pathname: "/mission/[id]" as never, params: { id: mission.id } })} />}
+          {mission.status === "planned" ? <CommandButton label={startDisabled ? "Today only" : "Start"} icon="play.fill" disabled={startDisabled} onPress={startOnce} /> : <CommandButton label="Open" icon="chevron.right" variant="ghost" onPress={() => router.push({ pathname: "/mission/[id]" as never, params: { id: mission.id } })} />}
         </View>
       </CommandCard>
     </Pressable>
   );
 });
 
-const CalendarTaskCard = memo(function CalendarTaskCard({ activity, onRemove }: { activity: CalendarActivity; onRemove: () => void }) {
+const CalendarTaskCard = memo(function CalendarTaskCard({ activity, canComplete, onRemove }: { activity: CalendarActivity; canComplete: boolean; onRemove: () => void }) {
   const colors = useColors();
   const { toggleCalendarActivityCompleted } = useFocusCommandActions();
   const completed = Boolean(activity.completedAt);
   return <CommandCard accent={completed ? colors.success : colors.primary} style={styles.calendarTaskCard}>
     <View style={styles.calendarTaskRow}>
-      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: completed }} onPress={() => toggleCalendarActivityCompleted(activity.id)} style={[styles.calendarTaskCheck, { borderColor: completed ? colors.success : colors.border, backgroundColor: completed ? colors.success : colors.background }]}>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: completed }} onPress={() => { if (canComplete) toggleCalendarActivityCompleted(activity.id); }} disabled={!canComplete} style={[styles.calendarTaskCheck, { borderColor: completed ? colors.success : colors.border, backgroundColor: completed ? colors.success : colors.background }]}>
         <Text style={[styles.calendarTaskCheckText, { color: completed ? colors.background : colors.muted }]}>{completed ? "✓" : ""}</Text>
       </Pressable>
       <View style={styles.calendarTaskCopy}>
         <Text style={[styles.calendarTaskTitle, { color: colors.foreground, textDecorationLine: completed ? "line-through" : "none" }]}>{activity.title}</Text>
-        <Text style={[styles.calendarTaskDetail, { color: colors.muted }]}>Standalone calendar task</Text>
+        <Text style={[styles.calendarTaskDetail, { color: colors.muted }]}>{canComplete ? "Today · completion enabled" : "View only · completion is available on today’s date"}</Text>
       </View>
       <Pressable onPress={onRemove}><Text style={[styles.calendarTaskRemove, { color: colors.error }]}>REMOVE</Text></Pressable>
     </View>
@@ -532,6 +564,12 @@ const styles = StyleSheet.create({
   modeChoice: { flex: 1, minHeight: 40, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center" },
   modeLabel: { fontSize: 12, lineHeight: 16, fontWeight: "900" },
   calendarCard: { gap: 9 },
+  calendarHeadingRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 9 },
+  calendarHeadingCopy: { flex: 1, minWidth: 0, gap: 2 },
+  calendarMinimize: { minHeight: 32, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 8, justifyContent: "center" },
+  calendarMinimizeText: { fontSize: 9, fontWeight: "900" },
+  repeatRow: { gap: 7 },
+  repeatInput: { minHeight: 40 },
   calendarTitle: { fontSize: 16, lineHeight: 21, fontWeight: "900" },
   calendarHint: { fontSize: 10, lineHeight: 15, fontWeight: "600" },
   calendarAssignmentRow: { gap: 9 },
