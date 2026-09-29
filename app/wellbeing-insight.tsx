@@ -24,7 +24,7 @@ function trendLabel(direction: "rising" | "easing" | "steady", role?: "supportiv
 type InsightRangeKind = "week" | "month" | "year" | "lifetime" | "custom";
 function today(timezone: string) { return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
 function rangeFor(kind: InsightRangeKind, date: string, start: string, end: string): ReflectionInsightDateRange | null {
-  if (kind === "lifetime") return null;
+  if (kind === "lifetime") return { startDate: "0000-01-01", endDate: "9999-12-31" };
   if (kind === "week") return { startDate: addLocalDays(date, -6), endDate: date };
   if (kind === "month") return { startDate: `${date.slice(0, 8)}01`, endDate: date };
   if (kind === "year") return { startDate: `${date.slice(0, 4)}-01-01`, endDate: date };
@@ -78,6 +78,8 @@ export default function WellbeingInsightScreen() {
 
   const supportiveSignals = insight.signals.filter((signal) => signal.role === "supportive");
   const loadSignals = insight.signals.filter((signal) => signal.role === "load");
+  const insightScopeLabel = rangeKind === "lifetime" ? "LIFETIME" : rangeKind === "custom" ? "CUSTOM" : rangeKind.toUpperCase();
+  const insightScopeText = rangeKind === "lifetime" ? "Lifetime" : rangeKind === "custom" ? "Custom-period" : `One-${rangeKind}`;
   const balanceTone = !insight.available ? colors.muted : insight.balanceScore >= 68 ? colors.success : insight.balanceScore >= 45 ? colors.warning : colors.error;
 
   return (
@@ -109,7 +111,7 @@ export default function WellbeingInsightScreen() {
         <CommandCard accent={balanceTone} style={styles.balanceCard}>
           <View style={styles.balanceTopline}>
             <View style={styles.balanceCopy}>
-              <Text style={[styles.balanceEyebrow, { color: balanceTone }]}>RECENT REFLECTION BALANCE</Text>
+              <Text style={[styles.balanceEyebrow, { color: balanceTone }]}>{insightScopeLabel} REFLECTION BALANCE</Text>
               <Text style={[styles.balanceTitle, { color: colors.foreground }]}>{insight.headline}</Text>
             </View>
             <View style={[styles.balanceScore, { borderColor: `${balanceTone}66`, backgroundColor: `${balanceTone}14` }]}>
@@ -137,12 +139,12 @@ export default function WellbeingInsightScreen() {
         </CommandCard>
 
         {insight.available ? <>
-          <SectionHeading title="Recent reflection trend" detail={insight.trend.summary} />
+          <SectionHeading title={`${insightScopeText} reflection trend`} detail={insight.trend.summary} />
           <CommandCard accent={colors.primary} style={styles.trendCard}>
             <MultiLineTrendChart series={trendSeries} accessibilityLabel="Transparent recent reflection supportive and load signal trend" />
             <View style={[styles.windowNote, { backgroundColor: colors.background, borderColor: colors.border }]}>
               <Text style={[styles.windowNoteTitle, { color: colors.foreground }]}>Window comparison</Text>
-              <Text style={[styles.windowNoteText, { color: colors.muted }]}>Latest {insight.trend.recentWindow} debrief{insight.trend.recentWindow === 1 ? "" : "s"} compared with the previous {insight.trend.earlierWindow}. Balance change: {insight.trend.change > 0 ? "+" : ""}{insight.trend.change} points.</Text>
+              <Text style={[styles.windowNoteText, { color: colors.muted }]}>{rangeKind === "lifetime" ? "Later" : "Selected"} {insight.trend.recentWindow} debrief{insight.trend.recentWindow === 1 ? "" : "s"} compared with the previous {insight.trend.earlierWindow}. Balance change: {insight.trend.change > 0 ? "+" : ""}{insight.trend.change} points.</Text>
             </View>
           </CommandCard>
 

@@ -212,6 +212,41 @@ describe("Focus Command deterministic gameplay rules", () => {
     expect(insight.disclaimer.toLowerCase()).toContain("not a medical");
   });
 
+
+  it("uses every matching reflection for explicit lifetime ranges instead of recent-only caps", () => {
+    const state = stateWithToday();
+    const mission = completedMission({ id: "lifetime_mission" });
+    state.missions.push(mission);
+    for (let index = 0; index < 20; index += 1) {
+      state.reflections.push({
+        id: `lifetime_${index}`,
+        missionId: mission.id,
+        createdAt: `2026-01-${String(index + 1).padStart(2, "0")}T12:00:00.000Z`,
+        feelingBefore: "steady",
+        feelingAfter: "great",
+        frictionName: "",
+        frictionRating: 1,
+        provokingThought: "",
+        provokingThoughtRating: 1,
+        skills: [],
+        miniAchievement: "",
+        miniAchievementRating: 4,
+        customAnswers: {},
+        energyAfter: 4,
+        focusQuality: 4,
+        stressLevel: 1,
+        clarityLevel: 4,
+        motivationLevel: 4,
+        distractionLevel: 1,
+      });
+    }
+    const lifetimeRange = { startDate: "0000-01-01", endDate: "9999-12-31", timezone: state.profile.timezone };
+    expect(getWellbeingInsight(state).sampleSize).toBe(12);
+    expect(getWellbeingInsight(state, lifetimeRange).sampleSize).toBe(20);
+    expect(getWellbeingInsight(state, lifetimeRange).records).toHaveLength(20);
+    expect(getEmotionalPatternForecast(state, lifetimeRange).sampleSize).toBe(20);
+  });
+
   it("computes boss completion and seven-day dashboard recognition from actual mission and reflection records", () => {
     const state = stateWithToday();
     const mission = completedMission({ id: "boss_mission", bossId: "boss_1" });

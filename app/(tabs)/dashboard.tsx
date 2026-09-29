@@ -31,7 +31,7 @@ type DashboardVisualDateRange = { startDate: string; endDate: string };
 type InsightRangeKind = "week" | "month" | "year" | "lifetime" | "custom";
 
 function getInsightRange(kind: InsightRangeKind, today: string, customStart: string, customEnd: string): ReflectionInsightDateRange | null {
-  if (kind === "lifetime") return null;
+  if (kind === "lifetime") return { startDate: "0000-01-01", endDate: "9999-12-31" };
   if (kind === "week") return { startDate: new Date(Date.parse(`${today}T12:00:00Z`) - 6 * 86_400_000).toISOString().slice(0, 10), endDate: today };
   if (kind === "month") return { startDate: `${today.slice(0, 8)}01`, endDate: today };
   if (kind === "year") return { startDate: `${today.slice(0, 4)}-01-01`, endDate: today };

@@ -2238,7 +2238,8 @@ export function getSubjectCapture(state: Pick<FocusState, "missions" | "srsTopic
 export type ReflectionInsightDateRange = { startDate: string; endDate: string; timezone?: string };
 
 function filterReflectionsByInsightRange(reflections: readonly Reflection[], range?: ReflectionInsightDateRange): Reflection[] {
-  if (!range || !range.startDate || !range.endDate) return [...reflections];
+  if (!range) return [...reflections];
+  if (!range.startDate || !range.endDate || range.startDate > range.endDate) return [];
   const timezone = range.timezone ?? "UTC";
   return reflections.filter((reflection) => {
     const localDate = toLocalDate(reflection.createdAt, timezone);
@@ -2247,7 +2248,8 @@ function filterReflectionsByInsightRange(reflections: readonly Reflection[], ran
 }
 
 export function getEmotionalPatternForecast(state: Pick<FocusState, "reflections">, range?: ReflectionInsightDateRange): EmotionalPatternForecast {
-  const recent = filterReflectionsByInsightRange(state.reflections, range).slice(-14);
+  const filtered = filterReflectionsByInsightRange(state.reflections, range);
+  const recent = range ? filtered : filtered.slice(-14);
   if (!recent.length) {
     return {
       available: false,
@@ -2282,7 +2284,8 @@ export function getEmotionalPatternForecast(state: Pick<FocusState, "reflections
   const confidence = recent.length >= 8 ? "grounded" : recent.length >= 4 ? "emerging" : "early";
   const direction = (value: number): "up" | "down" | "flat" => value > 3 ? "up" : value < -3 ? "down" : "flat";
   const headline = outlook === "momentum" ? "Momentum forecast: protect your next focus block" : outlook === "steady" ? "Steady forecast: a consistent next session is likely" : outlook === "recovery" ? "Recovery forecast: choose a smaller, clearer next task" : outlook === "fragile" ? "Fragile forecast: reduce friction before your next session" : "Pattern forecast is warming up";
-  const detail = `Free on-device estimate from ${recent.length} recent reflection${recent.length === 1 ? "" : "s"}. Focus and motivation are weighted against stress, distraction, and friction. ${trendDelta > 3 ? "Your recent trend is improving." : trendDelta < -3 ? "Your recent trend is easing; plan a gentler block." : "Your recent pattern is relatively stable."} This is reflective feedback, not a diagnosis.`;
+  const scope = range ? "selected timeframe" : "recent";
+  const detail = `Free on-device estimate from ${recent.length} ${scope} reflection${recent.length === 1 ? "" : "s"}. Focus and motivation are weighted against stress, distraction, and friction. ${trendDelta > 3 ? "Your recent trend is improving." : trendDelta < -3 ? "Your recent trend is easing; plan a gentler block." : "Your recent pattern is relatively stable."} This is reflective feedback, not a diagnosis.`;
   return {
     available: true,
     outlook,
@@ -2302,7 +2305,8 @@ export function getEmotionalPatternForecast(state: Pick<FocusState, "reflections
 }
 
 export function getWellbeingInsight(state: Pick<FocusState, "profile" | "missions" | "reflections">, range?: ReflectionInsightDateRange): WellbeingInsight {
-  const recent = filterReflectionsByInsightRange(state.reflections, range ?? { startDate: "", endDate: "", timezone: state.profile.timezone }).slice(-12);
+  const filtered = filterReflectionsByInsightRange(state.reflections, range);
+  const recent = range ? filtered : filtered.slice(-12);
   const missionById = new Map(state.missions.map((mission) => [mission.id, mission]));
   const metricDefinitions: Array<{ id: string; label: string; role: WellbeingSignalRole; key: keyof Pick<Reflection, "energyAfter" | "focusQuality" | "stressLevel" | "clarityLevel" | "motivationLevel" | "distractionLevel" | "frictionRating">; detail: string }> = [
     { id: "focus", label: "Focus quality", role: "supportive", key: "focusQuality", detail: "How well you reported staying with the task." },
@@ -2387,8 +2391,9 @@ export function getWellbeingInsight(state: Pick<FocusState, "profile" | "mission
       friction: reflection.frictionRating ?? null,
     };
   });
-  const headline = balance.score >= 68 ? "Your recent reflections contain more supportive than load signals" : balance.score >= 45 ? "Your recent reflection balance looks mixed" : "Your recent reflections contain more load than supportive signals";
-  const summary = `Across ${recent.length} recent debrief${recent.length === 1 ? "" : "s"}, your reported supportive signals average ${balance.supportiveAverage.toFixed(1)}/5 and your reported load signals average ${balance.loadAverage.toFixed(1)}/5. This is a summary of what you logged, not a diagnosis or prediction.`;
+  const scope = range ? "selected timeframe" : "recent";
+  const headline = balance.score >= 68 ? `Your ${scope} reflections contain more supportive than load signals` : balance.score >= 45 ? `Your ${scope} reflection balance looks mixed` : `Your ${scope} reflections contain more load than supportive signals`;
+  const summary = `Across ${recent.length} ${scope} debrief${recent.length === 1 ? "" : "s"}, your reported supportive signals average ${balance.supportiveAverage.toFixed(1)}/5 and your reported load signals average ${balance.loadAverage.toFixed(1)}/5. This is a summary of what you logged, not a diagnosis or prediction.`;
   return {
     available: true,
     sampleSize: recent.length,
