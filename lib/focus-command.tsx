@@ -48,6 +48,7 @@ import {
   loadPersistedFocusState,
   persistFocusStateIncrementally,
 } from "./focus-state-persistence";
+import { normalizeBehaviorLogs, type BehaviorLog, type BehaviorLogDraft } from "./behavior-patterns";
 
 type AppStateSubscription = { remove: () => void };
 type AppStateModule = { addEventListener: (event: "change", listener: (nextState: string) => void) => AppStateSubscription };
@@ -73,7 +74,7 @@ function getRuntimeInteractionManager(): InteractionManagerModule | null {
 }
 
 export type Difficulty = "easy" | "medium" | "hard";
-export const CURRENT_APP_SCHEMA_VERSION = 2;
+export const CURRENT_APP_SCHEMA_VERSION = 3;
 export type MissionStatus = "planned" | "active" | "paused" | "completed";
 export type MissionFrequency = "once" | "daily";
 /** Persisted mission timing accepted from current and pre-migration app builds. */
@@ -935,6 +936,7 @@ export interface FocusState {
   corePrincipleItems: CorePrincipleItem[];
   corePrincipleDailyCheckIns: CorePrincipleDailyCheckIn[];
   calendarActivities: CalendarActivity[];
+  behaviorLogs: BehaviorLog[];
   recoveryStressors?: RecoveryStressor[];
   recoveryActions?: RecoveryActionRecord[];
   sleepLogs?: SleepLog[];
@@ -1490,6 +1492,7 @@ export function createInitialState(): FocusState {
     corePrincipleItems: [],
     corePrincipleDailyCheckIns: [],
     calendarActivities: [],
+    behaviorLogs: [],
     recoveryStressors: [],
     recoveryActions: [],
     sleepLogs: [],
@@ -2564,6 +2567,9 @@ interface FocusCommandContextValue {
   scheduleCalendarActivity: (input: { title: string; localDate: string; missionId?: string | null }) => string | null;
   removeCalendarActivity: (activityId: string) => void;
   toggleCalendarActivityCompleted: (activityId: string) => void;
+  addBehaviorLog: (draft: BehaviorLogDraft) => string | null;
+  updateBehaviorLog: (logId: string, patch: Partial<Omit<BehaviorLog, "id" | "createdAt" | "updatedAt">>) => void;
+  removeBehaviorLog: (logId: string) => void;
   startMission: (missionId: string) => void;
   /** Starts a planned eligible mission and records its Gate entry together as one local update. */
   startMissionThroughShadowGate: (missionId: string, selection: ShadowGateDoorwaySelection) => boolean;
@@ -3087,6 +3093,7 @@ export function normalizeHydratedState(input: FocusState): FocusState {
           && typeof activity.createdAt === "string" && Number.isFinite(Date.parse(activity.createdAt)),
         )).map((activity) => ({ ...activity, title: activity.title.trim().slice(0, 180), missionId: activity.missionId ?? null, completedAt: typeof activity.completedAt === "string" ? activity.completedAt : null }))
       : [],
+    behaviorLogs: normalizeBehaviorLogs(input.behaviorLogs, rawProfile.timezone),
     illnessContextRecords: Array.isArray(input.illnessContextRecords)
       ? input.illnessContextRecords.filter((entry): entry is IllnessContextRecord => Boolean(
           entry
@@ -3419,6 +3426,67 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
         calendarActivities: current.calendarActivities.map((activity) => activity.id === activityId ? { ...activity, completedAt: activity.completedAt ? null : nowIso() } : activity),
       });
     });
+  }, [commit]);
+
+  const addBehaviorLog = useCallback((draft: BehaviorLogDraft): string | null => {
+    const trigger = draft.trigger.trim().slice(0, 240);
+    if (!trigger) return null;
+    const id = createId("behavior_log");
+    const createdAt = nowIso();
+    commit((current) => withQueuedOperation({
+      ...current,
+      behaviorLogs: [{
+        id,
+        createdAt,
+        updatedAt: createdAt,
+        localDate: draft.localDate && LOCAL_DATE_PATTERN.test(draft.localDate) ? draft.localDate : toLocalDate(createdAt, current.profile.timezone),
+        trigger,
+        urgeType: draft.urgeType ?? "other",
+        urgeIntensityBefore: draft.urgeIntensityBefore ?? null,
+        automaticThought: draft.automaticThought?.trim().slice(0, 500) ?? "",
+        emotion: draft.emotion?.trim().slice(0, 120) ?? "",
+        bodyResponse: draft.bodyResponse?.trim().slice(0, 240) ?? "",
+        actionType: draft.actionType ?? "other",
+        action: draft.action?.trim().slice(0, 240) ?? "",
+        immediateConsequence: draft.immediateConsequence ?? "other",
+        urgeIntensityAfter: draft.urgeIntensityAfter ?? null,
+        evidenceFor: draft.evidenceFor?.trim().slice(0, 500) ?? "",
+        evidenceAgainst: draft.evidenceAgainst?.trim().slice(0, 500) ?? "",
+        thoughtPatterns: draft.thoughtPatterns?.slice(0, 8) ?? [],
+        customThoughtPattern: draft.customThoughtPattern?.trim().slice(0, 120) ?? "",
+        balancedThought: draft.balancedThought?.trim().slice(0, 500) ?? "",
+        alternativeAction: draft.alternativeAction?.trim().slice(0, 240) ?? "",
+        alternativeHelpful: draft.alternativeHelpful ?? null,
+        laterConsequence: draft.laterConsequence?.trim().slice(0, 360) ?? "",
+        missionId: draft.missionId ?? null,
+        calendarActivityId: draft.calendarActivityId ?? null,
+      }, ...current.behaviorLogs],
+    }));
+    return id;
+  }, [commit]);
+
+  const updateBehaviorLog = useCallback((logId: string, patch: Partial<Omit<BehaviorLog, "id" | "createdAt" | "updatedAt">>) => {
+    commit((current) => {
+      if (!current.behaviorLogs.some((log) => log.id === logId)) return current;
+      const updatedAt = nowIso();
+      return withQueuedOperation({
+        ...current,
+        behaviorLogs: current.behaviorLogs.map((log) => log.id === logId ? {
+          ...log,
+          ...patch,
+          trigger: patch.trigger === undefined ? log.trigger : patch.trigger.trim().slice(0, 240),
+          automaticThought: patch.automaticThought === undefined ? log.automaticThought : patch.automaticThought.trim().slice(0, 500),
+          action: patch.action === undefined ? log.action : patch.action.trim().slice(0, 240),
+          updatedAt,
+        } : log),
+      });
+    });
+  }, [commit]);
+
+  const removeBehaviorLog = useCallback((logId: string) => {
+    commit((current) => current.behaviorLogs.some((log) => log.id === logId)
+      ? withQueuedOperation({ ...current, behaviorLogs: current.behaviorLogs.filter((log) => log.id !== logId) })
+      : current);
   }, [commit]);
 
   const startMission = useCallback((missionId: string) => {
@@ -4887,6 +4955,9 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
     removeIllnessContextRecord,
     setJournalLifelinePercentage,
     getCurrentState,
+    addBehaviorLog,
+    updateBehaviorLog,
+    removeBehaviorLog,
     createMission,
     updateMission,
     removeMission,
@@ -4937,6 +5008,9 @@ export function FocusCommandProvider({ children }: { children: React.ReactNode }
   }), [
     addPersonalGraph,
     getCurrentState,
+    addBehaviorLog,
+    updateBehaviorLog,
+    removeBehaviorLog,
     createMission,
     updateMission,
     removeMission,

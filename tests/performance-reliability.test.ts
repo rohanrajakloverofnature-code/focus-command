@@ -9,6 +9,8 @@ const focusCommandSource = readFileSync(resolve(process.cwd(), "lib/focus-comman
 const focusStatePersistenceSource = readFileSync(resolve(process.cwd(), "lib/focus-state-persistence.ts"), "utf8");
 const offlineBackupSource = readFileSync(resolve(process.cwd(), "lib/offline-backup.ts"), "utf8");
 const offlineBackupFormatSource = readFileSync(resolve(process.cwd(), "lib/offline-backup-format.ts"), "utf8");
+const behaviorPatternsSource = readFileSync(resolve(process.cwd(), "lib/behavior-patterns.ts"), "utf8");
+const behaviorScreenSource = readFileSync(resolve(process.cwd(), "app/behavior-patterns.tsx"), "utf8");
 const launchSource = readFileSync(resolve(process.cwd(), "components/launch-animation.tsx"), "utf8");
 const cinematicSource = readFileSync(resolve(process.cwd(), "components/rank-character.tsx"), "utf8");
 const missionBoardSource = readFileSync(resolve(process.cwd(), "app/(tabs)/missions.tsx"), "utf8");
@@ -115,6 +117,17 @@ describe("Performance and reliability contracts", () => {
     expect(offlineBackupFormatSource).toContain("export function migrateOfflineBackupState");
     expect(offlineBackupFormatSource).toContain("schemaVersion > CURRENT_APP_SCHEMA_VERSION");
     expect(offlineBackupFormatSource).toContain("MAX_BACKUP_UNCOMPRESSED_BYTES");
+  });
+
+  it("keeps Behaviour Patterns local, timezone-aware, and connected to the persisted state", () => {
+    expect(behaviorPatternsSource).toContain('export type BehaviorPatternsRangeKind = "today" | "week" | "month" | "year" | "custom"');
+    expect(behaviorPatternsSource).toContain("normalizeBehaviorLogs");
+    expect(behaviorPatternsSource).toContain("alternativeHelpfulRate");
+    expect(behaviorScreenSource).toContain("useFocusCommandSelector");
+    expect(behaviorScreenSource).toContain("CalendarDateRangeField");
+    expect(behaviorScreenSource).toContain("PRIVATE · OFFLINE SELF-OBSERVATION");
+    expect(focusCommandSource).toContain("behaviorLogs: []");
+    expect(offlineBackupFormatSource).toContain("behaviorLogs: state.behaviorLogs.length");
   });
 
   it("keeps the remaining mounted bridge and tab screens on exact selectors without changing wallet or completion calculations", () => {

@@ -34,6 +34,8 @@ export interface OfflineBackupSummary {
   completions: number;
   reflections: number;
   journals: number;
+  /** Optional because original manifests predate Behaviour Patterns. */
+  behaviorLogs?: number;
   mediaFiles: number;
 }
 
@@ -112,6 +114,7 @@ function buildSummary(state: FocusState, mediaFiles: number): OfflineBackupSumma
     completions: state.missionCompletions.length,
     reflections: state.reflections.length,
     journals: state.journals.length,
+    behaviorLogs: state.behaviorLogs.length,
     mediaFiles,
   };
 }
@@ -254,7 +257,9 @@ function validateManifestAgainstState(manifest: OfflineBackupManifest, state: Fo
     }
   }
   const expectedSummary = buildSummary(state, mediaFiles);
-  if (JSON.stringify(expectedSummary) !== JSON.stringify(manifest.summary)) {
+  const comparableExpectedSummary = { missions: expectedSummary.missions, completions: expectedSummary.completions, reflections: expectedSummary.reflections, journals: expectedSummary.journals, behaviorLogs: expectedSummary.behaviorLogs ?? 0, mediaFiles: expectedSummary.mediaFiles };
+  const comparableManifestSummary = { missions: manifest.summary.missions, completions: manifest.summary.completions, reflections: manifest.summary.reflections, journals: manifest.summary.journals, behaviorLogs: manifest.summary.behaviorLogs ?? 0, mediaFiles: manifest.summary.mediaFiles };
+  if (JSON.stringify(comparableExpectedSummary) !== JSON.stringify(comparableManifestSummary)) {
     throw new OfflineBackupValidationError("The backup record summary does not match its data.");
   }
 }
@@ -512,7 +517,9 @@ export function parseOfflineBackupArchive(archive: Uint8Array): ParsedOfflineBac
     return { path: file.path, bytes };
   });
   const expectedSummary = buildSummary(state, media.length);
-  if (JSON.stringify(expectedSummary) !== JSON.stringify(manifest.summary)) {
+  const comparableExpectedSummary = { missions: expectedSummary.missions, completions: expectedSummary.completions, reflections: expectedSummary.reflections, journals: expectedSummary.journals, behaviorLogs: expectedSummary.behaviorLogs ?? 0, mediaFiles: expectedSummary.mediaFiles };
+  const comparableManifestSummary = { missions: manifest.summary.missions, completions: manifest.summary.completions, reflections: manifest.summary.reflections, journals: manifest.summary.journals, behaviorLogs: manifest.summary.behaviorLogs ?? 0, mediaFiles: manifest.summary.mediaFiles };
+  if (JSON.stringify(comparableExpectedSummary) !== JSON.stringify(comparableManifestSummary)) {
     throw new OfflineBackupValidationError("The backup record summary does not match its data.");
   }
   return { manifest, state, media };

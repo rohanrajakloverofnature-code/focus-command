@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 
-import { createInitialState, normalizeHydratedState, type FocusState } from "../lib/focus-command";
+import { createInitialState, normalizeHydratedState, CURRENT_APP_SCHEMA_VERSION, type FocusState } from "../lib/focus-command";
 import {
   createOfflineBackupArchive,
   hashBackupBytes,
@@ -77,7 +77,7 @@ describe("offline Focus Command backup format", () => {
 
     expect(parsed.manifest).toEqual(manifest);
     expect(parsed.state).toEqual({ ...state, hydrated: false });
-    expect(parsed.manifest.summary).toEqual({ missions: 1, completions: 1, reflections: 1, journals: 1, mediaFiles: 2 });
+    expect(parsed.manifest.summary).toEqual({ missions: 1, completions: 1, reflections: 1, journals: 1, behaviorLogs: 0, mediaFiles: 2 });
     expect(parsed.media).toEqual([
       { path: "media/cinematics/recruit.mp4", bytes: cinematic },
       { path: "media/sounds/missionWin.mp3", bytes: sound },
@@ -227,12 +227,13 @@ describe("offline Focus Command backup format", () => {
     });
     const restored = parseOfflineBackupArchive(seedArchive).state;
 
-    expect(restored.schemaVersion).toBe(2);
+    expect(restored.schemaVersion).toBe(CURRENT_APP_SCHEMA_VERSION);
     expect(restored.missions).toEqual([]);
     expect(restored.missionCompletions).toEqual([]);
     expect(restored.calendarActivities).toEqual([]);
     expect(restored.mistakeLedgerEntries).toEqual([]);
     expect(restored.recoveryStressors).toEqual([]);
+    expect(restored.behaviorLogs).toEqual([]);
     expect(restored.personalGraphs).toHaveLength(current.personalGraphs.length);
     expect(restored.profile.firstName).toBe(current.profile.firstName);
     expect(restored.profile.timezone).toBe(current.profile.timezone);

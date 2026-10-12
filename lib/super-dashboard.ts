@@ -10,6 +10,7 @@ import { getFocusFrictionInsight } from "./distraction-log";
 import { getIllnessContextSummary } from "./illness-context";
 import { getPersonalSleepScore } from "./recovery-rhythm";
 import { getMistakeLedgerAnalytics, type MistakeLedgerAnalytics } from "./mistake-ledger-analytics";
+import { getBehaviorPatternsSummary, type BehaviorPatternsSummary } from "./behavior-patterns";
 
 export type SuperDashboardRangeKind = "today" | "week" | "month" | "lifetime" | "custom";
 
@@ -44,6 +45,7 @@ export type SuperDashboardState = Pick<FocusState,
   | "characterMilestones"
   | "mistakeLedgerEntries"
   | "mistakeLedgerActivityLog"
+  | "behaviorLogs"
 >;
 
 export type SuperDashboardMetric = {
@@ -158,6 +160,7 @@ export type SuperDashboardSummary = {
     principleRecordedDays: number;
     characterFormsEarned: number;
   };
+  behaviorPatterns: BehaviorPatternsSummary;
   patterns: SuperDashboardContextPattern[];
   evidence: {
     recordedDays: number;
@@ -440,6 +443,7 @@ export function getSuperDashboardSummary(
       emotions: { focus: emptyMetric, motivation: emptyMetric, clarity: emptyMetric, energy: emptyMetric, distraction: emptyMetric, friction: emptyMetric },
       mistakes: { totalAtEnd: 0, createdInRange: 0, statusUpdatesInRange: 0, counts: { noted: 0, working_on: 0, improving: 0, improved: 0, needs_review: 0 }, latestChanges: [] },
       supportingProgress: { revisionActions: 0, maturedRevisionActions: 0, journalPoints: 0, journalEntries: 0, successRatio: null, principleChecked: 0, principleApplicable: 0, principleRecordedDays: 0, characterFormsEarned: 0 },
+      behaviorPatterns: getBehaviorPatternsSummary([], "custom", timezone, range.startDate, range.endDate, now),
       patterns: [],
       evidence: { recordedDays: 0, completionRecords: 0, recoveryRecords: 0, reflectionRecords: 0, note: "No calculation is run until the date range is valid." },
     };
@@ -619,6 +623,7 @@ export function getSuperDashboardSummary(
       principleRecordedDays: principles.recordedDays,
       characterFormsEarned,
     },
+    behaviorPatterns: getBehaviorPatternsSummary(state.behaviorLogs, "custom", timezone, range.startDate, range.endDate, now),
     patterns,
     evidence: {
       recordedDays: recordedDays.size,

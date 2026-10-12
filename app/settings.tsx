@@ -217,7 +217,7 @@ export default function SettingsScreen() {
       const { summary } = manifest;
       Alert.alert(
         "Restore all Focus Command data?",
-        `${preview.fileName}\nCreated ${new Date(manifest.createdAt).toLocaleString()}\n\n${summary.missions} missions · ${summary.completions} completed runs · ${summary.reflections} reflections · ${summary.journals} journals · ${summary.mediaFiles} media files\n\nThis validated backup will replace the current local command log on this device. This cannot be undone.`,
+        `${preview.fileName}\nCreated ${new Date(manifest.createdAt).toLocaleString()}\n\n${summary.missions} missions · ${summary.completions} completed runs · ${summary.reflections} reflections · ${summary.journals} journals · ${summary.behaviorLogs ?? 0} behaviour logs · ${summary.mediaFiles} media files\n\nThis validated backup will replace the current local command log on this device. This cannot be undone.`,
         [
           { text: "Cancel", style: "cancel", onPress: () => setBackupBusy(null) },
           {

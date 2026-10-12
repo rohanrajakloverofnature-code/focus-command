@@ -134,6 +134,25 @@ function addSummaryRows(rows: SuperDashboardComparisonRow[], current: SuperDashb
   addRow(rows, "Focus & friction", "focus.matchedLogs", "Matched interruption logs", current.focus.loggedInterruptionRate.matchedLogs, previous.focus.loggedInterruptionRate.matchedLogs, "count");
   addRow(rows, "Focus & friction", "focus.sufficientData", "Interruption rate sufficient data", current.focus.loggedInterruptionRate.sufficientData, previous.focus.loggedInterruptionRate.sufficientData, "boolean");
 
+  addRow(rows, "Behaviour & thought patterns", "behaviorPatterns.totalLogs", "Behaviour logs", current.behaviorPatterns.totalLogs, previous.behaviorPatterns.totalLogs, "count");
+  addRow(rows, "Behaviour & thought patterns", "behaviorPatterns.highUrgeLogs", "High-urge logs", current.behaviorPatterns.highUrgeLogs, previous.behaviorPatterns.highUrgeLogs, "count");
+  addRow(rows, "Behaviour & thought patterns", "behaviorPatterns.averageUrgeBefore", "Average urge before", current.behaviorPatterns.averageUrgeBefore, previous.behaviorPatterns.averageUrgeBefore, "rating");
+  addRow(rows, "Behaviour & thought patterns", "behaviorPatterns.averageUrgeAfter", "Average urge after", current.behaviorPatterns.averageUrgeAfter, previous.behaviorPatterns.averageUrgeAfter, "rating");
+  addRow(rows, "Behaviour & thought patterns", "behaviorPatterns.averageUrgeChange", "Average urge change", current.behaviorPatterns.averageUrgeChange, previous.behaviorPatterns.averageUrgeChange, "number");
+  addRow(rows, "Behaviour & thought patterns", "behaviorPatterns.alternativeActionAttempts", "Alternative actions", current.behaviorPatterns.alternativeActionAttempts, previous.behaviorPatterns.alternativeActionAttempts, "count");
+  addRow(rows, "Behaviour & thought patterns", "behaviorPatterns.alternativeHelpfulRate", "Alternative helpful rate", current.behaviorPatterns.alternativeHelpfulRate, previous.behaviorPatterns.alternativeHelpfulRate, "percentage");
+  addRow(rows, "Behaviour & thought patterns", "behaviorPatterns.linkedMissionLogs", "Mission-linked logs", current.behaviorPatterns.linkedMissionLogs, previous.behaviorPatterns.linkedMissionLogs, "count");
+  addRow(rows, "Behaviour & thought patterns", "behaviorPatterns.linkedCalendarLogs", "Calendar-linked logs", current.behaviorPatterns.linkedCalendarLogs, previous.behaviorPatterns.linkedCalendarLogs, "count");
+  const behaviorLabels = new Map<string, { current: number; previous: number }>();
+  [...current.behaviorPatterns.thoughtPatternCounts, ...previous.behaviorPatterns.thoughtPatternCounts].forEach((item) => {
+    const key = item.label;
+    const existing = behaviorLabels.get(key) ?? { current: 0, previous: 0 };
+    if (current.behaviorPatterns.thoughtPatternCounts.some((candidate) => candidate.label === key)) existing.current = current.behaviorPatterns.thoughtPatternCounts.find((candidate) => candidate.label === key)?.count ?? 0;
+    if (previous.behaviorPatterns.thoughtPatternCounts.some((candidate) => candidate.label === key)) existing.previous = previous.behaviorPatterns.thoughtPatternCounts.find((candidate) => candidate.label === key)?.count ?? 0;
+    behaviorLabels.set(key, existing);
+  });
+  behaviorLabels.forEach((counts, label) => addRow(rows, "Behaviour & thought patterns", `behaviorPatterns.thoughtPattern.${label}`, `${label} tags`, counts.current, counts.previous, "count"));
+
   (Object.keys(current.emotions) as Array<keyof SuperDashboardSummary["emotions"]>).forEach((key) => {
     const label = key.charAt(0).toUpperCase() + key.slice(1);
     addMetric(rows, "Emotional mission signals", `emotions.${key}`, label, current.emotions[key], previous.emotions[key], "rating");

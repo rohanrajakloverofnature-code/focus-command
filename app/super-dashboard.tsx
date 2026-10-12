@@ -63,6 +63,7 @@ function selectSuperDashboardState(state: SuperDashboardState): SuperDashboardSt
     characterMilestones: state.characterMilestones,
     mistakeLedgerEntries: state.mistakeLedgerEntries,
     mistakeLedgerActivityLog: state.mistakeLedgerActivityLog,
+    behaviorLogs: state.behaviorLogs,
   };
 }
 
@@ -212,6 +213,19 @@ export default function SuperDashboardScreen() {
             <View style={styles.calendarCompareRow}>{(["yesterday", "week", "month", "year"] as CalendarComparisonKind[]).map((kind) => <Pressable key={kind} onPress={() => setCalendarComparisonKind(kind)} style={[styles.calendarCompareChip, { borderColor: calendarComparisonKind === kind ? colors.success : colors.border, backgroundColor: calendarComparisonKind === kind ? `${colors.success}18` : colors.background }]}><Text style={[styles.calendarCompareChipText, { color: calendarComparisonKind === kind ? colors.success : colors.muted }]}>{kind.toUpperCase()}</Text></Pressable>)}</View>
             <Text style={[styles.calendarCompareText, { color: colors.muted }]}>{calendarComparison.currentAverage === null ? "No planned activity in the comparison period." : `Current ${calendarComparison.currentAverage}% · Previous ${calendarComparison.previousAverage ?? "—"}%${calendarComparison.delta === null ? "" : ` · ${calendarComparison.delta >= 0 ? "+" : ""}${calendarComparison.delta} points`}`}</Text>
             <CommandButton label="Open Activity Calendar" icon="checklist" variant="secondary" onPress={() => router.push("/activity-calendar" as never)} />
+          </CommandCard>
+
+          <SectionHeader title="Behaviour & thought patterns" />
+          <CommandCard accent="#A78BFA" style={styles.detailCard}>
+            <View style={styles.chartHeading}><View style={styles.chartCopy}><Text style={[styles.cardTitle, { color: colors.foreground }]}>Recorded behaviour loops</Text><Text style={[styles.cardDetail, { color: colors.muted }]}>Your saved triggers, urges, thoughts, and actions for this period. These are associations, not diagnoses or proof of cause.</Text></View><StatusPill label={`${summary.behaviorPatterns.totalLogs} LOGS`} tone="primary" /></View>
+            <View style={styles.metricGrid}>
+              <MetricTile style={styles.metricTile} label="High urge" value={String(summary.behaviorPatterns.highUrgeLogs)} detail="7/10 or higher before action" icon="bolt.fill" accent={colors.warning} />
+              <MetricTile style={styles.metricTile} label="Urge before" value={summary.behaviorPatterns.averageUrgeBefore === null ? "—" : `${summary.behaviorPatterns.averageUrgeBefore}/10`} detail={`${summary.behaviorPatterns.totalLogs} recorded event${summary.behaviorPatterns.totalLogs === 1 ? "" : "s"}`} icon="chart.xyaxis.line" accent="#A78BFA" />
+              <MetricTile style={styles.metricTile} label="Urge change" value={summary.behaviorPatterns.averageUrgeChange === null ? "—" : `${summary.behaviorPatterns.averageUrgeChange > 0 ? "+" : ""}${summary.behaviorPatterns.averageUrgeChange}`} detail="After minus before" icon="chart.xyaxis.line" accent={colors.success} />
+              <MetricTile style={styles.metricTile} label="Alternatives" value={summary.behaviorPatterns.alternativeActionAttempts === 0 ? "—" : String(summary.behaviorPatterns.alternativeActionAttempts)} detail="Alternative actions recorded" icon="checklist" accent={colors.success} />
+            </View>
+            <Text style={[styles.detailCardText, { color: colors.muted }]}>{summary.behaviorPatterns.urgeTypeCounts[0] ? `Most common urge: ${summary.behaviorPatterns.urgeTypeCounts[0].label}. ` : "No urge type has been recorded yet. "}{summary.behaviorPatterns.actionCounts[0] ? `Most common action: ${summary.behaviorPatterns.actionCounts[0].label}.` : "Add a log to see repeated actions."}</Text>
+            <CommandButton label="Open Behaviour Patterns" icon="chart.xyaxis.line" variant="secondary" onPress={() => router.push("/behavior-patterns" as never)} />
           </CommandCard>
 
           <SectionHeader title="Mission progress" />
