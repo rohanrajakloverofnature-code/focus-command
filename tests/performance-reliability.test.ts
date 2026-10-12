@@ -126,6 +126,11 @@ describe("Performance and reliability contracts", () => {
     expect(behaviorScreenSource).toContain("useFocusCommandSelector");
     expect(behaviorScreenSource).toContain("CalendarDateRangeField");
     expect(behaviorScreenSource).toContain("PRIVATE · OFFLINE SELF-OBSERVATION");
+    expect(behaviorScreenSource).toContain("useKeyboardSafeFocus");
+    expect(behaviorScreenSource).toContain("keyboardContentContainerStyle");
+    expect(behaviorScreenSource).toContain("onBlur={onBlur}");
+    expect(behaviorScreenSource).not.toContain("#A78BFA");
+    expect(behaviorScreenSource).not.toContain("#60A5FA");
     expect(focusCommandSource).toContain("behaviorLogs: []");
     expect(offlineBackupFormatSource).toContain("behaviorLogs: state.behaviorLogs.length");
   });
