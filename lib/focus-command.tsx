@@ -1623,7 +1623,7 @@ export function getComboTiers(state: Pick<FocusState, "customQuestions">): Combo
   ];
 }
 
-export function getCurrentCombo(state: FocusState, referenceDate = toLocalDate(nowIso(), state.profile.timezone)) {
+export function getCurrentCombo(state: Pick<FocusState, "customQuestions" | "profile" | "combo">, referenceDate = toLocalDate(nowIso(), state.profile.timezone)) {
   const tiers = getComboTiers(state);
   const selected = tiers.find((tier) => tier.id === state.combo.currentTierId) ?? tiers[0];
   if (!state.combo.lastActiveDate) {
@@ -1942,7 +1942,7 @@ export function getMissionCompletionRecordsInLocalDateRange(
   return matching;
 }
 
-function rebuildComboFromCompletions(state: FocusState): ComboState {
+function rebuildComboFromActivityDates(state: Pick<FocusState, "customQuestions" | "profile">, activityDates: string[]): ComboState {
   const baseTier = getComboTiers(state)[0];
   let combo: ComboState = {
     currentTierId: baseTier?.id ?? "combo_base",
@@ -1950,13 +1950,17 @@ function rebuildComboFromCompletions(state: FocusState): ComboState {
     qualifyingStreak: 0,
     missedDays: 0,
   };
-  const activityDates = Array.from(new Set(
-    getMissionCompletionRecords(state).map((completion) => toLocalDate(completion.completedAt, state.profile.timezone)),
-  )).sort();
-  for (const activityDate of activityDates) {
+  for (const activityDate of Array.from(new Set(activityDates)).sort()) {
     combo = resolveCurrentComboAfterActivity({ ...state, combo }, activityDate);
   }
   return combo;
+}
+
+function rebuildComboFromCompletions(state: FocusState): ComboState {
+  return rebuildComboFromActivityDates(
+    state,
+    getMissionCompletionRecords(state).map((completion) => toLocalDate(completion.completedAt, state.profile.timezone)),
+  );
 }
 
 function getReconciledGoldPowerCarry(progression: ProgressionEvent[]): number {
@@ -2527,7 +2531,7 @@ export function getDashboardDistributionStats(state: FocusState, range: Dashboar
   return { subjectDistribution: toDistribution(bySubject), categoryDistribution: toDistribution(byCategory) };
 }
 
-export function resolveCurrentComboAfterActivity(state: FocusState, activityDate: string): ComboState {
+export function resolveCurrentComboAfterActivity(state: Pick<FocusState, "customQuestions" | "profile" | "combo">, activityDate: string): ComboState {
   const tiers = getComboTiers(state);
   const prior = getCurrentCombo(state, activityDate);
   const previousDate = state.combo.lastActiveDate;
@@ -2929,7 +2933,12 @@ export function normalizeHydratedState(input: FocusState): FocusState {
       },
       emotionalCharts: input.profile?.emotionalCharts?.length ? input.profile.emotionalCharts : defaults.profile.emotionalCharts,
     },
-    combo: { ...defaults.combo, ...(input.combo ?? {}) },
+    combo: existingCompletions.length || migratedLegacyCompletions.length
+      ? rebuildComboFromActivityDates(
+        { customQuestions: input.customQuestions ?? defaults.customQuestions, profile: rawProfile },
+        [...existingCompletions, ...migratedLegacyCompletions].map((completion) => toLocalDate(completion.completedAt, rawProfile.timezone)),
+      )
+      : { ...defaults.combo, ...(input.combo ?? {}) },
     lifeline: rebuildJournalLifelineContributions(input.lifeline ?? [], input.journals ?? [], journalLifelinePercentage),
     missions,
     missionCompletions: [...existingCompletions, ...migratedLegacyCompletions],
