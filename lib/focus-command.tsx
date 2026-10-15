@@ -1637,7 +1637,13 @@ export function getCurrentCombo(state: FocusState, referenceDate = toLocalDate(n
   const index = Math.max(0, tiers.findIndex((tier) => tier.id === selected.id) - Math.min(missedDays, 2));
   const tier = tiers[index] ?? tiers[0];
   const next = tiers[index + 1];
-  const daysToNext = next ? Math.max(0, next.days - Math.max(1, missedDays ? 1 : state.combo.qualifyingStreak)) : 0;
+  const earnedIndex = tiers.reduce((highest, candidate, candidateIndex) => candidate.days <= state.combo.qualifyingStreak ? candidateIndex : highest, 0);
+  const recoveringAfterMiss = earnedIndex > index;
+  const daysToNext = next
+    ? recoveringAfterMiss
+      ? 1
+      : Math.max(0, next.days - Math.max(1, missedDays ? 1 : state.combo.qualifyingStreak))
+    : 0;
   return { tier, multiplier: tier.multiplier, missedDays, daysToNext };
 }
 
@@ -2521,15 +2527,23 @@ export function getDashboardDistributionStats(state: FocusState, range: Dashboar
   return { subjectDistribution: toDistribution(bySubject), categoryDistribution: toDistribution(byCategory) };
 }
 
-function resolveCurrentComboAfterActivity(state: FocusState, activityDate: string): ComboState {
+export function resolveCurrentComboAfterActivity(state: FocusState, activityDate: string): ComboState {
   const tiers = getComboTiers(state);
   const prior = getCurrentCombo(state, activityDate);
   const previousDate = state.combo.lastActiveDate;
   const isSameDay = previousDate === activityDate;
   const consecutive = previousDate ? differenceInDays(previousDate, activityDate) === 1 : false;
-  const nextStreak = isSameDay ? Math.max(1, state.combo.qualifyingStreak) : consecutive ? Math.max(1, state.combo.qualifyingStreak + 1) : 1;
+  const missedDays = isSameDay || consecutive ? 0 : prior.missedDays;
+  const hardReset = missedDays >= 3;
+  const nextStreak = hardReset
+    ? 1
+    : isSameDay
+      ? Math.max(1, state.combo.qualifyingStreak)
+      : consecutive
+        ? Math.max(1, state.combo.qualifyingStreak + 1)
+        : Math.max(1, state.combo.qualifyingStreak - missedDays);
   const earnedTier = tiers.filter((tier) => tier.days <= nextStreak).at(-1) ?? tiers[0];
-  const tier = isSameDay ? prior.tier : earnedTier;
+  const tier = hardReset || isSameDay || consecutive ? earnedTier : prior.tier;
   return {
     currentTierId: tier.id,
     lastActiveDate: activityDate,
