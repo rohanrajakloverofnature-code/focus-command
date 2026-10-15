@@ -1,9 +1,10 @@
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIsFocused } from "@react-navigation/native";
-import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { CelebrationKind, CelebrationOverlay } from "@/components/celebration-overlay";
+import { ComboGuide } from "@/components/combo-guide";
 import { DailyCommandBriefing } from "@/components/daily-command-briefing";
 import { EmotionPredictionTicker } from "@/components/emotion-prediction-ticker";
 import {
@@ -214,6 +215,7 @@ export default function HomeScreen() {
   const milestones = useRef<CelebrationMilestone | null>(null);
   const characterMilestone = useRef<ReturnType<typeof createCharacterEvolutionMilestone> | null>(null);
   const [homeCelebration, setHomeCelebration] = useState<CelebrationKind | null>(null);
+  const [showComboGuide, setShowComboGuide] = useState(false);
   const [showRankAchievement, setShowRankAchievement] = useState(false);
   const [characterEvolutionPending, setCharacterEvolutionPending] = useState(false);
   const [characterAcknowledgement, setCharacterAcknowledgement] = useState(0);
@@ -384,7 +386,18 @@ export default function HomeScreen() {
                 <View style={styles.heroStatDivider} />
                 <View>
                   <Text style={[styles.heroStatValue, { color: homeProfileCardColors.accentColor }]}>{combo.multiplier.toFixed(2)}×</Text>
-                  <Text style={styles.heroStatLabel}>ACTIVE COMBO</Text>
+                  <View style={styles.heroStatLabelRow}>
+                    <Text style={styles.heroStatLabel}>ACTIVE COMBO</Text>
+                    <Pressable
+                      onPress={() => setShowComboGuide(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Explain streak and combo rules"
+                      hitSlop={8}
+                      style={({ pressed }) => [styles.heroStatInfo, { opacity: pressed ? 0.65 : 1 }]}
+                    >
+                      <Text style={{ color: homeProfileCardColors.accentColor }}>i</Text>
+                    </Pressable>
+                  </View>
                 </View>
               </View>
               </View>
@@ -539,6 +552,7 @@ export default function HomeScreen() {
 
       </ScrollView>
       {homeCelebration ? <CelebrationOverlay kind={homeCelebration} reduceMotion={state.profile.reduceMotion} onDone={() => setHomeCelebration(null)} /> : null}
+      <ComboGuide visible={showComboGuide} currentStreak={dailyCommandBriefing.streakDays} currentMultiplier={combo.multiplier} onClose={() => setShowComboGuide(false)} />
       <RankCharacterAchievement title={title.title} level={level.level} reduceMotion={state.profile.reduceMotion} soundEnabled={state.profile.soundEnabled && state.profile.soundRoles.achievement.enabled} equipment={equippedCharacterGear} mode={characterPresentationMode} totalXp={totalXp} totalPower={totalPower} goldBalance={goldBalance} visible={showRankAchievement} onDismiss={() => setShowRankAchievement(false)} />
     </ScreenContainer>
   );
@@ -567,7 +581,9 @@ const styles = StyleSheet.create({
   heroText: { fontSize: 12, lineHeight: 17, fontWeight: "500" },
   heroStats: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 12 },
   heroStatValue: { fontSize: 22, lineHeight: 27, fontWeight: "900", letterSpacing: -0.4 },
+  heroStatLabelRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   heroStatLabel: { fontSize: 8, lineHeight: 11, letterSpacing: 0.65, fontWeight: "800", color: "#A7B6C8" },
+  heroStatInfo: { borderWidth: 1, borderColor: "#A7B6C866", borderRadius: 8, width: 14, height: 14, alignItems: "center", justifyContent: "center" },
   heroStatDivider: { width: 1, height: 30, backgroundColor: "#31546C" },
   heroFooter: { flexDirection: "row", alignItems: "center", gap: 12 },
   heroProgressCopy: { flexDirection: "row", alignItems: "baseline", gap: 6 },
