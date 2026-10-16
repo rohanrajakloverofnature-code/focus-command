@@ -2547,7 +2547,7 @@ export function resolveCurrentComboAfterActivity(state: Pick<FocusState, "custom
         ? Math.max(1, state.combo.qualifyingStreak + 1)
         : Math.max(1, state.combo.qualifyingStreak - missedDays);
   const earnedTier = tiers.filter((tier) => tier.days <= nextStreak).at(-1) ?? tiers[0];
-  const tier = hardReset || isSameDay || consecutive ? earnedTier : prior.tier;
+  const tier = isSameDay ? prior.tier : hardReset || consecutive ? earnedTier : prior.tier;
   return {
     currentTierId: tier.id,
     lastActiveDate: activityDate,

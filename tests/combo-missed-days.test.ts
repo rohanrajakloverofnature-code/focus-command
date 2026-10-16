@@ -39,6 +39,18 @@ describe("combo recovery after missed local days", () => {
     expect(getCurrentCombo({ ...state, combo: recovered }, "2026-10-13")).toMatchObject({ multiplier: 1.3, missedDays: 0 });
   });
 
+  it("does not promote repeatedly completed missions on the same local day", () => {
+    const state = stateAfterLongStreak();
+    const firstCompletion = resolveCurrentComboAfterActivity(state, "2026-10-12");
+    const secondCompletion = resolveCurrentComboAfterActivity({ ...state, combo: firstCompletion }, "2026-10-12");
+
+    expect(secondCompletion).toMatchObject({ currentTierId: "combo_14", qualifyingStreak: 42, missedDays: 0 });
+    expect(getCurrentCombo({ ...state, combo: secondCompletion }, "2026-10-12")).toMatchObject({ multiplier: 1.5, missedDays: 0 });
+    const nextDayCompletion = resolveCurrentComboAfterActivity({ ...state, combo: secondCompletion }, "2026-10-13");
+    expect(nextDayCompletion).toMatchObject({ currentTierId: "combo_30", qualifyingStreak: 43, missedDays: 0 });
+    expect(getCurrentCombo({ ...state, combo: nextDayCompletion }, "2026-10-13")).toMatchObject({ multiplier: 1.75, missedDays: 0 });
+  });
+
   it("keeps the hard reset for three or more missed days", () => {
     const state = stateAfterLongStreak();
     const recovered = resolveCurrentComboAfterActivity(state, "2026-10-14");
