@@ -362,7 +362,7 @@ export default function HomeScreen() {
           <HomeFloat reduceMotion={state.profile.reduceMotion} distance={2} sway={1} duration={2_400} style={styles.fullWidth}>
             <View style={styles.heroTopline}>
               <StatusPill label={`LEVEL ${level.level}`} tone="primary" icon="shield.fill" />
-              <StatusPill label={`${Math.round(energy.remaining)}% ENERGY`} tone={energy.remaining > 50 ? "success" : energy.remaining > 20 ? "warning" : "danger"} icon="bolt.fill" />
+              <StatusPill label={`${Math.round(energy.maximum > 0 ? (energy.remaining / energy.maximum) * 100 : 0)}% ENERGY`} tone={energy.maximum > 0 && energy.remaining / energy.maximum > 0.5 ? "success" : energy.maximum > 0 && energy.remaining / energy.maximum > 0.2 ? "warning" : "danger"} icon="bolt.fill" />
             </View>
           </HomeFloat>
           <View style={styles.heroContent}>

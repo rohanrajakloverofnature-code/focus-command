@@ -16,6 +16,8 @@ export interface DailyCommandBriefing {
   openMissionCount: number;
   dailyTarget: { earned: number; target: number };
   energyPercent: number;
+  energyRemaining: number;
+  energyMaximum: number;
   streakDays: number;
   priority: {
     kind: DailyCommandPriorityKind;
@@ -150,6 +152,8 @@ export function getDailyCommandBriefing(state: FocusState, referenceIso = new Da
     openMissionCount,
     dailyTarget: { earned: dailyTarget.earned, target: dailyTarget.target },
     energyPercent: energy.maximum > 0 ? Math.round((energy.remaining / energy.maximum) * 100) : 0,
+    energyRemaining: energy.remaining,
+    energyMaximum: energy.maximum,
     streakDays,
     priority: getPriority(state, referenceDate),
   };

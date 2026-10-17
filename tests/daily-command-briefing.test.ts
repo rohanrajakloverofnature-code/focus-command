@@ -51,6 +51,8 @@ describe("Daily Command Briefing", () => {
       openMissionCount: 2,
       dailyTarget: { earned: 0, target: 120 },
       energyPercent: 100,
+      energyRemaining: 100,
+      energyMaximum: 100,
       streakDays: 4,
     });
   });

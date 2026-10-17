@@ -31,7 +31,7 @@ export function DailyCommandBriefing({ briefing, onPriorityPress }: { briefing: 
       <View style={[styles.metricsPanel, { borderColor: colors.border, backgroundColor: `${colors.background}80` }]}>
         <BriefMetric label="OPEN MISSIONS" value={String(briefing.openMissionCount)} />
         <BriefMetric label="DAILY POWER" value={`${briefing.dailyTarget.earned}/${briefing.dailyTarget.target} POWER`} />
-        <BriefMetric label="ENERGY" value={`${briefing.energyPercent}%`} />
+        <BriefMetric label="ENERGY LEFT" value={`${briefing.energyRemaining} / ${briefing.energyMaximum}`} />
         <BriefMetric label="STREAK" value={`${briefing.streakDays} DAY${briefing.streakDays === 1 ? "" : "S"}`} />
       </View>
 
